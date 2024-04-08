@@ -1,0 +1,10 @@
+*.pyc
+__pycache__
+.vscode
+htmlcov
+.coverage
+build
+.idea
+.ipynb_checkpoints
+.DS_Store
+*.egg-info
