@@ -25,7 +25,7 @@ extensions = [
 html_theme = "sphinx_rtd_theme"
 
 html_static_path = ["_static"]
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 project = "THOR"
 
@@ -51,7 +51,6 @@ autodoc_mock_imports = [
     "xarray",
     "cartopy",
     "numba",
-    "skimage",
 ]
 
 sys.path.insert(0, os.path.abspath("../"))

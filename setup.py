@@ -69,8 +69,7 @@ CLASSIFIERS = [
 setup(
     name=PACKAGE_NAME,
     version=get_version(PACKAGE_NAME),
-    description=(
-        "Thunderstorm hierachical object reconnoitrer"),
+    description=("Thunderstorm hierachical object reconnoitrer"),
     url="http://github.com/THOR-proj/THOR",
     classifiers=CLASSIFIERS,
     author=[
