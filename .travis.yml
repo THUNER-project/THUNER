@@ -1,6 +1,7 @@
+dist: jammy
 language: python
 python:
-  - "3.11"
+  - "3.10"
 
 install:
   # Install Miniconda
