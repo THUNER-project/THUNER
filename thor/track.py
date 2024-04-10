@@ -9,6 +9,7 @@ def track(user_args):
 
     Parse user arguments.
     Initialize.
+    Create object analogous to record in TINT - simple dictionary?
 
     For each time i:
         If THOR grid for time i exists in cache:

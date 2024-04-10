@@ -1,0 +1,30 @@
+language: python
+python:
+  - "3.11"
+
+install:
+  # Install Miniconda
+  - export CONDA_BASE=http://repo.continuum.io/miniconda/Miniconda3;
+  - wget ${CONDA_BASE}-latest-Linux-x86_64.sh -O miniconda.sh;
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - export PATH="$HOME/miniconda/bin:$PATH"
+
+  # Create environment
+  - conda config --set always_yes yes --set changeps1 no
+  - conda config --set show_channel_urls True
+  - conda update --quiet conda
+  - ENV_NAME='THOR'
+  - conda create --quiet -n $ENV_NAME python=3.11
+  - source activate $ENV_NAME
+  - conda install -c conda-forge --quiet --file requirements.txt
+
+  # Output debug info
+  - conda list
+  - conda info -a
+
+  # Install
+  - pip install .
+
+# command to run tests
+script:
+  - python -m pytest --verbose --color=yes

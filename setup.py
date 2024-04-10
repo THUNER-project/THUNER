@@ -6,6 +6,9 @@ See: https://packaging.python.org/en/latest/guides/single-sourcing-package-versi
 
 from setuptools import setup
 from pathlib import Path
+import glob
+
+DOCLINES = __doc__.split("\n")
 
 
 def read(pkg_name):
@@ -30,6 +33,7 @@ def get_requirements(requirements_filename):
         requirements = [
             line.strip() for line in f.readlines() if not line.startswith("#")
         ]
+    return requirements
 
 
 def get_packages(package_name):
@@ -39,8 +43,6 @@ def get_packages(package_name):
     ]
     return packages
 
-
-PACKAGE_NAME = "THOR"
 
 # See classifiers list at: https://pypi.org/classifiers/
 CLASSIFIERS = [
@@ -64,6 +66,23 @@ CLASSIFIERS = [
     "Topic :: Scientific/Engineering",
     "Topic :: Scientific/Engineering :: Atmospheric Science",
 ]
+
+PACKAGE_NAME = "thor"
+AUTHORS = "Ewan Short, Mark Picel, Bhupendra Raut"
+MAINTAINER = "Ewan Short"
+MAINTAINER_EMAIL = "ewan.short@unimelb.edu.au"
+DESCRIPTION = DOCLINES[0]
+LONG_DESCRIPTION = "\n".join(DOCLINES[2:])
+URL = "https://github.com/THOR-proj/THOR.git"
+DOWNLOAD_URL = "https://github.com/THOR-proj/THOR.git"
+LICENSE = "BSD"
+PLATFORMS = ["Linux", "Mac OS-X", "Unix"]
+MAJOR = 0
+MINOR = 1
+MICRO = 0
+ISRELEASED = False
+VERSION = "%d.%d.%d" % (MAJOR, MINOR, MICRO)
+SCRIPTS = glob.glob("scripts/*")
 
 
 setup(
