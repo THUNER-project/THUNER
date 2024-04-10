@@ -1,4 +1,5 @@
 # Python dependencies
+python >= 3.11.8
 numpy
 scipy
 scikit-image
