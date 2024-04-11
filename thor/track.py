@@ -5,7 +5,10 @@ from detect.detect import detect
 from group import group
 
 
-def track(user_args):
+def track(**kwargs):
+
+    What should user keyword arguments include?
+    Some method for creating new grids?
 
     Parse user arguments.
     Initialize.
