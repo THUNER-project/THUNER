@@ -5,7 +5,9 @@
       method: filenames
     detection:
       method: steiner
-      altitudes: null
+      altitudes:
+      - 500
+      - 3500
     tracking:
       method: tint
       options:
@@ -15,6 +17,18 @@
         max_flow_mag: 50
         max_shift_disparity: 15
         global_shift_altitude: 2000
+  middle_cloud:
+    name: middle_cloud
+    hierarchy_level: 0
+    input:
+      method: filenames
+    detection:
+      method: steiner
+      altitudes:
+      - 3500
+      - 7500
+    tracking:
+      method: null
   anvil:
     name: anvil
     hierarchy_level: 0
@@ -22,7 +36,9 @@
       method: filenames
     detection:
       method: threshold
-      altitudes: null
+      altitudes:
+      - 7500
+      - 10000
       threshold: 15
     tracking:
       method: tint

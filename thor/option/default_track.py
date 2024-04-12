@@ -31,7 +31,8 @@ def tint_options(
     global_shift_altitude : int, optional
         Altitude in m for calculating global shift.
     altitudes : list, optional
-        Altitudes over which to detect objects. None for all altitudes.
+        Altitudes over which to detect objects. Range defined by two element list [a,b],
+        with included altitudes then a <= z < b. If None, use all altitudes.
 
     Returns
     -------
@@ -207,6 +208,7 @@ def cell_object(
     detection_method="steiner",
     tracking_method="tint",
     global_shift_altitude=2000,
+    altitudes=None,
 ):
     """Creates default THOR configuration for tracking cells.
 
@@ -224,10 +226,11 @@ def cell_object(
     options = detected_object(
         name, input_method, hierarchy_level, detection_method, tracking_method
     )
-    options["detection"]["altitudes"] = None
-    options["tracking"]["options"] = tint_options(
-        global_shift_altitude=global_shift_altitude
-    )
+    options["detection"]["altitudes"] = altitudes
+    if tracking_method == "tint":
+        options["tracking"]["options"] = tint_options(
+            global_shift_altitude=global_shift_altitude
+        )
 
     return options
 
@@ -240,6 +243,7 @@ def anvil_object(
     threshold=15,
     tracking_method="tint",
     global_shift_altitude=8000,
+    altitudes=None,
 ):
     """Creates default THOR configuration for tracking anvils.
 
@@ -257,10 +261,13 @@ def anvil_object(
     options = detected_object(
         name, input_method, hierarchy_level, detection_method, tracking_method
     )
-    options["detection"]["threshold"] = threshold
-    options["tracking"]["options"] = tint_options(
-        global_shift_altitude=global_shift_altitude
-    )
+    if threshold:
+        options["detection"]["threshold"] = threshold
+    options["detection"]["altitudes"] = altitudes
+    if tracking_method == "tint":
+        options["tracking"]["options"] = tint_options(
+            global_shift_altitude=global_shift_altitude
+        )
 
     return options
 
@@ -309,9 +316,8 @@ def cell(save=True, **kwargs):
 
     options = [{"cell": cell_object(**kwargs)}]
 
-    filepath = Path(__file__).parent / "default/cell.yaml"
-
-    if filepath:
+    if save:
+        filepath = Path(__file__).parent / "default/cell.yaml"
         with open(filepath, "w") as outfile:
             yaml.dump(
                 options,
@@ -340,9 +346,8 @@ def anvil(save=True, **kwargs):
 
     options = [{"anvil": anvil_object(**kwargs)}]
 
-    filepath = Path(__file__).parent / "default/anvil.yaml"
-
-    if filepath:
+    if save:
+        filepath = Path(__file__).parent / "default/anvil.yaml"
         with open(filepath, "w") as outfile:
             yaml.dump(
                 options,
@@ -370,13 +375,18 @@ def mcs(save=True, **kwargs):
     """
 
     options = [
-        {"cell": cell_object(), "anvil": anvil_object()},
+        {
+            "cell": cell_object(altitudes=[500, 3500]),
+            "middle_cloud": cell_object(
+                name="middle_cloud", tracking_method=None, altitudes=[3500, 7500]
+            ),
+            "anvil": anvil_object(altitudes=[7500, 10000]),
+        },
         {"mcs": mcs_object()},
     ]
 
-    filepath = Path(__file__).parent / "default/mcs.yaml"
-
-    if filepath:
+    if save:
+        filepath = Path(__file__).parent / "default/mcs.yaml"
         with open(filepath, "w") as outfile:
             yaml.safe_dump(
                 options,

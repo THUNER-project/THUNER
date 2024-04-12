@@ -10,3 +10,7 @@ typing_extensions
 pre-commit
 black
 pytest
+ipykernel
+netcdf4
+h5netcdf
+requests

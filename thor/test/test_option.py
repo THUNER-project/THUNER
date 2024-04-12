@@ -1,9 +1,11 @@
+"""Test the option module."""
+
 import yaml
 from pathlib import Path
 from thor.option import default_track
 
 
-def test_gen_options():
+def test_generate_default_options():
     """Test that default options are generated correctly."""
 
     # Map object names to functions

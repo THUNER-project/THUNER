@@ -1,0 +1,13 @@
+name: cpol
+start: '2005-11-13T12:00:00'
+end: '2005-11-13T22:00:00'
+level: '2'
+version: 2018
+format: grid_150km_2500m
+timestep: null
+start_latitude: null
+end_latitude: null
+start_longitude: null
+end_longitude: null
+parent: https://dapds00.nci.org.au/thredds/dodsC/hj10
+variable: equivalent_reflectivity_factor

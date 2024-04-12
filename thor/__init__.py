@@ -1,6 +1,6 @@
 import sys
 
-if sys.version_info < (3, 11):
+if sys.version_info < (3, 10):
     warning = """ \n\n 
     Support for Python versions less than 3.11 is deprecated.
     Version 1.5 of tobac will require Python 3.7 or later.
