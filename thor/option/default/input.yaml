@@ -1,13 +1,28 @@
-name: cpol
+name: operational
 start: '2005-11-13T12:00:00'
 end: '2005-11-13T22:00:00'
-level: '2'
-version: 2018
-format: grid_150km_2500m
+level: 1b
+version: '2020'
+format: ODIM
 timestep: null
 start_latitude: null
 end_latitude: null
 start_longitude: null
 end_longitude: null
-parent: https://dapds00.nci.org.au/thredds/dodsC/hj10
-variable: equivalent_reflectivity_factor
+parent: https://dapds00.nci.org.au/thredds/fileServer/rq0
+radar: '63'
+grid_shape: !!python/tuple
+- 51
+- 121
+- 121
+grid_limits: !!python/tuple
+- !!python/tuple
+  - 0
+  - 25000
+- &id001 !!python/tuple
+  - -150000
+  - 150000
+- *id001
+fields:
+- reflectivity
+- reflectivity_horizontal

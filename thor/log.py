@@ -2,7 +2,6 @@
 
 import logging
 from pathlib import Path
-from IPython import get_ipython
 
 
 def setup_logger(name, level=logging.DEBUG):
@@ -23,6 +22,11 @@ def setup_logger(name, level=logging.DEBUG):
     logger : logging.Logger
         The configured logger object.
     """
+
+    # If a logger with this name already exists, return it
+    if logging.getLogger(name).hasHandlers():
+        return logging.getLogger(name)
+
     formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
