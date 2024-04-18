@@ -167,3 +167,26 @@ def consolidate_netcdf(filepaths, fields=None, concat_dim="time"):
     dataset = xr.concat(datasets, dim=concat_dim)
 
     return dataset
+
+
+def format_string_list(strings):
+    """
+    Format a list of strings into a human-readable string.
+
+    Parameters
+    ----------
+    strings : list of str
+        List of strings to be formatted.
+
+    Returns
+    -------
+    formatted_string : str
+        The formatted string.
+    """
+    if len(strings) > 1:
+        formatted_string = ", ".join(strings[:-1]) + " or " + strings[-1]
+        return formatted_string
+    elif strings:
+        return strings[0]
+    else:
+        raise ValueError("strings must be an iterable of strings'.")

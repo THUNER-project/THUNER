@@ -5,8 +5,51 @@ import pandas as pd
 from thor.log import setup_logger
 from thor.data.odim import convert_odim
 from thor.data.utils import download_file, unzip_file, consolidate_netcdf
+from thor.utils import format_string_list, drop_time
 
 logger = setup_logger(__name__)
+
+
+def check_options(options):
+    """
+    Check the input options.
+
+    Parameters
+    ----------
+    options : dict
+        Dictionary containing the input options.
+
+    Returns
+    -------
+    options : dict
+        Dictionary containing the input options.
+    """
+
+    names = ["cpol", "operational"]
+    if options["name"] == "cpol":
+
+        min_start = np.datetime64("1998-13-06T00:00:00")
+        max_end = np.datetime64("2017-05-02T00:00:00")
+        if options["start"] < min_start:
+            raise ValueError(f"start must be {min_start} or later.")
+        if options["start"] > max_end:
+            raise ValueError(f"end must be {max_end} or earlier.")
+
+        formats = ["grid_150km_2500m", "grid_70km_1000m"]
+        if options["format"] not in formats:
+            raise ValueError(f"format must be one of {format_string_list(formats)}.")
+        levels = ["1", "1b", "2"]
+        if options["level"] not in levels:
+            raise ValueError(f"level must be one of {format_string_list(levels)}.")
+    elif options["name"] == "operational":
+        min_start = np.datetime64("1993-09-07")
+        if options["start"] < min_start:
+            raise ValueError(f"start must be {min_start} or later.")
+        levels = ["1", "1b"]
+        if options["level"] not in levels:
+            raise ValueError(f"level must be one of {format_string_list(levels)}.")
+    else:
+        raise ValueError(f"name must be one of {format_string_list(names)}.")
 
 
 def generate_cpol_urls(options):
@@ -22,10 +65,12 @@ def generate_cpol_urls(options):
     -------
     urls : list
         List of URLs.
+    times : list
+        Times associated with the URLs.
     """
 
-    start = np.datetime64(options["start"])
-    end = np.datetime64(options["end"])
+    start = drop_time(options["start"])
+    end = drop_time(options["end"])
 
     urls = []
 
@@ -93,6 +138,8 @@ def generate_operational_urls(options):
     -------
     urls : list
         List of URLs.
+    times : list
+        Times associated with the URLs.
     """
 
     start = np.datetime64(options["start"])
@@ -136,17 +183,19 @@ def setup_operational(options, url, save=False):
     ----------
     options : dict
         Dictionary containing the input options.
-    date : str
-        The date for which the data should be setup.
+    url : str
+        The URL from which the radar data should be downloaded.
+    save : bool, optional
+        Whether to save the downloaded data or not. Default is False.
 
     Returns
     -------
-    urls : list
-        List of URLs.
+    dataset : object
+        The processed radar data.
     """
 
     filepath = download_file(url)
-    extracted_filepaths, dir_size = unzip_file(filepath)
+    extracted_filepaths = unzip_file(filepath)[0]
     if options["level"] == "1":
         dataset = convert_odim(extracted_filepaths, options, save=save)
     elif options["level"] == "1b":

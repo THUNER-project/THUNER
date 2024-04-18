@@ -30,7 +30,7 @@ def track(**kwargs):
     Return pandas and netCDF objects.
 
 
-def track_level(user_args, current_data, previous_data, level_ind, **kwargs):
+def track_level(track_options, input_options):
 
     Detect, match, and write object types at level level_ind.
     For each object type k at level_ind:
