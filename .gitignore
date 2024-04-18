@@ -7,3 +7,4 @@ examples/data
 *.egg-info
 log
 .flake8
+.vscode
