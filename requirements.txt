@@ -10,6 +10,8 @@ typing_extensions
 pre-commit
 black
 pytest
+pytest-cov
+codecov
 ipykernel
 netcdf4
 h5netcdf
