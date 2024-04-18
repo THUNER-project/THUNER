@@ -91,6 +91,7 @@ def check_options(options):
     options : dict
         Dictionary containing the input options.
 
+
     Returns
     -------
     options : dict
