@@ -21,7 +21,7 @@ def create_options(
     end_y=150e3,
     start_z=0,
     end_z=25e3,
-    grid_size=(500, 2500, 2500),
+    grid_spacing=(500, 2500, 2500),
     save=True,
     **kwargs,
 ):
@@ -62,14 +62,14 @@ def create_options(
         "end_y": end_y,
         "start_z": start_z,
         "end_z": end_z,
-        "grid_size": grid_size,
+        "grid_spacing": grid_spacing,
     }
 
     for key, value in kwargs.items():
         options[key] = value
 
     if save:
-        filepath = Path(__file__).parent / "default/grid.yaml"
+        filepath = Path(__file__).parent / "option/default/grid.yaml"
         with open(filepath, "w") as outfile:
             yaml.dump(
                 options,

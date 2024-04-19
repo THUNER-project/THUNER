@@ -11,7 +11,7 @@ import xarray as xr
 logger = setup_logger(__name__, level="DEBUG")
 
 
-def unzip_file(filepath):
+def unzip_file(filepath, directory=None):
     """
     Downloads a .zip file from a URL, extracts the contents of the .zip file into
     directory.
@@ -30,7 +30,8 @@ def unzip_file(filepath):
     dir_size : int
         The total size of the extracted files in bytes.
     """
-    directory = Path(filepath).parent
+    if directory is None:
+        directory = Path(filepath).parent
     filename = filepath.split("/")[-1]
     out_directory = directory / Path(filename).stem
     out_directory.mkdir(exist_ok=True)
@@ -66,6 +67,9 @@ def download_file(url, directory):
     ------
     None
     """
+
+    if not isinstance(url, str):
+        raise TypeError("url must be a string")
 
     filename = url.split("/")[-1]
     filepath = Path(directory) / filename
@@ -164,6 +168,8 @@ def consolidate_netcdf(filepaths, fields=None, concat_dim="time"):
         dataset = xr.open_dataset(filepath)
         dataset = dataset[fields]
         datasets.append(dataset)
+
+    logger.debug(f"Concatenating datasets along {concat_dim}.")
     dataset = xr.concat(datasets, dim=concat_dim)
 
     return dataset
@@ -190,3 +196,63 @@ def format_string_list(strings):
         return strings[0]
     else:
         raise ValueError("strings must be an iterable of strings'.")
+
+
+def get_pyart_grid_shape(grid_options):
+    """
+    Get the grid shape for pyart grid.
+
+    Parameters
+    ----------
+    grid_options : dict
+        Dictionary containing the grid options.
+
+    Returns
+    -------
+    tuple
+        The grid shape as a tuple of (nz, ny, nx).
+    """
+
+    z_min = grid_options["start_z"]
+    z_max = grid_options["end_z"]
+    y_min = grid_options["start_y"]
+    y_max = grid_options["end_y"]
+    x_min = grid_options["start_x"]
+    x_max = grid_options["end_x"]
+
+    z_count = (z_max - z_min) / grid_options["grid_spacing"][0]
+    y_count = (y_max - y_min) / grid_options["grid_spacing"][1]
+    x_count = (x_max - x_min) / grid_options["grid_spacing"][2]
+
+    if z_count.is_integer() and y_count.is_integer() and x_count.is_integer():
+        z_count = int(z_count)
+        y_count = int(y_count)
+        x_count = int(x_count)
+    else:
+        raise ValueError("Grid spacings must divide domain lengths.")
+
+    return (z_count, y_count, x_count)
+
+
+def get_pyart_grid_limits(grid_options):
+    """
+    Get the grid limits for pyart grid.
+
+    Parameters
+    ----------
+    grid_options : dict
+        Dictionary containing the grid options.
+
+    Returns
+    -------
+    tuple
+        The grid limits as a tuple of ((z_min, z_max), (y_min, y_max), (x_min, x_max)).
+    """
+    z_min = grid_options["start_z"]
+    z_max = grid_options["end_z"]
+    y_min = grid_options["start_y"]
+    y_max = grid_options["end_y"]
+    x_min = grid_options["start_x"]
+    x_max = grid_options["end_x"]
+
+    return ((z_min, z_max), (y_min, y_max), (x_min, x_max))

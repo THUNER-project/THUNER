@@ -1,0 +1,10 @@
+name: era5
+start: '2005-02-01T00:00:00'
+end: '2005-03-01T00:00:00'
+mode: reanalysis
+format: pressure-levels
+parent: /g/data/rt52/era5
+fields:
+- u
+- v
+save: true

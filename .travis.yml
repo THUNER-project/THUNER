@@ -30,5 +30,8 @@ install:
 script:
   - python -m pytest --verbose --color=yes -s --cov=thor
 
+env:
+  - CODECOV_TOKEN=0ef6a6d6-81a3-4af9-bdc5-5bd2db1e0065
+
 after_success:
   - codecov

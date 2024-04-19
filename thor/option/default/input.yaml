@@ -1,30 +1,12 @@
-name: access
-start: '2022-02-01T00:00:00'
-end: '2022-02-04T00:00:00'
-format: grid_150km_2500m
+name: operational
+start: '2022-02-01T12:00:00'
+end: '2023-02-01T18:30:00'
+format: ODIM
 timestep: null
 start_latitude: null
 end_latitude: null
 start_longitude: null
 end_longitude: null
-parent: https://dapds00.nci.org.au/thredds/dodsC/wr45/ops_aps3
-model: g
-domain: dn
-mode: fcmm
-level: sfc
-init_time: '0000'
-grid_shape: !!python/tuple
-- 51
-- 121
-- 121
-grid_limits: !!python/tuple
-- !!python/tuple
-  - 0
-  - 25000
-- &id001 !!python/tuple
-  - -150000
-  - 150000
-- *id001
-fields:
-- uwnd10m
-- vwnd10m
+parent: https://dapds00.nci.org.au/thredds/fileServer/rq0
+level: 1b
+radar: '63'
