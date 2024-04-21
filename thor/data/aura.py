@@ -25,7 +25,7 @@ def create_options(
     parent="https://dapds00.nci.org.au/thredds/fileServer/rq0",
     fields=["reflectivity", "reflectivity_horizontal"],
     weighting_function="Barnes2",
-    save=True,
+    save=False,
     **kwargs,
 ):
     """
@@ -77,6 +77,7 @@ def create_options(
 
     if save:
         filepath = Path(__file__).parent.parent / "option/default/aura.yaml"
+        logger.debug(f"Saving options to {filepath}")
         with open(filepath, "w") as outfile:
             yaml.dump(
                 options,
@@ -105,7 +106,7 @@ def check_options(options):
     """
 
     for key in options.keys():
-        if key not in inspect.getargspec(create_options).args:
+        if key not in inspect.getfullargspec(create_options).args:
             raise ValueError(f"Missing required key {key}")
 
     names = ["cpol", "operational"]

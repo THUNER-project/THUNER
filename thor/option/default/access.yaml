@@ -1,0 +1,14 @@
+name: access
+start: '2022-02-01T00:00:00'
+end: '2022-02-02T00:00:00'
+model: c
+domain: dn
+mode: fcmm
+level: sfc
+init_time: '0000'
+parent: https://dapds00.nci.org.au/thredds/dodsC/wr45/ops_aps3
+fields:
+- radar_refl_1km
+- maxcol_refl
+- uwnd10m
+- vwnd10m

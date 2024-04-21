@@ -21,7 +21,7 @@ def create_options(
     format="pressure-levels",
     parent="/g/data/rt52/era5",
     fields=["z", "u", "v"],
-    save=True,
+    save=False,
     **kwargs,
 ):
     """

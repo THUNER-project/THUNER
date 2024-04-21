@@ -21,8 +21,8 @@ def create_options(
     end_y=150e3,
     start_z=0,
     end_z=25e3,
-    grid_spacing=(500, 2500, 2500),
-    save=True,
+    grid_spacing=[500, 2500, 2500],
+    save=False,
     **kwargs,
 ):
     """
@@ -99,7 +99,7 @@ def check_options(options):
     """
 
     for key in options.keys():
-        if key not in inspect.getargspec(create_options).args:
+        if key not in inspect.getfullargspec(create_options).args:
             raise ValueError(f"Missing required key {key}")
 
     return options

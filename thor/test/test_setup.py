@@ -34,5 +34,6 @@ def test_access_setup():
     grid_options = grid.create_options()
     grid.check_options(grid_options)
     urls = access.generate_access_urls(data_options)[0]
-    dataset = xr.open_dataset(urls[data_options["fields"][0]])
+    url = urls[data_options["fields"][0]][0]
+    dataset = xr.open_dataset(url)
     assert isinstance(dataset, xr.Dataset)

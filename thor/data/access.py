@@ -22,7 +22,7 @@ def create_options(
     init_time="0000",
     parent="https://dapds00.nci.org.au/thredds/dodsC/wr45/ops_aps3",
     fields=["radar_refl_1km", "maxcol_refl", "uwnd10m", "vwnd10m"],
-    save=True,
+    save=False,
     **kwargs,
 ):
     """
@@ -80,7 +80,8 @@ def create_options(
         options[key] = value
 
     if save:
-        filepath = Path(__file__).parent / "default/input.yaml"
+        filepath = Path(__file__).parent.parent / "option/default/access.yaml"
+        logger.debug(f"Saving options to {filepath}")
         with open(filepath, "w") as outfile:
             yaml.dump(
                 options,
