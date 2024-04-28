@@ -6,6 +6,8 @@ from pathlib import Path
 from thor.log import setup_logger
 from tqdm import tqdm
 import xarray as xr
+import pathlib
+import cdsapi
 
 
 logger = setup_logger(__name__, level="DEBUG")
@@ -256,3 +258,31 @@ def get_pyart_grid_limits(grid_options):
     x_max = grid_options["end_x"]
 
     return ((z_min, z_max), (y_min, y_max), (x_min, x_max))
+
+
+def cdsapi_retrieval(cds_name, request, local_path):
+    """
+    Perform a CDS API retrieval.
+
+    Parameters
+    ----------
+    cds_name : str
+        The name argument for the cdsapi retrieval.
+    request : dict
+        A dictionary containing the cdsapi retrieval options.
+    local_path : str
+        The local file path where the retrieved data will be saved.
+
+    Returns
+    -------
+    None
+    """
+    if pathlib.Path(local_path).exists():
+        logger.debug(f"{local_path} already exists.")
+        return
+
+    if not pathlib.Path(local_path).parent.exists():
+        pathlib.Path(local_path).parent.mkdir(parents=True)
+
+    cdsc = cdsapi.Client()
+    cdsc.retrieve(cds_name, request, local_path)
