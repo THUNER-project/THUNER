@@ -8,3 +8,4 @@ examples/data
 log
 .flake8
 .vscode
+test/test_data/*

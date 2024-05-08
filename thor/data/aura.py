@@ -17,8 +17,8 @@ logger = setup_logger(__name__)
 
 def create_options(
     name="operational",
-    start="2005-02-01T00:00:00",
-    end="2005-02-02T00:00:00",
+    start="2005-11-13T00:00:00",
+    end="2005-11-14T00:00:00",
     level="1",
     radar="63",
     format="ODIM",
@@ -66,7 +66,6 @@ def create_options(
         "radar": radar,
         "format": format,
         "parent": parent,
-        "parent": parent,
         "fields": fields,
         "weighting_function": weighting_function,
         "save": save,
@@ -105,18 +104,18 @@ def check_options(options):
         Dictionary containing the input options.
     """
 
-    for key in options.keys():
-        if key not in inspect.getfullargspec(create_options).args:
+    for key in inspect.getfullargspec(create_options).args:
+        if key not in options.keys():
             raise ValueError(f"Missing required key {key}")
 
     names = ["cpol", "operational"]
     if options["name"] == "cpol":
 
-        min_start = np.datetime64("1998-13-06T00:00:00")
+        min_start = np.datetime64("1998-12-06T00:00:00")
         max_end = np.datetime64("2017-05-02T00:00:00")
-        if np.datetime64(options["start"]) < min_start:
+        if np.datetime64(np.datetime64(options["start"])) < min_start:
             raise ValueError(f"start must be {min_start} or later.")
-        if np.datetime64(options["end"]) > max_end:
+        if np.datetime64(np.datetime64(options["end"])) > max_end:
             raise ValueError(f"end must be {max_end} or earlier.")
 
         formats = ["grid_150km_2500m", "grid_70km_1000m"]
@@ -153,8 +152,8 @@ def generate_cpol_urls(options):
         Times associated with the URLs.
     """
 
-    start = drop_time(options["start"])
-    end = drop_time(options["end"])
+    start = drop_time(np.datetime64(options["start"]))
+    end = drop_time(np.datetime64(options["end"]))
 
     urls = []
 
@@ -165,7 +164,7 @@ def generate_cpol_urls(options):
         times = np.arange(start, end + np.timedelta64(10, "m"), np.timedelta64(10, "m"))
         times = pd.DatetimeIndex(times)
 
-        base_url += f"/cpol_level_1b/v{options['version']}/"
+        base_url += f"/cpol_level_1b/{options['version']}/"
         if "grid" in options["format"]:
             base_url += f"gridded/{options['format']}/"
             if "150" in options["format"]:

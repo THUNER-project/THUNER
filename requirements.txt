@@ -18,3 +18,4 @@ h5netcdf
 requests
 arm_pyart
 tqdm
+cdsapi
