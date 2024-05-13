@@ -2,6 +2,11 @@
 
 import yaml
 from pathlib import Path
+from thor.utils import now_str
+from thor.log import setup_logger
+
+
+logger = setup_logger(__name__)
 
 
 # Tracking scheme configurations.
@@ -99,8 +104,7 @@ def mint_options(
     return options
 
 
-# Trackable object default configurations.
-def boilerplate_object(name, hierarchy_level):
+def boilerplate_object(name, hierarchy_level, deque_length=1):
     """THOR object boilerplate.
 
     Parameters
@@ -111,6 +115,8 @@ def boilerplate_object(name, hierarchy_level):
         Method used to input object data.
     hierarchy_level : int
         Hierarchy level of object.
+    deque_length : int, optional
+        How many previous scans to store when tracking.
 
     Returns
     -------
@@ -121,13 +127,14 @@ def boilerplate_object(name, hierarchy_level):
     options = {
         "name": name,
         "hierarchy_level": hierarchy_level,
+        "deque_length": deque_length,
     }
     return options
 
 
 def detected_object(
     name,
-    input_method,
+    dataset,
     hierarchy_level,
     detection_method,
     tracking_method,
@@ -154,7 +161,7 @@ def detected_object(
 
     options = {
         **boilerplate_object(name, hierarchy_level),
-        "input": {"method": input_method},
+        "dataset": dataset,
         "detection": {"method": detection_method, "altitudes": None},
         "tracking": {"method": tracking_method},
     }
@@ -193,6 +200,7 @@ def grouped_object(
 
     options = {
         **boilerplate_object(name, hierarchy_level),
+        "dataset": None,
         "grouping": {"method": grouping_method, "member_objects": member_objects},
         "tracking": {"method": tracking_method, "options": mint_options()},
     }
@@ -203,7 +211,7 @@ def grouped_object(
 # Hierarchy level 0 object configurations.
 def cell_object(
     name="cell",
-    input_method="filenames",
+    dataset="cpol",
     hierarchy_level=0,
     detection_method="steiner",
     tracking_method="tint",
@@ -224,7 +232,7 @@ def cell_object(
     """
 
     options = detected_object(
-        name, input_method, hierarchy_level, detection_method, tracking_method
+        name, dataset, hierarchy_level, detection_method, tracking_method
     )
     options["detection"]["altitudes"] = altitudes
     if tracking_method == "tint":
@@ -237,6 +245,7 @@ def cell_object(
 
 def anvil_object(
     name="anvil",
+    dataset="cpol",
     input_method="filenames",
     hierarchy_level=0,
     detection_method="threshold",
@@ -259,7 +268,7 @@ def anvil_object(
     """
 
     options = detected_object(
-        name, input_method, hierarchy_level, detection_method, tracking_method
+        name, dataset, hierarchy_level, detection_method, tracking_method
     )
     if threshold:
         options["detection"]["threshold"] = threshold
@@ -317,15 +326,7 @@ def cell(save=True, **kwargs):
     options = [{"cell": cell_object(**kwargs)}]
 
     if save:
-        filepath = Path(__file__).parent / "default/cell.yaml"
-        with open(filepath, "w") as outfile:
-            yaml.dump(
-                options,
-                outfile,
-                default_flow_style=False,
-                allow_unicode=True,
-                sort_keys=False,
-            )
+        save_options(options, name="cell")
 
     return options
 
@@ -347,15 +348,7 @@ def anvil(save=True, **kwargs):
     options = [{"anvil": anvil_object(**kwargs)}]
 
     if save:
-        filepath = Path(__file__).parent / "default/anvil.yaml"
-        with open(filepath, "w") as outfile:
-            yaml.dump(
-                options,
-                outfile,
-                default_flow_style=False,
-                allow_unicode=True,
-                sort_keys=False,
-            )
+        save_options(options, name="anvil")
 
     return options
 
@@ -376,24 +369,77 @@ def mcs(save=True, **kwargs):
 
     options = [
         {
-            "cell": cell_object(altitudes=[500, 3500]),
+            "cell": cell_object(altitudes=[500, 3500], dataset="cpol"),
             "middle_cloud": cell_object(
-                name="middle_cloud", tracking_method=None, altitudes=[3500, 7500]
+                name="middle_cloud",
+                dataset="cpol",
+                tracking_method=None,
+                altitudes=[3500, 7500],
             ),
-            "anvil": anvil_object(altitudes=[7500, 10000]),
+            "anvil": anvil_object(altitudes=[7500, 10000], dataset="cpol"),
         },
         {"mcs": mcs_object()},
     ]
 
     if save:
-        filepath = Path(__file__).parent / "default/mcs.yaml"
-        with open(filepath, "w") as outfile:
-            yaml.safe_dump(
-                options,
-                outfile,
-                default_flow_style=False,
-                allow_unicode=True,
-                sort_keys=False,
-            )
+        save_track_options(options, filename="mcs")
 
     return options
+
+
+def check_options(options):
+    """
+    Check the tracking options.
+
+    Parameters
+    ----------
+    options : dict
+        Dictionary containing the input options.
+
+    Returns
+    -------
+    options : dict
+        Dictionary containing the input options.
+    """
+
+    # check options of component objects etc
+
+    return options
+
+
+def save_track_options(
+    options, filename=None, options_directory=None, append_time=False
+):
+
+    if options_directory is None:
+        options_directory = Path(__file__).parent / "options/track_options"
+    if filename is None:
+        filename = "track_options"
+        append_time = True
+    logger.debug(f"Saving track options to {options_directory / filename}")
+    save_options(options, filename, options_directory, append_time)
+
+
+def save_options(options, filename=None, options_directory=None, append_time=False):
+
+    if filename is None:
+        filename = now_str()
+        append_time = False
+    else:
+        filename = Path(filename).stem
+    if append_time:
+        filename += f"_{now_str()}"
+    filename += ".yaml"
+    if options_directory is None:
+        options_directory = Path(__file__).parent
+    if not options_directory.exists():
+        options_directory.mkdir(parents=True)
+    filepath = options_directory / filename
+    with open(filepath, "w") as outfile:
+        yaml.dump(
+            options,
+            outfile,
+            default_flow_style=False,
+            allow_unicode=True,
+            sort_keys=False,
+        )

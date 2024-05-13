@@ -9,3 +9,5 @@ log
 .flake8
 .vscode
 thor/test/data
+thor/options
+thor/data/data_options

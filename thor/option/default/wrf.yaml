@@ -1,8 +1,0 @@
-name: MCASClimate
-start: '2010-02-01T00:00:00'
-end: '2010-02-05T00:00:00'
-version: v1-0
-parent: https://dapds00.nci.org.au/thredds/dodsC/ks32/ARCCSS_Data/MCASClimate
-fields:
-- U
-- V

@@ -6,10 +6,13 @@ from thor.log import setup_logger
 from thor.data.odim import convert_odim
 from thor.data.utils import download_file, unzip_file, consolidate_netcdf
 from thor.utils import format_string_list, drop_time
+import thor.grid as grid
 from pathlib import Path
 import yaml
 import inspect
 from urllib.parse import urlparse
+import xarray as xr
+import xesmf as xe
 
 
 logger = setup_logger(__name__)
@@ -23,7 +26,8 @@ def create_options(
     radar="63",
     format="ODIM",
     parent="https://dapds00.nci.org.au/thredds/fileServer/rq0",
-    fields=["reflectivity", "reflectivity_horizontal"],
+    filenames=None,
+    fields=["reflectivity"],
     weighting_function="Barnes2",
     save=False,
     **kwargs,
@@ -66,9 +70,9 @@ def create_options(
         "radar": radar,
         "format": format,
         "parent": parent,
+        "filenames": filenames,
         "fields": fields,
         "weighting_function": weighting_function,
-        "save": save,
     }
 
     for key, value in kwargs.items():
@@ -135,7 +139,7 @@ def check_options(options):
         raise ValueError(f"name must be one of {format_string_list(names)}.")
 
 
-def generate_cpol_urls(options):
+def generate_cpol_filepaths(options):
     """
     Generate cpol URLs from input options dictionary.
 
@@ -155,9 +159,13 @@ def generate_cpol_urls(options):
     start = drop_time(np.datetime64(options["start"]))
     end = drop_time(np.datetime64(options["end"]))
 
-    urls = []
+    filepaths = []
 
-    base_url = f"{options['parent']}/cpol"
+    if options["parent_local"] is None:
+        base_url = options["parent_remote"]
+    else:
+        base_url = options["parent_local"]
+    base_url += "/cpol"
 
     if options["level"] == "1b":
 
@@ -174,12 +182,12 @@ def generate_cpol_urls(options):
         elif options["format"] == "ppi":
             base_url += "ppi/"
         for time in times:
-            url = (
+            filepath = (
                 f"{base_url}{time.year}/{time.year}{time.month:02}{time.day:02}/"
                 f"twp10cpol{format_string}.b2.{time.year}{time.month:02}{time.day:02}."
                 f"{time.hour:02}{time.minute:02}{time.second:02}.nc"
             )
-            urls.append(url)
+            filepaths.append(filepath)
     elif options["level"] == "2":
 
         times = np.arange(
@@ -201,10 +209,11 @@ def generate_cpol_urls(options):
         base_url += f"/{variable}"
 
         for time in times:
-            url = f"{base_url}/twp1440cpol.{variable_short}.c1.{time.year}{time.month:02}{time.day:02}.nc"
-            urls.append(url)
+            url = f"{base_url}/twp1440cpol.{variable_short}.c1"
+            url += f".{time.year}{time.month:02}{time.day:02}.nc"
+            filepaths.append(filepath)
 
-    return urls, times
+    return filepaths
 
 
 def generate_operational_urls(options):
@@ -295,3 +304,69 @@ def setup_operational(data_options, grid_options, url, directory):
         )
 
     return dataset
+
+
+def convert_cpol(filepath, data_options, grid_options, save=False):
+    logger.debug(f"Converting CPOL data from {filepath}")
+    cpol = xr.open_dataset(filepath)
+    cpol = cpol[
+        data_options["fields"] + ["point_latitude", "point_longitude", "point_altitude"]
+    ]
+    cpol = cpol.rename(
+        {
+            "point_latitude": "latitude",
+            "point_longitude": "longitude",
+            "point_altitude": "altitude",
+        }
+    )
+    for var in ["latitude", "longitude"]:
+        cpol[var] = cpol[var].isel(z=0)
+
+    if grid_options["name"] == "geographic":
+        altitude, latitude, longitude = grid.new_geographic_grid(
+            cpol.latitude.values, cpol.longitude.values, grid_options
+        )
+
+        ds = xr.Dataset(
+            {
+                "latitude": (["latitude"], latitude),
+                "longitude": (["longitude"], longitude),
+            },
+        )
+
+        regridder = xe.Regridder(cpol, ds, "bilinear", periodic=False)
+        ds = regridder(cpol)
+        ds["altitude"] = ds["altitude"].isel(latitude=0, longitude=0)
+    elif grid_options["name"] == "cartesian":
+        ds = cpol.copy()
+        ds = ds.drop_vars(["latitude", "longitude"])
+        ds["altitude"] = ds["altitude"].isel(y=0, x=0)
+
+    ds.attrs.update(cpol.attrs)
+    ds.attrs["history"] += f", regridded using xesmf on " f"{np.datetime64('now')}"
+
+    for var in ds.data_vars:
+        ds[var].attrs = cpol[var].attrs
+
+    for coord in ds.coords:
+        ds[coord].attrs = cpol[coord].attrs
+
+    ds = ds.swap_dims({"z": "altitude"})
+    ds = ds.drop("z")
+
+    return ds
+
+
+def convert_operational(filepath, data_options, grid_options, save=False):
+    return
+
+
+def get_cpol_times(filepath):
+    with xr.open_dataset(filepath, chunks={}) as ds:
+        times = ds.time.values
+    return times
+
+
+def get_operational_times(filepath):
+    times = None
+    return times

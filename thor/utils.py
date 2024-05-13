@@ -1,5 +1,9 @@
 "General utilities for the thor package."
 
+import numpy as np
+from scipy.interpolate import interp1d
+from datetime import datetime
+
 
 def format_string_list(strings):
     """
@@ -39,3 +43,18 @@ def drop_time(time):
         Date object.
     """
     return time.astype("datetime64[D]").astype("datetime64[s]")
+
+
+def almost_equal(numbers, decimal_places=5):
+    rounded_numbers = [round(num, decimal_places) for num in numbers]
+    return len(set(rounded_numbers)) == 1
+
+
+def pad(array, left_pad=1, right_pad=1, kind="linear"):
+    x = np.arange(len(array))
+    f = interp1d(x, array, kind=kind, fill_value="extrapolate")
+    return f(np.arange(-1, len(array) + 1))
+
+
+def now_str():
+    return datetime.now().strftime("%Y%m%d_%H%M%S")

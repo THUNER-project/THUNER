@@ -50,7 +50,7 @@ def unzip_file(filepath, directory=None):
     return sorted(extracted_filepaths), dir_size
 
 
-def download_file(url, remote_parent, local_parent="../test/test_data"):
+def download_file(url, parent_remote, parent_local="../thor/test/data"):
     """
     Downloads a file from the given URL and saves it to the specified directory.
 
@@ -73,10 +73,10 @@ def download_file(url, remote_parent, local_parent="../test/test_data"):
     if not isinstance(url, str):
         raise TypeError("url must be a string")
 
-    remote_parent = remote_parent.rstrip("/")
-    local_parent = local_parent.rstrip("/")
+    parent_remote = parent_remote.rstrip("/")
+    parent_local = parent_local.rstrip("/")
 
-    filepath = Path(url.replace(remote_parent, local_parent))
+    filepath = Path(url.replace(parent_remote, parent_local))
     if not filepath.parent.exists():
         filepath.parent.mkdir(parents=True)
 

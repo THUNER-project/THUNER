@@ -21,7 +21,7 @@ def create_options(
     format="pressure-levels",
     pressure_levels=None,
     parent="/g/data/rt52/era5",
-    download_dir="",
+    download_dir="../test/test_data",
     fields=["z", "u", "v"],
     start_latitude=None,
     end_latitude=None,
