@@ -17,51 +17,51 @@ def convective_radius(ze_bkg, area_relation):
     """
     if area_relation == 0:
         if ze_bkg < 30:
-            conv_rad = 1000.
-        elif (ze_bkg >= 30) & (ze_bkg < 35.):
-            conv_rad = 2000.
-        elif (ze_bkg >= 35.) & (ze_bkg < 40.):
-            conv_rad = 3000.
-        elif (ze_bkg >= 40.) & (ze_bkg < 45.):
-            conv_rad = 4000.
+            conv_rad = 1000.0
+        elif (ze_bkg >= 30) & (ze_bkg < 35.0):
+            conv_rad = 2000.0
+        elif (ze_bkg >= 35.0) & (ze_bkg < 40.0):
+            conv_rad = 3000.0
+        elif (ze_bkg >= 40.0) & (ze_bkg < 45.0):
+            conv_rad = 4000.0
         else:
-            conv_rad = 5000.
+            conv_rad = 5000.0
 
     if area_relation == 1:
         if ze_bkg < 25:
-            conv_rad = 1000.
-        elif (ze_bkg >= 25) & (ze_bkg < 30.):
-            conv_rad = 2000.
-        elif (ze_bkg >= 30.) & (ze_bkg < 35.):
-            conv_rad = 3000.
-        elif (ze_bkg >= 35.) & (ze_bkg < 40.):
-            conv_rad = 4000.
+            conv_rad = 1000.0
+        elif (ze_bkg >= 25) & (ze_bkg < 30.0):
+            conv_rad = 2000.0
+        elif (ze_bkg >= 30.0) & (ze_bkg < 35.0):
+            conv_rad = 3000.0
+        elif (ze_bkg >= 35.0) & (ze_bkg < 40.0):
+            conv_rad = 4000.0
         else:
-            conv_rad = 5000.
+            conv_rad = 5000.0
 
     if area_relation == 2:
         if ze_bkg < 20:
-            conv_rad = 1000.
-        elif (ze_bkg >= 20) & (ze_bkg < 25.):
-            conv_rad = 2000.
-        elif (ze_bkg >= 25.) & (ze_bkg < 30.):
-            conv_rad = 3000.
-        elif (ze_bkg >= 30.) & (ze_bkg < 35.):
-            conv_rad = 4000.
+            conv_rad = 1000.0
+        elif (ze_bkg >= 20) & (ze_bkg < 25.0):
+            conv_rad = 2000.0
+        elif (ze_bkg >= 25.0) & (ze_bkg < 30.0):
+            conv_rad = 3000.0
+        elif (ze_bkg >= 30.0) & (ze_bkg < 35.0):
+            conv_rad = 4000.0
         else:
-            conv_rad = 5000.
+            conv_rad = 5000.0
 
     if area_relation == 3:
         if ze_bkg < 40:
-            conv_rad = 0.
-        elif (ze_bkg >= 40) & (ze_bkg < 45.):
-            conv_rad = 1000.
-        elif (ze_bkg >= 45.) & (ze_bkg < 50.):
-            conv_rad = 2000.
-        elif (ze_bkg >= 50.) & (ze_bkg < 55.):
-            conv_rad = 6000.
+            conv_rad = 0.0
+        elif (ze_bkg >= 40) & (ze_bkg < 45.0):
+            conv_rad = 1000.0
+        elif (ze_bkg >= 45.0) & (ze_bkg < 50.0):
+            conv_rad = 2000.0
+        elif (ze_bkg >= 50.0) & (ze_bkg < 55.0):
+            conv_rad = 6000.0
         else:
-            conv_rad = 8000.
+            conv_rad = 8000.0
 
     return conv_rad
 
@@ -75,28 +75,37 @@ def peakedness(ze_bkg, peak_relation):
     point to be labeled convective.
     """
     if peak_relation == 0:
-        if ze_bkg < 0.:
-            peak = 10.
-        elif (ze_bkg >= 0.) and (ze_bkg < 42.43):
-            peak = 10. - ze_bkg ** 2 / 180.
+        if ze_bkg < 0.0:
+            peak = 10.0
+        elif (ze_bkg >= 0.0) and (ze_bkg < 42.43):
+            peak = 10.0 - ze_bkg**2 / 180.0
         else:
-            peak = 0.
+            peak = 0.0
 
     elif peak_relation == 1:
-        if ze_bkg < 0.:
-            peak = 14.
-        elif (ze_bkg >= 0.) and (ze_bkg < 42.43):
-            peak = 14. - ze_bkg ** 2 / 180.
+        if ze_bkg < 0.0:
+            peak = 14.0
+        elif (ze_bkg >= 0.0) and (ze_bkg < 42.43):
+            peak = 14.0 - ze_bkg**2 / 180.0
         else:
-            peak = 4.
+            peak = 4.0
 
     return peak
 
 
 @njit()
 def steiner_conv_strat(
-        refl, x, y, dx, dy, intense=42, peak_relation=0,
-        area_relation=1, bkg_rad=11000, use_intense=True):
+    refl,
+    x,
+    y,
+    dx,
+    dy,
+    intense=42,
+    peak_relation=0,
+    area_relation=1,
+    bkg_rad=11000,
+    use_intense=True,
+):
     """
     We perform the Steiner et al. (1995) algorithm for echo classification
     using only the reflectivity field in order to classify each grid point
@@ -135,15 +144,14 @@ def steiner_conv_strat(
                 for l in range(imin, imax):
                     for m in range(jmin, jmax):
                         if not np.isnan(refl[m, l]):
-                            rad = np.sqrt(
-                                (x[l] - x[i]) ** 2 + (y[m] - y[j]) ** 2)
+                            rad = np.sqrt((x[l] - x[i]) ** 2 + (y[m] - y[j]) ** 2)
 
-                        # The mean background reflectivity will first be
-                        # computed in linear units, i.e. mm^6/m^3, then
-                        # converted to decibel units.
+                            # The mean background reflectivity will first be
+                            # computed in linear units, i.e. mm^6/m^3, then
+                            # converted to decibel units.
                             if rad <= bkg_rad:
                                 n += 1
-                                sum_ze += 10. ** (refl[m, l] / 10.)
+                                sum_ze += 10.0 ** (refl[m, l] / 10.0)
 
                 if n == 0:
                     ze_bkg = np.inf
@@ -160,14 +168,10 @@ def steiner_conv_strat(
 
                 # Get stencil of x and y grid points within the convective
                 # radius.
-                lmin = np.max(
-                    np.array([1, int(i - conv_rad / dx)], dtype=int32))
-                lmax = np.min(
-                    np.array([nx, int(i + conv_rad / dx)], dtype=int32))
-                mmin = np.max(
-                    np.array([1, int(j - conv_rad / dy)], dtype=int32))
-                mmax = np.min(
-                    np.array([ny, int(j + conv_rad / dy)], dtype=int32))
+                lmin = np.max(np.array([1, int(i - conv_rad / dx)], dtype=int32))
+                lmax = np.min(np.array([nx, int(i + conv_rad / dx)], dtype=int32))
+                mmin = np.max(np.array([1, int(j - conv_rad / dy)], dtype=int32))
+                mmax = np.min(np.array([ny, int(j + conv_rad / dy)], dtype=int32))
 
                 if use_intense and (refl[j, i] >= intense):
                     sclass[j, i] = 2
@@ -175,9 +179,7 @@ def steiner_conv_strat(
                     for l in range(lmin, lmax):
                         for m in range(mmin, mmax):
                             if not np.isnan(refl[m, l]):
-                                rad = np.sqrt(
-                                    (x[l] - x[i]) ** 2
-                                    + (y[m] - y[j]) ** 2)
+                                rad = np.sqrt((x[l] - x[i]) ** 2 + (y[m] - y[j]) ** 2)
 
                                 if rad <= conv_rad:
                                     sclass[m, l] = 2
@@ -192,8 +194,8 @@ def steiner_conv_strat(
                             for m in range(jmin, jmax):
                                 if not np.isnan(refl[m, l]):
                                     rad = np.sqrt(
-                                        (x[l] - x[i]) ** 2
-                                        + (y[m] - y[j]) ** 2)
+                                        (x[l] - x[i]) ** 2 + (y[m] - y[j]) ** 2
+                                    )
 
                                     if rad <= conv_rad:
                                         sclass[m, l] = 2

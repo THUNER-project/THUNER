@@ -1,39 +1,127 @@
 """Process AURA data."""
 
+import inspect
+from urllib.parse import urlparse
+from pathlib import Path
+import xarray as xr
+import xesmf as xe
 import numpy as np
 import pandas as pd
 from thor.log import setup_logger
 from thor.data.odim import convert_odim
-from thor.data.utils import download_file, unzip_file, consolidate_netcdf
+import thor.data.utils as utils
 from thor.utils import format_string_list, drop_time
+import thor.data.option as option
 import thor.grid as grid
-from pathlib import Path
-import yaml
-import inspect
-from urllib.parse import urlparse
-import xarray as xr
-import xesmf as xe
 
 
 logger = setup_logger(__name__)
 
 
-def create_options(
-    name="operational",
+def cpol_data_options(
     start="2005-11-13T00:00:00",
     end="2005-11-14T00:00:00",
-    level="1",
-    radar="63",
-    format="ODIM",
-    parent="https://dapds00.nci.org.au/thredds/fileServer/rq0",
-    filenames=None,
-    fields=["reflectivity"],
-    weighting_function="Barnes2",
-    save=False,
+    parent_remote="https://dapds00.nci.org.au/thredds/fileServer/hj10",
+    save_local=False,
+    parent_local=str(Path(__file__).parent.parent / "test/data/raw"),
+    converted_options=None,
+    filepaths=None,
+    use="track",
+    level="1b",
+    data_format="grid_150km_2500m",
+    fields=None,
+    version="v2020",
     **kwargs,
 ):
     """
-    Generate input options dictionary.
+    Generate CPOL radar data options dictionary.
+
+    Parameters
+    ----------
+    name : str, optional
+        The name of the dataset; default is "cpol".
+    start : str, optional
+        The start time of the dataset; default is "2005-11-13T00:00:00".
+    end : str, optional
+        The end time of the dataset; default is "2005-11-14T00:00:00".
+    parent_remote : str, optional
+        The remote parent URL; default is
+        "https://dapds00.nci.org.au/thredds/fileServer/hj10".
+    save_local : bool, optional
+        Whether to save the dataset locally; default is False.
+    parent_local : str, optional
+        The local parent directory; default is "../test/data/raw".
+    converted_options : dict, optional
+        Dictionary containing converted options; default is None.
+    filepaths : list, optional
+        List of filepaths; default is None.
+    level : str, optional
+        The level of the dataset; default is "1b".
+    data_format : str, optional
+        The format of the dataset; default is "grid_150km_2500m".
+    fields : list, optional
+        The fields to include in the dataset; default is None.
+    version : str, optional
+        The version of the dataset; default is "v2020".
+    save_options : bool, optional
+        Whether to save the data options; default is False.
+    **kwargs
+        Additional keyword arguments.
+
+    Returns
+    -------
+    options : dict
+        Dictionary containing the input options.
+    """
+
+    if fields is None:
+        fields = ["reflectivity"]
+
+    options = option.boilerplate_options(
+        "cpol",
+        start,
+        end,
+        parent_remote,
+        save_local,
+        parent_local,
+        converted_options,
+        filepaths,
+        use=use,
+    )
+
+    options.update(
+        {
+            "level": level,
+            "data_format": data_format,
+            "fields": fields,
+            "version": version,
+        }
+    )
+
+    for key, value in kwargs.items():
+        options[key] = value
+
+    return options
+
+
+def operational_data_options(
+    start="2005-11-13T00:00:00",
+    end="2005-11-14T00:00:00",
+    parent_remote="https://dapds00.nci.org.au/thredds/fileServer/rq0",
+    save_local=False,
+    parent_local="../test/data/raw",
+    converted_options=None,
+    filepaths=None,
+    use="track",
+    level="1",
+    radar="63",
+    data_format="ODIM",
+    fields=None,
+    weighting_function="Barnes2",
+    **kwargs,
+):
+    """
+    Generate operational radar data options dictionary.
 
     Parameters
     ----------
@@ -43,12 +131,13 @@ def create_options(
         The level of the dataset; default is "1".
     radar : str, optional
         The radar number; default is "63".
-    format : str, optional
+    data_format : str, optional
         The format of the dataset; default is "ODIM".
     parent : str, optional
         The parent URL; default is "https://dapds00.nci.org.au/thredds/fileServer/rq0".
     fields : list, optional
-        The fields to include in the dataset; default is ["reflectivity", "reflectivity_horizontal"].
+        The fields to include in the dataset; default is
+        ["reflectivity", "reflectivity_horizontal"].
     weighting_function : str, optional
         The weighting function for pyart gridding; default is "Barnes2".
     save : bool, optional
@@ -62,38 +151,38 @@ def create_options(
         Dictionary containing the input options.
     """
 
-    options = {
-        "name": name,
-        "start": start,
-        "end": end,
-        "level": level,
-        "radar": radar,
-        "format": format,
-        "parent": parent,
-        "filenames": filenames,
-        "fields": fields,
-        "weighting_function": weighting_function,
-    }
+    if fields is None:
+        fields = ["reflectivity"]
+
+    options = option.boilerplate_options(
+        "operational",
+        start,
+        end,
+        parent_remote,
+        save_local,
+        parent_local,
+        converted_options,
+        filepaths,
+        use=use,
+    )
+
+    options.update(
+        {
+            "level": level,
+            "radar": radar,
+            "data_format": data_format,
+            "fields": fields,
+            "weighting_function": weighting_function,
+        }
+    )
 
     for key, value in kwargs.items():
         options[key] = value
 
-    if save:
-        filepath = Path(__file__).parent.parent / "option/default/aura.yaml"
-        logger.debug(f"Saving options to {filepath}")
-        with open(filepath, "w") as outfile:
-            yaml.dump(
-                options,
-                outfile,
-                default_flow_style=False,
-                allow_unicode=True,
-                sort_keys=False,
-            )
-
     return options
 
 
-def check_options(options):
+def check_data_options(options):
     """
     Check the input options.
 
@@ -107,8 +196,12 @@ def check_options(options):
     options : dict
         Dictionary containing the input options.
     """
+    if options["name"] == "cpol":
+        required_options = inspect.getfullargspec(cpol_data_options).args
+    elif options["name"] == "operational":
+        required_options = inspect.getfullargspec(operational_data_options).args
 
-    for key in inspect.getfullargspec(create_options).args:
+    for key in required_options:
         if key not in options.keys():
             raise ValueError(f"Missing required key {key}")
 
@@ -122,9 +215,11 @@ def check_options(options):
         if np.datetime64(np.datetime64(options["end"])) > max_end:
             raise ValueError(f"end must be {max_end} or earlier.")
 
-        formats = ["grid_150km_2500m", "grid_70km_1000m"]
-        if options["format"] not in formats:
-            raise ValueError(f"format must be one of {format_string_list(formats)}.")
+        data_formats = ["grid_150km_2500m", "grid_70km_1000m"]
+        if options["data_format"] not in data_formats:
+            raise ValueError(
+                f"data_format must be one of {format_string_list(data_formats)}."
+            )
         levels = ["1", "1b", "2"]
         if options["level"] not in levels:
             raise ValueError(f"level must be one of {format_string_list(levels)}.")
@@ -161,10 +256,7 @@ def generate_cpol_filepaths(options):
 
     filepaths = []
 
-    if options["parent_local"] is None:
-        base_url = options["parent_remote"]
-    else:
-        base_url = options["parent_local"]
+    base_url = utils.get_parent(options)
     base_url += "/cpol"
 
     if options["level"] == "1b":
@@ -173,18 +265,19 @@ def generate_cpol_filepaths(options):
         times = pd.DatetimeIndex(times)
 
         base_url += f"/cpol_level_1b/{options['version']}/"
-        if "grid" in options["format"]:
-            base_url += f"gridded/{options['format']}/"
-            if "150" in options["format"]:
-                format_string = "grid150"
+        if "grid" in options["data_format"]:
+            base_url += f"gridded/{options['data_format']}/"
+            if "150" in options["data_format"]:
+                data_format_string = "grid150"
             else:
-                format_string = "grid75"
-        elif options["format"] == "ppi":
+                data_format_string = "grid75"
+        elif options["data_format"] == "ppi":
             base_url += "ppi/"
         for time in times:
             filepath = (
                 f"{base_url}{time.year}/{time.year}{time.month:02}{time.day:02}/"
-                f"twp10cpol{format_string}.b2.{time.year}{time.month:02}{time.day:02}."
+                f"twp10cpol{data_format_string}.b2."
+                f"{time.year}{time.month:02}{time.day:02}."
                 f"{time.hour:02}{time.minute:02}{time.second:02}.nc"
             )
             filepaths.append(filepath)
@@ -197,7 +290,7 @@ def generate_cpol_filepaths(options):
         )
         times = pd.DatetimeIndex(times)
 
-        base_url += f"/cpol_level_2/v{options['version']}/{options['format']}"
+        base_url += f"/cpol_level_2/v{options['version']}/{options['data_format']}"
         try:
             variable = options["variable"]
             if variable == "equivalent_reflectivity_factor":
@@ -213,7 +306,7 @@ def generate_cpol_filepaths(options):
             url += f".{time.year}{time.month:02}{time.day:02}.nc"
             filepaths.append(filepath)
 
-    return filepaths
+    return sorted(filepaths)
 
 
 def generate_operational_urls(options):
@@ -238,7 +331,7 @@ def generate_operational_urls(options):
     end = np.datetime64(options["end"])
 
     urls = []
-    base_url = f"{options['parent']}"
+    base_url = f"{utils.get_parent(options)}"
 
     times = np.arange(start, end + np.timedelta64(1, "D"), np.timedelta64(1, "D"))
     times = pd.DatetimeIndex(times)
@@ -287,10 +380,10 @@ def setup_operational(data_options, grid_options, url, directory):
     """
 
     if "http" in urlparse(url).scheme:
-        filepath = download_file(url, directory)
+        filepath = utils.download_file(url, directory)
     else:
         filepath = url
-    extracted_filepaths = unzip_file(filepath)[0]
+    extracted_filepaths = utils.unzip_file(filepath)[0]
     if data_options["level"] == "1":
         dataset = convert_odim(
             extracted_filepaths,
@@ -299,18 +392,25 @@ def setup_operational(data_options, grid_options, url, directory):
             out_dir=directory,
         )
     elif data_options["level"] == "1b":
-        dataset = consolidate_netcdf(
+        dataset = utils.consolidate_netcdf(
             extracted_filepaths, fields=data_options["fields"], concat_dim="time"
         )
 
     return dataset
 
 
-def convert_cpol(filepath, data_options, grid_options, save=False):
-    logger.debug(f"Converting CPOL data from {filepath}")
+def convert_cpol(time, input_record, dataset_options, grid_options):
+    """Convert CPOL data to a standard format."""
+    filepath = dataset_options["filepaths"][input_record["current_file_index"]]
+    utils.log_convert(logger, dataset_options["name"], filepath)
     cpol = xr.open_dataset(filepath)
+
+    if time not in cpol.time.values:
+        raise ValueError(f"{time} not in {filepath}")
+
     cpol = cpol[
-        data_options["fields"] + ["point_latitude", "point_longitude", "point_altitude"]
+        dataset_options["fields"]
+        + ["point_latitude", "point_longitude", "point_altitude"]
     ]
     cpol = cpol.rename(
         {
@@ -319,24 +419,30 @@ def convert_cpol(filepath, data_options, grid_options, save=False):
             "point_altitude": "altitude",
         }
     )
+    cpol["altitude"] = cpol["altitude"].isel(x=0, y=0)
+    cpol = cpol.swap_dims({"z": "altitude"})
+    cpol = cpol.drop_vars("z")
+
     for var in ["latitude", "longitude"]:
-        cpol[var] = cpol[var].isel(z=0)
+        cpol[var] = cpol[var].isel(altitude=0)
 
     if grid_options["name"] == "geographic":
-        altitude, latitude, longitude = grid.new_geographic_grid(
-            cpol.latitude.values, cpol.longitude.values, grid_options
-        )
-
         ds = xr.Dataset(
             {
-                "latitude": (["latitude"], latitude),
-                "longitude": (["longitude"], longitude),
+                "latitude": (["latitude"], grid_options["latitude"]),
+                "longitude": (["longitude"], grid_options["longitude"]),
             },
         )
 
         regridder = xe.Regridder(cpol, ds, "bilinear", periodic=False)
         ds = regridder(cpol)
-        ds["altitude"] = ds["altitude"].isel(latitude=0, longitude=0)
+
+        cell_areas = grid.get_cell_areas(ds.latitude.values, ds.longitude.values)
+        ds["cell_area"] = (["latitude", "longitude"], cell_areas)
+        ds["cell_area"].attrs.update(
+            {"units": "m^2", "standard_name": "cell_area", "valid_min": 0}
+        )
+
     elif grid_options["name"] == "cartesian":
         ds = cpol.copy()
         ds = ds.drop_vars(["latitude", "longitude"])
@@ -346,27 +452,86 @@ def convert_cpol(filepath, data_options, grid_options, save=False):
     ds.attrs["history"] += f", regridded using xesmf on " f"{np.datetime64('now')}"
 
     for var in ds.data_vars:
-        ds[var].attrs = cpol[var].attrs
+        if var in cpol.data_vars:
+            ds[var].attrs = cpol[var].attrs
 
     for coord in ds.coords:
         ds[coord].attrs = cpol[coord].attrs
 
-    ds = ds.swap_dims({"z": "altitude"})
-    ds = ds.drop("z")
+    ds = ds.interp(altitude=grid_options["altitude"], method="linear")
 
     return ds
 
 
-def convert_operational(filepath, data_options, grid_options, save=False):
-    return
+def convert_operational():
+    """TBA."""
+    ds = None
+    return ds
 
 
-def get_cpol_times(filepath):
-    with xr.open_dataset(filepath, chunks={}) as ds:
-        times = ds.time.values
+def generate_cpol_times(filepaths):
+    """TBA."""
+
+    for filepath in sorted(filepaths):
+        with xr.open_dataset(filepath, chunks={}) as ds:
+            for time in ds.time.values:
+                yield time
+
+
+def update_dataset(time, input_record, dataset_options, grid_options):
+    """
+    Update an aura dataset.
+
+    Parameters
+    ----------
+    time : datetime64
+        The time of the dataset.
+    object_tracks : dict
+        Dictionary containing the object tracks.
+    dataset_options : dict
+        Dictionary containing the dataset options.
+    grid_options : dict
+        Dictionary containing the grid options.
+
+    Returns
+    -------
+    dataset : object
+        The updated dataset.
+    """
+    utils.log_dataset_update(logger, dataset_options["name"], time)
+    conv_options = dataset_options["converted_options"]
+
+    input_record["current_file_index"] += 1
+    if conv_options["load"] is False:
+        if dataset_options["name"] == "cpol":
+            dataset = convert_cpol(time, input_record, dataset_options, grid_options)
+        elif dataset_options["name"] == "operational":
+            dataset = convert_operational(
+                time, input_record, dataset_options, grid_options
+            )
+    else:
+        dataset = xr.open_dataset(
+            dataset_options["filepaths"][input_record["current_file_index"]]
+        )
+    if conv_options["save"]:
+        filepath = dataset_options["filepaths"][input_record["current_file_index"]]
+        parent = utils.get_parent(dataset_options)
+        if conv_options["parent_converted"] is None:
+            parent_converted = parent.replace("raw", "converted")
+        converted_filepath = filepath.replace(parent, parent_converted)
+        if not Path(converted_filepath).parent.exists():
+            Path(converted_filepath).parent.mkdir(parents=True)
+        dataset.to_netcdf(converted_filepath, mode="w")
+    input_record["dataset"] = dataset
+
+
+def generate_operational_times():
+    """TBA."""
+    times = None
     return times
 
 
-def get_operational_times(filepath):
+def generate_operational_filepaths():
+    """TBA."""
     times = None
     return times

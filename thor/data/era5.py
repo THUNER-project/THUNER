@@ -1,33 +1,39 @@
 """Process ERA5 data."""
 
+from pathlib import Path
+import calendar
+import inspect
+import tempfile
 import numpy as np
 import pandas as pd
+import xarray as xr
 from thor.log import setup_logger
-from thor.utils import format_string_list
-import calendar
-from pathlib import Path
-import yaml
-import inspect
+from thor.utils import format_string_list, get_hour_interval
+import thor.data.utils as utils
+import thor.data.option as option
+import thor.tag as tag
 
 
 logger = setup_logger(__name__)
 
 
-def create_options(
-    name="era5",
-    start="2005-02-01T00:00:00",
-    end="2005-03-01T00:00:00",
+def data_options(
+    start="2005-11-13T00:00:00",
+    end="2005-11-14T00:00:00",
+    parent_remote="/g/data/rt52/era5",
+    save_local=False,
+    parent_local="../test/data/raw/era5",
+    converted_options=None,
+    filepaths=None,
+    use="tag",
     mode="reanalysis",
-    format="pressure-levels",
+    data_format="pressure-levels",
     pressure_levels=None,
-    parent="/g/data/rt52/era5",
-    download_dir="../test/test_data",
-    fields=["z", "u", "v"],
+    fields=None,
     start_latitude=None,
     end_latitude=None,
     start_longitude=None,
     end_longitude=None,
-    save=False,
     **kwargs,
 ):
     """
@@ -43,8 +49,8 @@ def create_options(
         The end date and time of the dataset; default is "2005-02-02T00:00:00".
     mode : str, optional
         The mode of the dataset; default is "reanalysis".
-    format : str, optional
-        The format of the dataset; default is "pressure-levels".
+    data_format : str, optional
+        The data_format of the dataset; default is "pressure-levels".
     parent : str, optional
         The parent URL; default is "/g/data/rt52/era5/".
     fields : list, optional
@@ -60,85 +66,54 @@ def create_options(
         Dictionary containing the input options.
     """
 
-    if format == "pressure-levels" and pressure_levels is None:
-        pressure_levels = [
-            "1000",
-            "975",
-            "950",
-            "925",
-            "900",
-            "875",
-            "850",
-            "825",
-            "800",
-            "775",
-            "750",
-            "700",
-            "650",
-            "600",
-            "550",
-            "500",
-            "450",
-            "400",
-            "350",
-            "300",
-            "250",
-            "225",
-            "200",
-            "175",
-            "150",
-            "125",
-            "100",
-            "70",
-            "50",
-            "30",
-            "20",
-            "10",
-            "7",
-            "5",
-            "3",
-            "2",
-            "1",
-        ]
+    if data_format == "pressure-levels":
+        name = "era5_pl"
+    elif data_format == "single-levels":
+        name = "era5_sl"
 
-    pressure_levels = [str(level) for level in pressure_levels]
+    if fields is None:
+        if data_format == "pressure-levels":
+            fields = ["u", "v", "z", "r", "t"]
+        elif data_format == "single-levels":
+            fields = ["cape", "cin"]
 
-    options = {
-        "name": name,
-        "start": start,
-        "end": end,
-        "mode": mode,
-        "format": format,
-        "parent": parent,
-        "parent": parent,
-        "fields": fields,
-        "pressure_levels": pressure_levels,
-        "download_dir": download_dir,
-        "start_latitude": start_latitude,
-        "start_longitude": start_longitude,
-        "end_latitude": end_latitude,
-        "end_longitude": end_longitude,
-        "save": save,
-    }
+    options = option.boilerplate_options(
+        name,
+        start,
+        end,
+        parent_remote,
+        save_local,
+        parent_local,
+        converted_options,
+        filepaths,
+        use=use,
+    )
+
+    if data_format == "pressure-levels" and pressure_levels is None:
+        if pressure_levels is None:
+            pressure_levels = era5_pressure_levels
+        pressure_levels = [str(level) for level in pressure_levels]
+
+    options.update(
+        {
+            "mode": mode,
+            "data_format": data_format,
+            "fields": fields,
+            "pressure_levels": pressure_levels,
+            "start_latitude": start_latitude,
+            "start_longitude": start_longitude,
+            "end_latitude": end_latitude,
+            "end_longitude": end_longitude,
+        }
+    )
 
     for key, value in kwargs.items():
         options[key] = value
 
-    if save:
-        filepath = Path(__file__).parent.parent / "option/default/era5.yaml"
-        with open(filepath, "w") as outfile:
-            yaml.dump(
-                options,
-                outfile,
-                default_flow_style=False,
-                allow_unicode=True,
-                sort_keys=False,
-            )
-
     return options
 
 
-def check_options(options):
+def check_data_options(options):
     """
     Check the input options.
 
@@ -153,7 +128,7 @@ def check_options(options):
         Dictionary containing the input options.
     """
 
-    for key in inspect.getargspec(create_options).args:
+    for key in inspect.getfullargspec(data_options).args:
         if key not in options.keys():
             raise ValueError(f"Missing required key {key}")
 
@@ -161,12 +136,19 @@ def check_options(options):
     if np.datetime64(options["start"]) < min_start:
         raise ValueError(f"start must be {min_start} or later.")
 
-    formats = ["pressure-levels", "single-levles"]
-    if options["format"] not in formats:
-        raise ValueError(f"format must be one of {format_string_list(formats)}.")
+    data_formats = ["pressure-levels", "single-levels"]
+    if options["data_format"] not in data_formats:
+        raise ValueError(
+            f"data_format must be one of {format_string_list(data_formats)}."
+        )
 
-    if options["format"] == "pressure-levels" and options["pressure_levels"] is None:
-        raise ValueError("pressure_levels must be provided for pressure-levels format.")
+    if (
+        options["data_format"] == "pressure-levels"
+        and options["pressure_levels"] is None
+    ):
+        raise ValueError(
+            "pressure_levels must be provided for pressure-levels data_format."
+        )
 
     modes = ["monthly-averaged", "monthly-averaged-by-hour", "reanalysis"]
     if options["mode"] not in modes:
@@ -177,7 +159,8 @@ def check_options(options):
 
 def format_daterange(year, month):
     """
-    Format the date range string used in ERA5 file names.
+    Format the date range string used in ERA5 file names on NCI Gadi,
+    https://dx.doi.org/10.25914/5f48874388857.
 
     Parameters
     ----------
@@ -196,9 +179,9 @@ def format_daterange(year, month):
     return date_range_str
 
 
-def generate_era5_urls(options):
+def generate_era5_filepaths(options, start=None, end=None, local=True):
     """
-    Generate cpol URLs from input options dictionary.
+    Generate era5 filepaths from dataset options dictionary.
 
     Parameters
     ----------
@@ -213,14 +196,23 @@ def generate_era5_urls(options):
         Times associated with the URLs.
     """
 
-    start = pd.Timestamp(options["start"])
-    end = pd.Timestamp(options["end"])
+    if start is None or end is None:
+        start = options["start"]
+        # Add an hour to the end time to facilitate temporal interpolation
+        end = options["end"]
 
-    short_format = {"pressure-levels": "pl", "single-levels": "sfc"}
+    start = pd.Timestamp(start)
+    # Add an hour to the end time to facilitate temporal interpolation
+    end = pd.Timestamp(end) + pd.Timedelta(hours=1)
 
-    urls = []
+    short_data_format = {"pressure-levels": "pl", "single-levels": "sfc"}
 
-    base_url = f"{options['parent']}/{options['format']}/{options['mode']}"
+    if local:
+        parent = options["parent_local"]
+    else:
+        parent = options["parent_remote"]
+
+    base_filepath = f"{parent}/{options['data_format']}/{options['mode']}"
 
     times = np.arange(
         np.datetime64(f"{start.year:04}-{start.month:02}"),
@@ -228,19 +220,24 @@ def generate_era5_urls(options):
         np.timedelta64(1, "M"),
     )
 
-    urls = dict(zip(options["fields"], [[] for i in range(len(options["fields"]))]))
+    filepaths = dict(
+        zip(options["fields"], [[] for i in range(len(options["fields"]))])
+    )
 
     for field in options["fields"]:
         for time in times:
             time = pd.Timestamp(time)
             daterange_str = format_daterange(time.year, time.month)
-            url = (
-                f"{base_url}/{field}/{time.year}/{field}_era5_oper_"
-                f"{short_format[options['format']]}_{daterange_str}.nc"
+            filepath = (
+                f"{base_filepath}/{field}/{time.year}/{field}_era5_oper_"
+                f"{short_data_format[options['data_format']]}_{daterange_str}.nc"
             )
-            urls[field].append(url)
+            filepaths[field].append(filepath)
 
-    return urls, times
+    for key in filepaths.keys():
+        filepaths[key] = sorted(filepaths[key])
+
+    return filepaths
 
 
 def generate_cdsapi_requests(options, grid_options):
@@ -262,19 +259,20 @@ def generate_cdsapi_requests(options, grid_options):
         A dictionary containing the local file paths.
     """
 
-    short_format = {"pressure-levels": "pl", "single-levels": "sfc"}
+    short_data_format = {"pressure-levels": "pl", "single-levels": "sfc"}
 
     requests = dict(zip(options["fields"], [[] for i in range(len(options["fields"]))]))
     local_paths = dict(
         zip(options["fields"], [[] for i in range(len(options["fields"]))])
     )
 
-    cds_name = f"reanalysis-era5-{options['format']}"
+    cds_name = f"reanalysis-era5-{options['data_format']}"
 
     start = pd.Timestamp(options["start"])
-    end = pd.Timestamp(options["end"])
+    # Add an hour to the end time to facilitate temporal interpolation
+    end = pd.Timestamp(options["end"]) + pd.Timedelta(hours=1)
 
-    base_path = f"{options['download_dir']}/{options['format']}/{options['mode']}"
+    base_path = f"{options['download_dir']}/{options['data_format']}/{options['mode']}"
 
     times = np.arange(
         np.datetime64(f"{start.year:04}-{start.month:02}"),
@@ -306,7 +304,7 @@ def generate_cdsapi_requests(options, grid_options):
             daterange_str = format_daterange(time.year, time.month)
             local_path = (
                 f"{base_path}/{field}/{time.year}/{field}_era5_oper_"
-                f"{short_format[options['format']]}_{daterange_str}.nc"
+                f"{short_data_format[options['data_format']]}_{daterange_str}.nc"
             )
             requests[field].append(request)
             local_paths[field].append(local_path)
@@ -315,6 +313,7 @@ def generate_cdsapi_requests(options, grid_options):
 
 
 def get_cdsapi_area(grid_options):
+    """TBA."""
     if (
         grid_options["start_latitude"] is None
         and grid_options["end_latitude"] is None
@@ -331,3 +330,53 @@ def get_cdsapi_area(grid_options):
         else:
             area.append(grid_options[key])
     return area
+
+
+def convert_era5():
+    """Convert ERA5 data."""
+    return
+
+
+def generate_era5_times():
+    """Generate ERA5 times."""
+    return
+
+
+def update_dataset(time, input_record, dataset_options, grid_options):
+    """Update ERA5 dataset."""
+
+    utils.log_dataset_update(logger, dataset_options["name"], time)
+
+    start, end = get_hour_interval(time)
+    filepaths = generate_era5_filepaths(dataset_options, start, end, local=True)
+    lat_range = (min(grid_options["latitude"]), max(grid_options["latitude"]))
+    lon_range = (min(grid_options["longitude"]), max(grid_options["longitude"]))
+
+    with tempfile.TemporaryDirectory() as tmp:
+        for field in dataset_options["fields"]:
+            for filepath in filepaths[field]:
+                logger.debug("Subsetting %s", Path(filepath).name)
+                utils.call_ncks(
+                    filepath, f"{tmp}/{field}.nc", start, end, lat_range, lon_range
+                )
+        input_record["dataset"] = xr.open_mfdataset(f"{tmp}/*.nc").load()
+
+
+def tag_options(
+    name=None, dataset="era5_pl", time_method="linear", space_method="linear"
+):
+    """
+    Generate era5 tagging options dictionary.
+    """
+    if name is None:
+        name = dataset
+
+    options = tag.boilerplate_options(name, dataset, time_method, space_method)
+
+    return options
+
+
+era5_pressure_levels = ["1000", "975", "950", "925", "900", "875", "850", "825", "800"]
+era5_pressure_levels += ["775", "750", "700", "650", "600", "550", "500", "450", "400"]
+era5_pressure_levels += ["350", "300", "250", "225", "200", "175", "150", "125", "100"]
+era5_pressure_levels += ["70", "50", "30", "20", "10", "7", "5", "3", "2", "1"]

@@ -15,22 +15,15 @@ logger = setup_logger(__name__)
 
 def create_options(
     name="geographic",
-    timestep=None,
-    start_latitude=None,
-    end_latitude=None,
-    start_longitude=None,
-    end_longitude=None,
-    central_latitude=None,
-    central_longitude=None,
+    altitude=None,
+    latitude=None,
+    longitude=None,
+    x=None,
+    y=None,
     projection=None,
-    start_x=None,
-    end_x=None,
-    start_y=None,
-    end_y=None,
-    start_alt=0,
-    end_alt=25e3,
-    cartesian_spacing=[500, 2500, 2500],
-    geographic_spacing=[500, 0.025, 0.025],
+    altitude_spacing=500,
+    cartesian_spacing=[2500, 2500],
+    geographic_spacing=[0.025, 0.025],
     regrid=True,
     save=False,
     **kwargs,
@@ -86,22 +79,18 @@ def create_options(
         Dictionary containing the grid options.
     """
 
+    if altitude is None:
+        altitude = list(np.arange(0, 25e3 + altitude_spacing, altitude_spacing))
+
     options = {
         "name": name,
-        "timestep": timestep,
-        "start_latitude": start_latitude,
-        "end_latitude": end_latitude,
-        "start_longitude": start_longitude,
-        "end_longitude": end_longitude,
-        "central_latitude": central_latitude,
-        "central_longitude": central_longitude,
+        "latitude": latitude,
+        "longitude": longitude,
+        "altitude": altitude,
+        "x": x,
+        "y": y,
         "projection": projection,
-        "start_x": start_x,
-        "end_x": end_x,
-        "start_y": start_y,
-        "end_y": end_y,
-        "start_alt": start_alt,
-        "end_alt": end_alt,
+        "altitude_spacing": altitude_spacing,
         "cartesian_spacing": cartesian_spacing,
         "geographic_spacing": geographic_spacing,
         "regrid": regrid,
@@ -131,10 +120,17 @@ def save_grid_options(
     if options_directory is None:
         options_directory = Path(__file__).parent / "options/grid_options"
     if filename is None:
-        filename = "grid_options"
+        filename = grid_options["name"]
         append_time = True
-    logger.debug(f"Saving grid options to {options_directory / filename}")
     save_options(grid_options, filename, options_directory, append_time=append_time)
+
+
+def check_spacing(array, dx):
+    """Check if array equally spaced."""
+    if not almost_equal(np.diff(array)):
+        raise ValueError("Grid not equally spaced.")
+    elif not almost_equal(list(np.diff(array)) + [dx]):
+        raise ValueError("Grid spacing does not match prescribed gridlengths.")
 
 
 def check_options(options):
@@ -153,6 +149,19 @@ def check_options(options):
         Dictionary containing the input options.
     """
 
+    if options["name"] == "cartesian":
+        [x, y, z] = [options[var] for var in ["x", "y", "altitude"]]
+        spacing = options["cartesian_spacing"]
+    elif options["name"] == "geographic":
+        [x, y, z] = [options[var] for var in ["longitude", "latitude", "altitude"]]
+        spacing = options["geographic_spacing"]
+    [dx, dy, dz] = [spacing[1], spacing[0], options["altitude_spacing"]]
+
+    if x is None or y is None or z is None:
+        raise ValueError("Missing required key x, y, or z.")
+    else:
+        [check_spacing(v, dv) for v, dv in zip([x, y, z], [dx, dy, dz])]
+
     for key in inspect.getfullargspec(create_options).args:
         if key not in options.keys():
             raise ValueError(f"Missing required key {key}")
@@ -160,7 +169,7 @@ def check_options(options):
     return options
 
 
-def new_geographic_grid(latitudes, longitudes, grid_options):
+def new_geographic_grid(latitudes, longitudes, dlat, dlon):
     """
     Get the geographic grid.
 
@@ -179,34 +188,32 @@ def new_geographic_grid(latitudes, longitudes, grid_options):
         The geographic grid as a tuple of (lons, lats).
     """
 
-    if grid_options["name"] != "geographic":
-        raise ValueError("grid_options['name'] must be 'geographic'.")
+    def inscribe_new_array(array_1, array_2, dx):
+        array = np.arange(
+            np.ceil(array_1.min() / dx) * dx,
+            np.floor(array_2.max() / dx) * dx,
+            dx,
+        )
+        return array
 
-    if grid_options["geographic_spacing"] is None:
-        raise ValueError("grid_options['geographic_spacing'] must be defined.")
+    if len(latitudes.shape) == 2:
+        latitudes_1 = latitudes.max(axis=1)
+        latitudes_2 = latitudes.min(axis=1)
+        longitudes_1 = longitudes.max(axis=0)
+        longitudes_2 = longitudes.min(axis=0)
+    elif len(latitudes.shape) == 1:
+        [latitudes_1, latitudes_2] = [latitudes] * 2
+        [longitudes_1, longitudes_2] = [longitudes] * 2
+    else:
+        raise ValueError("latitudes and longitudes must be at most two dimensional.")
 
-    spacing = grid_options["geographic_spacing"]
+    new_latitudes = inscribe_new_array(latitudes_1, latitudes_2, dlat)
+    new_longitudes = inscribe_new_array(longitudes_1, longitudes_2, dlon)
 
-    altitude = np.arange(
-        grid_options["start_alt"], grid_options["end_alt"] + spacing[0], spacing[0]
-    )
-
-    new_latitudes = np.arange(
-        np.ceil(latitudes.max(axis=1).min() / spacing[1]) * spacing[1],
-        np.floor(latitudes.min(axis=1).max() / spacing[1]) * spacing[1],
-        spacing[1],
-    )
-
-    new_longitudes = np.arange(
-        np.ceil(longitudes.max(axis=0).min() / spacing[2]) * spacing[2],
-        np.floor(longitudes.min(axis=0).max() / spacing[2]) * spacing[2],
-        spacing[2],
-    )
-
-    return altitude, new_latitudes, new_longitudes
+    return list(new_latitudes), list(new_longitudes)
 
 
-def get_area_elements(latitudes, longitudes):
+def get_cell_areas(latitudes, longitudes):
 
     geod = Geod(ellps="WGS84")
     d_lon = longitudes[1:] - longitudes[:-1]
@@ -239,4 +246,4 @@ def get_area_elements(latitudes, longitudes):
         areas = np.apply_along_axis(pad, axis=0, arr=areas)
         areas = np.apply_along_axis(pad, axis=1, arr=areas)
 
-    return areas, dx, dy
+    return areas

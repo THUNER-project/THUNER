@@ -1,13 +1,14 @@
 """Data processing utilities."""
 
-import requests
+import subprocess
 import zipfile
 from pathlib import Path
-from thor.log import setup_logger
+import requests
 from tqdm import tqdm
 import xarray as xr
-import pathlib
 import cdsapi
+
+from thor.log import setup_logger
 
 
 logger = setup_logger(__name__, level="DEBUG")
@@ -83,20 +84,20 @@ def download_file(url, parent_remote, parent_local="../thor/test/data"):
     partial_filepath = filepath.with_suffix(".part")
 
     if filepath.exists():
-        logger.debug(f"{filepath} already exists.")
+        logger.debug("%s already exists.", filepath)
         return str(filepath)
-    elif partial_filepath.exists():
-        logger.debug(f"Resuming download of {url}...")
+    if partial_filepath.exists():
+        logger.debug("Resuming download of %s...", url)
         already_downloaded = partial_filepath.stat().st_size
         resume_header = {"Range": f"bytes={partial_filepath.stat().st_size}-"}
     else:
-        logger.debug(f"Initiating download of {url}...")
+        logger.debug("Initiating download of %s...", url)
         already_downloaded = 0
         resume_header = {}
 
     # Send a HTTP request to the URL
-    logger.debug(f"Sending HTTP request to {url}.")
-    response = requests.get(url, headers=resume_header, stream=True)
+    logger.debug("Sending HTTP request to %s.", url)
+    response = requests.get(url, headers=resume_header, stream=True, timeout=10)
     # Check if the request is successful
     if response.status_code == 200 or response.status_code == 206:
         total_size_in_bytes = (
@@ -114,7 +115,7 @@ def download_file(url, parent_remote, parent_local="../thor/test/data"):
 
         partial_filepath.rename(filepath)
     else:
-        raise Exception(
+        raise ValueError(
             f"Failed to download {url}. HTTP status code: {response.status_code}."
         )
 
@@ -164,7 +165,8 @@ def consolidate_netcdf(filepaths, fields=None, concat_dim="time"):
     Returns
     -------
     dataset : xarray.Dataset
-        The consolidated xarray dataset containing the selected variables from the input files.
+        The consolidated xarray dataset containing the selected variables
+        from the input files.
 
     """
     datasets = []
@@ -176,7 +178,7 @@ def consolidate_netcdf(filepaths, fields=None, concat_dim="time"):
         dataset = dataset[fields]
         datasets.append(dataset)
 
-    logger.debug(f"Concatenating datasets along {concat_dim}.")
+    logger.debug("Concatenating datasets along %s.", concat_dim)
     dataset = xr.concat(datasets, dim=concat_dim)
 
     return dataset
@@ -282,12 +284,38 @@ def cdsapi_retrieval(cds_name, request, local_path):
     -------
     None
     """
-    if pathlib.Path(local_path).exists():
-        logger.debug(f"{local_path} already exists.")
+    if Path(local_path).exists():
+        logger.debug("%s already exists.", local_path)
         return
 
-    if not pathlib.Path(local_path).parent.exists():
-        pathlib.Path(local_path).parent.mkdir(parents=True)
+    if not Path(local_path).parent.exists():
+        Path(local_path).parent.mkdir(parents=True)
 
     cdsc = cdsapi.Client()
     cdsc.retrieve(cds_name, request, local_path)
+
+
+def log_dataset_update(local_logger, name, time):
+    local_logger.debug("Updating %s dataset for %s", name, time)
+
+
+def log_convert(local_logger, name, filepath):
+    local_logger.debug("Converting %s data from %s", name, Path(filepath).name)
+
+
+def call_ncks(input_filepath, output_filepath, start, end, lat_range, lon_range):
+    command = (
+        f"ncks -d time,{start},{end} "
+        f"-d latitude,{lat_range[0]},{lat_range[1]} "
+        f"-d longitude,{lon_range[0]},{lon_range[1]} "
+        f"{input_filepath} {output_filepath}"
+    )
+    subprocess.run(command, shell=True, check=True)
+
+
+def get_parent(dataset_options):
+    if dataset_options["parent_local"] is not None:
+        parent = dataset_options["parent_local"]
+    else:
+        parent = dataset_options["parent_remote"]
+    return parent

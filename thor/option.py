@@ -2,7 +2,7 @@
 
 import yaml
 from pathlib import Path
-from thor.utils import now_str
+from thor.utils import now_str, check_component_options
 from thor.log import setup_logger
 
 
@@ -104,7 +104,9 @@ def mint_options(
     return options
 
 
-def boilerplate_object(name, hierarchy_level, deque_length=1):
+def boilerplate_object(
+    name, hierarchy_level, mask_options=None, deque_length=2, tags=None
+):
     """THOR object boilerplate.
 
     Parameters
@@ -124,10 +126,17 @@ def boilerplate_object(name, hierarchy_level, deque_length=1):
         Dictionary of boilerplate configuration options.
     """
 
+    if mask_options is None:
+        mask_options = {"save": False, "load": False}
+    else:
+        check_component_options(mask_options)
+
     options = {
         "name": name,
         "hierarchy_level": hierarchy_level,
         "deque_length": deque_length,
+        "mask_options": mask_options,
+        "tags": tags,
     }
     return options
 
@@ -135,9 +144,12 @@ def boilerplate_object(name, hierarchy_level, deque_length=1):
 def detected_object(
     name,
     dataset,
+    variable,
     hierarchy_level,
     detection_method,
     tracking_method,
+    altitudes=None,
+    tags=None,
 ):
     """Initialize THOR object configuration for detected objects, i.e.
     objects at the lowest hierarchy level.
@@ -160,9 +172,15 @@ def detected_object(
     """
 
     options = {
-        **boilerplate_object(name, hierarchy_level),
+        **boilerplate_object(name, hierarchy_level, tags=tags),
         "dataset": dataset,
-        "detection": {"method": detection_method, "altitudes": None},
+        "variable": variable,
+        "detection": {
+            "method": detection_method,
+            "altitudes": altitudes,
+            "flatten": "vertical_max",
+            "min_area": None,
+        },
         "tracking": {"method": tracking_method},
     }
 
@@ -170,11 +188,7 @@ def detected_object(
 
 
 def grouped_object(
-    name,
-    member_objects,
-    hierarchy_level,
-    grouping_method,
-    tracking_method,
+    name, member_objects, hierarchy_level, grouping_method, tracking_method, tags=None
 ):
     """Initialize THOR object configuration for grouped objects, i.e.
     objects at higher hierarchy levels.
@@ -199,7 +213,7 @@ def grouped_object(
     """
 
     options = {
-        **boilerplate_object(name, hierarchy_level),
+        **boilerplate_object(name, hierarchy_level, tags=tags),
         "dataset": None,
         "grouping": {"method": grouping_method, "member_objects": member_objects},
         "tracking": {"method": tracking_method, "options": mint_options()},
@@ -212,11 +226,13 @@ def grouped_object(
 def cell_object(
     name="cell",
     dataset="cpol",
+    variable="reflectivity",
     hierarchy_level=0,
     detection_method="steiner",
     tracking_method="tint",
     global_shift_altitude=2000,
     altitudes=None,
+    tags=None,
 ):
     """Creates default THOR configuration for tracking cells.
 
@@ -232,7 +248,13 @@ def cell_object(
     """
 
     options = detected_object(
-        name, dataset, hierarchy_level, detection_method, tracking_method
+        name,
+        dataset,
+        variable,
+        hierarchy_level,
+        detection_method,
+        tracking_method,
+        tags=tags,
     )
     options["detection"]["altitudes"] = altitudes
     if tracking_method == "tint":
@@ -246,13 +268,14 @@ def cell_object(
 def anvil_object(
     name="anvil",
     dataset="cpol",
-    input_method="filenames",
+    variable="reflectivity",
     hierarchy_level=0,
     detection_method="threshold",
     threshold=15,
     tracking_method="tint",
     global_shift_altitude=8000,
     altitudes=None,
+    tags=None,
 ):
     """Creates default THOR configuration for tracking anvils.
 
@@ -268,7 +291,13 @@ def anvil_object(
     """
 
     options = detected_object(
-        name, dataset, hierarchy_level, detection_method, tracking_method
+        name,
+        dataset,
+        variable,
+        hierarchy_level,
+        detection_method,
+        tracking_method,
+        tags=tags,
     )
     if threshold:
         options["detection"]["threshold"] = threshold
@@ -284,10 +313,11 @@ def anvil_object(
 # Hierarchy level 1 object configurations.
 def mcs_object(
     name="mcs",
-    member_objects=["cell", "anvil"],
+    member_objects=["cell", "middle_cloud", "anvil"],
     hierarchy_level=1,
     grouping_method="graph",
     tracking_method="mint",
+    tags=None,
 ):
     """Creates default THOR configuration for tracking MCSs.
 
@@ -303,13 +333,18 @@ def mcs_object(
     """
 
     options = grouped_object(
-        name, member_objects, hierarchy_level, grouping_method, tracking_method
+        name,
+        member_objects,
+        hierarchy_level,
+        grouping_method,
+        tracking_method,
+        tags=tags,
     )
     return options
 
 
 # Consolidated configurations.
-def cell(save=True, **kwargs):
+def cell(dataset, tags=None, **kwargs):
     """Creates default THOR configuration for tracking convective cells.
 
     Parameters
@@ -323,15 +358,12 @@ def cell(save=True, **kwargs):
         Dictionary of default configuration options.
     """
 
-    options = [{"cell": cell_object(**kwargs)}]
-
-    if save:
-        save_options(options, name="cell")
+    options = [{"cell": cell_object(dataset=dataset, tags=tags, **kwargs)}]
 
     return options
 
 
-def anvil(save=True, **kwargs):
+def anvil(dataset, tags=None, **kwargs):
     """Creates default THOR configuration for tracking stratiform anvils.
 
     Parameters
@@ -345,15 +377,12 @@ def anvil(save=True, **kwargs):
         Dictionary of default configuration options.
     """
 
-    options = [{"anvil": anvil_object(**kwargs)}]
-
-    if save:
-        save_options(options, name="anvil")
+    options = [{"anvil": anvil_object(dataset=dataset, tags=tags, **kwargs)}]
 
     return options
 
 
-def mcs(save=True, **kwargs):
+def mcs(dataset, tags=None, **kwargs):
     """Creates default THOR configuration for tracking MCSs.
 
     Parameters
@@ -369,20 +398,17 @@ def mcs(save=True, **kwargs):
 
     options = [
         {
-            "cell": cell_object(altitudes=[500, 3500], dataset="cpol"),
+            "cell": cell_object(altitudes=[500, 3500], dataset=dataset),
             "middle_cloud": cell_object(
                 name="middle_cloud",
-                dataset="cpol",
+                dataset=dataset,
                 tracking_method=None,
                 altitudes=[3500, 7500],
             ),
-            "anvil": anvil_object(altitudes=[7500, 10000], dataset="cpol"),
+            "anvil": anvil_object(altitudes=[7500, 10000], dataset=dataset),
         },
-        {"mcs": mcs_object()},
+        {"mcs": mcs_object(tags=tags)},
     ]
-
-    if save:
-        save_track_options(options, filename="mcs")
 
     return options
 
@@ -416,7 +442,6 @@ def save_track_options(
     if filename is None:
         filename = "track_options"
         append_time = True
-    logger.debug(f"Saving track options to {options_directory / filename}")
     save_options(options, filename, options_directory, append_time)
 
 
@@ -431,10 +456,11 @@ def save_options(options, filename=None, options_directory=None, append_time=Fal
         filename += f"_{now_str()}"
     filename += ".yaml"
     if options_directory is None:
-        options_directory = Path(__file__).parent
+        options_directory = Path(__file__).parent / "options"
     if not options_directory.exists():
         options_directory.mkdir(parents=True)
     filepath = options_directory / filename
+    logger.debug("Saving options to %s", options_directory / filename)
     with open(filepath, "w") as outfile:
         yaml.dump(
             options,
@@ -443,3 +469,11 @@ def save_options(options, filename=None, options_directory=None, append_time=Fal
             allow_unicode=True,
             sort_keys=False,
         )
+
+
+def consolidate_options(options_list):
+    """Consolidate the options into a dictionary."""
+    consolidated_options = {}
+    for options in options_list:
+        consolidated_options[options["name"]] = options
+    return consolidated_options
