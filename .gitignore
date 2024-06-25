@@ -9,4 +9,5 @@ log
 .flake8
 .vscode
 thor/test/data
+thor/test/runtime_visualization
 thor/options
