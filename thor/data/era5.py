@@ -7,6 +7,7 @@ import tempfile
 import numpy as np
 import pandas as pd
 import xarray as xr
+import cdsapi
 from thor.log import setup_logger
 from thor.utils import format_string_list, get_hour_interval
 import thor.data.utils as utils
@@ -212,7 +213,7 @@ def generate_era5_filepaths(options, start=None, end=None, local=True):
     else:
         parent = options["parent_remote"]
 
-    base_filepath = f"{parent}/{options['data_format']}/{options['mode']}"
+    base_filepath = f"{parent}/era5/{options['data_format']}/{options['mode']}"
 
     times = np.arange(
         np.datetime64(f"{start.year:04}-{start.month:02}"),
@@ -272,7 +273,9 @@ def generate_cdsapi_requests(options, grid_options):
     # Add an hour to the end time to facilitate temporal interpolation
     end = pd.Timestamp(options["end"]) + pd.Timedelta(hours=1)
 
-    base_path = f"{options['download_dir']}/{options['data_format']}/{options['mode']}"
+    base_path = (
+        f"{options['parent_local']}/era5/{options['data_format']}/{options['mode']}"
+    )
 
     times = np.arange(
         np.datetime64(f"{start.year:04}-{start.month:02}"),
@@ -297,9 +300,10 @@ def generate_cdsapi_requests(options, grid_options):
                 "time": [f"{i:02}" for i in range(0, 24)],
             }
 
-            area = get_cdsapi_area(grid_options)
-            if area is not None:
-                request["area"] = area
+            lat = grid_options["latitude"]
+            lon = grid_options["longitude"]
+            area = [lat[-1], lon[0], lat[0], lon[-1]]
+            request["area"] = area
 
             daterange_str = format_daterange(time.year, time.month)
             local_path = (
@@ -312,24 +316,14 @@ def generate_cdsapi_requests(options, grid_options):
     return cds_name, requests, local_paths
 
 
-def get_cdsapi_area(grid_options):
-    """TBA."""
-    if (
-        grid_options["start_latitude"] is None
-        and grid_options["end_latitude"] is None
-        and grid_options["start_longitude"] is None
-        and grid_options["end_longitude"] is None
-    ):
-        return None
-    area = []
-    keys = ["end_latitude", "start_longitude", "start_latitude", "end_longitude"]
-    bounds = [90, 0, -90, 360]
-    for key, bound in zip(keys, bounds):
-        if grid_options[key] is None:
-            area.append(bound)
-        else:
-            area.append(grid_options[key])
-    return area
+def issue_cdsapi_requests(cds_name, requests, local_paths):
+    """Issue cdsapi requests."""
+
+    c = cdsapi.Client()
+    for field in requests.keys():
+        for i in range(len(local_paths[field])):
+            Path(local_paths[field][i]).parent.mkdir(parents=True, exist_ok=True)
+            c.retrieve(cds_name, requests[field][i], local_paths[field][i])
 
 
 def convert_era5():
@@ -349,6 +343,17 @@ def update_dataset(time, input_record, dataset_options, grid_options):
 
     start, end = get_hour_interval(time)
     filepaths = generate_era5_filepaths(dataset_options, start, end, local=True)
+    all_files_exist = all(
+        Path(filepath).exists() for field in filepaths.values() for filepath in field
+    )
+    if not all_files_exist and dataset_options["attempt_download"]:
+        logger.warning("One or more filepaths do not exist; attempting download.")
+        cds_name, requests, local_paths = generate_cdsapi_requests(
+            dataset_options, grid_options
+        )
+        issue_cdsapi_requests(cds_name, requests, local_paths)
+        pass
+
     lat_range = (min(grid_options["latitude"]), max(grid_options["latitude"]))
     lon_range = (min(grid_options["longitude"]), max(grid_options["longitude"]))
 

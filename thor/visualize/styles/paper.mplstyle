@@ -1,0 +1,8 @@
+font.family: "serif"
+font.serif: "Liberation Serif"
+font.size: 12
+
+mathtext.fontset: "dejavuserif"
+
+savefig.facecolor : "white"
+savefig.dpi : 200

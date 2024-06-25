@@ -18,6 +18,7 @@ def boilerplate_options(
     parent_local=None,
     converted_options=None,
     filepaths=None,
+    attempt_download=True,
     deque_length=2,
     use="track",
 ):
@@ -44,6 +45,12 @@ def boilerplate_options(
         Dictionary containing the mask options; default is None.
     filepaths : list, optional
         List of filepaths to the files to be converted; default is None.
+    attempt_download : bool, optional
+        Whether to attempt to download the data; default is True.
+    deque_length : int, optional
+        The length of the deque; default is 2.
+    use : str, optional
+        The use of the dataset; default is "track".
 
     Returns
     -------
@@ -65,6 +72,7 @@ def boilerplate_options(
         "parent_local": parent_local,
         "converted_options": converted_options,
         "filepaths": filepaths,
+        "attempt_download": attempt_download,
         "deque_length": deque_length,
         "use": use,
     }

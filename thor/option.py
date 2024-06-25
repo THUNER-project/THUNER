@@ -105,7 +105,13 @@ def mint_options(
 
 
 def boilerplate_object(
-    name, hierarchy_level, mask_options=None, deque_length=2, tags=None
+    name,
+    hierarchy_level,
+    method="detect",
+    mask_options=None,
+    deque_length=2,
+    tags=None,
+    display=False,
 ):
     """THOR object boilerplate.
 
@@ -134,9 +140,11 @@ def boilerplate_object(
     options = {
         "name": name,
         "hierarchy_level": hierarchy_level,
+        "method": method,
         "deque_length": deque_length,
         "mask_options": mask_options,
         "tags": tags,
+        "display": display,
     }
     return options
 
@@ -149,6 +157,7 @@ def detected_object(
     detection_method,
     tracking_method,
     altitudes=None,
+    min_area=10,
     tags=None,
 ):
     """Initialize THOR object configuration for detected objects, i.e.
@@ -164,6 +173,11 @@ def detected_object(
         Method used to detect object.
     tracking_method : str or None
         Method used to track object.
+    altitudes : list, optional
+        Altitudes over which to detect objects.
+    min_area : int, optional
+        Minimum area of object in km squared.
+
 
     Returns
     -------
@@ -179,7 +193,7 @@ def detected_object(
             "method": detection_method,
             "altitudes": altitudes,
             "flatten": "vertical_max",
-            "min_area": None,
+            "min_area": min_area,
         },
         "tracking": {"method": tracking_method},
     }
@@ -188,7 +202,13 @@ def detected_object(
 
 
 def grouped_object(
-    name, member_objects, hierarchy_level, grouping_method, tracking_method, tags=None
+    name,
+    dataset,
+    member_objects,
+    hierarchy_level,
+    grouping_method,
+    tracking_method,
+    tags=None,
 ):
     """Initialize THOR object configuration for grouped objects, i.e.
     objects at higher hierarchy levels.
@@ -197,6 +217,8 @@ def grouped_object(
     ----------
     name : str
         Name of object to track.
+    dataset : str
+        Name of dataset to use for plotting.
     member_objects : list
         List of objects to group.
     hierarchy_level : int
@@ -206,6 +228,7 @@ def grouped_object(
     tracking_method : str or None
         Method used to track object.
 
+
     Returns
     -------
     options : dict
@@ -213,8 +236,8 @@ def grouped_object(
     """
 
     options = {
-        **boilerplate_object(name, hierarchy_level, tags=tags),
-        "dataset": None,
+        **boilerplate_object(name, hierarchy_level, method="group", tags=tags),
+        "dataset": dataset,
         "grouping": {"method": grouping_method, "member_objects": member_objects},
         "tracking": {"method": tracking_method, "options": mint_options()},
     }
@@ -228,10 +251,12 @@ def cell_object(
     dataset="cpol",
     variable="reflectivity",
     hierarchy_level=0,
-    detection_method="steiner",
+    detection_method="threshold",
+    threshold=40,
     tracking_method="tint",
     global_shift_altitude=2000,
     altitudes=None,
+    min_area=20,
     tags=None,
 ):
     """Creates default THOR configuration for tracking cells.
@@ -255,7 +280,10 @@ def cell_object(
         detection_method,
         tracking_method,
         tags=tags,
+        min_area=min_area,
     )
+    if threshold:
+        options["detection"]["threshold"] = threshold
     options["detection"]["altitudes"] = altitudes
     if tracking_method == "tint":
         options["tracking"]["options"] = tint_options(
@@ -275,6 +303,7 @@ def anvil_object(
     tracking_method="tint",
     global_shift_altitude=8000,
     altitudes=None,
+    min_area=50,
     tags=None,
 ):
     """Creates default THOR configuration for tracking anvils.
@@ -297,6 +326,7 @@ def anvil_object(
         hierarchy_level,
         detection_method,
         tracking_method,
+        min_area=min_area,
         tags=tags,
     )
     if threshold:
@@ -312,6 +342,7 @@ def anvil_object(
 
 # Hierarchy level 1 object configurations.
 def mcs_object(
+    dataset,
     name="mcs",
     member_objects=["cell", "middle_cloud", "anvil"],
     hierarchy_level=1,
@@ -334,6 +365,7 @@ def mcs_object(
 
     options = grouped_object(
         name,
+        dataset,
         member_objects,
         hierarchy_level,
         grouping_method,
@@ -402,12 +434,13 @@ def mcs(dataset, tags=None, **kwargs):
             "middle_cloud": cell_object(
                 name="middle_cloud",
                 dataset=dataset,
+                threshold=20,
                 tracking_method=None,
                 altitudes=[3500, 7500],
             ),
             "anvil": anvil_object(altitudes=[7500, 10000], dataset=dataset),
         },
-        {"mcs": mcs_object(tags=tags)},
+        {"mcs": mcs_object(tags=tags, dataset=dataset)},
     ]
 
     return options

@@ -214,6 +214,7 @@ def new_geographic_grid(latitudes, longitudes, dlat, dlon):
 
 
 def get_cell_areas(latitudes, longitudes):
+    """Get cell areas in km^2."""
 
     geod = Geod(ellps="WGS84")
     d_lon = longitudes[1:] - longitudes[:-1]
@@ -246,4 +247,4 @@ def get_cell_areas(latitudes, longitudes):
         areas = np.apply_along_axis(pad, axis=0, arr=areas)
         areas = np.apply_along_axis(pad, axis=1, arr=areas)
 
-    return areas
+    return areas / 1e6

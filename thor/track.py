@@ -5,6 +5,8 @@ from thor.log import setup_logger
 import thor.option as option
 import thor.data.dispatch as dispatch
 import thor.detect.detect as detect
+import thor.group.group as group
+import thor.visualize as visualize
 
 logger = setup_logger(__name__)
 
@@ -101,7 +103,14 @@ def initialise_tracks(track_options, data_options):
     return tracks
 
 
-def simultaneous_track(times, data_options, grid_options, track_options, tag_options):
+def simultaneous_track(
+    times,
+    data_options,
+    grid_options,
+    track_options,
+    tag_options,
+    visualize_options=None,
+):
     """
     Track objects across the hierachy simultaneously.
 
@@ -146,6 +155,7 @@ def simultaneous_track(times, data_options, grid_options, track_options, tag_opt
                 grid_options,
                 level_options,
                 tag_options,
+                visualize_options,
             )
         dispatch.update_tag_input_records(
             time, input_records["tag"], data_options, grid_options
@@ -162,6 +172,7 @@ def track_level(
     grid_options,
     level_options,
     tag_options,
+    visualize_options,
 ):
     """Track a hierarchy level."""
 
@@ -181,6 +192,7 @@ def track_level(
             grid_options,
             level_options[obj],
             tag_options,
+            visualize_options,
         )
 
     return level_tracks
@@ -194,13 +206,22 @@ def track_object(
     grid_options,
     object_options,
     tag_options,
+    visualize_options,
 ):
     """Track the given object."""
 
-    detect.detect(track_input_records, object_options, grid_options)
-    # detect.
+    get_objects = get_objects_dispatcher.get(object_options["method"])
+    get_objects(track_input_records, object_tracks, object_options, grid_options)
     # match
-
     # write
+    visualize.runtime.visualize(
+        track_input_records, object_tracks, object_options, visualize_options
+    )
 
     return object_tracks
+
+
+get_objects_dispatcher = {
+    "detect": detect.detect,
+    "group": group.group,
+}

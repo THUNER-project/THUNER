@@ -104,3 +104,9 @@ def get_hour_interval(time, interval=6):
     start = np.datetime64(time, "h") - np.timedelta64(hour - start_hour, "h")
     end = start + np.timedelta64(interval, "h")
     return start, end
+
+
+def format_time(time):
+    """Format a datetime64 object as a filename safe string."""
+    time_seconds = time.astype("datetime64[s]")
+    return time_seconds.astype(datetime).strftime("%Y%m%d_%H%M%S")

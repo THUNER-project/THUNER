@@ -314,8 +314,24 @@ def call_ncks(input_filepath, output_filepath, start, end, lat_range, lon_range)
 
 
 def get_parent(dataset_options):
-    if dataset_options["parent_local"] is not None:
-        parent = dataset_options["parent_local"]
+    conv_options = dataset_options["converted_options"]
+    local = dataset_options["parent_local"]
+    remote = dataset_options["parent_remote"]
+    if conv_options["load"]:
+        if conv_options["parent_converted"] is not None:
+            parent = conv_options["parent_converted"]
+        elif local is not None:
+            conv_options["parent_converted"] = local.replace("raw", "converted")
+            parent = conv_options["parent_converted"]
+        elif conv_options["parent_remote"] is not None:
+            conv_options["parent_converted"] = remote.replace("raw", "converted")
+            parent = conv_options["parent_converted"]
+        else:
+            raise ValueError("Could not find/create parent_converted directory.")
+    elif local is not None:
+        parent = local
+    elif remote is not None:
+        parent = remote
     else:
-        parent = dataset_options["parent_remote"]
+        raise ValueError("No parent directory provided.")
     return parent

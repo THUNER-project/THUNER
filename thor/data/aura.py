@@ -251,8 +251,8 @@ def generate_cpol_filepaths(options):
         Times associated with the URLs.
     """
 
-    start = drop_time(np.datetime64(options["start"]))
-    end = drop_time(np.datetime64(options["end"]))
+    start = np.datetime64(options["start"]).astype("datetime64[s]")
+    end = np.datetime64(options["end"]).astype("datetime64[s]")
 
     filepaths = []
 
@@ -440,7 +440,7 @@ def convert_cpol(time, input_record, dataset_options, grid_options):
         cell_areas = grid.get_cell_areas(ds.latitude.values, ds.longitude.values)
         ds["cell_area"] = (["latitude", "longitude"], cell_areas)
         ds["cell_area"].attrs.update(
-            {"units": "m^2", "standard_name": "cell_area", "valid_min": 0}
+            {"units": "km^2", "standard_name": "cell_area", "valid_min": 0}
         )
 
     elif grid_options["name"] == "cartesian":
