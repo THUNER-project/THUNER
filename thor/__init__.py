@@ -11,9 +11,5 @@ if sys.version_info < (3, 10):
 
     print(warning)
 
-# from .module import (
-#     function,
-# )
-
 # Set version number
 __version__ = "0.0.1"

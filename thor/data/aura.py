@@ -10,9 +10,10 @@ import pandas as pd
 from thor.log import setup_logger
 from thor.data.odim import convert_odim
 import thor.data.utils as utils
-from thor.utils import format_string_list, drop_time
+from thor.utils import format_string_list
 import thor.data.option as option
 import thor.grid as grid
+from thor.config import get_outputs_directory
 
 
 logger = setup_logger(__name__)
@@ -23,7 +24,7 @@ def cpol_data_options(
     end="2005-11-14T00:00:00",
     parent_remote="https://dapds00.nci.org.au/thredds/fileServer/hj10",
     save_local=False,
-    parent_local=str(Path(__file__).parent.parent / "test/data/raw"),
+    parent_local=str(get_outputs_directory() / "input_data/raw"),
     converted_options=None,
     filepaths=None,
     use="track",
@@ -109,7 +110,7 @@ def operational_data_options(
     end="2005-11-14T00:00:00",
     parent_remote="https://dapds00.nci.org.au/thredds/fileServer/rq0",
     save_local=False,
-    parent_local="../test/data/raw",
+    parent_local=str(get_outputs_directory() / "input_data/raw"),
     converted_options=None,
     filepaths=None,
     use="track",

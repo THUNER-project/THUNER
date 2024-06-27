@@ -1,8 +1,8 @@
 """Methods for creating and modifying default tagging options."""
 
-from pathlib import Path
 from thor.log import setup_logger
 from thor.option import save_options
+from thor.config import get_outputs_directory
 
 logger = setup_logger(__name__)
 
@@ -44,7 +44,7 @@ def save_tag_options(
     """TBA."""
 
     if options_directory is None:
-        options_directory = Path(__file__).parent / "options/tag_options"
+        options_directory = get_outputs_directory() / "options/tag_options"
     if filename is None:
         filename = tag_options["name"]
         append_time = True

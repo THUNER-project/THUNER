@@ -13,6 +13,7 @@ from thor.utils import format_string_list, get_hour_interval
 import thor.data.utils as utils
 import thor.data.option as option
 import thor.tag as tag
+from thor.config import get_outputs_directory
 
 
 logger = setup_logger(__name__)
@@ -23,7 +24,7 @@ def data_options(
     end="2005-11-14T00:00:00",
     parent_remote="/g/data/rt52/era5",
     save_local=False,
-    parent_local="../test/data/raw/era5",
+    parent_local=str(get_outputs_directory() / "input_data/raw/"),
     converted_options=None,
     filepaths=None,
     use="tag",

@@ -6,6 +6,7 @@ import inspect
 import numpy as np
 from pyproj import Geod
 from thor.utils import almost_equal, pad
+from thor.config import get_outputs_directory
 from thor.log import setup_logger
 from thor.option import save_options
 
@@ -118,7 +119,7 @@ def save_grid_options(
     grid_options, filename=None, options_directory=None, append_time=False
 ):
     if options_directory is None:
-        options_directory = Path(__file__).parent / "options/grid_options"
+        options_directory = get_outputs_directory() / "options/grid_options"
     if filename is None:
         filename = grid_options["name"]
         append_time = True

@@ -3,6 +3,7 @@
 import yaml
 from pathlib import Path
 from thor.utils import now_str, check_component_options
+from thor.config import get_outputs_directory
 from thor.log import setup_logger
 
 
@@ -482,7 +483,7 @@ def save_track_options(
 ):
 
     if options_directory is None:
-        options_directory = Path(__file__).parent / "options/track_options"
+        options_directory = get_outputs_directory() / "options/track_options"
     if filename is None:
         filename = "track_options"
         append_time = True
@@ -500,7 +501,7 @@ def save_options(options, filename=None, options_directory=None, append_time=Fal
         filename += f"_{now_str()}"
     filename += ".yaml"
     if options_directory is None:
-        options_directory = Path(__file__).parent / "options"
+        options_directory = get_outputs_directory() / "options"
     if not options_directory.exists():
         options_directory.mkdir(parents=True)
     filepath = options_directory / filename

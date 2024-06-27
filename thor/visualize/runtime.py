@@ -80,6 +80,7 @@ def visualize(track_input_records, object_tracks, object_options, visualize_opti
                 filename = f"{format_time(grid_time)}.png"
                 filepath = (
                     Path(object_visualize_options["parent_local"])
+                    / "runtime"
                     / figure
                     / object_visualize_options["name"]
                     / filename

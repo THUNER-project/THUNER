@@ -6,72 +6,66 @@ See: https://packaging.python.org/en/latest/guides/single-sourcing-package-versi
 
 from setuptools import setup
 from setuptools.command.install import install
+from setuptools.command.develop import develop
 from pathlib import Path
 import glob
 import json
+import os
 
 
 DOCLINES = __doc__.split("\n")
 
 
-def create_user_config():
+def create_user_config(output_directory=Path.home() / "THOR_output"):
     # Determine the OS-specific path
     if os.name == "nt":  # Windows
-        config_dir = Path(os.getenv("LOCALAPPDATA")) / "YourApp"
+        config_path = Path(os.getenv("LOCALAPPDATA")) / "THOR" / "config.json"
     elif os.name == "posix":
         if "HOME" in os.environ:  # Linux/macOS
-            config_dir = Path(os.getenv("HOME")) / ".config" / "YourApp"
+            config_path = Path.home() / ".config" / "THOR" / "config.json"
         else:  # Fallback for other POSIX systems
-            config_dir = Path("/etc") / "YourApp"
+            config_path = Path("/etc") / "THOR" / "config.json"
     else:
-        raise Exception("Unsupported OS")
+        raise Exception("Unsupported operating system.")
 
     # Ensure the config directory exists
-    config_dir.mkdir(parents=True, exist_ok=True)
+    config_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Define the path to the config.json file
-    config_path = config_dir / "config.json"
-
-    # Check if config.json already exists to avoid overwriting
-    if not config_path.exists():
-        # Create a new config.json with initial settings
-        with open(config_path, "w") as config_file:
-            json.dump({"key": "value"}, config_file)
+    # Create a new config.json with initial settings
+    with open(config_path, "w") as config_file:
+        json.dump({"outputs_directory": str(output_directory)}, config_file)
+        print(f"Created new configuration file at {config_path}")
 
     return str(config_path)
 
 
-def save_output_directory(output_directory=Path.home() / "THOR_output"):
-    config = {"output_directory": str(output_directory)}
-    config_path = Path(__file__).parent / "config.json"
-    if not config_path.parent.exists():
-        config_path.parent.mkdir(parents=True)
-    with config_path.open("w") as f:
-        json.dump(
-            config,
-            f,
-            indent=4,
-            ensure_ascii=False,
-        )
+def post_setup():
+    output_dir = input(
+        "Please specify the default output directory. "
+        f"Leave blank for {Path.home() / 'THOR_output'}: "
+    )
+    if output_dir == "":
+        output_dir = Path.home() / "THOR_output"
+    try:
+        output_dir.mkdir(parents=True, exist_ok=True)
+    except FileNotFoundError:
+        print("Invalid directory. Using default.")
+        output_dir = Path.home() / "THOR_output"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+    create_user_config(output_dir)
 
 
 class CustomInstall(install):
     def run(self):
         install.run(self)
-        output_dir = input(
-            "Please specify the default output directory. "
-            f"Leave blank for {Path.home() / 'THOR_output'}: "
-        )
-        if output_dir == "":
-            output_dir = Path.home() / "THOR_output"
-        try:
-            output_dir.mkdir(parents=True, exist_ok=True)
-        except FileNotFoundError:
-            print("Invalid directory. Using default.")
-            output_dir = Path.home() / "THOR_output"
-            output_dir.mkdir(parents=True, exist_ok=True)
+        post_setup()
 
-        save_output_directory(output_dir)
+
+class CustomDevelop(develop):
+    def run(self):
+        develop.run(self)
+        post_setup()
 
 
 def read(pkg_name):
@@ -165,5 +159,8 @@ setup(
     install_requires=get_requirements("requirements.txt"),
     test_requires=["pytest"],
     zip_safe=False,
-    cmdclass={"install": CustomInstall},
+    cmdclass={
+        "install": CustomInstall,
+        "develop": CustomDevelop,
+    },
 )

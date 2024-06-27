@@ -1,9 +1,9 @@
 """General data options methods."""
 
-from pathlib import Path
 from thor.log import setup_logger
 from thor.option import save_options
 from thor.utils import check_component_options
+from thor.config import get_outputs_directory
 
 
 logger = setup_logger(__name__)
@@ -86,7 +86,7 @@ def save_data_options(
     """TBA."""
 
     if options_directory is None:
-        options_directory = Path(__file__).parent.parent / "options/data_options"
+        options_directory = get_outputs_directory() / "options/data_options"
     if filename is None:
         filename = "data_options"
         append_time = True

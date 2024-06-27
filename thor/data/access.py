@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from thor.log import setup_logger
 from thor.utils import format_string_list, drop_time
-from pathlib import Path
+from thor.config import get_outputs_directory
 import yaml
 
 
@@ -20,7 +20,7 @@ def create_options(
     mode="fcmm",
     level="sfc",
     init_time="0000",
-    parent="https://dapds00.nci.org.au/thredds/dodsC/wr45/ops_aps3",
+    parent_local="https://dapds00.nci.org.au/thredds/dodsC/wr45/ops_aps3",
     fields=["radar_refl_1km", "maxcol_refl", "uwnd10m", "vwnd10m"],
     save=False,
     **kwargs,
@@ -72,7 +72,7 @@ def create_options(
         "mode": mode,
         "level": level,
         "init_time": init_time,
-        "parent": parent,
+        "parent_local": parent_local,
         "fields": fields,
     }
 
@@ -80,7 +80,7 @@ def create_options(
         options[key] = value
 
     if save:
-        filepath = Path(__file__).parent.parent / "option/default/access.yaml"
+        filepath = str(get_outputs_directory() / "option/access.yaml")
         logger.debug(f"Saving options to {filepath}")
         with open(filepath, "w") as outfile:
             yaml.dump(
@@ -178,7 +178,8 @@ def generate_access_urls(options):
         for field in options["fields"]:
             url = (
                 f"{base_url}/{time.year:04}{time.month:02}{time.day:02}/"
-                f"{options['init_time']}/{options['mode']}/{options['level']}/{field}.nc"
+                f"{options['init_time']}/{options['mode']}"
+                f"/{options['level']}/{field}.nc"
             )
             urls[field].append(url)
     return urls, times

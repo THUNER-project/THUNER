@@ -1,8 +1,8 @@
 """Display options methods."""
 
-from pathlib import Path
 from thor.log import setup_logger
 from thor.option import save_options
+from thor.config import get_outputs_directory
 
 logger = setup_logger(__name__)
 
@@ -29,6 +29,9 @@ def boilerplate_options(
     options : dict
         Dictionary containing the display options.
     """
+
+    if parent_local is None:
+        parent_local = str(get_outputs_directory() / "visualize")
 
     options = {
         "name": name,
@@ -81,7 +84,7 @@ def save_display_options(
     """TBA."""
 
     if options_directory is None:
-        options_directory = Path(__file__).parent.parent / "options/visualize_options"
+        options_directory = get_outputs_directory() / "options/visualize_options"
     if filename is None:
         filename = "visualize_options"
         append_time = True

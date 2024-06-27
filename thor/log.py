@@ -1,7 +1,7 @@
 """Set up logging."""
 
 import logging
-from pathlib import Path
+from thor.config import get_outputs_directory
 
 
 def setup_logger(name, level=logging.DEBUG):
@@ -31,9 +31,8 @@ def setup_logger(name, level=logging.DEBUG):
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
 
-    log_dir = Path(__file__).parent.parent / "log"
+    log_dir = get_outputs_directory() / "log"
     log_dir.mkdir(parents=True, exist_ok=True)
-
     log_filepath = log_dir / f"{name}.log"
 
     file_handler = logging.FileHandler(log_filepath)
