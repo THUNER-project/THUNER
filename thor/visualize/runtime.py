@@ -15,9 +15,9 @@ def mask(input_record, object_tracks, object_options, figure_options):
     """Plot masks."""
 
     grid = input_record["current_grid"]
-    if object_options["detection"]["flatten"] is not None:
+    if object_options["detection"]["flatten_method"] is not None:
         flattener = detect.detect.flattener_dispatcher.get(
-            object_options["detection"]["flatten"]
+            object_options["detection"]["flatten_method"]
         )
         flat_grid = flattener(grid, object_options)
     else:

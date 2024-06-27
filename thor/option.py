@@ -109,6 +109,7 @@ def boilerplate_object(
     hierarchy_level,
     method="detect",
     mask_options=None,
+    mask_directory=None,
     deque_length=2,
     tags=None,
     display=False,
@@ -131,6 +132,9 @@ def boilerplate_object(
     options : dict
         Dictionary of boilerplate configuration options.
     """
+
+    if mask_directory is None:
+        mask_directory = Path(__file__).parent / "masks"
 
     if mask_options is None:
         mask_options = {"save": False, "load": False}
@@ -156,6 +160,7 @@ def detected_object(
     hierarchy_level,
     detection_method,
     tracking_method,
+    flatten_method="vertical_max",
     altitudes=None,
     min_area=10,
     tags=None,
@@ -192,7 +197,7 @@ def detected_object(
         "detection": {
             "method": detection_method,
             "altitudes": altitudes,
-            "flatten": "vertical_max",
+            "flatten_method": flatten_method,
             "min_area": min_area,
         },
         "tracking": {"method": tracking_method},
@@ -251,11 +256,12 @@ def cell_object(
     dataset="cpol",
     variable="reflectivity",
     hierarchy_level=0,
-    detection_method="threshold",
-    threshold=40,
+    detection_method="steiner",
+    flatten_method="cross_section",
+    threshold=None,
     tracking_method="tint",
     global_shift_altitude=2000,
-    altitudes=None,
+    altitudes=[3e3],
     min_area=20,
     tags=None,
 ):
@@ -279,12 +285,13 @@ def cell_object(
         hierarchy_level,
         detection_method,
         tracking_method,
+        altitudes=altitudes,
+        flatten_method=flatten_method,
         tags=tags,
         min_area=min_area,
     )
     if threshold:
         options["detection"]["threshold"] = threshold
-    options["detection"]["altitudes"] = altitudes
     if tracking_method == "tint":
         options["tracking"]["options"] = tint_options(
             global_shift_altitude=global_shift_altitude
@@ -430,12 +437,16 @@ def mcs(dataset, tags=None, **kwargs):
 
     options = [
         {
-            "cell": cell_object(altitudes=[500, 3500], dataset=dataset),
+            "cell": cell_object(
+                altitudes=[3000], dataset=dataset, flatten_method="cross_section"
+            ),
             "middle_cloud": cell_object(
                 name="middle_cloud",
                 dataset=dataset,
                 threshold=20,
                 tracking_method=None,
+                detection_method="threshold",
+                flatten_method="vertical_max",
                 altitudes=[3500, 7500],
             ),
             "anvil": anvil_object(altitudes=[7500, 10000], dataset=dataset),

@@ -1,210 +1,254 @@
-# Contributed by Valentin Louf. Original code from Py-ART.
+"""
+Classify reflectivity using Steiner (1995) scheme. Based on code by Valentin Louf,
+in turn adapted from Py-ART code. The method has been extended to cope with
+irregular grids, and geographic coordinates. In geographic coordinates, we determine
+the points within the background and convective radii using the Haversine distance.
+Note these radii are at most 11 km, so Haversine is accurate enough.
+"""
 
 import numpy as np
+from itertools import product
+from thor.log import setup_logger
+from numba import njit, int32, float32
+from numba.typed import List
 
-from numba import njit
-from numba import int32
+
+logger = setup_logger(__name__)
+
+use_numba = False
 
 
-@njit()
-def convective_radius(ze_bkg, area_relation):
+def conditional_jit(use_numba=True, *jit_args, **jit_kwargs):
     """
-    Given a mean background reflectivity value, we determine via a step
-    function what the corresponding convective radius would be.
-    Higher background reflectivitives are expected to have larger
-    convective influence on surrounding areas, so a larger convective
-    radius would be prescribed.
+    A decorator that applies Numba's JIT compilation to a function if use_numba is True.
+    Otherwise, it returns the original function. It also adjusts type aliases based on the
+    usage of Numba.
     """
-    if area_relation == 0:
-        if ze_bkg < 30:
-            conv_rad = 1000.0
-        elif (ze_bkg >= 30) & (ze_bkg < 35.0):
-            conv_rad = 2000.0
-        elif (ze_bkg >= 35.0) & (ze_bkg < 40.0):
-            conv_rad = 3000.0
-        elif (ze_bkg >= 40.0) & (ze_bkg < 45.0):
-            conv_rad = 4000.0
+
+    def decorator(func):
+        if use_numba:
+            # Define type aliases for use with Numba
+            globals()["int32"] = int32
+            globals()["float32"] = float32
+            globals()["List"] = List
+            return njit(*jit_args, **jit_kwargs)(func)
         else:
-            conv_rad = 5000.0
+            # Define type aliases for use without Numba
+            globals()["int32"] = np.int32
+            globals()["float32"] = np.float32
+            globals()["List"] = list
+            return func
 
-    if area_relation == 1:
-        if ze_bkg < 25:
-            conv_rad = 1000.0
-        elif (ze_bkg >= 25) & (ze_bkg < 30.0):
-            conv_rad = 2000.0
-        elif (ze_bkg >= 30.0) & (ze_bkg < 35.0):
-            conv_rad = 3000.0
-        elif (ze_bkg >= 35.0) & (ze_bkg < 40.0):
-            conv_rad = 4000.0
-        else:
-            conv_rad = 5000.0
-
-    if area_relation == 2:
-        if ze_bkg < 20:
-            conv_rad = 1000.0
-        elif (ze_bkg >= 20) & (ze_bkg < 25.0):
-            conv_rad = 2000.0
-        elif (ze_bkg >= 25.0) & (ze_bkg < 30.0):
-            conv_rad = 3000.0
-        elif (ze_bkg >= 30.0) & (ze_bkg < 35.0):
-            conv_rad = 4000.0
-        else:
-            conv_rad = 5000.0
-
-    if area_relation == 3:
-        if ze_bkg < 40:
-            conv_rad = 0.0
-        elif (ze_bkg >= 40) & (ze_bkg < 45.0):
-            conv_rad = 1000.0
-        elif (ze_bkg >= 45.0) & (ze_bkg < 50.0):
-            conv_rad = 2000.0
-        elif (ze_bkg >= 50.0) & (ze_bkg < 55.0):
-            conv_rad = 6000.0
-        else:
-            conv_rad = 8000.0
-
-    return conv_rad
+    return decorator
 
 
-@njit()
-def peakedness(ze_bkg, peak_relation):
-    """
-    Given a background reflectivity value, we determine what the necessary
-    peakedness (or difference) has to be between a grid point's
-    reflectivity and the background reflectivity in order for that grid
-    point to be labeled convective.
-    """
-    if peak_relation == 0:
-        if ze_bkg < 0.0:
-            peak = 10.0
-        elif (ze_bkg >= 0.0) and (ze_bkg < 42.43):
-            peak = 10.0 - ze_bkg**2 / 180.0
-        else:
-            peak = 0.0
-
-    elif peak_relation == 1:
-        if ze_bkg < 0.0:
-            peak = 14.0
-        elif (ze_bkg >= 0.0) and (ze_bkg < 42.43):
-            peak = 14.0 - ze_bkg**2 / 180.0
-        else:
-            peak = 4.0
-
-    return peak
-
-
-@njit()
-def steiner_conv_strat(
-    refl,
+@conditional_jit(use_numba=use_numba)
+def steiner_scheme(
+    reflectivity,
     x,
     y,
-    dx,
-    dy,
-    intense=42,
-    peak_relation=0,
-    area_relation=1,
-    bkg_rad=11000,
-    use_intense=True,
+    radius_option=1,
+    delta_Z_option=0,
+    background_radius=11e3,
+    dBZ_threshold=42,
+    use_dBZ_threshold=True,
+    coordinates="geographic",
 ):
+    reflectivity = reflectivity.astype(np.float32)
+    x = x.astype(np.float32)
+    y = y.astype(np.float32)
+
+    if x.ndim == 1 and y.ndim == 1:
+        X, Y = meshgrid_numba(x, y)
+    elif x.ndim == 2 and y.ndim == 2:
+        X, Y = x, y
+    else:
+        raise ValueError("x and y must both be one or two dimensional.")
+
+    II, JJ = meshgrid_numba(
+        np.arange(reflectivity.shape[1], dtype=float32),
+        np.arange(reflectivity.shape[0], dtype=float32),
+    )
+    II = numba_boolean_assign(II, np.isnan(reflectivity))
+    JJ = numba_boolean_assign(JJ, np.isnan(reflectivity))
+
+    classification = np.zeros_like(reflectivity, dtype=int32)
+
+    for i, j in product(range(reflectivity.shape[1]), range(reflectivity.shape[0])):
+        if np.isnan(reflectivity[j, i]) or (classification[j, i] != 0):
+            continue
+
+        reflectivity_background = values_within_radius(
+            reflectivity, X, Y, j, i, background_radius, coordinates
+        )
+        if len(reflectivity_background) == 0:
+            mean_background_reflectivity = np.inf
+        else:
+            reflectivity_background = reflectivity_background[
+                ~np.isnan(reflectivity_background)
+            ]
+            mean_background_reflectivity = 10 * np.log10(
+                np.nanmean(10.0 ** (reflectivity_background / 10))
+            )
+        convective_radius = get_convective_radius(
+            mean_background_reflectivity, radius_option
+        )
+        II_radius = values_within_radius(II, X, Y, j, i, convective_radius, coordinates)
+        JJ_radius = values_within_radius(JJ, X, Y, j, i, convective_radius, coordinates)
+        II_radius = II_radius.astype(int32)
+        JJ_radius = JJ_radius.astype(int32)
+
+        if use_dBZ_threshold and (reflectivity[j, i] >= dBZ_threshold):
+            for ii, jj in zip(II_radius, JJ_radius):
+                classification[jj, ii] = 2
+        else:
+            delta_Z_threshold = get_delta_Z_threshold(
+                mean_background_reflectivity, delta_Z_option
+            )
+            if reflectivity[j, i] - mean_background_reflectivity >= delta_Z_threshold:
+                for ii, jj in zip(II_radius, JJ_radius):
+                    classification[jj, ii] = 2
+            else:
+                classification[j, i] = 1
+    return classification
+
+
+@conditional_jit(use_numba=use_numba)
+def get_convective_radius(background_reflectivity, radius_option=1):
     """
-    We perform the Steiner et al. (1995) algorithm for echo classification
-    using only the reflectivity field in order to classify each grid point
-    as either convective, stratiform or undefined. Grid points are
-    classified as follows,
-    0 = Undefined
-    1 = Stratiform
-    2 = Convective
+    Return the convective radius based on the background reflectivity.
+    Steiner et al. (1995) considered multiple tresholds. Previous work
+    (Louf et al., 2019, Short et al., 2023, Short & Lane, 2023) used thresholds
+    beginning at 25 dBZ, i.e. threshold_option=1.
+
+    Parameters:
+    ----------
+    background_reflectivity: float
+        Background reflectivity in dBZ.
+    radius_option: int
+        Radius option. Default is 1.
+
+    Returns:
+    -------
+    convective_radius: float
+        Convective radius in metres.
     """
 
-    sclass = np.zeros(refl.shape, dtype=int32)
-    ny, nx = refl.shape
+    # Define thresholds and radii for different area relations
+    base_thresholds = np.arange(20, 35 + 5, 5)
+    convective_radii = np.arange(1e3, 5e3 + 1e3, 1e3)
 
-    for i in range(0, nx):
-        # Get stencil of x grid points within the background radius
-        imin = np.max(np.array([1, (i - bkg_rad / dx)], dtype=int32))
-        imax = np.min(np.array([nx, (i + bkg_rad / dx)], dtype=int32))
+    # Select the appropriate set of thresholds based on threshold_option
+    thresholds = base_thresholds + radius_option * 5
 
-        for j in range(0, ny):
-            # First make sure that the current grid point has not already been
-            # classified. This can happen when grid points within the
-            # convective radius of a previous grid point have also been
-            # classified.
-            if ~np.isnan(refl[j, i]) & (sclass[j, i] == 0):
-                # Get stencil of y grid points within the background radius
-                jmin = np.max(np.array([1, (j - bkg_rad / dy)], dtype=int32))
-                jmax = np.min(np.array([ny, (j + bkg_rad / dy)], dtype=int32))
+    # Get the convective radius from background reflectivity and thresholds
+    for i, threshold in enumerate(thresholds):
+        if background_reflectivity < threshold:
+            return convective_radii[i]
+    return convective_radii[-1]
 
-                n = 0
-                sum_ze = 0
 
-                # Calculate the mean background reflectivity for the current
-                # grid point, which will be used to determine the convective
-                # radius and the required peakedness.
+@conditional_jit(use_numba=use_numba)
+def get_delta_Z_threshold(background_reflectivity, delta_Z_option=0):
+    """
+    Return the relevant delta_Z threshold based on the background reflectivity.
 
-                for l in range(imin, imax):
-                    for m in range(jmin, jmax):
-                        if not np.isnan(refl[m, l]):
-                            rad = np.sqrt((x[l] - x[i]) ** 2 + (y[m] - y[j]) ** 2)
+    Parameters:
+    ----------
+    background_reflectivity: float
+        Background reflectivity in dBZ.
+    threshold_option: float
+        Threshold option. Default is 0 to match the Steiner et al. (1995) function.
 
-                            # The mean background reflectivity will first be
-                            # computed in linear units, i.e. mm^6/m^3, then
-                            # converted to decibel units.
-                            if rad <= bkg_rad:
-                                n += 1
-                                sum_ze += 10.0 ** (refl[m, l] / 10.0)
+    Returns:
+    -------
+    delta_Z_threshold: float
+        delta_Z_threshold in dB.
+    """
 
-                if n == 0:
-                    ze_bkg = np.inf
-                else:
-                    ze_bkg = 10.0 * np.log10(sum_ze / n)
+    delta_Z_threshold = 10 + delta_Z_option * 4
+    if (background_reflectivity >= 0.0) and (background_reflectivity < 42.43):
+        delta_Z_threshold -= background_reflectivity**2 / 180.0
+    else:
+        delta_Z_threshold = 0.0
 
-                # Now get the corresponding convective radius knowing the mean
-                # background reflectivity.
-                conv_rad = convective_radius(ze_bkg, area_relation)
+    return delta_Z_threshold
 
-                # Now we want to investigate the points surrounding the current
-                # grid point that are within the convective radius, and whether
-                # they too are convective, stratiform or undefined.
 
-                # Get stencil of x and y grid points within the convective
-                # radius.
-                lmin = np.max(np.array([1, int(i - conv_rad / dx)], dtype=int32))
-                lmax = np.min(np.array([nx, int(i + conv_rad / dx)], dtype=int32))
-                mmin = np.max(np.array([1, int(j - conv_rad / dy)], dtype=int32))
-                mmax = np.min(np.array([ny, int(j + conv_rad / dy)], dtype=int32))
+@conditional_jit(use_numba=use_numba)
+def haversine(lat1, lon1, lat2, lon2):
+    """
+    Calculate the great circle distance in metres between two points
+    on the earth (specified in decimal degrees)
+    """
+    # Convert decimal degrees to radians
+    lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
 
-                if use_intense and (refl[j, i] >= intense):
-                    sclass[j, i] = 2
+    # Haversine formula
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
+    c = 2 * np.arcsin(np.sqrt(a))
+    r = 6371e3  # Radius of earth in metres
+    return c * r
 
-                    for l in range(lmin, lmax):
-                        for m in range(mmin, mmax):
-                            if not np.isnan(refl[m, l]):
-                                rad = np.sqrt((x[l] - x[i]) ** 2 + (y[m] - y[j]) ** 2)
 
-                                if rad <= conv_rad:
-                                    sclass[m, l] = 2
+@conditional_jit(use_numba=use_numba)
+def values_within_radius(array, X, Y, j, i, radius, coordinates="geographic"):
+    """
+    Efficiently find the values of an array at locations within a radius of a point.
+    We mask values where the array is nan.
+    """
 
-                else:
-                    peak = peakedness(ze_bkg, peak_relation)
+    if coordinates == "geographic":
+        y_cond = haversine(Y[j, i], X[j, i], Y[:, i], X[j, i]) <= radius
+        x_cond = haversine(Y[j, i], X[j, i], Y[j, i], X[j, :]) <= radius
+    elif coordinates == "cartesian":
+        y_cond = (Y[:, i] - Y[j, i]) ** 2 <= radius**2
+        x_cond = (X[j, :] - X[j, i]) ** 2 <= radius**2
+    else:
+        raise ValueError("Invalid coordinates. Must be 'geographic' or 'cartesian'.")
 
-                    if refl[j, i] - ze_bkg >= peak:
-                        sclass[j, i] = 2
+    boxes = List()
+    for arr in [array, X, Y]:
+        arr_box = arr[y_cond, :]
+        arr_box = arr_box[:, x_cond]
+        boxes.append(arr_box)
+    [array_box, X_box, Y_box] = boxes
 
-                        for l in range(imin, imax):
-                            for m in range(jmin, jmax):
-                                if not np.isnan(refl[m, l]):
-                                    rad = np.sqrt(
-                                        (x[l] - x[i]) ** 2 + (y[m] - y[j]) ** 2
-                                    )
+    if coordinates == "geographic":
+        radius_cond = haversine(Y_box, X_box, Y[j, i], X[j, i]) <= radius
+    elif coordinates == "cartesian":
+        radius_cond = np.sqrt((Y_box - Y[j, i]) ** 2 + (X_box - X[j, i]) ** 2) <= radius
+    radius_cond = radius_cond.flatten() & ~np.isnan(array_box.flatten())
+    return array_box.flatten()[radius_cond]
 
-                                    if rad <= conv_rad:
-                                        sclass[m, l] = 2
 
-                    else:
-                        # If by now the current grid point has not been
-                        # classified as convective by either the intensity
-                        # criteria or the peakedness criteria, then it must be
-                        # stratiform.
-                        sclass[j, i] = 1
+@conditional_jit(use_numba=use_numba)
+def meshgrid_numba(x, y):
+    """
+    Create a meshgrid-like pair of arrays for x and y coordinates.
+    This function mimics the behaviour of np.meshgrid but is compatible with Numba.
+    """
+    m, n = len(y), len(x)
+    X = np.empty((m, n), dtype=x.dtype)
+    Y = np.empty((m, n), dtype=y.dtype)
 
-    return sclass
+    for i in range(m):
+        X[i, :] = x
+    for j in range(n):
+        Y[:, j] = y
+
+    return X, Y
+
+
+@conditional_jit(use_numba=use_numba)
+def numba_boolean_assign(array, condition, value=np.nan):
+    """
+    Assign a value to an array based on a boolean condition.
+    """
+    for i in range(array.shape[0]):
+        for j in range(array.shape[1]):
+            if condition[i, j]:
+                array[i, j] = value
+    return array

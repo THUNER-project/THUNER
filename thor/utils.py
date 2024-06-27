@@ -1,8 +1,14 @@
 "General utilities for the thor package."
 
+import json
+from pathlib import Path
 from datetime import datetime
 import numpy as np
 from scipy.interpolate import interp1d
+from thor.log import setup_logger
+
+
+logger = setup_logger(__name__)
 
 
 def format_string_list(strings):
@@ -110,3 +116,13 @@ def format_time(time):
     """Format a datetime64 object as a filename safe string."""
     time_seconds = time.astype("datetime64[s]")
     return time_seconds.astype(datetime).strftime("%Y%m%d_%H%M%S")
+
+
+def load_outputs_directory():
+    config_path = Path(__file__).parent / "config.json"
+    if config_path.exists():
+        with config_path.open() as f:
+            config = json.load(f)
+            return Path(config["install_directory"])
+    else:
+        raise FileNotFoundError("config.json not found.")

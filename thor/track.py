@@ -70,7 +70,8 @@ def initialise_object_tracks(object_options):
     object_tracks["tracks"] = []
     object_tracks["current_mask"] = None
     object_tracks["previous_masks"] = deque(maxlen=object_options["deque_length"])
-
+    if object_options["mask_options"]["save"]:
+        object_tracks["mask_list"] = []
     return object_tracks
 
 

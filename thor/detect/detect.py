@@ -4,6 +4,10 @@ import numbers
 from scipy import ndimage
 import xarray as xr
 import thor.detect.preprocess as preprocess
+from thor.log import setup_logger
+from thor.detect.steiner import steiner_scheme
+
+logger = setup_logger(__name__)
 
 
 def threshold(grid, object_options):
@@ -20,8 +24,37 @@ def steiner(grid, object_options):
     if object_options["detection"]["method"] != "steiner":
         raise ValueError("Detection method not set to steiner.")
 
-    # Implement the Steiner method here.
+    if "latitude" in grid.dims:
+        coordinates = "geographic"
+        x = grid.longitude.values
+        y = grid.latitude.values
+    elif "x" in grid.dims:
+        coordinates = "cartesian"
+        x = grid.x.values
+        y = grid.y.values
+    else:
+        raise ValueError("Could not infer grid coordinates.")
+
+    if "altitude" in grid.dims:
+        raise ValueError(
+            "Steiner et al. (1995) scheme only works with 2D grids. "
+            "Apply a flattener first."
+        )
+    elif grid.altitude != 3e3:
+        logger.warning(
+            "Steiner et al. (1995) scheme designed to work on 3 km altitude grids. "
+            f"grid altitude {grid.altitude.values[0]/1e3} km."
+        )
+
     binary_grid = xr.full_like(grid, 0)
+    binary_grid.name = "binary_grid"
+    try:
+        steiner_class = steiner_scheme(grid.values, x, y, coordinates=coordinates)
+        steiner_class[steiner_class != 2] = 0
+        binary_grid.data = steiner_class
+    except Exception as e:
+        logger.debug(f"Steiner scheme failed: {e}")
+
     return binary_grid
 
 
@@ -43,8 +76,10 @@ def detect(track_input_records, object_tracks, object_options, grid_options):
     input_record = track_input_records[object_options["dataset"]]
     grid = input_record["current_grid"]
 
-    if object_options["detection"]["flatten"] is not None:
-        flattener = flattener_dispatcher.get(object_options["detection"]["flatten"])
+    if object_options["detection"]["flatten_method"] is not None:
+        flattener = flattener_dispatcher.get(
+            object_options["detection"]["flatten_method"]
+        )
         processed_grid = flattener(grid, object_options)
     else:
         processed_grid = grid

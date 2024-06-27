@@ -5,10 +5,73 @@ See: https://packaging.python.org/en/latest/guides/single-sourcing-package-versi
 """
 
 from setuptools import setup
+from setuptools.command.install import install
 from pathlib import Path
 import glob
+import json
+
 
 DOCLINES = __doc__.split("\n")
+
+
+def create_user_config():
+    # Determine the OS-specific path
+    if os.name == "nt":  # Windows
+        config_dir = Path(os.getenv("LOCALAPPDATA")) / "YourApp"
+    elif os.name == "posix":
+        if "HOME" in os.environ:  # Linux/macOS
+            config_dir = Path(os.getenv("HOME")) / ".config" / "YourApp"
+        else:  # Fallback for other POSIX systems
+            config_dir = Path("/etc") / "YourApp"
+    else:
+        raise Exception("Unsupported OS")
+
+    # Ensure the config directory exists
+    config_dir.mkdir(parents=True, exist_ok=True)
+
+    # Define the path to the config.json file
+    config_path = config_dir / "config.json"
+
+    # Check if config.json already exists to avoid overwriting
+    if not config_path.exists():
+        # Create a new config.json with initial settings
+        with open(config_path, "w") as config_file:
+            json.dump({"key": "value"}, config_file)
+
+    return str(config_path)
+
+
+def save_output_directory(output_directory=Path.home() / "THOR_output"):
+    config = {"output_directory": str(output_directory)}
+    config_path = Path(__file__).parent / "config.json"
+    if not config_path.parent.exists():
+        config_path.parent.mkdir(parents=True)
+    with config_path.open("w") as f:
+        json.dump(
+            config,
+            f,
+            indent=4,
+            ensure_ascii=False,
+        )
+
+
+class CustomInstall(install):
+    def run(self):
+        install.run(self)
+        output_dir = input(
+            "Please specify the default output directory. "
+            f"Leave blank for {Path.home() / 'THOR_output'}: "
+        )
+        if output_dir == "":
+            output_dir = Path.home() / "THOR_output"
+        try:
+            output_dir.mkdir(parents=True, exist_ok=True)
+        except FileNotFoundError:
+            print("Invalid directory. Using default.")
+            output_dir = Path.home() / "THOR_output"
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+        save_output_directory(output_dir)
 
 
 def read(pkg_name):
@@ -102,4 +165,5 @@ setup(
     install_requires=get_requirements("requirements.txt"),
     test_requires=["pytest"],
     zip_safe=False,
+    cmdclass={"install": CustomInstall},
 )
