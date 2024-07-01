@@ -189,27 +189,12 @@ def new_geographic_grid(latitudes, longitudes, dlat, dlon):
         The geographic grid as a tuple of (lons, lats).
     """
 
-    def inscribe_new_array(array_1, array_2, dx):
-        array = np.arange(
-            np.ceil(array_1.min() / dx) * dx,
-            np.floor(array_2.max() / dx) * dx,
-            dx,
-        )
-        return array
-
-    if len(latitudes.shape) == 2:
-        latitudes_1 = latitudes.max(axis=1)
-        latitudes_2 = latitudes.min(axis=1)
-        longitudes_1 = longitudes.max(axis=0)
-        longitudes_2 = longitudes.min(axis=0)
-    elif len(latitudes.shape) == 1:
-        [latitudes_1, latitudes_2] = [latitudes] * 2
-        [longitudes_1, longitudes_2] = [longitudes] * 2
-    else:
-        raise ValueError("latitudes and longitudes must be at most two dimensional.")
-
-    new_latitudes = inscribe_new_array(latitudes_1, latitudes_2, dlat)
-    new_longitudes = inscribe_new_array(longitudes_1, longitudes_2, dlon)
+    min_lat = np.floor(latitudes.min() / dlat) * dlat
+    max_lat = np.ceil(latitudes.max() / dlat) * dlat
+    min_lon = np.floor(longitudes.min() / dlon) * dlon
+    max_lon = np.ceil(longitudes.max() / dlon) * dlon
+    new_latitudes = np.arange(min_lat, max_lat + dlat, dlat)
+    new_longitudes = np.arange(min_lon, max_lon + dlon, dlon)
 
     return list(new_latitudes), list(new_longitudes)
 

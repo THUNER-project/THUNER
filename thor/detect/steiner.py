@@ -9,16 +9,16 @@ Note these radii are at most 11 km, so Haversine is accurate enough.
 import numpy as np
 from itertools import product
 from thor.log import setup_logger
-from numba import njit, int32, float32
+from numba import int32, float32, njit
 from numba.typed import List
-
+from thor.utils import meshgrid_numba, numba_boolean_assign, haversine
 
 logger = setup_logger(__name__)
 
-use_numba = False
+use_numba = True
 
 
-def conditional_jit(use_numba=True, *jit_args, **jit_kwargs):
+def conditional_jit(*jit_args, use_numba=True, **jit_kwargs):
     """
     A decorator that applies Numba's JIT compilation to a function if use_numba is True.
     Otherwise, it returns the original function. It also adjusts type aliases based on the
@@ -45,8 +45,8 @@ def conditional_jit(use_numba=True, *jit_args, **jit_kwargs):
 @conditional_jit(use_numba=use_numba)
 def steiner_scheme(
     reflectivity,
-    x,
-    y,
+    X,
+    Y,
     radius_option=1,
     delta_Z_option=0,
     background_radius=11e3,
@@ -54,16 +54,9 @@ def steiner_scheme(
     use_dBZ_threshold=True,
     coordinates="geographic",
 ):
-    reflectivity = reflectivity.astype(np.float32)
-    x = x.astype(np.float32)
-    y = y.astype(np.float32)
-
-    if x.ndim == 1 and y.ndim == 1:
-        X, Y = meshgrid_numba(x, y)
-    elif x.ndim == 2 and y.ndim == 2:
-        X, Y = x, y
-    else:
-        raise ValueError("x and y must both be one or two dimensional.")
+    reflectivity = reflectivity.astype(float32)
+    X = X.astype(float32)
+    Y = Y.astype(float32)
 
     II, JJ = meshgrid_numba(
         np.arange(reflectivity.shape[1], dtype=float32),
@@ -74,42 +67,50 @@ def steiner_scheme(
 
     classification = np.zeros_like(reflectivity, dtype=int32)
 
-    for i, j in product(range(reflectivity.shape[1]), range(reflectivity.shape[0])):
-        if np.isnan(reflectivity[j, i]) or (classification[j, i] != 0):
-            continue
+    for i in range(reflectivity.shape[1]):
+        for j in range(reflectivity.shape[0]):
+            if np.isnan(reflectivity[j, i]) or (classification[j, i] != 0):
+                continue
 
-        reflectivity_background = values_within_radius(
-            reflectivity, X, Y, j, i, background_radius, coordinates
-        )
-        if len(reflectivity_background) == 0:
-            mean_background_reflectivity = np.inf
-        else:
+            reflectivity_background = values_within_radius(
+                reflectivity, X, Y, j, i, background_radius, coordinates
+            )
+            # if len(reflectivity_background) == 0:
+            #     mean_background_reflectivity = np.inf
+            # else:
             reflectivity_background = reflectivity_background[
                 ~np.isnan(reflectivity_background)
             ]
             mean_background_reflectivity = 10 * np.log10(
                 np.nanmean(10.0 ** (reflectivity_background / 10))
             )
-        convective_radius = get_convective_radius(
-            mean_background_reflectivity, radius_option
-        )
-        II_radius = values_within_radius(II, X, Y, j, i, convective_radius, coordinates)
-        JJ_radius = values_within_radius(JJ, X, Y, j, i, convective_radius, coordinates)
-        II_radius = II_radius.astype(int32)
-        JJ_radius = JJ_radius.astype(int32)
-
-        if use_dBZ_threshold and (reflectivity[j, i] >= dBZ_threshold):
-            for ii, jj in zip(II_radius, JJ_radius):
-                classification[jj, ii] = 2
-        else:
-            delta_Z_threshold = get_delta_Z_threshold(
-                mean_background_reflectivity, delta_Z_option
+            convective_radius = get_convective_radius(
+                mean_background_reflectivity, radius_option
             )
-            if reflectivity[j, i] - mean_background_reflectivity >= delta_Z_threshold:
+            II_radius = values_within_radius(
+                II, X, Y, j, i, convective_radius, coordinates
+            )
+            JJ_radius = values_within_radius(
+                JJ, X, Y, j, i, convective_radius, coordinates
+            )
+            II_radius = II_radius.astype(int32)
+            JJ_radius = JJ_radius.astype(int32)
+
+            if use_dBZ_threshold and (reflectivity[j, i] >= dBZ_threshold):
                 for ii, jj in zip(II_radius, JJ_radius):
                     classification[jj, ii] = 2
             else:
-                classification[j, i] = 1
+                delta_Z_threshold = get_delta_Z_threshold(
+                    mean_background_reflectivity, delta_Z_option
+                )
+                if (
+                    reflectivity[j, i] - mean_background_reflectivity
+                    >= delta_Z_threshold
+                ):
+                    for ii, jj in zip(II_radius, JJ_radius):
+                        classification[jj, ii] = 2
+                else:
+                    classification[j, i] = 1
     return classification
 
 
@@ -175,25 +176,9 @@ def get_delta_Z_threshold(background_reflectivity, delta_Z_option=0):
     return delta_Z_threshold
 
 
-@conditional_jit(use_numba=use_numba)
-def haversine(lat1, lon1, lat2, lon2):
-    """
-    Calculate the great circle distance in metres between two points
-    on the earth (specified in decimal degrees)
-    """
-    # Convert decimal degrees to radians
-    lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
-
-    # Haversine formula
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
-    a = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
-    c = 2 * np.arcsin(np.sqrt(a))
-    r = 6371e3  # Radius of earth in metres
-    return c * r
-
-
-@conditional_jit(use_numba=use_numba)
+@conditional_jit(
+    use_numba=use_numba,
+)
 def values_within_radius(array, X, Y, j, i, radius, coordinates="geographic"):
     """
     Efficiently find the values of an array at locations within a radius of a point.
@@ -213,7 +198,7 @@ def values_within_radius(array, X, Y, j, i, radius, coordinates="geographic"):
     for arr in [array, X, Y]:
         arr_box = arr[y_cond, :]
         arr_box = arr_box[:, x_cond]
-        boxes.append(arr_box)
+        boxes.append(arr_box.flatten())
     [array_box, X_box, Y_box] = boxes
 
     if coordinates == "geographic":
@@ -221,34 +206,5 @@ def values_within_radius(array, X, Y, j, i, radius, coordinates="geographic"):
     elif coordinates == "cartesian":
         radius_cond = np.sqrt((Y_box - Y[j, i]) ** 2 + (X_box - X[j, i]) ** 2) <= radius
     radius_cond = radius_cond.flatten() & ~np.isnan(array_box.flatten())
-    return array_box.flatten()[radius_cond]
 
-
-@conditional_jit(use_numba=use_numba)
-def meshgrid_numba(x, y):
-    """
-    Create a meshgrid-like pair of arrays for x and y coordinates.
-    This function mimics the behaviour of np.meshgrid but is compatible with Numba.
-    """
-    m, n = len(y), len(x)
-    X = np.empty((m, n), dtype=x.dtype)
-    Y = np.empty((m, n), dtype=y.dtype)
-
-    for i in range(m):
-        X[i, :] = x
-    for j in range(n):
-        Y[:, j] = y
-
-    return X, Y
-
-
-@conditional_jit(use_numba=use_numba)
-def numba_boolean_assign(array, condition, value=np.nan):
-    """
-    Assign a value to an array based on a boolean condition.
-    """
-    for i in range(array.shape[0]):
-        for j in range(array.shape[1]):
-            if condition[i, j]:
-                array[i, j] = value
-    return array
+    return array_box[radius_cond]

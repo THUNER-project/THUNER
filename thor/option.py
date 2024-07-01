@@ -110,7 +110,6 @@ def boilerplate_object(
     hierarchy_level,
     method="detect",
     mask_options=None,
-    mask_directory=None,
     deque_length=2,
     tags=None,
     display=False,
@@ -134,11 +133,8 @@ def boilerplate_object(
         Dictionary of boilerplate configuration options.
     """
 
-    if mask_directory is None:
-        mask_directory = Path(__file__).parent / "masks"
-
     if mask_options is None:
-        mask_options = {"save": False, "load": False}
+        mask_options = {"save": True, "load": False}
     else:
         check_component_options(mask_options)
 
@@ -211,6 +207,7 @@ def grouped_object(
     name,
     dataset,
     member_objects,
+    member_levels,
     hierarchy_level,
     grouping_method,
     tracking_method,
@@ -226,7 +223,10 @@ def grouped_object(
     dataset : str
         Name of dataset to use for plotting.
     member_objects : list
-        List of objects to group.
+        List of objects to group. Order matters. E.g. list objects by
+        increasing altitude.
+    member_levels : list
+        List of hierarchy levels of the objects to group.
     hierarchy_level : int
         Hierarchy level of object.
     grouping_method : str or None
@@ -240,11 +240,23 @@ def grouped_object(
     options : dict
         Dictionary of global configuration options.
     """
+    if not all([member_level < hierarchy_level for member_level in member_levels]):
+        raise ValueError(
+            "Member object hierarchy levels must be less than grouped object level."
+        )
+
+    mask_options = {"save": False, "load": False}
 
     options = {
-        **boilerplate_object(name, hierarchy_level, method="group", tags=tags),
+        **boilerplate_object(
+            name, hierarchy_level, method="group", tags=tags, mask_options=mask_options
+        ),
         "dataset": dataset,
-        "grouping": {"method": grouping_method, "member_objects": member_objects},
+        "grouping": {
+            "method": grouping_method,
+            "member_objects": member_objects,
+            "member_levels": member_levels,
+        },
         "tracking": {"method": tracking_method, "options": mint_options()},
     }
 
@@ -353,6 +365,7 @@ def mcs_object(
     dataset,
     name="mcs",
     member_objects=["cell", "middle_cloud", "anvil"],
+    member_levels=[0, 0, 0],
     hierarchy_level=1,
     grouping_method="graph",
     tracking_method="mint",
@@ -375,6 +388,7 @@ def mcs_object(
         name,
         dataset,
         member_objects,
+        member_levels,
         hierarchy_level,
         grouping_method,
         tracking_method,

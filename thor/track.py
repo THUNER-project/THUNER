@@ -7,6 +7,9 @@ import thor.data.dispatch as dispatch
 import thor.detect.detect as detect
 import thor.group.group as group
 import thor.visualize as visualize
+from thor.config import get_outputs_directory
+from thor.utils import now_str, hash_dictionary, format_time
+import thor.write as write
 
 logger = setup_logger(__name__)
 
@@ -104,6 +107,22 @@ def initialise_tracks(track_options, data_options):
     return tracks
 
 
+def consolidate_options(
+    data_options, grid_options, track_options, tag_options, visualize_options
+):
+    """Consolidate the options for a given run."""
+
+    consolidated_options = {
+        "data_options": data_options,
+        "grid_options": grid_options,
+        "track_options": track_options,
+        "tag_options": tag_options,
+        "visualize_options": visualize_options,
+    }
+
+    return consolidated_options
+
+
 def simultaneous_track(
     times,
     data_options,
@@ -111,6 +130,7 @@ def simultaneous_track(
     track_options,
     tag_options,
     visualize_options=None,
+    output_directory=None,
 ):
     """
     Track objects across the hierachy simultaneously.
@@ -140,44 +160,63 @@ def simultaneous_track(
     tracks = initialise_tracks(track_options, data_options)
     input_records = initialise_input_records(data_options)
 
+    consolidated_options = consolidate_options(
+        track_options, data_options, grid_options, tag_options, visualize_options
+    )
+
     for time in times:
-        logger.info("Processing %s.", time)
+
+        if output_directory is None:
+            consolidated_options["start_time"] = str(time)
+            hash_str = hash_dictionary(consolidated_options)
+            output_directory = (
+                get_outputs_directory() / f"runs/{now_str()}_{hash_str[:8]}"
+            )
+
+        logger.info(f"Processing {format_time(time, filename_safe=False)}.")
         dispatch.update_track_input_records(
             time, input_records["track"], data_options, grid_options
         )
         # loop over levels
-        for index, level_options in enumerate(track_options):
-            logger.debug("Processing hierarchy level %s.", index)
-            tracks[index] = track_level(
+        for level_index in range(len(track_options)):
+            logger.debug("Processing hierarchy level %s.", level_index)
+            track_level(
                 time,
-                tracks[index],
+                level_index,
+                tracks,
                 input_records["track"],
                 data_options,
                 grid_options,
-                level_options,
+                track_options,
                 tag_options,
                 visualize_options,
+                output_directory,
             )
         dispatch.update_tag_input_records(
             time, input_records["tag"], data_options, grid_options
         )
+
+    write.mask.write_final(tracks, track_options, output_directory, time)
+    write.mask.aggregate(track_options, output_directory)
 
     return tracks
 
 
 def track_level(
     time,
-    level_tracks,
+    level_index,
+    tracks,
     track_input_records,
     data_options,
     grid_options,
-    level_options,
+    track_options,
     tag_options,
     visualize_options,
+    output_directory,
 ):
     """Track a hierarchy level."""
-
-    # loop over objects in level
+    level_tracks = tracks[level_index]
+    level_options = track_options[level_index]
     for obj in level_tracks.keys():
         logger.debug("Tracking %s.", obj)
         dataset = level_options[obj]["dataset"]
@@ -185,15 +224,18 @@ def track_level(
             dataset_options = None
         else:
             dataset_options = data_options[dataset]
-        level_tracks[obj] = track_object(
+        track_object(
             time,
-            level_tracks[obj],
+            level_index,
+            obj,
+            tracks,
             track_input_records,
             dataset_options,
             grid_options,
-            level_options[obj],
+            track_options,
             tag_options,
             visualize_options,
+            output_directory,
         )
 
     return level_tracks
@@ -201,25 +243,39 @@ def track_level(
 
 def track_object(
     time,
-    object_tracks,
+    level_index,
+    obj,
+    tracks,
     track_input_records,
     dataset_options,
     grid_options,
-    object_options,
+    track_options,
     tag_options,
     visualize_options,
+    output_directory,
 ):
     """Track the given object."""
-
+    # detect
+    object_options = track_options[level_index][obj]
     get_objects = get_objects_dispatcher.get(object_options["method"])
-    get_objects(track_input_records, object_tracks, object_options, grid_options)
-    # match
-    # write
-    visualize.runtime.visualize(
-        track_input_records, object_tracks, object_options, visualize_options
+    get_objects(
+        track_input_records, tracks, level_index, obj, object_options, grid_options
     )
+    # match
+    # visualize
+    visualize.runtime.visualize(
+        track_input_records,
+        tracks,
+        level_index,
+        obj,
+        track_options,
+        visualize_options,
+        output_directory,
+    )
+    # write
+    write.mask.update(tracks[level_index][obj], object_options, output_directory)
 
-    return object_tracks
+    # return tracks[level_index][obj]
 
 
 get_objects_dispatcher = {

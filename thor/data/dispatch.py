@@ -18,13 +18,8 @@ update_dataset_dispatcher = {
 
 
 grid_from_dataset_dispatcher = {
-    "cpol": lambda dataset, time: dataset.sel(time=time),
-    "operational": lambda dataset, time: dataset.sel(time=time),
-}
-
-
-grid_from_dataset_dispatcher = {
-    "cpol": lambda dataset, variable, time: dataset[variable].sel(time=time),
+    "cpol": aura.cpol_grid_from_dataset,
+    "operational": lambda dataset, variable, time: dataset[variable].sel(time=time),
 }
 
 

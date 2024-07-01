@@ -32,7 +32,8 @@ def cpol_data_options(
     data_format="grid_150km_2500m",
     fields=None,
     version="v2020",
-    **kwargs,
+    range=145,
+    range_units="km",
 ):
     """
     Generate CPOL radar data options dictionary.
@@ -96,11 +97,10 @@ def cpol_data_options(
             "data_format": data_format,
             "fields": fields,
             "version": version,
+            "range": range,
+            "range_units": range_units,
         }
     )
-
-    for key, value in kwargs.items():
-        options[key] = value
 
     return options
 
@@ -435,7 +435,9 @@ def convert_cpol(time, input_record, dataset_options, grid_options):
             },
         )
 
-        regridder = xe.Regridder(cpol, ds, "bilinear", periodic=False)
+        regridder = xe.Regridder(
+            cpol, ds, "bilinear", periodic=False, extrap_method=None
+        )
         ds = regridder(cpol)
 
         cell_areas = grid.get_cell_areas(ds.latitude.values, ds.longitude.values)
@@ -461,6 +463,25 @@ def convert_cpol(time, input_record, dataset_options, grid_options):
 
     ds = ds.interp(altitude=grid_options["altitude"], method="linear")
 
+    if "range_mask" not in input_record.keys():
+        range_mask, range_latitudes, range_longitudes = utils.get_range_mask(
+            ds, dataset_options
+        )
+        input_record["range_mask"] = range_mask
+        input_record["range_latitudes"] = range_latitudes
+        input_record["range_longitudes"] = range_longitudes
+
+    mask_coords = [("latitude", ds.latitude.values), ("longitude", ds.longitude.values)]
+    mask_array = xr.DataArray(input_record["range_mask"], coords=mask_coords)
+    for var_name, var_data in ds.items():
+        # Check if the variable has 'latitude' and 'longitude' dimensions
+        if set(["latitude", "longitude"]).issubset(set(var_data.dims)):
+            # Broadcast the mask to match the dimensions of the current variable
+            broadcasted_mask = mask_array.broadcast_like(var_data)
+
+            # Apply the mask, setting unmasked values to NaN
+            ds[var_name] = var_data.where(broadcasted_mask)
+
     return ds
 
 
@@ -470,10 +491,20 @@ def convert_operational():
     return ds
 
 
-def generate_cpol_times(filepaths):
-    """TBA."""
-
+def generate_cpol_times(options, attempt_download=True):
+    """Get cpol times from data_options["cpol"]."""
+    filepaths = options["filepaths"]
     for filepath in sorted(filepaths):
+        if not Path(filepath).exists() and attempt_download:
+            utils.download_file(
+                str(filepath).replace(
+                    options["parent_local"],
+                    options["parent_remote"],
+                ),
+                options["parent_remote"],
+                options["parent_local"],
+            )
+
         with xr.open_dataset(filepath, chunks={}) as ds:
             for time in ds.time.values:
                 yield time
@@ -536,3 +567,11 @@ def generate_operational_filepaths():
     """TBA."""
     times = None
     return times
+
+
+def cpol_grid_from_dataset(dataset, variable, time):
+    grid = dataset[variable].sel(time=time)
+    preserved_attributes = dataset.attrs.keys() - ["field_names"]
+    for attr in ["origin_longitude", "origin_latitude", "instrument"]:
+        grid.attrs[attr] = dataset.attrs[attr]
+    return grid

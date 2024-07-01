@@ -1,55 +1,123 @@
 """Horizontal cross-section features."""
 
-from pathlib import Path
 import numpy as np
+
+import cv2
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
 import matplotlib.ticker as mticker
+from matplotlib.colors import LinearSegmentedColormap
+import cartopy.feature as cfeature
 import thor.visualize.visualize as visualize
+from thor.log import setup_logger
+
+logger = setup_logger(__name__)
 
 
-def grid(grid, fig, ax):
+def grid(grid, ax, add_colorbar=True):
     """Plot a grid cross section."""
 
     pcm = grid.plot.pcolormesh(
         ax=ax,
         shading="nearest",
-        zorder=0,
+        zorder=1,
         **visualize.grid_formats[grid.name],
+        add_colorbar=add_colorbar,
         extend="both",
     )
 
     return pcm
 
 
-def mask(mask, fig, ax):
+def mask(mask, ax):
     """Plot masks."""
 
-    cmap = plt.get_cmap("tab10")
-    # ax.set_prop_cycle(color=colors)
+    colors = ["purple", "teal", "cyan", "magenta", "saddlebrown"]
 
-    pcm = ((mask - 1) % 10 + 1).plot.pcolormesh(
-        ax=ax,
-        shading="nearest",
-        alpha=1,
+    try:
+        row_vals = mask.latitude.values
+        col_vals = mask.longitude.values
+    except AttributeError:
+        row_vals = mask.y.values
+        col_vals = mask.x.values
+
+    cmap = LinearSegmentedColormap.from_list("custom", colors, N=len(colors))
+
+    object_labels = np.unique(mask.where(mask > 0).values)
+    object_labels = object_labels[~np.isnan(object_labels)]
+    for i in object_labels:
+        binary_mask = mask.where(mask == i, 0).astype(bool)
+        color_index = (i - 1) % len(colors)
+        pcm_mask = (color_index * binary_mask).where(binary_mask)
+        pcm = pcm_mask.plot.pcolormesh(
+            ax=ax,
+            shading="nearest",
+            alpha=0.4,
+            zorder=2,
+            add_colorbar=False,
+            cmap=cmap,
+            levels=np.arange(0, len(colors) + 1),
+        )
+        contours = cv2.findContours(
+            binary_mask.values.astype(np.uint8),
+            cv2.RETR_LIST,
+            cv2.CHAIN_APPROX_SIMPLE,
+        )[0]
+        for contour in contours:
+            contour = np.append(contour, [contour[0]], axis=0)
+            row_coords = row_vals[contour[:, :, 1]]
+            col_coords = col_vals[contour[:, :, 0]]
+            ax.plot(
+                col_coords,
+                row_coords,
+                color=colors[int(color_index)],
+                linewidth=1.5,
+                zorder=3,
+            )
+
+
+def add_radar_features(ax, radar_lon, radar_lat, extent, input_record):
+    """Add radar features to an ax."""
+    ax.plot(
+        [radar_lon, radar_lon],
+        [extent[2], extent[3]],
+        color="tab:red",
+        linewidth=1,
+        alpha=0.8,
+        linestyle="--",
         zorder=1,
-        add_colorbar=False,
-        cmap=cmap,
-        levels=np.arange(1, 11, 1),
     )
+    ax.plot(
+        [extent[0], extent[1]],
+        [radar_lat, radar_lat],
+        color="tab:red",
+        linewidth=1,
+        alpha=0.8,
+        linestyle="--",
+        zorder=1,
+    )
+    try:
+        ax.plot(
+            input_record["range_longitudes"],
+            input_record["range_latitudes"],
+            color="tab:red",
+            linewidth=1,
+            alpha=0.8,
+            linestyle="--",
+            zorder=1,
+        )
+    except:
+        logger.debug("No range rings to plot.")
 
-    return pcm
+    return
 
 
-def initialize_cartographic_figure(
-    nrows=1,
-    ncols=1,
+def add_cartographic_features(
+    ax,
     style="paper",
-    figsize=None,
     scale="110m",
     extent=(-180, 180, -90, 90),
+    left_labels=True,
+    bottom_labels=True,
 ):
     """
     Initialize a figure.
@@ -77,46 +145,32 @@ def initialize_cartographic_figure(
         Axes object.
     """
 
-    if figsize is None:
-        figsize = (ncols * 6, nrows * 3)
-    projection = ccrs.PlateCarree()
+    colors = visualize.map_colors[style]
+    ocean = cfeature.NaturalEarthFeature(
+        "physical", "ocean", scale, edgecolor="face", facecolor=colors["sea_color"]
+    )
+    land = cfeature.NaturalEarthFeature(
+        "physical", "land", scale, edgecolor="face", facecolor=colors["land_color"]
+    )
+    states_provinces = cfeature.NaturalEarthFeature(
+        category="cultural",
+        name="admin_1_states_provinces_lines",
+        scale=scale,
+        facecolor="none",
+        edgecolor="gray",
+    )
+    ax.add_feature(land, zorder=0)
+    ax.add_feature(ocean, zorder=0)
+    ax.add_feature(states_provinces, zorder=0)
+    ax.coastlines(resolution=scale, zorder=1, color=colors["coast_color"])
+    gridlines = initialize_gridlines(
+        ax, extent=extent, left_labels=left_labels, bottom_labels=bottom_labels
+    )
 
-    style_path = Path(__file__).parent / "styles" / f"{style}.mplstyle"
-    with plt.style.context([visualize.base_styles[style], style_path]):
-        fig, axes = plt.subplots(
-            nrows,
-            ncols,
-            figsize=figsize,
-            subplot_kw={"projection": projection},
-        )
-        colors = visualize.map_colors[style]
-
-        ocean = cfeature.NaturalEarthFeature(
-            "physical", "ocean", scale, edgecolor="face", facecolor=colors["sea_color"]
-        )
-        land = cfeature.NaturalEarthFeature(
-            "physical", "land", scale, edgecolor="face", facecolor=colors["land_color"]
-        )
-        states_provinces = cfeature.NaturalEarthFeature(
-            category="cultural",
-            name="admin_1_states_provinces_lines",
-            scale=scale,
-            facecolor="none",
-            edgecolor="gray",
-        )
-
-        for ax in fig.get_axes():
-            ax.add_feature(land, zorder=0)
-            ax.add_feature(ocean, zorder=0)
-            ax.add_feature(states_provinces, zorder=0)
-            ax.coastlines(resolution=scale, zorder=1, color=colors["coast_color"])
-
-            gridlines = initialize_gridlines(ax, extent=extent)
-
-    return fig, axes, colors, gridlines
+    return ax, colors, gridlines
 
 
-def initialize_gridlines(ax, extent):
+def initialize_gridlines(ax, extent, left_labels=True, bottom_labels=True):
     """
     Initialize gridlines.
 
@@ -152,6 +206,8 @@ def initialize_gridlines(ax, extent):
 
     gridlines.right_labels = False
     gridlines.top_labels = False
+    gridlines.left_labels = left_labels
+    gridlines.bottom_labels = bottom_labels
 
     gridlines.xlabel_style = {
         "rotation": 0,

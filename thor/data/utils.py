@@ -5,10 +5,13 @@ import zipfile
 from pathlib import Path
 import requests
 from tqdm import tqdm
-import xarray as xr
 import cdsapi
-
+import cv2
+import numpy as np
+import xarray as xr
 from thor.log import setup_logger
+from thor.utils import format_time
+from thor.utils import haversine
 
 
 logger = setup_logger(__name__, level="DEBUG")
@@ -51,7 +54,7 @@ def unzip_file(filepath, directory=None):
     return sorted(extracted_filepaths), dir_size
 
 
-def download_file(url, parent_remote, parent_local="../thor/test/data"):
+def download_file(url, parent_remote, parent_local):
     """
     Downloads a file from the given URL and saves it to the specified directory.
 
@@ -296,7 +299,9 @@ def cdsapi_retrieval(cds_name, request, local_path):
 
 
 def log_dataset_update(local_logger, name, time):
-    local_logger.debug("Updating %s dataset for %s", name, time)
+    local_logger.debug(
+        f"Updating {name} dataset for {format_time(time, filename_safe=False)}."
+    )
 
 
 def log_convert(local_logger, name, filepath):
@@ -335,3 +340,27 @@ def get_parent(dataset_options):
     else:
         raise ValueError("No parent directory provided.")
     return parent
+
+
+def get_range_mask(dataset, dataset_options):
+    """Mask data greater than range from central point."""
+
+    longitudes = dataset.longitude.values
+    latitudes = dataset.latitude.values
+    origin_longitude = float(dataset.attrs["origin_longitude"])
+    origin_latitude = float(dataset.attrs["origin_latitude"])
+
+    LON, LAT = np.meshgrid(longitudes, latitudes)
+    distances = haversine(LAT, LON, origin_latitude, origin_longitude)
+    units_dict = {"m": 1, "km": 1e3}
+    range = dataset_options["range"] * units_dict[dataset_options["range_units"]]
+    mask = distances <= range
+    contour = cv2.findContours(
+        mask.astype(np.uint8),
+        cv2.RETR_LIST,
+        cv2.CHAIN_APPROX_NONE,
+    )[0][0]
+    contour = np.append(contour, [contour[0]], axis=0)
+    range_latitudes = latitudes[contour[:, :, 1]].flatten()
+    range_longitudes = longitudes[contour[:, :, 0]].flatten()
+    return mask, range_latitudes, range_longitudes

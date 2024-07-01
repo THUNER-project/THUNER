@@ -1,4 +1,5 @@
 # Python dependencies
+opencv-python
 numpy
 scipy
 scikit-image

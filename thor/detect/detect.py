@@ -1,7 +1,9 @@
 """Module for detecting objects in a grid."""
 
+import copy
 import numbers
 from scipy import ndimage
+import numpy as np
 import xarray as xr
 import thor.detect.preprocess as preprocess
 from thor.log import setup_logger
@@ -48,12 +50,18 @@ def steiner(grid, object_options):
 
     binary_grid = xr.full_like(grid, 0)
     binary_grid.name = "binary_grid"
-    try:
-        steiner_class = steiner_scheme(grid.values, x, y, coordinates=coordinates)
-        steiner_class[steiner_class != 2] = 0
-        binary_grid.data = steiner_class
-    except Exception as e:
-        logger.debug(f"Steiner scheme failed: {e}")
+    # try:
+    if x.ndim == 1 and y.ndim == 1:
+        X, Y = np.meshgrid(x, y)
+    elif x.ndim == 2 and y.ndim == 2:
+        X, Y = x, y
+    else:
+        raise ValueError("x and y must both be one or two dimensional.")
+    steiner_class = steiner_scheme(grid.values, X, Y, coordinates=coordinates)
+    steiner_class[steiner_class != 2] = 0
+    binary_grid.data = steiner_class
+    # except Exception as e:
+    #     logger.debug(f"Steiner scheme failed: {e}")
 
     return binary_grid
 
@@ -70,7 +78,7 @@ flattener_dispatcher = {
 }
 
 
-def detect(track_input_records, object_tracks, object_options, grid_options):
+def detect(track_input_records, tracks, level_index, obj, object_options, grid_options):
     """Detect objects in the given grid."""
 
     input_record = track_input_records[object_options["dataset"]]
@@ -83,15 +91,15 @@ def detect(track_input_records, object_tracks, object_options, grid_options):
         processed_grid = flattener(grid, object_options)
     else:
         processed_grid = grid
+    tracks[level_index][obj]["processed_grid"] = processed_grid
 
     detecter = detecter_dispatcher.get(object_options["detection"]["method"])
     if detecter is None:
         raise ValueError("Invalid detection method.")
     binary_grid = detecter(processed_grid, object_options)
-    mask = ndimage.label(binary_grid)[0]
-    mask = xr.DataArray(
-        mask, coords=binary_grid.coords, dims=binary_grid.dims, name="mask"
-    )
+    mask = xr.full_like(binary_grid, 0, dtype=int)
+    mask.data = ndimage.label(binary_grid)[0]
+    mask.name = f"{object_options['name']}_mask"
 
     dataset = input_record["dataset"]
     if grid_options["name"] == "geographic" and "cell_area" in dataset.variables.keys():
@@ -106,15 +114,11 @@ def detect(track_input_records, object_tracks, object_options, grid_options):
         mask = clear_small_area_objects(
             mask, object_options["detection"]["min_area"], cell_area
         )
-    if mask.max() == 0:
-        mask = None
 
-    if object_tracks["current_mask"] is not None:
-        current_mask = object_tracks["current_mask"].copy()
-    else:
-        current_mask = None
-        object_tracks["previous_masks"].append(current_mask)
-    object_tracks["current_mask"] = mask
+    current_mask = copy.deepcopy(tracks[level_index][obj]["current_mask"])
+    if current_mask is not None:
+        tracks[level_index][obj]["previous_masks"].append(current_mask)
+    tracks[level_index][obj]["current_mask"] = mask
 
 
 def clear_small_area_objects(mask, min_area, cell_area):

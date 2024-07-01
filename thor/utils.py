@@ -1,12 +1,24 @@
 "General utilities for the thor package."
 
 from datetime import datetime
+import json
+import hashlib
 import numpy as np
+import pandas as pd
+from numba import njit, int32, float32
+from numba.typed import List
 from scipy.interpolate import interp1d
 from thor.log import setup_logger
 
 
 logger = setup_logger(__name__)
+
+
+def hash_dictionary(dictionary):
+    params_str = json.dumps(dictionary, sort_keys=True)
+    hash_obj = hashlib.sha256()
+    hash_obj.update(params_str.encode("utf-8"))
+    return hash_obj.hexdigest()
 
 
 def format_string_list(strings):
@@ -33,19 +45,7 @@ def format_string_list(strings):
 
 
 def drop_time(time):
-    """
-    Drop the time component of a datetime64 object.
-
-    Parameters
-    ----------
-    time : np.datetime64
-        Datetime object.
-
-    Returns
-    -------
-    date : np.datetime64
-        Date object.
-    """
+    """Drop the time component of a datetime64 object."""
     return time.astype("datetime64[D]").astype("datetime64[s]")
 
 
@@ -60,11 +60,6 @@ def pad(array, left_pad=1, right_pad=1, kind="linear"):
     x = np.arange(len(array))
     f = interp1d(x, array, kind=kind, fill_value="extrapolate")
     return f(np.arange(-left_pad, len(array) + right_pad))
-
-
-def now_str():
-    """Return the current time as a filename friendly string."""
-    return datetime.now().strftime("%Y%m%d_%H%M%S")
 
 
 def print_keys(dictionary, indent=0):
@@ -110,7 +105,96 @@ def get_hour_interval(time, interval=6):
     return start, end
 
 
-def format_time(time):
-    """Format a datetime64 object as a filename safe string."""
-    time_seconds = time.astype("datetime64[s]")
-    return time_seconds.astype(datetime).strftime("%Y%m%d_%H%M%S")
+def format_time(time, filename_safe=True, day_only=False):
+    """Format a np.datetime64 object as a string, truncating to seconds."""
+    time_seconds = pd.DatetimeIndex([time]).round("s")[0]
+    if day_only:
+        time_str = time_seconds.strftime("%Y-%m-%d")
+    else:
+        time_str = time_seconds.strftime("%Y-%m-%dT%H:%M:%S")
+    if filename_safe:
+        time_str = time_str.replace(":", "").replace("-", "").replace("T", "_")
+    return time_str
+
+
+def now_str(filename_safe=True):
+    """Return the current time as a string."""
+    return format_time(datetime.now(), filename_safe=filename_safe, day_only=False)
+
+
+use_numba = True
+
+
+def conditional_jit(use_numba=True, *jit_args, **jit_kwargs):
+    """
+    A decorator that applies Numba's JIT compilation to a function if use_numba is True.
+    Otherwise, it returns the original function. It also adjusts type aliases based on the
+    usage of Numba.
+    """
+
+    def decorator(func):
+        if use_numba:
+            # Define type aliases for use with Numba
+            globals()["int32"] = int32
+            globals()["float32"] = float32
+            globals()["List"] = List
+            return njit(*jit_args, **jit_kwargs)(func)
+        else:
+            # Define type aliases for use without Numba
+            globals()["int32"] = np.int32
+            globals()["float32"] = np.float32
+            globals()["List"] = list
+            return func
+
+    return decorator
+
+
+@conditional_jit(use_numba=use_numba)
+def meshgrid_numba(x, y):
+    """
+    Create a meshgrid-like pair of arrays for x and y coordinates.
+    This function mimics the behaviour of np.meshgrid but is compatible with Numba.
+    """
+    m, n = len(y), len(x)
+    X = np.empty((m, n), dtype=x.dtype)
+    Y = np.empty((m, n), dtype=y.dtype)
+
+    for i in range(m):
+        X[i, :] = x
+    for j in range(n):
+        Y[:, j] = y
+
+    return X, Y
+
+
+@conditional_jit(use_numba=use_numba)
+def numba_boolean_assign(array, condition, value=np.nan):
+    """
+    Assign a value to an array based on a boolean condition.
+    """
+    for i in range(array.shape[0]):
+        for j in range(array.shape[1]):
+            if condition[i, j]:
+                array[i, j] = value
+    return array
+
+
+@conditional_jit(use_numba=use_numba)
+def haversine(lat1, lon1, lat2, lon2):
+    """
+    Calculate the great circle distance in metres between two points
+    on the earth (specified in decimal degrees)
+    """
+    # Convert decimal degrees to radians
+    lat1 = np.radians(lat1)
+    lon1 = np.radians(lon1)
+    lat2 = np.radians(lat2)
+    lon2 = np.radians(lon2)
+
+    # Haversine formula
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
+    c = 2 * np.arcsin(np.sqrt(a))
+    r = 6371e3  # Radius of earth in metres
+    return c * r
