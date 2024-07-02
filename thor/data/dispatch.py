@@ -112,7 +112,6 @@ def update_track_input_records(time, track_input_records, data_options, grid_opt
         if input_record["current_grid"] is not None:
             input_record["previous_grids"].append(input_record["current_grid"])
         grid_from_dataset = grid_from_dataset_dispatcher.get(name)
-        input_record["dataset"] = input_record["dataset"]
         if len(data_options[name]["fields"]) > 1:
             raise ValueError("Only one field allowed for track datasets.")
         else:

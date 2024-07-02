@@ -34,8 +34,8 @@ def conditional_jit(*jit_args, use_numba=True, **jit_kwargs):
             return njit(*jit_args, **jit_kwargs)(func)
         else:
             # Define type aliases for use without Numba
-            globals()["int32"] = np.int32
-            globals()["float32"] = np.float32
+            globals()["int32"] = int
+            globals()["float32"] = float
             globals()["List"] = list
             return func
 

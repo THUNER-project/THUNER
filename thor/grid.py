@@ -4,8 +4,7 @@ from pathlib import Path
 import yaml
 import inspect
 import numpy as np
-from pyproj import Geod
-from thor.utils import almost_equal, pad
+from thor.utils import almost_equal, pad, geodesic_distance
 from thor.config import get_outputs_directory
 from thor.log import setup_logger
 from thor.option import save_options
@@ -202,18 +201,18 @@ def new_geographic_grid(latitudes, longitudes, dlat, dlon):
 def get_cell_areas(latitudes, longitudes):
     """Get cell areas in km^2."""
 
-    geod = Geod(ellps="WGS84")
     d_lon = longitudes[1:] - longitudes[:-1]
     d_lat = latitudes[1:] - latitudes[:-1]
 
-    distance = np.vectorize(
-        lambda lon1, lat1, lon2, lat2: geod.inv(lon1, lat1, lon2, lat2)[2]
-    )
-
     if almost_equal(d_lon, 5) and almost_equal(d_lat, 5):
 
-        dx = distance(longitudes[2], latitudes, longitudes[0], latitudes) / 2
-        dy = distance(longitudes[0], latitudes[2:], longitudes[0], latitudes[:-2]) / 2
+        dx = geodesic_distance(longitudes[2], latitudes, longitudes[0], latitudes) / 2
+        dy = (
+            geodesic_distance(
+                longitudes[0], latitudes[2:], longitudes[0], latitudes[:-2]
+            )
+            / 2
+        )
         dy = pad(dy)
 
         areas = dx * dy
@@ -221,11 +220,11 @@ def get_cell_areas(latitudes, longitudes):
     else:
         logger.warning("Irregular lat/lon grid. May be slow to calculate areas.")
         LONS, LATS = np.meshgrid(longitudes, latitudes)
-        dx = distance(
+        dx = geodesic_distance(
             LONS[1:-1, 2:], LATS[1:-1, 1:-1], LONS[1:-1, :-2], LATS[1:-1, 1:-1]
         )
         dx = dx / 2
-        dy = distance(
+        dy = geodesic_distance(
             LONS[1:-1, 1:-1], LATS[2:, 1:-1], LONS[1:-1, 1:-1], LATS[:-2, 1:-1]
         )
         dy = dy / 2

@@ -8,6 +8,7 @@ import pandas as pd
 from numba import njit, int32, float32
 from numba.typed import List
 from scipy.interpolate import interp1d
+from pyproj import Geod
 from thor.log import setup_logger
 
 
@@ -122,6 +123,25 @@ def now_str(filename_safe=True):
     return format_time(datetime.now(), filename_safe=filename_safe, day_only=False)
 
 
+geod = Geod(ellps="WGS84")
+geodesic_inverse = np.vectorize(
+    lambda lon1, lat1, lon2, lat2: geod.inv(lon1, lat1, lon2, lat2)
+)
+geodesic_distance = lambda lon1, lat1, lon2, lat2: geodesic_inverse(
+    lon1, lat1, lon2, lat2
+)[2]
+
+
+def get_cartesian_displacement(start_lat, start_lon, end_lat, end_lon):
+    """
+    Calculate the Cartesian displacement between two points on the Earth's surface.
+    """
+    direction, distance = geodesic_inverse(start_lon, start_lat, end_lon, end_lat)[0, 2]
+    x_displacement = distance * np.sin(np.radians(direction))
+    y_displacement = distance * np.cos(np.radians(direction))
+    return x_displacement, y_displacement
+
+
 use_numba = True
 
 
@@ -141,8 +161,8 @@ def conditional_jit(use_numba=True, *jit_args, **jit_kwargs):
             return njit(*jit_args, **jit_kwargs)(func)
         else:
             # Define type aliases for use without Numba
-            globals()["int32"] = np.int32
-            globals()["float32"] = np.float32
+            globals()["int32"] = int
+            globals()["float32"] = float
             globals()["List"] = list
             return func
 

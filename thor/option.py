@@ -245,7 +245,7 @@ def grouped_object(
             "Member object hierarchy levels must be less than grouped object level."
         )
 
-    mask_options = {"save": False, "load": False}
+    mask_options = {"save": True, "load": False}
 
     options = {
         **boilerplate_object(
@@ -453,7 +453,10 @@ def mcs(dataset, tags=None, **kwargs):
     options = [
         {
             "cell": cell_object(
-                altitudes=[3000], dataset=dataset, flatten_method="cross_section"
+                altitudes=[3000],
+                dataset=dataset,
+                flatten_method="cross_section",
+                threshold=40,
             ),
             "middle_cloud": cell_object(
                 name="middle_cloud",

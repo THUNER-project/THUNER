@@ -58,6 +58,7 @@ def steiner(grid, object_options):
     else:
         raise ValueError("x and y must both be one or two dimensional.")
     steiner_class = steiner_scheme(grid.values, X, Y, coordinates=coordinates)
+    steiner_class = steiner_class.astype(int)
     steiner_class[steiner_class != 2] = 0
     binary_grid.data = steiner_class
     # except Exception as e:
@@ -81,8 +82,17 @@ flattener_dispatcher = {
 def detect(track_input_records, tracks, level_index, obj, object_options, grid_options):
     """Detect objects in the given grid."""
 
+    previous_grid = copy.deepcopy(tracks[level_index][obj]["current_grid"])
+    tracks[level_index][obj]["previous_grids"].append(previous_grid)
     input_record = track_input_records[object_options["dataset"]]
     grid = input_record["current_grid"]
+    if previous_grid is not None:
+        time_interval = grid.time.values - previous_grid.time.values
+        time_interval = time_interval.astype("timedelta64[s]").astype(int)
+        tracks[level_index][obj]["time_interval"] = time_interval
+    dataset = input_record["dataset"]
+    if "gridcell_area" not in tracks[level_index][obj].keys():
+        tracks[level_index][obj]["gridcell_area"] = dataset["gridcell_area"]
 
     if object_options["detection"]["flatten_method"] is not None:
         flattener = flattener_dispatcher.get(
@@ -91,7 +101,7 @@ def detect(track_input_records, tracks, level_index, obj, object_options, grid_o
         processed_grid = flattener(grid, object_options)
     else:
         processed_grid = grid
-    tracks[level_index][obj]["processed_grid"] = processed_grid
+    tracks[level_index][obj]["current_grid"] = processed_grid
 
     detecter = detecter_dispatcher.get(object_options["detection"]["method"])
     if detecter is None:
@@ -101,36 +111,37 @@ def detect(track_input_records, tracks, level_index, obj, object_options, grid_o
     mask.data = ndimage.label(binary_grid)[0]
     mask.name = f"{object_options['name']}_mask"
 
-    dataset = input_record["dataset"]
-    if grid_options["name"] == "geographic" and "cell_area" in dataset.variables.keys():
-        cell_area = dataset["cell_area"]
+    if (
+        grid_options["name"] == "geographic"
+        and "gridcell_area" in dataset.variables.keys()
+    ):
+        gridcell_area = dataset["gridcell_area"]
     elif grid_options["name"] == "cartesian":
         spacing = grid_options["cartesian_spacing"]
-        cell_area = spacing[1] * spacing[2]
+        gridcell_area = spacing[1] * spacing[2]
     else:
-        ValueError("Invalid grid name or missing cell_area variable.")
+        ValueError("Invalid grid name or missing gridcell_area variable.")
 
     if object_options["detection"]["min_area"] is not None:
         mask = clear_small_area_objects(
-            mask, object_options["detection"]["min_area"], cell_area
+            mask, object_options["detection"]["min_area"], gridcell_area
         )
 
     current_mask = copy.deepcopy(tracks[level_index][obj]["current_mask"])
-    if current_mask is not None:
-        tracks[level_index][obj]["previous_masks"].append(current_mask)
+    tracks[level_index][obj]["previous_masks"].append(current_mask)
     tracks[level_index][obj]["current_mask"] = mask
 
 
-def clear_small_area_objects(mask, min_area, cell_area):
+def clear_small_area_objects(mask, min_area, gridcell_area):
     """Takes in labelled image and clears objects less than min_size."""
 
     for obj in range(1, int(mask.max()) + 1):
-        if isinstance(cell_area, xr.DataArray) and len(cell_area.shape) == 2:
-            obj_area = cell_area.data[mask == obj].sum()
-        elif isinstance(cell_area, numbers.Real) and cell_area > 0:
-            obj_area = (mask == obj).sum() * cell_area
+        if isinstance(gridcell_area, xr.DataArray) and len(gridcell_area.shape) == 2:
+            obj_area = gridcell_area.data[mask == obj].sum()
+        elif isinstance(gridcell_area, numbers.Real) and gridcell_area > 0:
+            obj_area = (mask == obj).sum() * gridcell_area
         else:
-            raise ValueError("cell_area must be a positive number or a 2D array.")
+            raise ValueError("gridcell_area must be a positive number or a 2D array.")
         if obj_area < min_area:
             mask.data[mask == obj] = 0
     # Relabel the mask after clearing the small objects

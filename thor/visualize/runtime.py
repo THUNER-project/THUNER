@@ -3,6 +3,7 @@ Plotting functions to be called during algorithm runtime for debugging
 and visualization purposes.
 """
 
+import copy
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import cartopy.crs as ccrs
@@ -22,7 +23,7 @@ def detected_mask(
     """Plot masks for a detected object."""
 
     object_tracks = tracks[level_index][obj]
-    grid = object_tracks["processed_grid"]
+    grid = object_tracks["current_grid"]
 
     extent = (
         grid.longitude.values.min(),
@@ -31,25 +32,37 @@ def detected_mask(
         grid.latitude.values.max(),
     )
 
-    fig = plt.figure(figsize=(6, 3))
-    ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
-
-    horizontal.add_cartographic_features(
-        ax, style=figure_options["style"], scale="10m", extent=extent
-    )
-    if "radar" in grid.attrs["instrument"]:
-        horizontal.add_radar_features(
-            ax,
-            float(grid.attrs["origin_longitude"]),
-            float(grid.attrs["origin_latitude"]),
-            extent,
-            input_record,
+    def create_template(input_record, figure_options, extent):
+        """Create a template figure for masks."""
+        fig = plt.figure(figsize=(6, 3))
+        ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
+        horizontal.add_cartographic_features(
+            ax, style=figure_options["style"], scale="10m", extent=extent
         )
-    horizontal.grid(grid, ax)
+        if "radar" in grid.attrs["instrument"]:
+            horizontal.add_radar_features(
+                ax,
+                float(grid.attrs["origin_longitude"]),
+                float(grid.attrs["origin_latitude"]),
+                extent,
+                input_record,
+            )
+        return fig, ax
+
+    if "figure_template" not in figure_options.keys():
+        fig, ax = create_template(input_record, figure_options, extent)
+        figure_options["figure_template"] = fig
+
+    fig = copy.deepcopy(figure_options["figure_template"])
+    ax = fig.axes[0]
+
+    pcm = horizontal.grid(grid, ax, add_colorbar=False)
     mask = object_tracks["current_mask"]
     if mask is not None:
         horizontal.mask(mask, ax)
 
+    cbar_label = grid.name.title() + f" [{grid.units}]"
+    fig.colorbar(pcm, label=cbar_label)
     ax.set_title(f"{grid.time.values.astype('datetime64[s]')} UTC")
 
     return fig, ax
@@ -69,7 +82,7 @@ def grouped_mask(input_record, tracks, level_index, obj, track_options, figure_o
         member_levels = object_options["grouping"]["member_levels"]
 
     # Initialise figures using extent of processed grid for first member object
-    grid = tracks[member_levels[0]][member_objects[0]]["processed_grid"]
+    grid = tracks[member_levels[0]][member_objects[0]]["current_grid"]
 
     extent = (
         grid.longitude.min(),
@@ -83,43 +96,55 @@ def grouped_mask(input_record, tracks, level_index, obj, track_options, figure_o
     except KeyError:
         figsize = (len(member_objects) * 4, 4)
 
-    fig = plt.figure(figsize=figsize)
-    nrows = 1
-    ncols = len(member_objects) + 1
-    width_ratios = [1] * len(member_objects) + [0.05]
-    gs = gridspec.GridSpec(nrows, ncols, width_ratios=width_ratios)
-    axes = []
-    for i in range(len(member_objects)):
-        ax = fig.add_subplot(gs[0, i], projection=ccrs.PlateCarree())
-        axes.append(ax)
-        ax = horizontal.add_cartographic_features(
-            ax,
-            extent=extent,
-            style=figure_options["style"],
-            scale="10m",
-            left_labels=(i == 0),
-        )[0]
-        if "radar" in grid.attrs["instrument"]:
-            horizontal.add_radar_features(
+    def create_template(input_record, figure_options, extent):
+        """Create a template figure for grouped masks."""
+        fig = plt.figure(figsize=figsize)
+        nrows = 1
+        ncols = len(member_objects) + 1
+        width_ratios = [1] * len(member_objects) + [0.05]
+        gs = gridspec.GridSpec(nrows, ncols, width_ratios=width_ratios)
+        axes = []
+        for i in range(len(member_objects)):
+            ax = fig.add_subplot(gs[0, i], projection=ccrs.PlateCarree())
+            axes.append(ax)
+            ax = horizontal.add_cartographic_features(
                 ax,
-                float(grid.attrs["origin_longitude"]),
-                float(grid.attrs["origin_latitude"]),
-                extent,
-                input_record,
-            )
-        grid = tracks[member_levels[i]][member_objects[i]]["processed_grid"]
+                extent=extent,
+                style=figure_options["style"],
+                scale="10m",
+                left_labels=(i == 0),
+            )[0]
+            if "radar" in grid.attrs["instrument"]:
+                horizontal.add_radar_features(
+                    ax,
+                    float(grid.attrs["origin_longitude"]),
+                    float(grid.attrs["origin_latitude"]),
+                    extent,
+                    input_record,
+                )
+            ax.set_title(member_objects[i].replace("_", " ").title())
+        cbar_ax = fig.add_subplot(gs[0, -1])
+        make_subplot_labels(axes, x_shift=-0.12, y_shift=0.06)
+        return fig, axes, cbar_ax
+
+    if "figure_template" not in figure_options.keys():
+        fig, ax, cbar_ax = create_template(input_record, figure_options, extent)
+        figure_options["figure_template"] = fig
+
+    fig = copy.deepcopy(figure_options["figure_template"])
+    axes = fig.axes[:-1]
+    cbar_ax = fig.axes[-1]
+
+    for i in range(len(member_objects)):
+        ax = axes[i]
+        grid = tracks[member_levels[i]][member_objects[i]]["current_grid"]
         pcm = horizontal.grid(grid, ax, add_colorbar=False)
         if mask[f"{member_objects[i]}_mask"] is not None:
             horizontal.mask(mask[f"{member_objects[i]}_mask"], ax)
-        ax.set_title(member_objects[i].replace("_", " ").title())
 
-    cbar_ax = fig.add_subplot(gs[0, -1])
     cbar_label = grid.name.title() + f" [{grid.units}]"
     fig.colorbar(pcm, cax=cbar_ax, label=cbar_label)
-
     fig.suptitle(f"{grid.time.values.astype('datetime64[s]')} UTC", y=1.05)
-
-    make_subplot_labels(axes, x_shift=-0.12, y_shift=0.06)
 
     return fig, ax
 
@@ -193,4 +218,7 @@ def visualize(
                     / filename
                 )
                 filepath.parent.mkdir(parents=True, exist_ok=True)
+                logger.debug(
+                    f"Saving {figure} figure for {object_visualize_options['name']}."
+                )
                 fig.savefig(filepath, bbox_inches="tight")

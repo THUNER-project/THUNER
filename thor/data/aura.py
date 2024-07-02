@@ -441,9 +441,9 @@ def convert_cpol(time, input_record, dataset_options, grid_options):
         ds = regridder(cpol)
 
         cell_areas = grid.get_cell_areas(ds.latitude.values, ds.longitude.values)
-        ds["cell_area"] = (["latitude", "longitude"], cell_areas)
-        ds["cell_area"].attrs.update(
-            {"units": "km^2", "standard_name": "cell_area", "valid_min": 0}
+        ds["gridcell_area"] = (["latitude", "longitude"], cell_areas)
+        ds["gridcell_area"].attrs.update(
+            {"units": "km^2", "standard_name": "area", "valid_min": 0}
         )
 
     elif grid_options["name"] == "cartesian":
@@ -473,14 +473,13 @@ def convert_cpol(time, input_record, dataset_options, grid_options):
 
     mask_coords = [("latitude", ds.latitude.values), ("longitude", ds.longitude.values)]
     mask_array = xr.DataArray(input_record["range_mask"], coords=mask_coords)
-    for var_name, var_data in ds.items():
+    for var in ds.data_vars.keys() - ["gridcell_area"]:
         # Check if the variable has 'latitude' and 'longitude' dimensions
-        if set(["latitude", "longitude"]).issubset(set(var_data.dims)):
-            # Broadcast the mask to match the dimensions of the current variable
-            broadcasted_mask = mask_array.broadcast_like(var_data)
+        if set(["latitude", "longitude"]).issubset(set(ds[var].dims)):
+            broadcasted_mask = mask_array.broadcast_like(ds[var])
 
             # Apply the mask, setting unmasked values to NaN
-            ds[var_name] = var_data.where(broadcasted_mask)
+            ds[var] = ds[var].where(broadcasted_mask)
 
     return ds
 
