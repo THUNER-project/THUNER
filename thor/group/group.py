@@ -35,7 +35,9 @@ def group(track_input_records, tracks, level_index, obj, object_options, grid_op
     tracks[level_index][obj]["previous_grids"].append(previous_grid)
     tracks[level_index][obj]["current_grid"] = grid
 
-    tracks[level_index][obj]["time_interval"] = get_time_interval(grid, previous_grid)
+    tracks[level_index][obj]["current_time_interval"] = get_time_interval(
+        grid, previous_grid
+    )
 
 
 def get_connected_components(tracks, object_options):

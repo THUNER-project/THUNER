@@ -62,8 +62,6 @@ def steiner(grid, object_options):
     steiner_class = steiner_class.astype(int)
     steiner_class[steiner_class != 2] = 0
     binary_grid.data = steiner_class
-    # except Exception as e:
-    #     logger.debug(f"Steiner scheme failed: {e}")
 
     return binary_grid
 
@@ -83,14 +81,19 @@ flattener_dispatcher = {
 def detect(track_input_records, tracks, level_index, obj, object_options, grid_options):
     """Detect objects in the given grid."""
 
-    previous_grid = copy.deepcopy(tracks[level_index][obj]["current_grid"])
-    tracks[level_index][obj]["previous_grids"].append(previous_grid)
+    object_tracks = tracks[level_index][obj]
+    previous_grid = copy.deepcopy(object_tracks["current_grid"])
+    object_tracks["previous_grids"].append(previous_grid)
     input_record = track_input_records[object_options["dataset"]]
+
     grid = input_record["current_grid"]
-    tracks[level_index][obj]["time_interval"] = get_time_interval(grid, previous_grid)
+    object_tracks["previous_time_interval"] = copy.deepcopy(
+        object_tracks["current_time_interval"]
+    )
+    object_tracks["current_time_interval"] = get_time_interval(grid, previous_grid)
     dataset = input_record["dataset"]
-    if "gridcell_area" not in tracks[level_index][obj].keys():
-        tracks[level_index][obj]["gridcell_area"] = dataset["gridcell_area"]
+    if "gridcell_area" not in object_tracks.keys():
+        object_tracks["gridcell_area"] = dataset["gridcell_area"]
 
     if object_options["detection"]["flatten_method"] is not None:
         flattener = flattener_dispatcher.get(
@@ -99,7 +102,7 @@ def detect(track_input_records, tracks, level_index, obj, object_options, grid_o
         processed_grid = flattener(grid, object_options)
     else:
         processed_grid = grid
-    tracks[level_index][obj]["current_grid"] = processed_grid
+    object_tracks["current_grid"] = processed_grid
 
     detecter = detecter_dispatcher.get(object_options["detection"]["method"])
     if detecter is None:
@@ -125,9 +128,9 @@ def detect(track_input_records, tracks, level_index, obj, object_options, grid_o
             mask, object_options["detection"]["min_area"], gridcell_area
         )
 
-    current_mask = copy.deepcopy(tracks[level_index][obj]["current_mask"])
-    tracks[level_index][obj]["previous_masks"].append(current_mask)
-    tracks[level_index][obj]["current_mask"] = mask
+    current_mask = copy.deepcopy(object_tracks["current_mask"])
+    object_tracks["previous_masks"].append(current_mask)
+    object_tracks["current_mask"] = mask
 
 
 def clear_small_area_objects(mask, min_area, gridcell_area):

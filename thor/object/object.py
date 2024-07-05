@@ -10,44 +10,6 @@ from thor.match.correlate import get_global_flow
 logger = setup_logger(__name__)
 
 
-def get_bounding_box(obj, mask):
-    """Get bounding box of object."""
-    bounding_box = {}
-    row_inds, col_inds = np.where(mask == obj)
-    bounding_box["row_min"] = np.min(row_inds)
-    bounding_box["row_max"] = np.max(row_inds)
-    bounding_box["col_min"] = np.min(col_inds)
-    bounding_box["col_max"] = np.max(col_inds)
-    return bounding_box
-
-
-def expand_box(box, row_margin, col_margin):
-    """Expand bounding box by margins."""
-    box["row_min"] = box["row_min"] - row_margin
-    box["row_max"] = box["row_max"] + row_margin
-    box["col_min"] = box["col_min"] - col_margin
-    box["col_max"] = box["col_max"] + col_margin
-    return box
-
-
-def shift_box(box, row_shift, col_shift):
-    """Expand bounding box by margins."""
-    box["row_min"] = box["row_min"] + row_shift
-    box["row_max"] = box["row_max"] + row_shift
-    box["col_min"] = box["col_min"] + col_shift
-    box["col_max"] = box["col_max"] + col_shift
-    return box
-
-
-def clip_box(box, dims):
-    """Clip bounding box to image dimensions."""
-    box["row_min"] = np.max([box["row_min"], 0])
-    box["row_max"] = np.min([box["row_max"], dims[0] - 1])
-    box["col_min"] = np.max([box["col_min"], 0])
-    box["col_max"] = np.min([box["col_max"], dims[1] - 1])
-    return box
-
-
 def get_object_area(obj, mask, gridcell_area):
     """Get object area. Note gridcell_area is in km^2 by default."""
     row_inds, col_inds = np.where(mask == obj)
@@ -85,7 +47,6 @@ def get_object_center(obj, mask, gridcell_area=None, grid=None):
 
 def find_objects(box, mask):
     """Identifies objects found in the search region."""
-
     search_area = mask.values[
         box["row_min"] : box["row_max"], box["col_min"] : box["col_max"]
     ]
@@ -101,6 +62,8 @@ def reset_object_record(object_tracks):
         "matched_current_ids": [],
         "parents": [],
         "global_flow": None,
+        "previous_displacements": [],
+        "current_displacements": [],
     }
     object_tracks["object_record"] = object_record
 
@@ -134,7 +97,6 @@ def update_object_record(match_data, object_tracks, object_options):
     total_previous_objects = np.max(previous_mask.values)
     previous_ids = np.arange(1, total_previous_objects + 1)
     universal_ids = np.array([], dtype=int)
-    previous_displacements = []
 
     for previous_id in np.arange(1, total_previous_objects + 1):
         # Check if object was matched in previous iteration
@@ -147,9 +109,6 @@ def update_object_record(match_data, object_tracks, object_options):
             universal_ids = np.append(
                 universal_ids, previous_object_record["universal_ids"][index]
             )
-            previous_displacements.append(
-                previous_object_record["current_displacements"][index]
-            )
         else:
             uid = object_tracks["object_count"] + 1
             object_tracks["object_count"] += 1
@@ -160,5 +119,4 @@ def update_object_record(match_data, object_tracks, object_options):
     object_record["global_flow"] = global_flow
     object_record["universal_ids"] = universal_ids
     object_record["previous_ids"] = previous_ids
-    object_record["previous_displacements"] = previous_ids
     object_tracks["object_record"] = object_record

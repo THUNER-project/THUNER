@@ -74,6 +74,10 @@ def initialise_object_tracks(object_options):
     object_tracks["object_count"] = 0
     object_tracks["tracks"] = []
     object_tracks["current_grid"] = None
+    object_tracks["current_time_interval"] = None
+    object_tracks["previous_time_interval"] = deque(
+        maxlen=object_options["deque_length"]
+    )
     object_tracks["previous_grids"] = deque(maxlen=object_options["deque_length"])
     object_tracks["current_mask"] = None
     object_tracks["previous_masks"] = deque(maxlen=object_options["deque_length"])
@@ -84,6 +88,8 @@ def initialise_object_tracks(object_options):
         )
         object_record = {
             "previous_ids": [],
+            "previous_displacements": [],
+            "current_displacements": [],
             "universal_ids": [],
             "matched_current_ids": [],
             "parents": [],
