@@ -7,6 +7,7 @@ import thor.data.dispatch as dispatch
 import thor.detect.detect as detect
 import thor.group.group as group
 import thor.visualize as visualize
+import thor.match.match as match
 from thor.config import get_outputs_directory
 from thor.utils import now_str, hash_dictionary, format_time
 import thor.write as write
@@ -76,6 +77,20 @@ def initialise_object_tracks(object_options):
     object_tracks["previous_grids"] = deque(maxlen=object_options["deque_length"])
     object_tracks["current_mask"] = None
     object_tracks["previous_masks"] = deque(maxlen=object_options["deque_length"])
+    if object_options["tracking"]["method"] is not None:
+        object_tracks["current_matched_mask"] = None
+        object_tracks["previous_matched_masks"] = deque(
+            maxlen=object_options["deque_length"]
+        )
+        object_record = {
+            "previous_ids": [],
+            "universal_ids": [],
+            "matched_current_ids": [],
+            "parents": [],
+            "global_flow": None,
+        }
+        object_tracks["object_record"] = object_record
+
     if object_options["mask_options"]["save"]:
         object_tracks["mask_list"] = []
     return object_tracks
@@ -264,7 +279,8 @@ def track_object(
     get_objects(
         track_input_records, tracks, level_index, obj, object_options, grid_options
     )
-    # match
+    match.match(tracks[level_index][obj], object_options, grid_options)
+
     # visualize
     visualize.runtime.visualize(
         track_input_records,
@@ -272,6 +288,7 @@ def track_object(
         level_index,
         obj,
         track_options,
+        grid_options,
         visualize_options,
         output_directory,
     )

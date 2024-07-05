@@ -1,204 +1,221 @@
 """Perform matching using TINT approach."""
 
-import copy
 import numpy as np
-from thor.match.correlate import get_local_flow
-from thor.object.object import get_bounding_box, get_object_center
-from thor.utils import get_cartesian_displacement
+from scipy import optimize
+from thor.match.correlate import get_local_flow, convert_flow_cartesian
+from thor.match.utils import get_masks, get_grids
+import thor.object.object as thor_object
+from thor.utils import geodesic_distance
 from thor.log import setup_logger
 
 logger = setup_logger(__name__)
 
 
-def initialize_object_record(matches, parents, object_tracks):
-    """Initialize record of object properties in previous and current masks."""
+def get_costs_matrix(object_tracks, object_options, grid_options):
+    """Get the costs matrix used to match objects between previous and current masks."""
+    current_mask, previous_mask = get_masks(object_tracks, object_options)
+    previous_total = np.max(previous_mask.values)
+    current_total = np.max(current_mask.values)
+    latitudes = current_mask.latitude.values
+    longitudes = previous_mask.longitude.values
 
-    total_previous_objects = np.max(object_tracks["previous_masks"][-1])
-
-    previous_ids = np.arange(1, total_previous_objects + 1)
-    universal_ids = np.arange(
-        object_tracks["object_count"] + 1, total_previous_objects + 1
-    )
-    object_tracks["object_count"] += total_previous_objects
-
-    object_record = {
-        "previous_ids": previous_ids,
-        "universal_ids": universal_ids,
-        "current_ids": matches,
-        "parents": parents,
-    }
-    [
-        object_record["center_displacements"],
-        object_record["previous_centers"],
-        object_record["current_centers"],
-    ] = get_center_displacements(object_tracks)
-
-
-def update_object_record(
-    matches,
-    parents,
-    object_tracks,
-    # data_dic, pairs, old_objects, counter, old_obj_merge, interval, params, grid_obj
-):
-    """Update record of object properties in previous and current masks."""
-
-    previous_object_record = copy.deepcopy(object_tracks["current_object_record"])
-    total_previous_objects = np.max(object_tracks["previous_masks"][-1])
-    previous_ids = np.arange(1, total_previous_objects + 1)
-    universal_ids = np.array([], dtype=int)
-
-    for previous_id in np.arange(1, total_previous_objects + 1):
-        # Check if object was matched in previous iteration
-        if id in previous_object_record["current_ids"]:
-            index = np.argwhere(previous_object_record["current_ids"] == previous_id)
-            index = index[0, 0]
-            # Append the previously created universal id corresponding to previous_id
-            universal_ids = np.append(
-                universal_ids, previous_object_record["universal_ids"][index]
-            )
-        else:
-            uid = object_tracks["object_count"] + 1
-            object_tracks["object_count"] += 1
-            universal_ids = np.append(universal_ids, uid)
-            # Check if new object split from old?
-
-    object_record = {
-        "previous_ids": previous_ids,
-        "universal_ids": universal_ids,
-        "current_ids": matches,
-        "parents": parents,
-    }
-    [
-        object_record["center_displacements"],
-        object_record["previous_centers"],
-        object_record["current_centers"],
-    ] = get_center_displacements(object_tracks)
-
-
-def get_center_displacements(object_tracks):
-    current_object_record = object_tracks["current_object_record"]
-    """Get the centroid displacement vectors."""
-    total_current_objects = len(current_object_record["previous_ids"])
-    center_displacements = np.ones((total_current_objects, 2)) * np.nan
-    previous_centers = np.ones((total_current_objects, 2)) * np.nan
-    current_centers = np.ones((total_current_objects, 2)) * np.nan
-    previous_mask = object_tracks["previous_masks"][-1]
-    current_mask = object_tracks["current_mask"]
-    previous_grid = object_tracks["previous_grids"][-1]
-    current_grid = object_tracks["current_grid"]
-
-    for i in range(total_current_objects):
-        if (current_object_record["previous_ids"][i] > 0) and (
-            current_object_record["current_ids"][i] > 0
-        ):
-            previous_center = get_object_center(
-                current_object_record["previous_ids"][i],
-                previous_mask,
-                gridcell_area=object_tracks["gridcell_area"],
-                grid=previous_grid,
-            )
-            current_center = get_object_center(
-                current_object_record["current_ids"][i],
-                current_mask,
-                gridcell_area=object_tracks["gridcell_area"],
-                grid=current_grid,
-            )
-            center_displacements[i, :] = get_cartesian_displacement(
-                previous_center[0],
-                previous_center[1],
-                current_center[0],
-                current_center[1],
-            )
-            previous_centers[i, :] = previous_center
-            current_centers[i, :] = current_center
-        else:
-            logger.debug("Unmatched object in previous or current mask.")
-
-    return center_displacements, previous_centers, current_centers
-
-
-def get_area_change(area1, area2):
-    """Returns change in size of an echo as the ratio of the larger size to
-    the smaller, minus 1."""
-    if area1 >= area2:
-        return area1 / area2 - 1
-    else:
-        return area2 / area1 - 1
-
-
-def match_all_objects(input_record, object_tracks, object_options, grid_options):
-    """Matches all the objects in previous mask to those in current mask."""
-    previous_object_total = np.max(object_tracks["previous_masks"][-1])
-    current_object_total = np.max(object_tracks["current_mask"])
-    latitudes = object_tracks["current_grid"].latitude.values
-    longitudes = object_tracks["current_grid"].longitude.values
-
-    if (previous_object_total == 0) or (current_object_total == 0):
+    if (previous_total == 0) or (current_total == 0):
         logger.info("No objects in at least one of previous or current masks.")
         return
 
-    matches = np.full(
-        (previous_object_total, np.max((previous_object_total, current_object_total))),
-        np.inf,
-        dtype=float,
+    max_cost = object_options["tracking"]["options"]["max_cost"]
+
+    matrix_shape = [previous_total, np.max([previous_total, current_total])]
+    costs_matrix = np.full(matrix_shape, max_cost, dtype=float)
+    current_lats_matrix = np.full(matrix_shape, np.nan, dtype=float)
+    current_lons_matrix = np.full(matrix_shape, np.nan, dtype=float)
+    flow_velocities = []
+    flows = []
+    previous_centers = []
+    bounding_boxes = []
+    flow_boxes = []
+    search_boxes = []
+    previous_displacements = []
+
+    # Get the object record prior to its update
+    previous_object_record = object_tracks["object_record"]
+    matched_previous_ids = previous_object_record["matched_current_ids"]
+    previous_displacements = previous_object_record["current_displacements"]
+
+    for previous_id in np.arange(1, previous_total + 1):
+        bounding_box = thor_object.get_bounding_box(previous_id, previous_mask)
+        bounding_boxes.append(bounding_box)
+        flow, flow_box = get_local_flow(
+            bounding_box, object_tracks, object_options, grid_options
+        )
+        flows.append(flow)
+        flow_boxes.append(flow_box)
+        flow_meters = convert_flow_cartesian(flow, bounding_box, latitudes, longitudes)
+        flow_velocity = np.array(flow_meters) / object_tracks["time_interval"]
+        flow_velocities.append(flow_velocity)
+
+        if previous_id in matched_previous_ids:
+            previous_displacement = previous_displacements[
+                matched_previous_ids == previous_id
+            ]
+
+        search_margin = object_options["tracking"]["options"]["search_margin"]
+        grid_spacing = grid_options["geographic_spacing"]
+        row_margin = int(np.ceil(search_margin / grid_spacing[0]))
+        col_margin = int(np.ceil(search_margin / grid_spacing[1]))
+        search_box = bounding_box.copy()
+        search_box = thor_object.expand_box(search_box, row_margin, col_margin)
+        search_box = thor_object.shift_box(search_box, flow[0], flow[1])
+        search_box = thor_object.clip_box(search_box, current_mask.shape)
+        search_boxes.append(search_box)
+        current_ids = thor_object.find_objects(search_box, current_mask)
+        costs, previous_lat, previous_lon, current_lats, current_lons = get_costs(
+            current_ids, previous_id, object_tracks, object_options
+        )
+        costs_matrix[previous_id - 1, current_ids - 1] = costs
+        current_lats_matrix[previous_id - 1, current_ids - 1] = current_lats
+        current_lons_matrix[previous_id - 1, current_ids - 1] = current_lons
+        previous_centers.append([previous_lat, previous_lon])
+
+    costs_data = {
+        "costs_matrix": costs_matrix,
+        "current_lats_matrix": current_lats_matrix,
+        "current_lons_matrix": current_lons_matrix,
+        "flows": np.array(flows),
+        "flow_velocities": np.array(flow_velocities),
+        "previous_centers": np.array(previous_centers),
+        "bounding_boxes": np.array(bounding_boxes),
+        "flow_boxes": np.array(flow_boxes),
+        "search_boxes": np.array(search_boxes),
+    }
+    return costs_data
+
+
+def get_costs(current_ids, previous_id, object_tracks, object_options):
+    """
+    Caculate the cost function for all objects found within the search box. Note that
+    this cost function is subtly different to that described by Raut et al. (2021), as
+    distances are calculated from objects within the search box to the centre
+    of the search box. This inconsistency suggests the R and Python versions of TINT
+    are slightly different."""
+
+    costs = np.array([])
+    current_lats = np.array([])
+    current_lons = np.array([])
+
+    current_mask, previous_mask = get_masks(object_tracks, object_options)
+    current_grid, previous_grid = get_grids(object_tracks, object_options)
+    gridcell_area = object_tracks["gridcell_area"]
+
+    previous_lat, previous_lon, previous_area = thor_object.get_object_center(
+        previous_id, previous_mask, gridcell_area, previous_grid
     )
-    u_flows = []
-    v_flows = []
 
-    for obj_id in np.arange(1, previous_object_total + 1):
-        bounding_box = get_bounding_box(obj_id, object_tracks["previous_mask"][-1])
-        flow = get_local_flow(bounding_box, object_tracks, object_options, grid_options)
-        previous_center_row = int(
-            np.round((bounding_box["row_min"] + bounding_box["row_max"]) / 2)
+    if len(current_ids) == 0:
+        return None, previous_lat, previous_lon, current_lats, current_lons
+
+    for current_id in current_ids:
+
+        current_lat, current_lon, current_area = thor_object.get_object_center(
+            current_id, current_mask, gridcell_area, current_grid
         )
-        previous_center_col = int(
-            np.round((bounding_box["col_min"] + bounding_box["col_max"]) / 2)
+        distance = geodesic_distance(
+            previous_lon, previous_lat, current_lon, current_lat
         )
-        current_center_row = previous_center_row + flow[0]
-        current_center_col = previous_center_col + flow[1]
-        previous_center_lat = latitudes[previous_center_row]
-        previous_center_lon = longitudes[previous_center_col]
-        current_center_lat = latitudes[current_center_row]
-        current_center_lon = longitudes[current_center_col]
-
-        flow_meters = get_cartesian_displacement(
-            previous_center_lat,
-            previous_center_lon,
-            current_center_lat,
-            current_center_lon,
-        )
-        [v_flow, u_flow] = np.array(flow_meters) / object_tracks["time_interval"]
-        u_flows.append(u_flow)
-        v_flows.append(v_flow)
-
-        search_box = predict_search_extent(obj1_extent, shift, params, record.grid_size)
-        search_box = check_search_box(search_box, data_dic["frame_new"].shape)
-        objs_found = find_objects(search_box, data_dic["frame_new"])
-        disparity = get_disparity_all(
-            objs_found, data_dic["frame_new"], search_box, obj1_extent
-        )
-        obj_match = save_obj_match(obj_id1, objs_found, disparity, obj_match, params)
-
-    return obj_match, u_shift, v_shift
+        cost = distance / 1e3 + np.sqrt(np.abs(current_area - previous_area))
+        costs = np.append(costs, cost)
+        current_lats = np.append(current_lats, current_lat)
+        current_lons = np.append(current_lons, current_lon)
+    return costs, previous_lat, previous_lon, current_lats, current_lons
 
 
-# def correct_flow(local_flow, current_objects, obj_id1, global_shift, record, params):
-#     """Takes in flow vector based on local phase correlation (see
-#     get_std_flow) and compares it to the last headings of the object and
-#     the global_shift vector for that timestep. Corrects accordingly.
-#     Note: At the time of this function call, current_objects has not yet been
-#     updated for the current frame and frame_new, so the current_idss in current_objects
-#     correspond to the objects in the current frame."""
+def get_matches(object_tracks, object_options, grid_options):
+    """Matches objects into pairs given a disparity matrix and removes
+    bad matches. Bad matches have a disparity greater than the maximum
+    threshold."""
+
+    max_cost = object_options["tracking"]["options"]["max_cost"]
+    costs_data = get_costs_matrix(object_tracks, object_options, grid_options)
+    costs_matrix = costs_data["costs_matrix"]
+    current_lats_matrix = costs_data["current_lats_matrix"]
+    current_lons_matrix = costs_data["current_lons_matrix"]
+    try:
+        matches = optimize.linear_sum_assignment(costs_matrix)
+    except ValueError:
+        logger.debug("Could not solve matching problem.")
+    parents = []
+    costs = []
+    current_centers = []
+    for i in matches[0]:
+        cost = costs_matrix[i, matches[1][i]]
+        current_lat = current_lats_matrix[i, matches[1][i]]
+        current_lon = current_lons_matrix[i, matches[1][i]]
+        parents.append(None)
+        costs.append(cost)
+        current_centers.append([current_lat, current_lon])
+        if cost >= max_cost:
+            # Set to -1 if object has died (or merged)
+            matches[1][i] = -1
+    matches = matches[1] + 1  # Recall ids are 1 indexed
+    match_data = costs_data.copy()
+    del match_data["costs_matrix"]
+    del match_data["current_lats_matrix"]
+    del match_data["current_lons_matrix"]
+    match_data["matched_current_centers"] = current_centers
+    match_data["matched_current_ids"] = matches
+    match_data["parents"] = np.array(parents)
+    match_data["costs"] = np.array(costs)
+
+    return match_data
+
+
+# def correct_flow_tint(local_flow, object_record, global_flow):
+#     """Correct the local flow vector using the TINT approach."""
+#     """Correct the local flow vector using the MINT approach."""
 #     global_shift = clip_shift(global_shift, record, params)
-
-#     # Note last_heads is defined using object centers! These jump around a lot
-#     # when tracking large objects and should therefore probably not be used
-#     # when tracking MCS systems!
 
 #     if current_objects is None:
 #         last_heads = None
 #     else:
-#         obj_index = current_objects["current_ids"] == obj_id1
+#         obj_index = current_objects["id2"] == obj_id1
+#         last_heads = current_objects["last_heads"][obj_index].flatten()
+#         last_heads = np.round(last_heads * record.interval_ratio, 2)
+#         if len(last_heads) == 0:
+#             last_heads = None
+
+#     if last_heads is None:
+#         if shifts_disagree(local_shift, global_shift, record, params):
+#             case = 0
+#             corrected_shift = global_shift
+#         else:
+#             case = 1
+#             corrected_shift = (local_shift + global_shift) / 2
+
+#     elif shifts_disagree(local_shift, last_heads, record, params):
+#         if shifts_disagree(local_shift, global_shift, record, params):
+#             case = 2
+#             corrected_shift = last_heads
+#         else:
+#             case = 3
+#             corrected_shift = local_shift
+
+#     else:
+#         case = 4
+#         corrected_shift = (local_shift + last_heads) / 2
+
+#     corrected_shift = np.round(corrected_shift, 2)
+
+#     record.count_case(case)
+#     record.record_shift(corrected_shift, global_shift, last_heads, local_shift, case)
+#     return corrected_shift
+
+
+# def correct_local_flow(local_flow, global_flow):
+#   local_flows =
+#   if current_objects is None:
+#         last_heads = None
+#     else:
+#         obj_index = current_objects["id2"] == obj_id1
 #         last_heads = current_objects["last_heads"][obj_index].flatten()
 #         last_heads = np.round(last_heads * record.interval_ratio, 2)
 #         if len(last_heads) == 0:

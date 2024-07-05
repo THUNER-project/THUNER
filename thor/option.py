@@ -2,6 +2,7 @@
 
 import yaml
 from pathlib import Path
+import numpy as np
 from thor.utils import now_str, check_component_options
 from thor.config import get_outputs_directory
 from thor.log import setup_logger
@@ -12,9 +13,9 @@ logger = setup_logger(__name__)
 
 # Tracking scheme configurations.
 def tint_options(
-    search_margin=4000,
-    flow_margin=40000,
-    max_disparity=999,
+    search_margin=0.1,
+    flow_margin=0.1,
+    max_cost=1e5,
     max_flow_mag=50,
     max_shift_disparity=15,
     global_shift_altitude=1500,
@@ -28,8 +29,8 @@ def tint_options(
         Margin for object matching. Does not affect flow vectors.
     flow_margin : int, optional
         Margin around object for phase correlation.
-    max_disparity : int, optional
-        Maximum allowable matching disparity score.
+    max_cost : int, optional
+        Maximum allowable matching disparity score. Units of km.
     max_flow_mag : int, optional
         Maximum allowable global shift magnitude.
     max_shift_disp : int, optional
@@ -49,7 +50,7 @@ def tint_options(
     options = {
         "search_margin": search_margin,
         "flow_margin": flow_margin,
-        "max_disparity": max_disparity,
+        "max_cost": max_cost,
         "max_flow_mag": max_flow_mag,
         "max_shift_disparity": max_shift_disparity,
         "global_shift_altitude": global_shift_altitude,
@@ -58,8 +59,8 @@ def tint_options(
 
 
 def mint_options(
-    search_margin=50000,
-    flow_margin=40000,
+    search_margin=0.2,
+    flow_margin=0.2,
     max_flow_mag=60,
     max_disparity=999,
     max_shift_disparity=60,
@@ -260,6 +261,8 @@ def grouped_object(
         "tracking": {"method": tracking_method, "options": mint_options()},
     }
 
+    options["tracking"]["options"]["matched_object"] = "cell"
+
     return options
 
 
@@ -275,7 +278,7 @@ def cell_object(
     tracking_method="tint",
     global_shift_altitude=2000,
     altitudes=[3e3],
-    min_area=20,
+    min_area=60,
     tags=None,
 ):
     """Creates default THOR configuration for tracking cells.
@@ -323,7 +326,7 @@ def anvil_object(
     tracking_method="tint",
     global_shift_altitude=8000,
     altitudes=None,
-    min_area=50,
+    min_area=80,
     tags=None,
 ):
     """Creates default THOR configuration for tracking anvils.

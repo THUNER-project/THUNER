@@ -16,14 +16,16 @@ logger = setup_logger(__name__)
 def grid(grid, ax, add_colorbar=True):
     """Plot a grid cross section."""
 
+    title = ax.get_title()
     pcm = grid.plot.pcolormesh(
         ax=ax,
         shading="nearest",
         zorder=1,
-        **visualize.grid_formats[grid.name],
+        **visualize.grid_formats[grid.attrs["long_name"].lower()],
         add_colorbar=add_colorbar,
         extend="both",
     )
+    ax.set_title(title)
 
     return pcm
 
@@ -31,6 +33,7 @@ def grid(grid, ax, add_colorbar=True):
 def mask(mask, ax):
     """Plot masks."""
 
+    title = ax.get_title()
     colors = ["purple", "teal", "cyan", "magenta", "saddlebrown"]
 
     try:
@@ -73,6 +76,8 @@ def mask(mask, ax):
                 linewidth=1.5,
                 zorder=3,
             )
+    ax.set_title(title)
+    return colors
 
 
 def add_radar_features(ax, radar_lon, radar_lat, extent, input_record):
@@ -234,5 +239,6 @@ def initialize_gridlines(ax, extent, left_labels=True, bottom_labels=True):
     gridlines.ylocator = mticker.FixedLocator(
         np.arange(lat_start, lat_end + grid_spacing, grid_spacing)
     )
+    ax.set_extent(extent)
 
     return gridlines

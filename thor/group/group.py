@@ -6,25 +6,36 @@ import xarray as xr
 import networkx
 from networkx.algorithms.components.connected import connected_components
 import thor.detect.preprocess as preprocess
+from thor.utils import get_time_interval
 
 
 def group(track_input_records, tracks, level_index, obj, object_options, grid_options):
     """Group objects into new objects."""
 
-    input_record = track_input_records[object_options["dataset"]]
-    grid = input_record["current_grid"]
-    altitudes = [grid.altitude.values.min(), grid.altitude.values.max()]
-    processed_grid = preprocess.vertical_max(
-        grid, {"detection": {"altitudes": altitudes}}
-    )
-    tracks[level_index][obj]["processed_grid"] = processed_grid
+    dataset = track_input_records[object_options["dataset"]]["dataset"]
+    if "gridcell_area" not in tracks[level_index][obj].keys():
+        tracks[level_index][obj]["gridcell_area"] = dataset["gridcell_area"]
+    member_objects = object_options["grouping"]["member_objects"]
+    member_levels = object_options["grouping"]["member_levels"]
 
+    grid_dict = {}
+    for member_obj, member_level in zip(member_objects, member_levels):
+        grid_dict[f"{member_obj}_grid"] = tracks[member_level][member_obj][
+            "current_grid"
+        ]
+
+    grid = xr.Dataset(grid_dict)
     mask = get_connected_components(tracks, object_options)
 
-    current_mask = copy.deepcopy(tracks[level_index][obj]["current_mask"])
-    if current_mask is not None:
-        tracks[level_index][obj]["previous_masks"].append(current_mask)
+    previous_mask = copy.deepcopy(tracks[level_index][obj]["current_mask"])
+    tracks[level_index][obj]["previous_masks"].append(previous_mask)
     tracks[level_index][obj]["current_mask"] = mask
+
+    previous_grid = copy.deepcopy(tracks[level_index][obj]["current_grid"])
+    tracks[level_index][obj]["previous_grids"].append(previous_grid)
+    tracks[level_index][obj]["current_grid"] = grid
+
+    tracks[level_index][obj]["time_interval"] = get_time_interval(grid, previous_grid)
 
 
 def get_connected_components(tracks, object_options):

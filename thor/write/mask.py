@@ -21,8 +21,13 @@ def update(object_tracks, object_options, output_directory):
     except (AttributeError, IndexError):
         previous_day = None
 
+    if object_options["tracking"]["method"] is None:
+        mask_type = "current_mask"
+    else:
+        mask_type = "current_matched_mask"
+
     if previous_day is None or current_day == previous_day:
-        object_tracks["mask_list"].append(object_tracks["current_mask"])
+        object_tracks["mask_list"].append(object_tracks[mask_type])
     elif current_day > previous_day:
         write(
             object_tracks["mask_list"],

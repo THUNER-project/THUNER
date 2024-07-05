@@ -32,7 +32,7 @@ def cpol_data_options(
     data_format="grid_150km_2500m",
     fields=None,
     version="v2020",
-    range=145,
+    range=142.5,
     range_units="km",
 ):
     """
@@ -464,12 +464,7 @@ def convert_cpol(time, input_record, dataset_options, grid_options):
     ds = ds.interp(altitude=grid_options["altitude"], method="linear")
 
     if "range_mask" not in input_record.keys():
-        range_mask, range_latitudes, range_longitudes = utils.get_range_mask(
-            ds, dataset_options
-        )
-        input_record["range_mask"] = range_mask
-        input_record["range_latitudes"] = range_latitudes
-        input_record["range_longitudes"] = range_longitudes
+        get_range_mask(ds, dataset_options, input_record)
 
     mask_coords = [("latitude", ds.latitude.values), ("longitude", ds.longitude.values)]
     mask_array = xr.DataArray(input_record["range_mask"], coords=mask_coords)
@@ -482,6 +477,16 @@ def convert_cpol(time, input_record, dataset_options, grid_options):
             ds[var] = ds[var].where(broadcasted_mask)
 
     return ds
+
+
+def get_range_mask(ds, dataset_options, input_record):
+    """Add the range mask to the input record."""
+    range_mask, range_latitudes, range_longitudes = utils.get_range_mask(
+        ds, dataset_options
+    )
+    input_record["range_mask"] = range_mask
+    input_record["range_latitudes"] = range_latitudes
+    input_record["range_longitudes"] = range_longitudes
 
 
 def convert_operational():
@@ -544,6 +549,8 @@ def update_dataset(time, input_record, dataset_options, grid_options):
         dataset = xr.open_dataset(
             dataset_options["filepaths"][input_record["current_file_index"]]
         )
+        if "range_mask" not in input_record.keys():
+            get_range_mask(dataset, dataset_options, input_record)
     if conv_options["save"]:
         filepath = dataset_options["filepaths"][input_record["current_file_index"]]
         parent = utils.get_parent(dataset_options)

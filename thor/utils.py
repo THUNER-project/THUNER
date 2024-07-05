@@ -123,6 +123,16 @@ def now_str(filename_safe=True):
     return format_time(datetime.now(), filename_safe=filename_safe, day_only=False)
 
 
+def get_time_interval(current_grid, previous_grid):
+    """Get the time interval between two grids."""
+    if previous_grid is not None:
+        time_interval = current_grid.time.values - previous_grid.time.values
+        time_interval = time_interval.astype("timedelta64[s]").astype(int)
+        return time_interval
+    else:
+        return None
+
+
 geod = Geod(ellps="WGS84")
 geodesic_inverse = np.vectorize(
     lambda lon1, lat1, lon2, lat2: geod.inv(lon1, lat1, lon2, lat2)
@@ -134,11 +144,14 @@ geodesic_distance = lambda lon1, lat1, lon2, lat2: geodesic_inverse(
 
 def get_cartesian_displacement(start_lat, start_lon, end_lat, end_lon):
     """
-    Calculate the Cartesian displacement between two points on the Earth's surface.
+    Calculate the Cartesian displacement in metres between two points
+    on the Earth's surface.
     """
-    direction, distance = geodesic_inverse(start_lon, start_lat, end_lon, end_lat)[0, 2]
-    x_displacement = distance * np.sin(np.radians(direction))
-    y_displacement = distance * np.cos(np.radians(direction))
+    direction, backward_direction, distance = geodesic_inverse(
+        start_lon, start_lat, end_lon, end_lat
+    )
+    x_displacement = distance * np.cos(np.radians(direction))
+    y_displacement = distance * np.sin(np.radians(direction))
     return x_displacement, y_displacement
 
 

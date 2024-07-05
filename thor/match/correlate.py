@@ -2,20 +2,24 @@
 
 import numpy as np
 from scipy import ndimage
-from thor.object.object import expand_bounding_box, clip_bounding_box
+import thor.object.object as thor_object
+from thor.utils import get_cartesian_displacement
+from thor.match.utils import get_grids
 
 
 def get_local_flow(bounding_box, object_tracks, object_options, grid_options):
     """Get the optical flow within bounding_box."""
+
+    current_grid, previous_grid = get_grids(object_tracks, object_options)
+    current_grid = current_grid.copy()
+    previous_grid = previous_grid.copy()
     flow_margin = object_options["tracking"]["options"]["flow_margin"]
     grid_spacing = grid_options["geographic_spacing"]
     flow_margin_row = int(np.ceil(flow_margin / grid_spacing[0]))
     flow_margin_col = int(np.ceil(flow_margin / grid_spacing[1]))
     flow_box = bounding_box.copy()
-    flow_box = expand_bounding_box(flow_box, flow_margin_row, flow_margin_col)
-    flow_box = clip_bounding_box(flow_box, object_tracks["current_grid"].shape)
-    current_grid = object_tracks["current_grid"].copy()
-    previous_grid = object_tracks["previous_grids"][-1].copy()
+    flow_box = thor_object.expand_box(flow_box, flow_margin_row, flow_margin_col)
+    flow_box = thor_object.clip_box(flow_box, current_grid.shape)
 
     box_previous = previous_grid[
         flow_box["row_min"] : flow_box["row_max"] + 1,
@@ -29,7 +33,7 @@ def get_local_flow(bounding_box, object_tracks, object_options, grid_options):
     box_previous = box_previous.fillna(0)
     box_current = box_current.fillna(0)
 
-    return get_flow(box_previous, box_current)
+    return get_flow(box_previous, box_current), flow_box
 
 
 def get_flow(grid1, grid2, global_flow=False):
@@ -50,6 +54,29 @@ def get_flow(grid1, grid2, global_flow=False):
     # Calculate shift relative to center - see fft_shift.
     flow = flow - (dims - np.array([row_centre, column_centre]))
     return flow
+
+
+def convert_flow_cartesian(flow, bounding_box, latitudes, longitudes):
+    previous_center_row = int(
+        np.round((bounding_box["row_min"] + bounding_box["row_max"]) / 2)
+    )
+    previous_center_col = int(
+        np.round((bounding_box["col_min"] + bounding_box["col_max"]) / 2)
+    )
+    current_center_row = previous_center_row + flow[0]
+    current_center_col = previous_center_col + flow[1]
+    previous_center_lat = latitudes[previous_center_row]
+    previous_center_lon = longitudes[previous_center_col]
+    current_center_lat = latitudes[current_center_row]
+    current_center_lon = longitudes[current_center_col]
+
+    flow_meters = get_cartesian_displacement(
+        previous_center_lat,
+        previous_center_lon,
+        current_center_lat,
+        current_center_lon,
+    )
+    return flow_meters
 
 
 def get_cross_covariance(grid1, grid2):
@@ -83,12 +110,13 @@ def shift(cross_covariance):
         return
 
 
-def get_global_flow(object_tracks):
+def get_global_flow(object_tracks, object_options):
     """Get global optical flow."""
-    previous_grid = object_tracks["previous_grids"][-1]
-    current_grid = object_tracks["current_grid"]
-    if current_grid is None:
+    current_grid, previous_grid = get_grids(object_tracks, object_options)
+    if previous_grid is None:
         return None
 
-    global_flow = get_flow(previous_grid, current_grid, global_flow=True)
+    global_flow = get_flow(
+        previous_grid.fillna(0), current_grid.fillna(0), global_flow=True
+    )
     return global_flow

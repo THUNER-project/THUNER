@@ -8,6 +8,7 @@ import xarray as xr
 import thor.detect.preprocess as preprocess
 from thor.log import setup_logger
 from thor.detect.steiner import steiner_scheme
+from thor.utils import get_time_interval
 
 logger = setup_logger(__name__)
 
@@ -86,10 +87,7 @@ def detect(track_input_records, tracks, level_index, obj, object_options, grid_o
     tracks[level_index][obj]["previous_grids"].append(previous_grid)
     input_record = track_input_records[object_options["dataset"]]
     grid = input_record["current_grid"]
-    if previous_grid is not None:
-        time_interval = grid.time.values - previous_grid.time.values
-        time_interval = time_interval.astype("timedelta64[s]").astype(int)
-        tracks[level_index][obj]["time_interval"] = time_interval
+    tracks[level_index][obj]["time_interval"] = get_time_interval(grid, previous_grid)
     dataset = input_record["dataset"]
     if "gridcell_area" not in tracks[level_index][obj].keys():
         tracks[level_index][obj]["gridcell_area"] = dataset["gridcell_area"]

@@ -68,7 +68,7 @@ def runtime_options(
     """
 
     if figures is None:
-        figures = {obj: {"style": style} for obj in ["mask"]}
+        figures = {obj: {"style": style} for obj in ["mask", "match"]}
 
     options = {
         **boilerplate_options(name, save, parent_local),

@@ -1,8 +1,13 @@
 """Methods for analyzing objects."""
 
+import copy
 import numpy as np
 import xarray as xr
-from thor.utils import geodesic_distance
+from thor.log import setup_logger
+from thor.match.utils import get_masks
+from thor.match.correlate import get_global_flow
+
+logger = setup_logger(__name__)
 
 
 def get_bounding_box(obj, mask):
@@ -16,22 +21,31 @@ def get_bounding_box(obj, mask):
     return bounding_box
 
 
-def expand_bounding_box(bounding_box, row_margin, col_margin):
+def expand_box(box, row_margin, col_margin):
     """Expand bounding box by margins."""
-    bounding_box["row_min"] = bounding_box["row_min"] - row_margin
-    bounding_box["row_max"] = bounding_box["row_max"] + row_margin
-    bounding_box["col_min"] = bounding_box["col_min"] - col_margin
-    bounding_box["col_max"] = bounding_box["col_max"] + col_margin
-    return bounding_box
+    box["row_min"] = box["row_min"] - row_margin
+    box["row_max"] = box["row_max"] + row_margin
+    box["col_min"] = box["col_min"] - col_margin
+    box["col_max"] = box["col_max"] + col_margin
+    return box
 
 
-def clip_bounding_box(bounding_box, dims):
+def shift_box(box, row_shift, col_shift):
+    """Expand bounding box by margins."""
+    box["row_min"] = box["row_min"] + row_shift
+    box["row_max"] = box["row_max"] + row_shift
+    box["col_min"] = box["col_min"] + col_shift
+    box["col_max"] = box["col_max"] + col_shift
+    return box
+
+
+def clip_box(box, dims):
     """Clip bounding box to image dimensions."""
-    bounding_box["row_min"] = np.max([bounding_box["row_min"], 0])
-    bounding_box["row_max"] = np.min([bounding_box["row_max"], dims[0]])
-    bounding_box["col_min"] = np.max([bounding_box["col_min"], 0])
-    bounding_box["col_max"] = np.min([bounding_box["col_max"], dims[1]])
-    return bounding_box
+    box["row_min"] = np.max([box["row_min"], 0])
+    box["row_max"] = np.min([box["row_max"], dims[0] - 1])
+    box["col_min"] = np.max([box["col_min"], 0])
+    box["col_max"] = np.min([box["col_max"], dims[1] - 1])
+    return box
 
 
 def get_object_area(obj, mask, gridcell_area):
@@ -66,7 +80,7 @@ def get_object_center(obj, mask, gridcell_area=None, grid=None):
     longitudes = mask.longitude.values
     center_lat = latitudes[center_row]
     center_lon = longitudes[center_col]
-    return center_lat, center_lon
+    return center_lat, center_lon, areas.sum()
 
 
 def find_objects(box, mask):
@@ -77,3 +91,74 @@ def find_objects(box, mask):
     ]
     objects = np.unique(search_area)
     return objects[objects != 0]
+
+
+def reset_object_record(object_tracks):
+    """Reset record of object properties in previous and current masks."""
+    object_record = {
+        "previous_ids": [],
+        "universal_ids": [],
+        "matched_current_ids": [],
+        "parents": [],
+        "global_flow": None,
+    }
+    object_tracks["object_record"] = object_record
+
+
+def initialize_object_record(match_data, object_tracks, object_options):
+    """Initialize record of object properties in previous and current masks."""
+
+    previous_mask = get_masks(object_tracks, object_options)[1]
+    total_previous_objects = np.max(previous_mask)
+    global_flow = get_global_flow(object_tracks, object_options)
+    previous_ids = np.arange(1, total_previous_objects + 1)
+
+    universal_ids = np.arange(
+        object_tracks["object_count"] + 1, total_previous_objects + 1
+    )
+    object_tracks["object_count"] += total_previous_objects
+    object_record = match_data.copy()
+    object_record["previous_ids"] = previous_ids
+    object_record["global_flow"] = global_flow
+    object_record["universal_ids"] = universal_ids
+    object_tracks["object_record"] = object_record
+
+
+def update_object_record(match_data, object_tracks, object_options):
+    """Update record of object properties in previous and current masks."""
+
+    previous_object_record = copy.deepcopy(object_tracks["object_record"])
+    previous_mask = get_masks(object_tracks, object_options)[1]
+    global_flow = get_global_flow(object_tracks, object_options)
+
+    total_previous_objects = np.max(previous_mask.values)
+    previous_ids = np.arange(1, total_previous_objects + 1)
+    universal_ids = np.array([], dtype=int)
+    previous_displacements = []
+
+    for previous_id in np.arange(1, total_previous_objects + 1):
+        # Check if object was matched in previous iteration
+        if previous_id in previous_object_record["matched_current_ids"]:
+            index = np.argwhere(
+                previous_object_record["matched_current_ids"] == previous_id
+            )
+            index = index[0, 0]
+            # Append the previously created universal id corresponding to previous_id
+            universal_ids = np.append(
+                universal_ids, previous_object_record["universal_ids"][index]
+            )
+            previous_displacements.append(
+                previous_object_record["current_displacements"][index]
+            )
+        else:
+            uid = object_tracks["object_count"] + 1
+            object_tracks["object_count"] += 1
+            universal_ids = np.append(universal_ids, uid)
+            # Check if new object split from old?
+
+    object_record = match_data.copy()
+    object_record["global_flow"] = global_flow
+    object_record["universal_ids"] = universal_ids
+    object_record["previous_ids"] = previous_ids
+    object_record["previous_displacements"] = previous_ids
+    object_tracks["object_record"] = object_record
