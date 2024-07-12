@@ -358,7 +358,7 @@ def generate_operational_urls(options):
             )
             urls.append(url)
 
-    return urls, times
+    return sorted(urls)
 
 
 def setup_operational(data_options, grid_options, url, directory):
@@ -495,25 +495,6 @@ def convert_operational():
     return ds
 
 
-def generate_cpol_times(options, attempt_download=True):
-    """Get cpol times from data_options["cpol"]."""
-    filepaths = options["filepaths"]
-    for filepath in sorted(filepaths):
-        if not Path(filepath).exists() and attempt_download:
-            utils.download_file(
-                str(filepath).replace(
-                    options["parent_local"],
-                    options["parent_remote"],
-                ),
-                options["parent_remote"],
-                options["parent_local"],
-            )
-
-        with xr.open_dataset(filepath, chunks={}) as ds:
-            for time in ds.time.values:
-                yield time
-
-
 def update_dataset(time, input_record, dataset_options, grid_options):
     """
     Update an aura dataset.
@@ -552,14 +533,7 @@ def update_dataset(time, input_record, dataset_options, grid_options):
         if "range_mask" not in input_record.keys():
             get_range_mask(dataset, dataset_options, input_record)
     if conv_options["save"]:
-        filepath = dataset_options["filepaths"][input_record["current_file_index"]]
-        parent = utils.get_parent(dataset_options)
-        if conv_options["parent_converted"] is None:
-            parent_converted = parent.replace("raw", "converted")
-        converted_filepath = filepath.replace(parent, parent_converted)
-        if not Path(converted_filepath).parent.exists():
-            Path(converted_filepath).parent.mkdir(parents=True)
-        dataset.to_netcdf(converted_filepath, mode="w")
+        utils.save_converted_dataset(dataset, dataset_options)
     input_record["dataset"] = dataset
 
 

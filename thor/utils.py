@@ -137,6 +137,9 @@ geod = Geod(ellps="WGS84")
 geodesic_inverse = np.vectorize(
     lambda lon1, lat1, lon2, lat2: geod.inv(lon1, lat1, lon2, lat2)
 )
+geodesic_forward = np.vectorize(
+    lambda lon, lat, direction, distance: geod.fwd(lon, lat, direction, distance)
+)
 geodesic_distance = lambda lon1, lat1, lon2, lat2: geodesic_inverse(
     lon1, lat1, lon2, lat2
 )[2]

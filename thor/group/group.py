@@ -35,6 +35,9 @@ def group(track_input_records, tracks, level_index, obj, object_options, grid_op
     tracks[level_index][obj]["previous_grids"].append(previous_grid)
     tracks[level_index][obj]["current_grid"] = grid
 
+    tracks[level_index][obj]["previous_time_interval"] = copy.deepcopy(
+        tracks[level_index][obj]["current_time_interval"]
+    )
     tracks[level_index][obj]["current_time_interval"] = get_time_interval(
         grid, previous_grid
     )
@@ -82,17 +85,38 @@ def get_connected_components(tracks, object_options):
 
     # Create new objects based on connected components
     new_objs = list(connected_components(overlap_graph))
+    # Create a counter, as some of the connected components will be rejected
+    new_obj_counter = 0
     for i in range(len(new_objs)):
         # Require that components span all member objects
         if not component_span(masks, new_objs[i]):
             continue
+        # Require total areas of member objects are above thresholds after grouping
+        if not check_areas(masks, tracks, object_options, list(new_objs[i])):
+            continue
         # Create new grouped objects
+        new_obj_counter += 1
         for j in range(len(mask_da_list)):
             mask_da_list[j] = mask_da_list[j].where(
-                ~np.isin(masks[j], list(new_objs[i])), i + 1
+                ~np.isin(masks[j], list(new_objs[i])), new_obj_counter
             )
+    grouped_mask = xr.Dataset({da.name: da for da in mask_da_list})
+    return grouped_mask
 
-    return xr.Dataset({da.name: da for da in mask_da_list})
+
+def check_areas(masks, tracks, object_options, objs):
+    """
+    Check if the areas of the member objects after grouping are above the threshold.
+    """
+    member_objects = object_options["grouping"]["member_objects"]
+    member_levels = object_options["grouping"]["member_levels"]
+    member_min_areas = object_options["grouping"]["member_min_areas"]
+    for j in range(len(masks)):
+        gridcell_area = tracks[member_levels[j]][member_objects[j]]["gridcell_area"]
+        mask_j = np.isin(masks[j], objs)
+        if gridcell_area.where(mask_j).sum() < member_min_areas[j]:
+            return False
+    return True
 
 
 def component_span(masks, new_objs):

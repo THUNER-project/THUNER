@@ -2,6 +2,7 @@
 
 import thor.data.aura as aura
 import thor.data.era5 as era5
+import thor.data.gridrad as gridrad
 from thor.log import setup_logger
 from thor.utils import time_in_dataset_range
 
@@ -12,6 +13,7 @@ logger = setup_logger(__name__)
 update_dataset_dispatcher = {
     "cpol": aura.update_dataset,
     "operational": aura.update_dataset,
+    "gridrad": gridrad.update_dataset,
     "era5_pl": era5.update_dataset,
     "era5_sl": era5.update_dataset,
 }
@@ -19,20 +21,15 @@ update_dataset_dispatcher = {
 
 grid_from_dataset_dispatcher = {
     "cpol": aura.cpol_grid_from_dataset,
+    "gridrad": gridrad.gridrad_grid_from_dataset,
     "operational": lambda dataset, variable, time: dataset[variable].sel(time=time),
-}
-
-
-generate_times_dispatcher = {
-    "cpol": aura.generate_cpol_times,
-    # "operational": data.aura.generate_operational_times,
-    # "era5": data.era5.generate_era5_times,
 }
 
 
 generate_filepaths_dispatcher = {
     "cpol": aura.generate_cpol_filepaths,
     "operational": aura.generate_operational_filepaths,
+    "gridrad": gridrad.generate_gridrad_filepaths,
     "era5_pl": era5.generate_era5_filepaths,
     "era5_sl": era5.generate_era5_filepaths,
 }
@@ -41,6 +38,7 @@ generate_filepaths_dispatcher = {
 check_data_options_dispatcher = {
     "cpol": aura.check_data_options,
     "operational": aura.check_data_options,
+    "gridrad": gridrad.check_data_options,
     "era5_pl": era5.check_data_options,
     "era5_sl": era5.check_data_options,
 }
@@ -59,17 +57,6 @@ def check_data_options(data_options):
         if data_options[name]["filepaths"] is None:
             filepaths = generate_filepaths(data_options[name])
             data_options[name]["filepaths"] = filepaths
-
-
-def generate_times(filepaths, dataset_name):
-    """Universal generate times function."""
-    get_times = generate_times_dispatcher.get(dataset_name)
-    if get_times is None:
-        raise KeyError(f"get_time function for {dataset_name} not found.")
-    for filepath in sorted(filepaths):
-        times = get_times(filepath)
-        for time in times:
-            yield time
 
 
 def generate_filepaths(dataset_options):

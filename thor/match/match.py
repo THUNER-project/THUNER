@@ -1,4 +1,4 @@
-import copy
+from collections import deque
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -6,9 +6,20 @@ from thor.log import setup_logger
 import thor.object.object as thor_object
 import thor.match.tint as tint
 from thor.match.utils import get_masks
-from thor.match.correlate import get_global_flow
 
 logger = setup_logger(__name__)
+
+
+def initialise_match_records(object_tracks, object_options):
+    object_tracks["current_matched_mask"] = None
+    deque_length = object_options["deque_length"]
+    object_tracks["previous_matched_masks"] = deque(
+        [None] * deque_length, maxlen=deque_length
+    )
+    object_tracks["object_record"] = thor_object.empty_object_record()
+    object_tracks["previous_object_records"] = deque(
+        [None] * deque_length, maxlen=deque_length
+    )
 
 
 def match(object_tracks, object_options, grid_options):
@@ -16,20 +27,21 @@ def match(object_tracks, object_options, grid_options):
     if object_options["tracking"]["method"] is None:
         return
     current_mask, previous_mask = get_masks(object_tracks, object_options)
+    logger.debug(f"Matching {object_options['name']} objects.")
     current_ids = np.unique(current_mask)
     current_ids = current_ids[current_ids != 0]
     if previous_mask is None or np.max(previous_mask) == 0:
         logger.debug("No previous mask, or no objects in previous mask.")
-        thor_object.reset_object_record(object_tracks)
+        object_tracks["object_record"] = thor_object.empty_object_record()
+        object_tracks["global_flow"] = None
         # Create matched mask by relabelling current mask with universal ids.
         get_matched_mask(object_tracks, object_options, current_ids=current_ids)
         return
-    if np.max(current_mask).values == 0:
-        logger.debug("No objects in current mask, i.e. all objects dead.")
-        thor_object.initialize_object_record(None, None, object_tracks)
-        return
 
     match_data = tint.get_matches(object_tracks, object_options, grid_options)
+    # Get the previous ids from the previous, previous mask, i.e. the previous mask of
+    # the last matching iteration, to see whether objects in detected in the previous
+    # mask of the current matching iteration are new.
     previous_ids = np.array(object_tracks["object_record"]["previous_ids"])
     previous_ids[previous_ids > 0]
 

@@ -17,6 +17,22 @@ from thor.utils import haversine
 logger = setup_logger(__name__, level="DEBUG")
 
 
+def generate_times(options, attempt_download=True):
+    """Get times from data_options."""
+    filepaths = options["filepaths"]
+    for filepath in sorted(filepaths):
+        if not Path(filepath).exists() and attempt_download:
+            remote_filepath = str(filepath).replace(
+                options["parent_local"], options["parent_remote"]
+            )
+            download_file(
+                remote_filepath, options["parent_remote"], options["parent_local"]
+            )
+        with xr.open_dataset(filepath, chunks={}) as ds:
+            for time in ds.time.values:
+                yield time
+
+
 def unzip_file(filepath, directory=None):
     """
     Downloads a .zip file from a URL, extracts the contents of the .zip file into
@@ -52,6 +68,24 @@ def unzip_file(filepath, directory=None):
     dir_size = get_directory_size(directory)
 
     return sorted(extracted_filepaths), dir_size
+
+
+def check_valid_url(url):
+
+    if not isinstance(url, str):
+        raise TypeError("url must be a string")
+
+    # Send a HTTP request to the URL
+    logger.debug("Sending HTTP request to %s.", url)
+    try:
+        response = requests.head(url, timeout=10)
+        # Check if the request is successful
+        if response.status_code == 200:
+            return True
+        else:
+            return False
+    except requests.RequestException:
+        return False
 
 
 def download_file(url, parent_remote, parent_local):
@@ -343,7 +377,7 @@ def get_parent(dataset_options):
 
 
 def get_range_mask(dataset, dataset_options):
-    """Mask data greater than range from central point."""
+    """Create mask for gridcells greater than range from central point."""
 
     longitudes = dataset.longitude.values
     latitudes = dataset.latitude.values
@@ -364,3 +398,18 @@ def get_range_mask(dataset, dataset_options):
     range_latitudes = latitudes[contour[:, :, 1]].flatten()
     range_longitudes = longitudes[contour[:, :, 0]].flatten()
     return mask, range_latitudes, range_longitudes
+
+
+def save_converted_dataset(dataset, dataset_options):
+    """Save a converted dataset."""
+    conv_options = dataset_options["converted_options"]
+    if conv_options["save"]:
+        filepath = dataset_options["filepaths"][0]
+        parent = get_parent(dataset_options)
+        if conv_options["parent_converted"] is None:
+            parent_converted = parent.replace("raw", "converted")
+        converted_filepath = filepath.replace(parent, parent_converted)
+        if not Path(converted_filepath).parent.exists():
+            Path(converted_filepath).parent.mkdir(parents=True)
+        dataset.to_netcdf(converted_filepath, mode="w")
+    return dataset

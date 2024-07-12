@@ -5,7 +5,6 @@ import numpy as np
 import xarray as xr
 from thor.log import setup_logger
 from thor.match.utils import get_masks
-from thor.match.correlate import get_global_flow
 
 logger = setup_logger(__name__)
 
@@ -42,7 +41,7 @@ def get_object_center(obj, mask, gridcell_area=None, grid=None):
     longitudes = mask.longitude.values
     center_lat = latitudes[center_row]
     center_lon = longitudes[center_col]
-    return center_lat, center_lon, areas.sum()
+    return center_row, center_col, areas.sum(), center_lat, center_lon
 
 
 def find_objects(box, mask):
@@ -54,18 +53,27 @@ def find_objects(box, mask):
     return objects[objects != 0]
 
 
-def reset_object_record(object_tracks):
-    """Reset record of object properties in previous and current masks."""
+def empty_object_record():
+    # Store records in "pixel" coordinates. Reconstruct flows in cartesian or geographic
+    # coordinates as required.
     object_record = {
         "previous_ids": [],
-        "universal_ids": [],
         "matched_current_ids": [],
-        "parents": [],
-        "global_flow": None,
-        "previous_displacements": [],
+        "universal_ids": [],
+        "flow_boxes": [],  # Extract box centers as required
+        "search_boxes": [],  # Extract box centers as required
+        "flows": [],
+        "global_flows": [],
+        "global_flow_boxes": [],
         "current_displacements": [],
+        "previous_displacements": [],
+        "previous_centers": [],  # These are gridcell area area weighted centers
+        "matched_current_centers": [],  # These are gridcell area weighted centers
+        "previous_weighted_centers": [],  # These are gridcell area and field weighted centers
+        "matched_current_weighted_centers": [],  # These are gridcell area and field weighted centers
+        "costs": [],  # Cost function in units of km
     }
-    object_tracks["object_record"] = object_record
+    return object_record
 
 
 def initialize_object_record(match_data, object_tracks, object_options):
@@ -73,16 +81,15 @@ def initialize_object_record(match_data, object_tracks, object_options):
 
     previous_mask = get_masks(object_tracks, object_options)[1]
     total_previous_objects = np.max(previous_mask)
-    global_flow = get_global_flow(object_tracks, object_options)
     previous_ids = np.arange(1, total_previous_objects + 1)
 
     universal_ids = np.arange(
-        object_tracks["object_count"] + 1, total_previous_objects + 1
+        object_tracks["object_count"] + 1,
+        object_tracks["object_count"] + total_previous_objects + 1,
     )
     object_tracks["object_count"] += total_previous_objects
     object_record = match_data.copy()
     object_record["previous_ids"] = previous_ids
-    object_record["global_flow"] = global_flow
     object_record["universal_ids"] = universal_ids
     object_tracks["object_record"] = object_record
 
@@ -92,7 +99,6 @@ def update_object_record(match_data, object_tracks, object_options):
 
     previous_object_record = copy.deepcopy(object_tracks["object_record"])
     previous_mask = get_masks(object_tracks, object_options)[1]
-    global_flow = get_global_flow(object_tracks, object_options)
 
     total_previous_objects = np.max(previous_mask.values)
     previous_ids = np.arange(1, total_previous_objects + 1)
@@ -116,7 +122,6 @@ def update_object_record(match_data, object_tracks, object_options):
             # Check if new object split from old?
 
     object_record = match_data.copy()
-    object_record["global_flow"] = global_flow
     object_record["universal_ids"] = universal_ids
     object_record["previous_ids"] = previous_ids
     object_tracks["object_record"] = object_record

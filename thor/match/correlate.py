@@ -2,24 +2,26 @@
 
 import numpy as np
 from scipy import ndimage
-import thor.object.object as thor_object
-from thor.utils import get_cartesian_displacement
+import thor.object.box as box
+from thor.utils import get_cartesian_displacement, geodesic_forward
 from thor.match.utils import get_grids
 
 
-def get_local_flow(bounding_box, object_tracks, object_options, grid_options):
+def get_flow(bounding_box, object_tracks, object_options, grid_options, flow_margin):
     """Get the optical flow within bounding_box."""
 
     current_grid, previous_grid = get_grids(object_tracks, object_options)
     current_grid = current_grid.copy()
     previous_grid = previous_grid.copy()
-    flow_margin = object_options["tracking"]["options"]["flow_margin"]
     grid_spacing = grid_options["geographic_spacing"]
-    flow_margin_row = int(np.ceil(flow_margin / grid_spacing[0]))
-    flow_margin_col = int(np.ceil(flow_margin / grid_spacing[1]))
+    latitudes = current_grid.latitude.values
+    longitudes = current_grid.longitude.values
+    flow_margin_row, flow_margin_col = box.get_gridcell_margins(
+        bounding_box, latitudes, longitudes, flow_margin, grid_spacing
+    )
     flow_box = bounding_box.copy()
-    flow_box = thor_object.expand_box(flow_box, flow_margin_row, flow_margin_col)
-    flow_box = thor_object.clip_box(flow_box, current_grid.shape)
+    flow_box = box.expand_box(flow_box, flow_margin_row, flow_margin_col)
+    flow_box = box.clip_box(flow_box, current_grid.shape)
 
     box_previous = previous_grid[
         flow_box["row_min"] : flow_box["row_max"] + 1,
@@ -33,48 +35,31 @@ def get_local_flow(bounding_box, object_tracks, object_options, grid_options):
     box_previous = box_previous.fillna(0)
     box_current = box_current.fillna(0)
 
-    return get_flow(box_previous, box_current), flow_box
+    return calculate_flow(box_previous, box_current), flow_box
 
 
-def get_flow(grid1, grid2, global_flow=False):
-    """Estimate optical flow vector using cross covariance."""
-    if (not global_flow) and (np.max(grid1) == 0 or np.max(grid2) == 0):
-        return None
-
+def calculate_flow(grid1, grid2, global_flow=False):
+    """Calculate optical flow vector using cross covariance."""
     cross_covariance = get_cross_covariance(grid1, grid2)
     sigma = (1 / 8) * min(cross_covariance.shape)
     smoothed_covariance = ndimage.filters.gaussian_filter(cross_covariance, sigma)
     dims = np.array(grid1.shape)
-
     flow = np.argwhere(smoothed_covariance == np.max(smoothed_covariance))[0]
 
     row_centre = np.ceil(grid1.shape[0] / 2).astype("int")
     column_centre = np.ceil(grid1.shape[1] / 2).astype("int")
 
-    # Calculate shift relative to center - see fft_shift.
+    # Calculate flow relative to center - see fft_flow.
     flow = flow - (dims - np.array([row_centre, column_centre]))
     return flow
 
 
-def convert_flow_cartesian(flow, bounding_box, latitudes, longitudes):
-    previous_center_row = int(
-        np.round((bounding_box["row_min"] + bounding_box["row_max"]) / 2)
-    )
-    previous_center_col = int(
-        np.round((bounding_box["col_min"] + bounding_box["col_max"]) / 2)
-    )
-    current_center_row = previous_center_row + flow[0]
-    current_center_col = previous_center_col + flow[1]
-    previous_center_lat = latitudes[previous_center_row]
-    previous_center_lon = longitudes[previous_center_col]
-    current_center_lat = latitudes[current_center_row]
-    current_center_lon = longitudes[current_center_col]
+def convert_flow_cartesian(flow, previous_lat, previous_lon, geographic_spacing):
+    current_lat = previous_lat + flow[0] * geographic_spacing[0]
+    current_lon = previous_lon + flow[1] * geographic_spacing[1]
 
     flow_meters = get_cartesian_displacement(
-        previous_center_lat,
-        previous_center_lon,
-        current_center_lat,
-        current_center_lon,
+        previous_lat, previous_lon, current_lat, current_lon
     )
     return flow_meters
 
@@ -108,15 +93,3 @@ def shift(cross_covariance):
     else:
         print("input to shift() should be a matrix")
         return
-
-
-def get_global_flow(object_tracks, object_options):
-    """Get global optical flow."""
-    current_grid, previous_grid = get_grids(object_tracks, object_options)
-    if previous_grid is None:
-        return None
-
-    global_flow = get_flow(
-        previous_grid.fillna(0), current_grid.fillna(0), global_flow=True
-    )
-    return global_flow

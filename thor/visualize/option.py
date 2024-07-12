@@ -46,8 +46,9 @@ def runtime_options(
     name,
     save=False,
     parent_local=None,
-    figures=None,
+    figure_types=["mask", "match"],
     style="paper",
+    animate=True,
 ):
     """
     Generate dataset display dictionary.
@@ -67,8 +68,9 @@ def runtime_options(
         Dictionary containing the display options.
     """
 
-    if figures is None:
-        figures = {obj: {"style": style} for obj in ["mask", "match"]}
+    figures = {
+        fig_type: {"style": style, "animate": animate} for fig_type in figure_types
+    }
 
     options = {
         **boilerplate_options(name, save, parent_local),
@@ -81,7 +83,7 @@ def runtime_options(
 def save_display_options(
     display_options, filename=None, options_directory=None, append_time=False
 ):
-    """TBA."""
+    """Save the display options."""
 
     if options_directory is None:
         options_directory = get_outputs_directory() / "options/visualize_options"

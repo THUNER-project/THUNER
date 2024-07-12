@@ -50,7 +50,8 @@ def initialise_track_input_record(dataset_options):
 
     input_record = initialise_boilerplate_input_record(dataset_options)
     input_record["current_grid"] = None
-    input_record["previous_grids"] = deque(maxlen=dataset_options["deque_length"])
+    deque_length = dataset_options["deque_length"]
+    input_record["previous_grids"] = deque([None] * deque_length, deque_length)
 
     return input_record
 
@@ -75,28 +76,13 @@ def initialise_object_tracks(object_options):
     object_tracks["tracks"] = []
     object_tracks["current_grid"] = None
     object_tracks["current_time_interval"] = None
-    object_tracks["previous_time_interval"] = deque(
-        maxlen=object_options["deque_length"]
-    )
-    object_tracks["previous_grids"] = deque(maxlen=object_options["deque_length"])
+    deque_length = object_options["deque_length"]
+    object_tracks["previous_time_interval"] = deque([None] * deque_length, deque_length)
+    object_tracks["previous_grids"] = deque([None] * deque_length, deque_length)
     object_tracks["current_mask"] = None
-    object_tracks["previous_masks"] = deque(maxlen=object_options["deque_length"])
+    object_tracks["previous_masks"] = deque([None] * deque_length, deque_length)
     if object_options["tracking"]["method"] is not None:
-        object_tracks["current_matched_mask"] = None
-        object_tracks["previous_matched_masks"] = deque(
-            maxlen=object_options["deque_length"]
-        )
-        object_record = {
-            "previous_ids": [],
-            "previous_displacements": [],
-            "current_displacements": [],
-            "universal_ids": [],
-            "matched_current_ids": [],
-            "parents": [],
-            "global_flow": None,
-        }
-        object_tracks["object_record"] = object_record
-
+        match.initialise_match_records(object_tracks, object_options)
     if object_options["mask_options"]["save"]:
         object_tracks["mask_list"] = []
     return object_tracks
@@ -222,6 +208,7 @@ def simultaneous_track(
 
     write.mask.write_final(tracks, track_options, output_directory, time)
     write.mask.aggregate(track_options, output_directory)
+    visualize.visualize.animate(visualize_options, output_directory)
 
     return tracks
 

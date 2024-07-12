@@ -7,7 +7,6 @@ import copy
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from matplotlib.patches import FancyArrowPatch
 import cartopy.crs as ccrs
 import thor.visualize.horizontal as horizontal
 from thor.visualize.visualize import styles
@@ -15,6 +14,8 @@ from thor.utils import format_time
 from thor.match.utils import get_grids, get_masks
 from thor.log import setup_logger
 from thor.visualize.utils import make_subplot_labels
+from thor.visualize.visualize import mask_colors
+from thor.object.box import get_box_center_coords
 
 
 logger = setup_logger(__name__)
@@ -37,7 +38,7 @@ def detected_mask_template(grid, input_record, figure_options, extent):
     horizontal.add_cartographic_features(
         ax, style=figure_options["style"], scale="10m", extent=extent
     )
-    if "radar" in grid.attrs["instrument"]:
+    if "instrument" in grid.attrs.keys() and "radar" in grid.attrs["instrument"]:
         radar_longitude = float(grid.attrs["origin_longitude"])
         radar_latitude = float(grid.attrs["origin_latitude"])
         horizontal.add_radar_features(
@@ -100,7 +101,10 @@ def grouped_mask_template(
             left_labels=(i == 0),
         )[0]
         grid_i = grid[f"{member_objects[i]}_grid"]
-        if "radar" in grid_i.attrs["instrument"]:
+        if (
+            "instrument" in grid_i.attrs.keys()
+            and "radar" in grid_i.attrs["instrument"]
+        ):
             radar_longitude = float(grid_i.attrs["origin_longitude"])
             radar_latitude = float(grid_i.attrs["origin_latitude"])
             horizontal.add_radar_features(
@@ -167,80 +171,12 @@ def grouped_mask(
     return fig, ax
 
 
-def get_box_coords(box, latitudes, longitudes):
-    """Get the coordinates of a box."""
-    box_latitudes = [
-        latitudes[box["row_min"]],
-        latitudes[box["row_min"]],
-        latitudes[box["row_max"]],
-        latitudes[box["row_max"]],
-        latitudes[box["row_min"]],
-    ]
-    box_longitudes = [
-        longitudes[box["col_min"]],
-        longitudes[box["col_max"]],
-        longitudes[box["col_max"]],
-        longitudes[box["col_min"]],
-        longitudes[box["col_min"]],
-    ]
-    return box_latitudes, box_longitudes
-
-
-def get_box_center_coords(box, latitudes, longitudes):
-    """Get the coordinates of the center of a box."""
-    center_row = int(np.ceil((box["row_min"] + box["row_max"]) / 2))
-    center_col = int(np.ceil((box["col_min"] + box["col_max"]) / 2))
-    center_lat = latitudes[center_row]
-    center_lon = longitudes[center_col]
-    return center_lat, center_lon, center_row, center_col
-
-
-arrow_options = {"arrowstyle": "->", "linewidth": 1.5, "mutation_scale": 7, "zorder": 3}
-arrow_origin_options = {"marker": "o", "zorder": 3, "markersize": 2}
-
-
-def plot_flow(ax, start_lat, start_lon, flow, grid_options, color="w"):
-
-    # Exaggerate the flow vector for visualization
-    geographic_flow = np.array(flow) * np.array(grid_options["geographic_spacing"])
-    geographic_flow = np.array(geographic_flow) * 5
-    start_coords = [start_lon, start_lat]
-    end_coords = np.array(start_coords) + geographic_flow[::-1]
-    ax.plot(start_lon, start_lat, color=color, **arrow_origin_options)
-    arrow = FancyArrowPatch(start_coords, end_coords, color=color, **arrow_options)
-    ax.add_patch(arrow)
-
-
-def plot_displacement(ax, previous_centers, current_centers, color="w"):
-
-    # Exaggerate the displacement for visualization
-    geographic_displacement = (current_centers - previous_centers) * 5
-    start_lat, start_lon = previous_centers
-    start_coords = [start_lon, start_lat]
-    end_coords = np.array(start_coords) + geographic_displacement[::-1]
-    ax.plot(start_lon, start_lat, alpha=0.6, color=color, **arrow_origin_options)
-    arrow = FancyArrowPatch(
-        start_coords, end_coords, alpha=0.6, color=color, **arrow_options
-    )
-    ax.add_patch(arrow)
-
-
-def plot_box(ax, box, grid, color, linestyle="--"):
-    latitudes = grid.latitude.values
-    longitudes = grid.longitude.values
-    box_latitudes, box_longitudes = get_box_coords(box, latitudes, longitudes)
-    ax.plot(
-        box_longitudes, box_latitudes, color=color, linewidth=1.5, linestyle=linestyle
-    )
-
-
 def match_template(reference_grid, input_record, figure_options, extent):
     """Create a template for match figures."""
-    fig = plt.figure(figsize=(7, 3))
-    gs = gridspec.GridSpec(1, 3, width_ratios=[1, 1, 0.05])
+    fig = plt.figure(figsize=(12, 3))
+    gs = gridspec.GridSpec(1, 4, width_ratios=[1, 1, 1, 0.05])
     axes = []
-    subtitles = ["Previous Objects", "Current Objects"]
-    for i in range(2):
+    for i in range(3):
         ax = fig.add_subplot(gs[0, i], projection=ccrs.PlateCarree())
         axes.append(ax)
         ax = horizontal.add_cartographic_features(
@@ -250,50 +186,84 @@ def match_template(reference_grid, input_record, figure_options, extent):
             scale="10m",
             left_labels=(i == 0),
         )[0]
-        if "radar" in reference_grid.attrs["instrument"]:
+        if (
+            "instrument" in reference_grid.attrs.keys()
+            and "radar" in reference_grid.attrs["instrument"]
+        ):
             radar_longitude = float(reference_grid.attrs["origin_longitude"])
             radar_latitude = float(reference_grid.attrs["origin_latitude"])
             horizontal.add_radar_features(
                 ax, radar_longitude, radar_latitude, extent, input_record
             )
-        ax.set_title(subtitles[i])
     cbar_ax = fig.add_subplot(gs[0, -1])
     make_subplot_labels(axes, x_shift=-0.12, y_shift=0.06)
     return fig, axes, cbar_ax
 
 
-def match_features(grid, object_record, axes, colors, grid_options):
+def match_features(grid, object_record, axes, grid_options, unique_global_flow=True):
+    colors = mask_colors
     latitudes = grid.latitude.values
     longitudes = grid.longitude.values
-    if "radar" in grid.attrs["instrument"]:
-        center_lon = float(grid.attrs["origin_longitude"])
-        center_lat = float(grid.attrs["origin_latitude"])
-    else:
-        center_lon = longitudes[len(longitudes) // 2]
-        center_lat = latitudes[len(longitudes) // 2]
-    if object_record["global_flow"] is not None:
-        global_flow = object_record["global_flow"]
-        plot_flow(
-            axes[0], center_lat, center_lon, global_flow, grid_options, color="tab:red"
+    lat, lon = horizontal.get_domain_center(grid)
+    if unique_global_flow and len(object_record["global_flows"]) > 0:
+        global_flow = object_record["global_flows"][0]
+        horizontal.plot_flow(
+            axes[1], lat, lon, global_flow, grid_options, color="tab:red"
         )
-    for i in range(len(object_record["matched_current_ids"])):
-        if object_record["matched_current_ids"][i] == 0:
-            continue
+    for i in range(len(object_record["previous_ids"])):
+        # Create flows, displacements and boxes.
         id = object_record["universal_ids"][i]
         color_index = (id - 1) % len(colors)
         color = colors[color_index]
         flow_box = object_record["flow_boxes"][i]
         flow = object_record["flows"][i]
+        corrected_flow = object_record["corrected_flows"][i]
         search_box = object_record["search_boxes"][i]
-        previous_centers = object_record["previous_centers"][i]
-        current_centers = object_record["matched_current_centers"][i]
-        plot_box(axes[0], flow_box, grid, color)
-        plot_box(axes[1], search_box, grid, color)
+        center = object_record["previous_centers"][i]
+        displacement = object_record["previous_displacements"][i]
         row, col = get_box_center_coords(flow_box, latitudes, longitudes)[2:]
-        lat = latitudes[row]
-        lon = longitudes[col]
-        plot_flow(axes[0], lat, lon, flow, grid_options)
-        plot_displacement(axes[0], previous_centers, current_centers)
+        flow_lat = latitudes[row]
+        flow_lon = longitudes[col]
+        if not unique_global_flow:
+            global_flow = object_record["global_flows"][i]
+            global_flow_box = object_record["global_flow_boxes"][i]
+            horizontal.plot_box(axes[1], global_flow_box, grid, "tab:red", alpha=0.5)
+            horizontal.plot_flow(
+                axes[1], flow_lat, flow_lon, global_flow, grid_options, color="tab:red"
+            )
+        horizontal.plot_box(axes[1], flow_box, grid, color)
+        horizontal.plot_box(axes[2], search_box, grid, color)
+        horizontal.plot_flow(
+            axes[1], flow_lat, flow_lon, flow, grid_options, color="silver"
+        )
+        horizontal.plot_flow(
+            axes[1], flow_lat, flow_lon, corrected_flow, grid_options, linestyle=":"
+        )
+        if np.all(np.logical_not(np.isnan(displacement))):
+            disp_center = (center - np.floor(displacement)).astype(int)
+            horizontal.plot_displacement(
+                displacement, disp_center, axes[0], latitudes, longitudes, grid_options
+            )
+        # Create text
+        case = object_record["cases"][i]
+        lat_shift = 0.01 * (latitudes[-1] - latitudes[0])
+        text_lat = latitudes[flow_box["row_max"]] + lat_shift
+        text_lon = longitudes[flow_box["col_min"]]
+        text_properties = {
+            "fontsize": 6,
+            "zorder": 4,
+            "color": color,
+            "weight": "bold",
+            "transform": ccrs.PlateCarree(),
+        }
+        if object_record["matched_current_ids"][i] != 0:
+            distance = int(np.round(object_record["distances"][i]))
+            area_difference = int(np.round(object_record["area_differences"][i]))
+            area_overlap = int(np.round(object_record["overlap_areas"][i]))
+            object_text = f"{case}, {distance}+{area_difference}-{area_overlap}"
+        else:
+            object_text = f"{case}, No Match"
+        axes[1].text(text_lon, text_lat, object_text, **text_properties)
 
 
 def visualize_match(
@@ -310,14 +280,14 @@ def visualize_match(
     object_tracks = tracks[level_index][obj]
     object_record = object_tracks["object_record"]
     object_options = track_options[level_index][obj]
-    current_grid, previous_grid = get_grids(object_tracks, object_options)
-    current_mask, previous_mask = get_masks(object_tracks, object_options, matched=True)
+    grids = get_grids(object_tracks, object_options, num_previous=2)
+    masks = get_masks(object_tracks, object_options, matched=True, num_previous=2)
 
-    extent = get_extent(current_grid)
+    extent = get_extent(grids[0])
 
     if "figure_template" not in figure_options.keys():
         fig, ax, cbar_ax = match_template(
-            current_grid, input_record, figure_options, extent
+            grids[0], input_record, figure_options, extent
         )
         figure_options["figure_template"] = fig
 
@@ -325,19 +295,16 @@ def visualize_match(
     axes = fig.axes[:-1]
     cbar_ax = fig.axes[-1]
 
-    if previous_mask is not None:
-        pcm = horizontal.grid(previous_grid, axes[0], add_colorbar=False)
-        colors = horizontal.mask(previous_mask, axes[0])
-    if current_mask is not None:
-        pcm = horizontal.grid(current_grid, axes[1], add_colorbar=False)
-        colors = horizontal.mask(current_mask, axes[1])
-        match_features(current_grid, object_record, axes, colors, grid_options)
-
-    cbar_label = (
-        current_grid.attrs["long_name"].title() + f" [{current_grid.attrs['units']}]"
-    )
+    for i in range(3):
+        if masks[2 - i] is not None:
+            axes[i].set_title(grids[2 - i].time.values.astype("datetime64[s]"))
+            pcm = horizontal.grid(grids[2 - i], axes[i], add_colorbar=False)
+            if masks[2 - i] is not None:
+                horizontal.mask(masks[2 - i], axes[i])
+    unique_global_flow = object_options["tracking"]["options"]["unique_global_flow"]
+    match_features(grids[0], object_record, axes, grid_options, unique_global_flow)
+    cbar_label = grids[0].attrs["long_name"].title() + f" [{grids[0].attrs['units']}]"
     fig.colorbar(pcm, cax=cbar_ax, label=cbar_label)
-    fig.suptitle(f"{current_grid.time.values.astype('datetime64[s]')} UTC", y=1.05)
 
     return fig, axes
 
@@ -414,7 +381,7 @@ def visualize(
                 filename = f"{format_time(grid_time)}.png"
                 filepath = (
                     output_directory
-                    / "visualize/runtime"
+                    / "visualize"
                     / figure
                     / object_visualize_options["name"]
                     / filename

@@ -6,9 +6,12 @@ import cv2
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.patches import FancyArrowPatch
 import cartopy.feature as cfeature
+from cartopy import crs as ccrs
 import thor.visualize.visualize as visualize
 from thor.log import setup_logger
+from thor.object.box import get_box_coords
 
 logger = setup_logger(__name__)
 
@@ -24,6 +27,7 @@ def grid(grid, ax, add_colorbar=True):
         **visualize.grid_formats[grid.attrs["long_name"].lower()],
         add_colorbar=add_colorbar,
         extend="both",
+        transform=ccrs.PlateCarree(),
     )
     ax.set_title(title)
 
@@ -34,7 +38,7 @@ def mask(mask, ax):
     """Plot masks."""
 
     title = ax.get_title()
-    colors = ["purple", "teal", "cyan", "magenta", "saddlebrown"]
+    colors = visualize.mask_colors
 
     try:
         row_vals = mask.latitude.values
@@ -59,6 +63,7 @@ def mask(mask, ax):
             add_colorbar=False,
             cmap=cmap,
             levels=np.arange(0, len(colors) + 1),
+            transform=ccrs.PlateCarree(),
         )
         contours = cv2.findContours(
             binary_mask.values.astype(np.uint8),
@@ -73,8 +78,9 @@ def mask(mask, ax):
                 col_coords,
                 row_coords,
                 color=colors[int(color_index)],
-                linewidth=1.5,
+                linewidth=1,
                 zorder=3,
+                transform=ccrs.PlateCarree(),
             )
     ax.set_title(title)
     return colors
@@ -82,23 +88,26 @@ def mask(mask, ax):
 
 def add_radar_features(ax, radar_lon, radar_lat, extent, input_record):
     """Add radar features to an ax."""
+    alpha = 0.8
     ax.plot(
         [radar_lon, radar_lon],
         [extent[2], extent[3]],
         color="tab:red",
         linewidth=1,
-        alpha=0.8,
+        alpha=alpha,
         linestyle="--",
         zorder=1,
+        transform=ccrs.PlateCarree(),
     )
     ax.plot(
         [extent[0], extent[1]],
         [radar_lat, radar_lat],
         color="tab:red",
         linewidth=1,
-        alpha=0.8,
+        alpha=alpha,
         linestyle="--",
         zorder=1,
+        transform=ccrs.PlateCarree(),
     )
     try:
         ax.plot(
@@ -106,9 +115,10 @@ def add_radar_features(ax, radar_lon, radar_lat, extent, input_record):
             input_record["range_latitudes"],
             color="tab:red",
             linewidth=1,
-            alpha=0.8,
+            alpha=alpha,
             linestyle="--",
             zorder=1,
+            transform=ccrs.PlateCarree(),
         )
     except:
         logger.debug("No range rings to plot.")
@@ -228,17 +238,88 @@ def initialize_gridlines(ax, extent, left_labels=True, bottom_labels=True):
 
     delta_grid = np.max([extent[1] - extent[0], extent[3] - extent[2]])
     grid_spacing = (10 ** np.floor(np.log10(delta_grid))) / 2
-    lon_start = np.floor(extent[0] / grid_spacing) * grid_spacing
-    lon_end = np.ceil(extent[1] / grid_spacing) * grid_spacing
-    lat_start = np.floor(extent[2] / grid_spacing) * grid_spacing
-    lat_end = np.ceil(extent[3] / grid_spacing) * grid_spacing
-
     gridlines.xlocator = mticker.FixedLocator(
-        np.arange(lon_start, lon_end + grid_spacing, grid_spacing)
+        np.arange(-180, 180 + grid_spacing, grid_spacing)
     )
     gridlines.ylocator = mticker.FixedLocator(
-        np.arange(lat_start, lat_end + grid_spacing, grid_spacing)
+        np.arange(-90, 90 + grid_spacing, grid_spacing)
     )
     ax.set_extent(extent)
 
     return gridlines
+
+
+def get_domain_center(grid):
+    if "instrument" in grid.attrs.keys() and "radar" in grid.attrs["instrument"]:
+        center_lon = float(grid.attrs["origin_longitude"])
+        center_lat = float(grid.attrs["origin_latitude"])
+    else:
+        latitudes = grid.latitude.values
+        longitudes = grid.longitude.values
+        center_lon = longitudes[len(longitudes) // 2]
+        center_lat = latitudes[len(longitudes) // 2]
+    return center_lat, center_lon
+
+
+arrow_options = {"arrowstyle": "->", "linewidth": 1, "mutation_scale": 7, "zorder": 3}
+arrow_origin_options = {"marker": "o", "zorder": 3, "markersize": 2}
+
+
+def get_flow_scale(lats, lons):
+    """
+    Scale flow vectors so that a geographic flow of 1 gridcell corresponds to 1/50 of the
+    domain.
+    """
+    return 0.01 * (lats[-1] - lats[0]) / (lats[1] - lats[0])
+
+
+def plot_flow(
+    ax, start_lat, start_lon, flow, grid_options, color="w", alpha=1, linestyle="-"
+):
+    """Plot a flow type vector."""
+    flow_scale = get_flow_scale(grid_options["latitude"], grid_options["longitude"])
+    geographic_flow = np.array(flow) * np.array(grid_options["geographic_spacing"])
+    geographic_flow = np.array(geographic_flow) * flow_scale
+    start_coords = [start_lon, start_lat]
+    end_coords = np.array(start_coords) + geographic_flow[::-1]
+    ax.plot(
+        start_lon,
+        start_lat,
+        color=color,
+        alpha=alpha,
+        **arrow_origin_options,
+        transform=ccrs.PlateCarree(),
+    )
+    arrow = FancyArrowPatch(
+        start_coords,
+        end_coords,
+        color=color,
+        alpha=alpha,
+        **arrow_options,
+        linestyle=linestyle,
+        transform=ccrs.PlateCarree(),
+    )
+    ax.add_patch(arrow)
+
+
+def plot_displacement(displacement, center, ax, latitudes, longitudes, grid_options):
+    if np.all(np.isnan(displacement)):
+        return
+    lat = latitudes[center[0]]
+    lon = longitudes[center[1]]
+    plot_flow(ax, lat, lon, displacement, grid_options, color="silver")
+
+
+def plot_box(ax, box, grid, color, linestyle="--", alpha=1):
+    latitudes = grid.latitude.values
+    longitudes = grid.longitude.values
+    box_lats, box_lons = get_box_coords(box, latitudes, longitudes)
+    ax.plot(
+        box_lons,
+        box_lats,
+        color=color,
+        linewidth=1,
+        linestyle=linestyle,
+        alpha=alpha,
+        transform=ccrs.PlateCarree(),
+    )

@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from thor.log import setup_logger
 from thor.utils import drop_time
+from thor.config import get_outputs_directory
 from pathlib import Path
 import yaml
 import inspect
@@ -58,7 +59,7 @@ def create_options(
         options[key] = value
 
     if save:
-        filepath = Path(__file__).parent.parent / "option/default/wrf.yaml"
+        filepath = get_outputs_directory() / "option/default/wrf.yaml"
         with open(filepath, "w") as outfile:
             yaml.dump(
                 options,

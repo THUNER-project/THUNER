@@ -13,11 +13,13 @@ logger = setup_logger(__name__)
 
 # Tracking scheme configurations.
 def tint_options(
-    search_margin=0.1,
-    flow_margin=0.1,
+    search_margin=10,  # km
+    local_flow_margin=10,  # km
+    global_flow_margin=150,  # km
+    unique_global_flow=True,
     max_cost=1e5,
-    max_flow_mag=50,
-    max_shift_disparity=15,
+    max_velocity_mag=60,  # m/s
+    max_velocity_diff=60,  # m/s
     global_shift_altitude=1500,
 ):
     """
@@ -27,11 +29,11 @@ def tint_options(
     ----------
     search_margin : int, optional
         Margin for object matching. Does not affect flow vectors.
-    flow_margin : int, optional
+    local_flow_margin : int, optional
         Margin around object for phase correlation.
     max_cost : int, optional
         Maximum allowable matching disparity score. Units of km.
-    max_flow_mag : int, optional
+    max_velocity_mag : int, optional
         Maximum allowable global shift magnitude.
     max_shift_disp : int, optional
         Maximum magnitude of shift difference.
@@ -49,23 +51,25 @@ def tint_options(
 
     options = {
         "search_margin": search_margin,
-        "flow_margin": flow_margin,
+        "local_flow_margin": local_flow_margin,
+        "global_flow_margin": global_flow_margin,
+        "unique_global_flow": unique_global_flow,
         "max_cost": max_cost,
-        "max_flow_mag": max_flow_mag,
-        "max_shift_disparity": max_shift_disparity,
+        "max_velocity_mag": max_velocity_mag,
+        "max_velocity_diff": max_velocity_diff,
         "global_shift_altitude": global_shift_altitude,
     }
     return options
 
 
 def mint_options(
-    search_margin=0.2,
-    flow_margin=0.2,
-    max_flow_mag=60,
-    max_disparity=999,
-    max_shift_disparity=60,
-    alt_max_shift_disparity=25,
-    global_shift_altitude=2000,
+    search_margin=25,  # km
+    local_flow_margin=35,  # km
+    global_flow_margin=150,  # km
+    unique_global_flow=True,
+    max_velocity_mag=60,
+    max_velocity_diff=60,  # m/s
+    max_velocity_diff_alt=25,  # m/s
 ):
     """
     Set options for the MINT tracking algorithm.
@@ -74,9 +78,9 @@ def mint_options(
     ----------
     search_margin : int, optional
         Margin for object matching, does not affect flow vectors. Defaults to 50000.
-    flow_margin : int, optional
+    local_flow_margin : int, optional
         Margin around object for phase correlation. Defaults to 40000.
-    max_flow_mag : int, optional
+    max_velocity_mag : int, optional
         Maximum allowable global shift magnitude. Defaults to 60.
     max_disparity : int, optional
         Maximum allowable disparity value. Defaults to 999.
@@ -95,13 +99,13 @@ def mint_options(
     options = {
         **tint_options(
             search_margin,
-            flow_margin,
-            max_flow_mag,
-            max_disparity,
-            max_shift_disparity,
-            global_shift_altitude,
+            local_flow_margin,
+            global_flow_margin,
+            unique_global_flow,
+            max_velocity_mag,
+            max_velocity_diff,
         ),
-        "max_shift_disp_alt": alt_max_shift_disparity,
+        "max_velocity_diff_alt": max_velocity_diff_alt,
     }
     return options
 
@@ -209,10 +213,12 @@ def grouped_object(
     dataset,
     member_objects,
     member_levels,
+    member_min_areas,
     hierarchy_level,
     grouping_method,
     tracking_method,
     tags=None,
+    **kwargs,
 ):
     """Initialize THOR object configuration for grouped objects, i.e.
     objects at higher hierarchy levels.
@@ -228,6 +234,8 @@ def grouped_object(
         increasing altitude.
     member_levels : list
         List of hierarchy levels of the objects to group.
+    member_min_areas: list
+        List of minimum area (after grouping) for each member object
     hierarchy_level : int
         Hierarchy level of object.
     grouping_method : str or None
@@ -257,8 +265,9 @@ def grouped_object(
             "method": grouping_method,
             "member_objects": member_objects,
             "member_levels": member_levels,
+            "member_min_areas": member_min_areas,
         },
-        "tracking": {"method": tracking_method, "options": mint_options()},
+        "tracking": {"method": tracking_method, "options": mint_options(**kwargs)},
     }
 
     options["tracking"]["options"]["matched_object"] = "cell"
@@ -276,10 +285,10 @@ def cell_object(
     flatten_method="cross_section",
     threshold=None,
     tracking_method="tint",
-    global_shift_altitude=2000,
     altitudes=[3e3],
     min_area=60,
     tags=None,
+    **kwargs,
 ):
     """Creates default THOR configuration for tracking cells.
 
@@ -309,9 +318,9 @@ def cell_object(
     if threshold:
         options["detection"]["threshold"] = threshold
     if tracking_method == "tint":
-        options["tracking"]["options"] = tint_options(
-            global_shift_altitude=global_shift_altitude
-        )
+        options["tracking"]["options"] = tint_options(**kwargs)
+    elif tracking_method == "mint":
+        options["tracking"]["options"] = mint_options(**kwargs)
 
     return options
 
@@ -324,10 +333,10 @@ def anvil_object(
     detection_method="threshold",
     threshold=15,
     tracking_method="tint",
-    global_shift_altitude=8000,
     altitudes=None,
-    min_area=80,
+    min_area=200,
     tags=None,
+    **kwargs,
 ):
     """Creates default THOR configuration for tracking anvils.
 
@@ -356,9 +365,9 @@ def anvil_object(
         options["detection"]["threshold"] = threshold
     options["detection"]["altitudes"] = altitudes
     if tracking_method == "tint":
-        options["tracking"]["options"] = tint_options(
-            global_shift_altitude=global_shift_altitude
-        )
+        options["tracking"]["options"] = tint_options(**kwargs)
+    elif tracking_method == "mint":
+        options["tracking"]["options"] = mint_options(**kwargs)
 
     return options
 
@@ -369,10 +378,12 @@ def mcs_object(
     name="mcs",
     member_objects=["cell", "middle_cloud", "anvil"],
     member_levels=[0, 0, 0],
+    member_min_areas=[80, 400, 800],  # km^2
     hierarchy_level=1,
     grouping_method="graph",
     tracking_method="mint",
     tags=None,
+    **kwargs,
 ):
     """Creates default THOR configuration for tracking MCSs.
 
@@ -392,10 +403,12 @@ def mcs_object(
         dataset,
         member_objects,
         member_levels,
+        member_min_areas,
         hierarchy_level,
         grouping_method,
         tracking_method,
         tags=tags,
+        **kwargs,
     )
     return options
 
@@ -460,6 +473,8 @@ def mcs(dataset, tags=None, **kwargs):
                 dataset=dataset,
                 flatten_method="cross_section",
                 threshold=40,
+                tracking_method="mint",
+                **kwargs,
             ),
             "middle_cloud": cell_object(
                 name="middle_cloud",
@@ -469,10 +484,16 @@ def mcs(dataset, tags=None, **kwargs):
                 detection_method="threshold",
                 flatten_method="vertical_max",
                 altitudes=[3500, 7500],
+                **kwargs,
             ),
-            "anvil": anvil_object(altitudes=[7500, 10000], dataset=dataset),
+            "anvil": anvil_object(
+                altitudes=[7500, 10000],
+                dataset=dataset,
+                tracking_method="mint",
+                **kwargs,
+            ),
         },
-        {"mcs": mcs_object(tags=tags, dataset=dataset)},
+        {"mcs": mcs_object(tags=tags, dataset=dataset, **kwargs)},
     ]
 
     return options
@@ -492,8 +513,11 @@ def check_options(options):
     options : dict
         Dictionary containing the input options.
     """
-
-    # check options of component objects etc
+    for level_options in options:
+        for object_options in level_options.values():
+            if "global_flow_margin" in object_options.keys():
+                if options["global_flow_margin"] > 5e3:
+                    raise ValueError("Global flow radius must be less than 5000 km.")
 
     return options
 

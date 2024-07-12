@@ -79,7 +79,7 @@ def create_options(
         Dictionary containing the grid options.
     """
 
-    if altitude is None:
+    if regrid and altitude is None:
         altitude = list(np.arange(0, 25e3 + altitude_spacing, altitude_spacing))
 
     options = {
@@ -101,7 +101,7 @@ def create_options(
         options[key] = value
 
     if save:
-        filepath = Path(__file__).parent / "option/default/grid.yaml"
+        filepath = get_outputs_directory() / "option/default/grid.yaml"
         with open(filepath, "w") as outfile:
             yaml.dump(
                 options,
@@ -149,6 +149,10 @@ def check_options(options):
         Dictionary containing the input options.
     """
 
+    if not options["regrid"]:
+        # If not regridding, no need to check options
+        return options
+
     if options["name"] == "cartesian":
         [x, y, z] = [options[var] for var in ["x", "y", "altitude"]]
         spacing = options["cartesian_spacing"]
@@ -169,15 +173,15 @@ def check_options(options):
     return options
 
 
-def new_geographic_grid(latitudes, longitudes, dlat, dlon):
+def new_geographic_grid(lats, lons, dlat, dlon):
     """
     Get the geographic grid.
 
     Parameters
     ----------
-    longitudes : numpy.ndarray
+    lons : numpy.ndarray
         Array of longitudes, ascending.
-    latitudes : numpy.ndarray
+    lats : numpy.ndarray
         Array of latitudes, ascending.
     grid_options : dict
         Dictionary containing the grid options.
@@ -188,38 +192,33 @@ def new_geographic_grid(latitudes, longitudes, dlat, dlon):
         The geographic grid as a tuple of (lons, lats).
     """
 
-    min_lat = np.floor(latitudes.min() / dlat) * dlat
-    max_lat = np.ceil(latitudes.max() / dlat) * dlat
-    min_lon = np.floor(longitudes.min() / dlon) * dlon
-    max_lon = np.ceil(longitudes.max() / dlon) * dlon
-    new_latitudes = np.arange(min_lat, max_lat + dlat, dlat)
-    new_longitudes = np.arange(min_lon, max_lon + dlon, dlon)
+    min_lat = np.floor(lats.min() / dlat) * dlat
+    max_lat = np.ceil(lats.max() / dlat) * dlat
+    min_lon = np.floor(lons.min() / dlon) * dlon
+    max_lon = np.ceil(lons.max() / dlon) * dlon
+    new_lats = np.arange(min_lat, max_lat + dlat, dlat)
+    new_lons = np.arange(min_lon, max_lon + dlon, dlon)
 
-    return list(new_latitudes), list(new_longitudes)
+    return list(new_lats), list(new_lons)
 
 
-def get_cell_areas(latitudes, longitudes):
+def get_cell_areas(lats, lons):
     """Get cell areas in km^2."""
 
-    d_lon = longitudes[1:] - longitudes[:-1]
-    d_lat = latitudes[1:] - latitudes[:-1]
+    d_lon = lons[1:] - lons[:-1]
+    d_lat = lats[1:] - lats[:-1]
 
     if almost_equal(d_lon, 5) and almost_equal(d_lat, 5):
 
-        dx = geodesic_distance(longitudes[2], latitudes, longitudes[0], latitudes) / 2
-        dy = (
-            geodesic_distance(
-                longitudes[0], latitudes[2:], longitudes[0], latitudes[:-2]
-            )
-            / 2
-        )
+        dx = geodesic_distance(lons[2], lats, lons[0], lats) / 2
+        dy = geodesic_distance(lons[0], lats[2:], lons[0], lats[:-2]) / 2
         dy = pad(dy)
 
         areas = dx * dy
-        areas = np.tile(areas, (len(longitudes), 1)).T
+        areas = np.tile(areas, (len(lons), 1)).T
     else:
         logger.warning("Irregular lat/lon grid. May be slow to calculate areas.")
-        LONS, LATS = np.meshgrid(longitudes, latitudes)
+        LONS, LATS = np.meshgrid(lons, lats)
         dx = geodesic_distance(
             LONS[1:-1, 2:], LATS[1:-1, 1:-1], LONS[1:-1, :-2], LATS[1:-1, 1:-1]
         )
@@ -233,3 +232,26 @@ def get_cell_areas(latitudes, longitudes):
         areas = np.apply_along_axis(pad, axis=1, arr=areas)
 
     return areas / 1e6
+
+
+def get_horizontal_coordinates(options):
+    """
+    Get the coordinates for the grid.
+
+    Parameters
+    ----------
+    options : dict
+        Dictionary containing the grid options.
+
+    Returns
+    -------
+    tuple
+        The coordinates as a tuple of (lats, lons, alts).
+    """
+
+    if options["name"] == "cartesian":
+        [col_coords, row_coords] = [options[var] for var in ["x", "y"]]
+    elif options["name"] == "geographic":
+        [col_coords, row_coords] = [options[var] for var in ["longitude", "latitude"]]
+
+    return row_coords, col_coords
