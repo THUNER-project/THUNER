@@ -10,5 +10,5 @@ log
 thor/test/data
 thor/test/runtime_visualization
 thor/options
-thor/data/gridrad_website
-thor/data/gridrad_stacey
+thor/data/gridrad_website.py
+thor/data/gridrad_stacey.py
