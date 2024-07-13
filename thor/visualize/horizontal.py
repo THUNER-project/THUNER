@@ -7,81 +7,72 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.patches import FancyArrowPatch
+from matplotlib.colors import BoundaryNorm
 import cartopy.feature as cfeature
 from cartopy import crs as ccrs
 import thor.visualize.visualize as visualize
 from thor.log import setup_logger
-from thor.object.box import get_box_coords
+from thor.object.box import get_geographic_box_coords
+import thor.grid as thor_grid
 
 logger = setup_logger(__name__)
 
+proj = ccrs.PlateCarree()
 
-def grid(grid, ax, add_colorbar=True):
+
+def grid(grid, ax, grid_options, add_colorbar=True):
     """Plot a grid cross section."""
 
-    title = ax.get_title()
-    pcm = grid.plot.pcolormesh(
-        ax=ax,
-        shading="nearest",
-        zorder=1,
-        **visualize.grid_formats[grid.attrs["long_name"].lower()],
-        add_colorbar=add_colorbar,
-        extend="both",
-        transform=ccrs.PlateCarree(),
-    )
-    ax.set_title(title)
+    if grid_options["name"] == "geographic":
+        LON, LAT = np.meshgrid(grid_options["longitude"], grid_options["latitude"])
+    elif grid_options["name"] == "cartesian":
+        LON, LAT = grid_options["longitude"], grid_options["latitude"]
 
+    title = ax.get_title()
+    mesh_style = visualize.pcolormesh_style[grid.attrs["long_name"].lower()]
+    mesh_style["transform"] = proj
+    pcm = ax.pcolormesh(LON, LAT, grid.values, zorder=1, **mesh_style)
+    ax.set_title(title)
+    if add_colorbar:
+        cbar = plt.colorbar(pcm, ax=ax, orientation="vertical")
     return pcm
 
 
-def mask(mask, ax):
+contour_options = {"mode": cv2.RETR_LIST, "method": cv2.CHAIN_APPROX_SIMPLE}
+
+
+def mask(mask, ax, grid_options):
     """Plot masks."""
 
     title = ax.get_title()
     colors = visualize.mask_colors
-
-    try:
-        row_vals = mask.latitude.values
-        col_vals = mask.longitude.values
-    except AttributeError:
-        row_vals = mask.y.values
-        col_vals = mask.x.values
-
     cmap = LinearSegmentedColormap.from_list("custom", colors, N=len(colors))
-
     object_labels = np.unique(mask.where(mask > 0).values)
     object_labels = object_labels[~np.isnan(object_labels)]
+
+    if grid_options["name"] == "geographic":
+        LON, LAT = np.meshgrid(grid_options["longitude"], grid_options["latitude"])
+    elif grid_options["name"] == "cartesian":
+        LON, LAT = grid_options["longitude"], grid_options["latitude"]
+
+    levels = np.arange(0, len(colors) + 1)
+    norm = BoundaryNorm(levels, ncolors=len(colors), clip=True)
+    mesh_style = {"shading": "nearest", "transform": proj, "cmap": cmap, "alpha": 0.4}
+    mesh_style.update({"zorder": 2, "norm": norm})
     for i in object_labels:
         binary_mask = mask.where(mask == i, 0).astype(bool)
         color_index = (i - 1) % len(colors)
         pcm_mask = (color_index * binary_mask).where(binary_mask)
-        pcm = pcm_mask.plot.pcolormesh(
-            ax=ax,
-            shading="nearest",
-            alpha=0.4,
-            zorder=2,
-            add_colorbar=False,
-            cmap=cmap,
-            levels=np.arange(0, len(colors) + 1),
-            transform=ccrs.PlateCarree(),
-        )
-        contours = cv2.findContours(
-            binary_mask.values.astype(np.uint8),
-            cv2.RETR_LIST,
-            cv2.CHAIN_APPROX_SIMPLE,
-        )[0]
+        pcm = ax.pcolormesh(LON, LAT, pcm_mask, **mesh_style)
+        binary_array = binary_mask.values.astype(np.uint8)
+        contours = cv2.findContours(binary_array, **contour_options)[0]
         for contour in contours:
             contour = np.append(contour, [contour[0]], axis=0)
-            row_coords = row_vals[contour[:, :, 1]]
-            col_coords = col_vals[contour[:, :, 0]]
-            ax.plot(
-                col_coords,
-                row_coords,
-                color=colors[int(color_index)],
-                linewidth=1,
-                zorder=3,
-                transform=ccrs.PlateCarree(),
-            )
+            cols = contour[:, :, 0].flatten()
+            rows = contour[:, :, 1].flatten()
+            lats, lons = thor_grid.get_pixels_geographic(rows, cols, grid_options)
+            color = colors[int(color_index)]
+            ax.plot(lons, lats, color=color, linewidth=1, zorder=3, transform=proj)
     ax.set_title(title)
     return colors
 
@@ -89,41 +80,16 @@ def mask(mask, ax):
 def add_radar_features(ax, radar_lon, radar_lat, extent, input_record):
     """Add radar features to an ax."""
     alpha = 0.8
-    ax.plot(
-        [radar_lon, radar_lon],
-        [extent[2], extent[3]],
-        color="tab:red",
-        linewidth=1,
-        alpha=alpha,
-        linestyle="--",
-        zorder=1,
-        transform=ccrs.PlateCarree(),
-    )
-    ax.plot(
-        [extent[0], extent[1]],
-        [radar_lat, radar_lat],
-        color="tab:red",
-        linewidth=1,
-        alpha=alpha,
-        linestyle="--",
-        zorder=1,
-        transform=ccrs.PlateCarree(),
-    )
+    plot_style = {"color": "tab:red", "linewidth": 1, "alpha": alpha}
+    plot_style.update({"zorder": 1, "transform": proj, "linestyle": "--"})
+    ax.plot([radar_lon, radar_lon], [extent[2], extent[3]], **plot_style)
+    ax.plot([extent[0], extent[1]], [radar_lat, radar_lat], **plot_style)
     try:
-        ax.plot(
-            input_record["range_longitudes"],
-            input_record["range_latitudes"],
-            color="tab:red",
-            linewidth=1,
-            alpha=alpha,
-            linestyle="--",
-            zorder=1,
-            transform=ccrs.PlateCarree(),
-        )
+        lons = input_record["range_longitudes"]
+        lats = input_record["range_latitudes"]
+        ax.plot(lons, lats, **plot_style)
     except:
-        logger.debug("No range rings to plot.")
-
-    return
+        logger.debug("No range boundaries to plot.")
 
 
 def add_cartographic_features(
@@ -209,41 +175,24 @@ def initialize_gridlines(ax, extent, left_labels=True, bottom_labels=True):
     elif plt.rcParams["font.family"][0] == "serif":
         font = plt.rcParams["font.serif"][0]
 
-    gridlines = ax.gridlines(
-        draw_labels=True,
-        x_inline=False,
-        y_inline=False,
-        linewidth=1,
-        color="gray",
-        alpha=0.4,
-        linestyle="--",
-    )
+    grid_style = {"draw_labels": True, "linewidth": 1, "color": "gray", "alpha": 0.4}
+    grid_style.update({"linestyle": "--", "x_inline": False, "y_inline": False})
+    gridlines = ax.gridlines(**grid_style)
 
     gridlines.right_labels = False
     gridlines.top_labels = False
     gridlines.left_labels = left_labels
     gridlines.bottom_labels = bottom_labels
 
-    gridlines.xlabel_style = {
-        "rotation": 0,
-        "ha": "center",
-        "font": font,
-        "color": plt.rcParams["text.color"],
-    }
-    gridlines.ylabel_style = {
-        "rotation": 0,
-        "font": font,
-        "color": plt.rcParams["text.color"],
-    }
+    text_color = plt.rcParams["text.color"]
+    label_style = {"rotation": 0, "font": font, "color": text_color}
+    gridlines.xlabel_style = {"ha": "center", **label_style}
+    gridlines.ylabel_style = {**label_style}
 
     delta_grid = np.max([extent[1] - extent[0], extent[3] - extent[2]])
-    grid_spacing = (10 ** np.floor(np.log10(delta_grid))) / 2
-    gridlines.xlocator = mticker.FixedLocator(
-        np.arange(-180, 180 + grid_spacing, grid_spacing)
-    )
-    gridlines.ylocator = mticker.FixedLocator(
-        np.arange(-90, 90 + grid_spacing, grid_spacing)
-    )
+    spacing = (10 ** np.floor(np.log10(delta_grid))) / 2
+    gridlines.xlocator = mticker.FixedLocator(np.arange(-180, 180 + spacing, spacing))
+    gridlines.ylocator = mticker.FixedLocator(np.arange(-90, 90 + spacing, spacing))
     ax.set_extent(extent)
 
     return gridlines
@@ -261,65 +210,73 @@ def get_domain_center(grid):
     return center_lat, center_lon
 
 
-arrow_options = {"arrowstyle": "->", "linewidth": 1, "mutation_scale": 7, "zorder": 3}
-arrow_origin_options = {"marker": "o", "zorder": 3, "markersize": 2}
+arrow_options = {"arrowstyle": "->", "linewidth": 1, "mutation_scale": 7}
+arrow_options.update({"zorder": 3, "transform": proj})
+arrow_origin_options = {"marker": "o", "zorder": 3, "markersize": 1, "transform": proj}
 
 
-def get_flow_scale(lats, lons):
+def get_geographic_vector_scale(grid_options):
     """
-    Scale flow vectors so that a geographic flow of 1 gridcell corresponds to 1/50 of the
-    domain.
+    Scale vectors so that a vector of 1 gridcell corresponds to 1/50 of the domain.
     """
-    return 0.01 * (lats[-1] - lats[0]) / (lats[1] - lats[0])
+    lats, lons = grid_options["latitude"], grid_options["longitude"]
+    if grid_options["name"] == "cartesian":
+        lats = lats[:, 0]
+        lons = lons[0, :]
+    row_scale = 0.02 * (lats[-1] - lats[0]) / (lats[1] - lats[0])
+    col_scale = 0.02 * (lons[-1] - lons[0]) / (lons[1] - lons[0])
+    vector_scale = np.min([row_scale, col_scale])
+    return vector_scale
 
 
-def plot_flow(
-    ax, start_lat, start_lon, flow, grid_options, color="w", alpha=1, linestyle="-"
+def plot_vector(
+    ax,
+    row,
+    col,
+    vector,
+    grid_options,
+    start_lat=None,
+    start_lon=None,
+    color="w",
+    alpha=1,
+    linestyle="-",
 ):
-    """Plot a flow type vector."""
-    flow_scale = get_flow_scale(grid_options["latitude"], grid_options["longitude"])
-    geographic_flow = np.array(flow) * np.array(grid_options["geographic_spacing"])
-    geographic_flow = np.array(geographic_flow) * flow_scale
+    """Plot a vector given in gridcell, i.e. "pixel", coordinates."""
+    latitudes = grid_options["latitude"]
+    longitudes = grid_options["longitude"]
+    if grid_options["name"] == "cartesian":
+        if start_lat is None or start_lon is None:
+            start_lon = longitudes[row, col]
+            start_lat = latitudes[row, col]
+        vector_direction = np.rad2deg(np.arctan2(vector[0], vector[1]))
+        spacing = np.array(grid_options["cartesian_spacing"])
+        cartesian_vector = np.array(vector) * spacing
+        distance = np.sqrt(np.sum(cartesian_vector**2))
+        end_lon, end_lat = thor_grid.geodesic_forward(
+            start_lon, start_lat, vector_direction, distance
+        )[:2]
+        geographic_vector = [end_lat - start_lat, end_lon - start_lon]
+    elif grid_options["name"] == "geographic":
+        if start_lat is None or start_lon is None:
+            start_lat = latitudes[row]
+            start_lon = longitudes[col]
+        geographic_vector = np.array(vector) * np.array(
+            grid_options["geographic_spacing"]
+        )
+    else:
+        raise ValueError(f"Grid name must be 'cartesian' or 'geographic'.")
+    scale = get_geographic_vector_scale(grid_options)
+    geographic_vector = np.array(geographic_vector) * scale
     start_coords = [start_lon, start_lat]
-    end_coords = np.array(start_coords) + geographic_flow[::-1]
-    ax.plot(
-        start_lon,
-        start_lat,
-        color=color,
-        alpha=alpha,
-        **arrow_origin_options,
-        transform=ccrs.PlateCarree(),
-    )
-    arrow = FancyArrowPatch(
-        start_coords,
-        end_coords,
-        color=color,
-        alpha=alpha,
-        **arrow_options,
-        linestyle=linestyle,
-        transform=ccrs.PlateCarree(),
-    )
+    end_coords = np.array(start_coords) + geographic_vector[::-1]
+    ax.plot(start_lon, start_lat, color=color, alpha=alpha, **arrow_origin_options)
+    vector_style = {"color": color, "alpha": alpha, "linestyle": linestyle}
+    arrow = FancyArrowPatch(start_coords, end_coords, **vector_style, **arrow_options)
     ax.add_patch(arrow)
 
 
-def plot_displacement(displacement, center, ax, latitudes, longitudes, grid_options):
-    if np.all(np.isnan(displacement)):
-        return
-    lat = latitudes[center[0]]
-    lon = longitudes[center[1]]
-    plot_flow(ax, lat, lon, displacement, grid_options, color="silver")
-
-
-def plot_box(ax, box, grid, color, linestyle="--", alpha=1):
-    latitudes = grid.latitude.values
-    longitudes = grid.longitude.values
-    box_lats, box_lons = get_box_coords(box, latitudes, longitudes)
-    ax.plot(
-        box_lons,
-        box_lats,
-        color=color,
-        linewidth=1,
-        linestyle=linestyle,
-        alpha=alpha,
-        transform=ccrs.PlateCarree(),
-    )
+def plot_box(ax, box, grid_options, linestyle="--", alpha=1, color="tab:red"):
+    lats, lons = get_geographic_box_coords(box, grid_options)
+    box_style = {"color": color, "linewidth": 1, "linestyle": linestyle}
+    box_style.update({"alpha": alpha, "transform": proj})
+    ax.plot(lons, lats, **box_style)

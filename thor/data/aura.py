@@ -413,13 +413,9 @@ def convert_cpol(time, input_record, dataset_options, grid_options):
         dataset_options["fields"]
         + ["point_latitude", "point_longitude", "point_altitude"]
     ]
-    cpol = cpol.rename(
-        {
-            "point_latitude": "latitude",
-            "point_longitude": "longitude",
-            "point_altitude": "altitude",
-        }
-    )
+    new_names = {"point_latitude": "latitude", "point_longitude": "longitude"}
+    new_names.update({"point_altitude": "altitude"})
+    cpol = cpol.rename(new_names)
     cpol["altitude"] = cpol["altitude"].isel(x=0, y=0)
     cpol = cpol.swap_dims({"z": "altitude"})
     cpol = cpol.drop_vars("z")
@@ -428,61 +424,79 @@ def convert_cpol(time, input_record, dataset_options, grid_options):
         cpol[var] = cpol[var].isel(altitude=0)
 
     if grid_options["name"] == "geographic":
-        ds = xr.Dataset(
-            {
-                "latitude": (["latitude"], grid_options["latitude"]),
-                "longitude": (["longitude"], grid_options["longitude"]),
-            },
-        )
-
-        regridder = xe.Regridder(
-            cpol, ds, "bilinear", periodic=False, extrap_method=None
-        )
+        dims = ["latitude", "longitude"]
+        if grid_options["latitude"] is None or grid_options["longitude"] is None:
+            # If the lat/lon of the new grid were not specified, construct from spacing
+            spacing = grid_options["geographic_spacing"]
+            logger.debug(
+                f"Creating new geographic grid with spacing "
+                f"{spacing[0]} m, {spacing[1]} m."
+            )
+            if spacing is None:
+                raise ValueError("Spacing cannot be None if latitude/longitude None.")
+            old_lats = cpol["latitude"].values
+            old_lons = cpol["longitude"].values
+            latitude, longitude = grid.new_geographic_grid(
+                old_lats, old_lons, spacing[0], spacing[1]
+            )
+            grid_options["latitude"] = latitude
+            grid_options["longitude"] = longitude
+        ds = xr.Dataset({dim: ([dim], grid_options[dim]) for dim in dims})
+        regrid_options = {"periodic": False, "extrap_method": None}
+        regridder = xe.Regridder(cpol, ds, "bilinear", **regrid_options)
         ds = regridder(cpol)
-
-        cell_areas = grid.get_cell_areas(ds.latitude.values, ds.longitude.values)
-        ds["gridcell_area"] = (["latitude", "longitude"], cell_areas)
-        ds["gridcell_area"].attrs.update(
-            {"units": "km^2", "standard_name": "area", "valid_min": 0}
-        )
+        for var in ds.data_vars:
+            if var in cpol.data_vars:
+                ds[var].attrs = cpol[var].attrs
+        for coord in ds.coords:
+            ds[coord].attrs = cpol[coord].attrs
+        ds.attrs.update(cpol.attrs)
+        ds.attrs["history"] += f", regridded using xesmf on " f"{np.datetime64('now')}"
 
     elif grid_options["name"] == "cartesian":
-        ds = cpol.copy()
-        ds = ds.drop_vars(["latitude", "longitude"])
-        ds["altitude"] = ds["altitude"].isel(y=0, x=0)
+        dims = ["y", "x"]
+        ds = cpol
+        grid_options["latitude"] = ds["latitude"].values
+        grid_options["longitude"] = ds["longitude"].values
+        if grid_options["x"] is None or grid_options["y"] is None:
+            grid_options["x"] = ds["x"].values
+            grid_options["y"] = ds["y"].values
+        x_spacing = ds["x"].values[1:] - ds["x"].values[:-1]
+        y_spacing = ds["y"].values[1:] - ds["y"].values[:-1]
+        if np.unique(x_spacing).size > 1 or np.unique(y_spacing).size > 1:
+            raise ValueError("x and y must have constant spacing.")
+        grid_options["cartesian_spacing"] = [y_spacing[0], x_spacing[0]]
+    # Define grid shape and gridcell areas
+    grid_options["shape"] = [len(ds[dims[0]].values), len(ds[dims[1]].values)]
+    cell_areas = grid.get_cell_areas(grid_options)
+    ds["gridcell_area"] = (dims, cell_areas)
+    ds["gridcell_area"].attrs.update(
+        {"units": "km^2", "standard_name": "area", "valid_min": 0}
+    )
+    if grid_options["altitude"] is None:
+        grid_options["altitude"] = ds["altitude"].values
+    else:
+        ds = ds.interp(altitude=grid_options["altitude"], method="linear")
 
-    ds.attrs.update(cpol.attrs)
-    ds.attrs["history"] += f", regridded using xesmf on " f"{np.datetime64('now')}"
-
-    for var in ds.data_vars:
-        if var in cpol.data_vars:
-            ds[var].attrs = cpol[var].attrs
-
-    for coord in ds.coords:
-        ds[coord].attrs = cpol[coord].attrs
-
-    ds = ds.interp(altitude=grid_options["altitude"], method="linear")
-
+    # Set data outside instrument range to NaN
     if "range_mask" not in input_record.keys():
-        get_range_mask(ds, dataset_options, input_record)
-
-    mask_coords = [("latitude", ds.latitude.values), ("longitude", ds.longitude.values)]
+        get_range_mask(ds, input_record, dataset_options, grid_options)
+    mask_coords = [(dims[0], ds[dims[0]].values), (dims[1], ds[dims[1]].values)]
     mask_array = xr.DataArray(input_record["range_mask"], coords=mask_coords)
     for var in ds.data_vars.keys() - ["gridcell_area"]:
-        # Check if the variable has 'latitude' and 'longitude' dimensions
-        if set(["latitude", "longitude"]).issubset(set(ds[var].dims)):
+        # Check if the variable has horizontal dimensions
+        if set(dims).issubset(set(ds[var].dims)):
             broadcasted_mask = mask_array.broadcast_like(ds[var])
-
             # Apply the mask, setting unmasked values to NaN
             ds[var] = ds[var].where(broadcasted_mask)
 
     return ds
 
 
-def get_range_mask(ds, dataset_options, input_record):
+def get_range_mask(ds, input_record, dataset_options, grid_options):
     """Add the range mask to the input record."""
-    range_mask, range_latitudes, range_longitudes = utils.get_range_mask(
-        ds, dataset_options
+    range_mask, range_latitudes, range_longitudes = utils.create_range_mask(
+        ds, dataset_options, grid_options
     )
     input_record["range_mask"] = range_mask
     input_record["range_latitudes"] = range_latitudes
@@ -531,7 +545,7 @@ def update_dataset(time, input_record, dataset_options, grid_options):
             dataset_options["filepaths"][input_record["current_file_index"]]
         )
         if "range_mask" not in input_record.keys():
-            get_range_mask(dataset, dataset_options, input_record)
+            get_range_mask(dataset, input_record, dataset_options, grid_options)
     if conv_options["save"]:
         utils.save_converted_dataset(dataset, dataset_options)
     input_record["dataset"] = dataset
@@ -551,7 +565,6 @@ def generate_operational_filepaths():
 
 def cpol_grid_from_dataset(dataset, variable, time):
     grid = dataset[variable].sel(time=time)
-    preserved_attributes = dataset.attrs.keys() - ["field_names"]
     for attr in ["origin_longitude", "origin_latitude", "instrument"]:
         grid.attrs[attr] = dataset.attrs[attr]
     return grid

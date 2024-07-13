@@ -35,7 +35,9 @@ def match(object_tracks, object_options, grid_options):
         object_tracks["object_record"] = thor_object.empty_object_record()
         object_tracks["global_flow"] = None
         # Create matched mask by relabelling current mask with universal ids.
-        get_matched_mask(object_tracks, object_options, current_ids=current_ids)
+        get_matched_mask(
+            object_tracks, object_options, grid_options, current_ids=current_ids
+        )
         return
 
     match_data = tint.get_matches(object_tracks, object_options, grid_options)
@@ -52,12 +54,12 @@ def match(object_tracks, object_options, grid_options):
         logger.debug("Updating object record.")
         thor_object.update_object_record(match_data, object_tracks, object_options)
 
-    get_matched_mask(object_tracks, object_options)
+    get_matched_mask(object_tracks, object_options, grid_options)
 
 
-def get_matched_mask(object_tracks, object_options, current_ids=None):
+def get_matched_mask(object_tracks, object_options, grid_options, current_ids=None):
     """Get the matched mask for the current time."""
-    current_mask, previous_mask = get_masks(object_tracks, object_options)
+    current_mask = get_masks(object_tracks, object_options)[0]
 
     object_record = object_tracks["object_record"]
     if current_ids is None:
@@ -88,12 +90,19 @@ def get_matched_mask(object_tracks, object_options, current_ids=None):
         replaced = series.map(value_dict).values.reshape(data_array.shape)
         return replaced
 
+    if grid_options["name"] == "cartesian":
+        core_dims = [["y", "x"]]
+    elif grid_options["name"] == "geographic":
+        core_dims = [["latitude", "longitude"]]
+    else:
+        raise ValueError(f"Grid name must be 'cartesian' or 'geographic'.")
+
     matched_mask = xr.apply_ufunc(
         replace_values,
         object_tracks["current_mask"],
         kwargs={"value_dict": universal_id_dict},
-        input_core_dims=[["latitude", "longitude"]],
-        output_core_dims=[["latitude", "longitude"]],
+        input_core_dims=core_dims,
+        output_core_dims=core_dims,
         vectorize=True,
     )
     previous_matched_mask = object_tracks["current_matched_mask"]

@@ -5,43 +5,50 @@ import numpy as np
 import xarray as xr
 from thor.log import setup_logger
 from thor.match.utils import get_masks
+import thor.grid as thor_grid
 
 logger = setup_logger(__name__)
 
 
-def get_object_area(obj, mask, gridcell_area):
+def get_object_area(obj, mask, gridcell_area, grid_options):
     """Get object area. Note gridcell_area is in km^2 by default."""
     row_inds, col_inds = np.where(mask == obj)
     row_points = xr.Variable("mask_points", row_inds)
     col_points = xr.Variable("mask_points", col_inds)
-    areas = gridcell_area.isel(latitude=row_points, longitude=col_points).values
+    if grid_options["name"] == "cartesian":
+        areas = gridcell_area.isel(y=row_points, x=col_points).values
+    elif grid_options["name"] == "geographic":
+        areas = gridcell_area.isel(latitude=row_points, longitude=col_points).values
     return areas.sum()
 
 
-def get_object_center(obj, mask, gridcell_area=None, grid=None):
+def get_object_center(obj, mask, grid_options, gridcell_area=None, grid=None):
     """Get object centre."""
+    coord_names = thor_grid.get_coordinate_names(grid_options)
     row_inds, col_inds = np.where(mask == obj)
     if gridcell_area is not None or grid is not None:
         row_points = xr.Variable("mask_points", row_inds)
         col_points = xr.Variable("mask_points", col_inds)
-        if gridcell_area is not None:
-            areas = gridcell_area.isel(latitude=row_points, longitude=col_points).values
+        sel_dict = {coord_names[0]: row_points, coord_names[1]: col_points}
+        areas = gridcell_area.isel(sel_dict).values
+        if gridcell_area is not None and grid is None:
             row_inds = np.sum(row_inds * areas) / np.sum(areas)
             col_inds = np.sum(col_inds * areas) / np.sum(areas)
-        if grid is not None:
-            grid_values = grid.isel(latitude=row_points, longitude=col_points).values
-            row_inds = np.sum(row_points * grid_values) / np.sum(grid_values)
-            col_inds = np.sum(col_points * grid_values) / np.sum(grid_values)
+        elif gridcell_area is not None and grid is not None:
+            grid_values = grid.isel(sel_dict).values
+            row_inds = np.sum(row_points * grid_values * areas) / (
+                np.sum(grid_values) * np.sum(areas)
+            )
+            col_inds = np.sum(col_points * grid_values * areas) / (
+                np.sum(grid_values) * np.sum(areas)
+            )
     else:
-        row_points = row_points / len(row_inds)
-        col_points = col_points / len(col_inds)
+        row_inds = row_points / len(row_inds)
+        col_inds = col_points / len(col_inds)
     center_row = np.round(np.sum(row_inds)).astype(int)
     center_col = np.round(np.sum(col_inds)).astype(int)
-    latitudes = mask.latitude.values
-    longitudes = mask.longitude.values
-    center_lat = latitudes[center_row]
-    center_lon = longitudes[center_col]
-    return center_row, center_col, areas.sum(), center_lat, center_lon
+
+    return center_row, center_col, areas.sum()
 
 
 def find_objects(box, mask):

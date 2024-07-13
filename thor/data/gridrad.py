@@ -122,6 +122,7 @@ def convert_gridrad(time, input_record, dataset_options, grid_options):
     grid_options["longitude"] = longitude.values
     grid_options["altitude"] = altitude.values
     grid_options["geographic_spacing"] = [latitude.delta, longitude.delta]
+    grid_options["shape"] = [len(latitude), len(longitude)]
 
     return ds
 

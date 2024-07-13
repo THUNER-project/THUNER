@@ -164,7 +164,7 @@ def detected_object(
     tracking_method,
     flatten_method="vertical_max",
     altitudes=None,
-    min_area=10,
+    min_area=50,
     tags=None,
 ):
     """Initialize THOR object configuration for detected objects, i.e.

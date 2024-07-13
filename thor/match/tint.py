@@ -1,13 +1,37 @@
-"""Perform matching using TINT approach."""
+"""
+Perform matching using the TINT/MINT approach. The methods are discussed in the 
+following papers.
+
+Leese et al. (1971), An automated technique for obtaining cloud motion from 
+geosynchronous satellite data using cross correlation. 
+https://dx.doi.org/10.1175/1520-0450(1971)010<0118:AATFOC>2.0.CO;2
+
+Dixon & Wiener (1993), TITAN: Thunderstorm Identification, Tracking, Analysis, and
+Nowcasting—a radar-based methodology. 
+https://dx.doi.org/10.1175/1520-0426(1993)010<0785:TTITAA>2.0.CO;2
+
+Fridlind et al. (2019), Use of polarimetric radar measurements to constrain simulated 
+convective cell evolution: a pilot study with Lagrangian tracking.
+https://dx.doi.org/10.5194/amt-12-2979-2019
+
+Raut et al. (2021), An adaptive tracking algorithm for convection in simulated and 
+remote sensing data.
+https://dx.doi.org/10.1175/JAMC-D-20-0119.1
+
+Short et al. (2023), Objectively diagnosing characteristics of mesoscale organization 
+from radar reflectivity and ambient winds.
+https://dx.doi.org/10.1175/MWR-D-22-0146.1
+
+"""
 
 import numpy as np
 from scipy import optimize
-from thor.match.correlate import get_flow, convert_flow_cartesian
+from thor.match.correlate import get_flow
 from thor.match.utils import get_masks
 import thor.object.object as thor_object
 import thor.object.box as box
-from thor.utils import get_cartesian_displacement, geodesic_distance
 from thor.log import setup_logger
+import thor.grid as grid
 
 logger = setup_logger(__name__)
 
@@ -17,16 +41,12 @@ def get_costs_data(object_tracks, object_options, grid_options):
     current_mask, previous_mask = get_masks(object_tracks, object_options)
     previous_total = np.max(previous_mask.values)
     current_total = np.max(current_mask.values)
-    latitudes = grid_options["latitude"]
-    longitudes = grid_options["longitude"]
-    grid_spacing = grid_options["geographic_spacing"]
-    shape = current_mask.shape
     local_flow_margin = object_options["tracking"]["options"]["local_flow_margin"]
     global_flow_margin = object_options["tracking"]["options"]["global_flow_margin"]
 
     if object_options["tracking"]["options"]["unique_global_flow"]:
-        unique_global_flow_box = box.get_unique_global_flow_box(
-            latitudes, longitudes, global_flow_margin, grid_spacing, shape
+        unique_global_flow_box = get_unique_global_flow_box(
+            global_flow_margin, grid_options
         )
         unique_global_flow, unique_global_flow_box = get_flow(
             unique_global_flow_box,
@@ -70,14 +90,10 @@ def get_costs_data(object_tracks, object_options, grid_options):
     previous_ids = np.arange(1, previous_total + 1)
 
     search_margin = object_options["tracking"]["options"]["search_margin"]
-    spacing = grid_options["geographic_spacing"]
 
     for previous_id in previous_ids:
         # Get the object bounding box and local flow
-        try:
-            bounding_box = box.get_bounding_box(previous_id, previous_mask)
-        except ValueError:
-            logger.debug(f"Object {previous_id} not found in previous mask.")
+        bounding_box = box.get_bounding_box(previous_id, previous_mask)
         bounding_boxes.append(bounding_box)
         flow, flow_box = get_flow(
             bounding_box, object_tracks, object_options, grid_options, local_flow_margin
@@ -107,8 +123,8 @@ def get_costs_data(object_tracks, object_options, grid_options):
             previous_displacement = np.array([np.nan, np.nan])
         previous_displacements.append(previous_displacement)
         previous_row, previous_col, area = thor_object.get_object_center(
-            previous_id, previous_mask, gridcell_area
-        )[:3]
+            previous_id, previous_mask, grid_options, gridcell_area
+        )
         previous_center = [previous_row, previous_col]
         previous_centers.append(previous_center)
         areas.append(area)
@@ -126,19 +142,14 @@ def get_costs_data(object_tracks, object_options, grid_options):
         corrected_flows.append(corrected_flow)
         cases.append(case)
         # Get the search box, objects in search box, and evaluate cost function
+        int_corrected_flow = np.ceil(corrected_flow).astype(int)
         search_box = box.get_search_box(
-            bounding_box,
-            np.ceil(corrected_flow).astype(int),
-            latitudes,
-            longitudes,
-            search_margin,
-            spacing,
-            current_mask.shape,
+            bounding_box, int_corrected_flow, search_margin, grid_options
         )
         search_boxes.append(search_box)
         current_ids = thor_object.find_objects(search_box, current_mask)
         object_costs_data = get_object_costs_data(
-            current_ids, previous_id, object_tracks, object_options
+            current_ids, previous_id, object_tracks, object_options, grid_options
         )
         i = previous_id - 1
         j = current_ids - 1
@@ -170,7 +181,9 @@ def get_costs_data(object_tracks, object_options, grid_options):
     return costs_data
 
 
-def get_object_costs_data(current_ids, previous_id, object_tracks, object_options):
+def get_object_costs_data(
+    current_ids, previous_id, object_tracks, object_options, grid_options
+):
     """
     Caculate the cost function for all objects found within the search box, associated with
     the specific object previous_id. Note that this cost function is subtly different
@@ -187,19 +200,19 @@ def get_object_costs_data(current_ids, previous_id, object_tracks, object_option
     current_mask, previous_mask = get_masks(object_tracks, object_options)
     gridcell_area = object_tracks["gridcell_area"]
 
-    previous_row, previous_col, previous_area, previous_lat, previous_lon = (
-        thor_object.get_object_center(previous_id, previous_mask, gridcell_area)
+    previous_row, previous_col, previous_area = thor_object.get_object_center(
+        previous_id, previous_mask, grid_options, gridcell_area
     )
 
     for current_id in current_ids:
 
-        current_row, current_col, current_area, current_lat, current_lon = (
-            thor_object.get_object_center(current_id, current_mask, gridcell_area)
+        current_row, current_col, current_area = thor_object.get_object_center(
+            current_id, current_mask, grid_options, gridcell_area
         )
         current_rows.append(current_row)
         current_cols.append(current_col)
-        distance = geodesic_distance(
-            previous_lon, previous_lat, current_lon, current_lat
+        distance = grid.get_distance(
+            previous_row, previous_col, current_row, current_col, grid_options
         )
         distance = distance / 1e3
         distances.append(distance)
@@ -300,31 +313,24 @@ def correct_local_flow(
 ):
     """Correct the local flow vector."""
 
-    spacing = grid_options["geographic_spacing"]
-    lats = grid_options["latitude"]
-    lons = grid_options["longitude"]
     current_time_interval = object_tracks["current_time_interval"]
     previous_time_interval = object_tracks["previous_time_interval"]
-
     flow_box_center = box.get_center(flow_box)
-    flow_box_lat = lats[flow_box_center[0]]
-    flow_box_lon = lons[flow_box_center[1]]
-    local_cartesian_flow = convert_flow_cartesian(
-        local_flow, flow_box_lat, flow_box_lon, spacing
+    local_flow_cartesian = grid.pixel_to_cartesian_vector(
+        flow_box_center[0], flow_box_center[1], local_flow, grid_options
     )
-    local_flow_velocity = local_cartesian_flow / current_time_interval
+    local_flow_velocity = local_flow_cartesian / current_time_interval  # in m/s
     # Note both global and local flows are calculated in geographic coordinates.
-    # Still makes sense to calculate the "global" flow velocity associated with a given object
-    # by calculating the cartesian flow at the object location using the global flow.
-    global_cartesian_flow = convert_flow_cartesian(
-        global_flow, flow_box_lat, flow_box_lon, spacing
+    # If global flow unique, still makes sense to calculate the "global" flow velocity
+    # associated with a given object by calculating the cartesian displacement at the object
+    # location, using the global flow vector.
+    global_flow_cartesian = grid.pixel_to_cartesian_vector(
+        flow_box_center[0], flow_box_center[1], global_flow, grid_options
     )
-    global_flow_velocity = global_cartesian_flow / current_time_interval
-
-    previous_row, previous_col = [previous_center[0], previous_center[1]]
-    previous_lat, previous_lon = (lats[previous_row], lons[previous_col])
+    global_flow_velocity = global_flow_cartesian / current_time_interval
+    previous_row, previous_col = previous_center[0], previous_center[1]
     center_velocity = get_center_velocity(
-        displacement, previous_lat, previous_lon, spacing, previous_time_interval
+        previous_row, previous_col, displacement, previous_time_interval, grid_options
     )
     corrected_flow, case = determine_case(
         local_flow,
@@ -340,23 +346,21 @@ def correct_local_flow(
 
 
 def get_center_velocity(
-    displacement, previous_lat, previous_lon, spacing, previous_time_interval
+    previous_row, previous_col, displacement, previous_time_interval, grid_options
 ):
     """Get the velocity using the object center."""
-    displacement_exists = ~np.all(np.isnan(displacement))
-    if ~displacement_exists or previous_time_interval is None:
-        center_velocity = None
-    else:
-        if np.all(displacement == np.array([0, 0])):
-            center_velocity = np.array([0, 0])
-        else:
-            previous_previous_lat = previous_lat - displacement[0] * spacing[0]
-            previous_previous_lon = previous_lon - displacement[1] * spacing[1]
-            cartesian_displacement = get_cartesian_displacement(
-                previous_previous_lat, previous_previous_lon, previous_lat, previous_lon
-            )
-            center_velocity = cartesian_displacement / previous_time_interval
-    return center_velocity
+    if previous_time_interval is None:
+        return None
+    if np.any(np.isnan(displacement)):
+        return None
+    if np.all(displacement == np.array([0, 0])):
+        return np.array([0, 0])
+    previous_previous_row = previous_row - int(displacement[0])
+    previous_previous_col = previous_col - int(displacement[1])
+    displacement_cartesian = grid.pixel_to_cartesian_vector(
+        previous_previous_row, previous_previous_col, displacement, grid_options
+    )
+    return displacement_cartesian / previous_time_interval
 
 
 def determine_case(
@@ -473,3 +477,39 @@ def velocities_disagree(velocity_1, velocity_2, max_velocity_diff):
 
     vector_difference = np.sqrt((velocity_1**2 + velocity_2**2).sum())
     return vector_difference > max_velocity_diff
+
+
+def get_unique_global_flow_box(global_flow_margin, grid_options):
+    """Set the unique global flow box to the center of the domain."""
+    shape = grid_options["shape"]
+    row, col = np.floor(np.array(shape) / 2).astype(int)
+    if grid_options["name"] == "cartesian":
+        spacing = grid_options["cartesian_spacing"]
+        # Note that the global flow margin is in km, but spacing is in m.
+        radius = np.ceil(global_flow_margin * 1e3 / np.array(spacing)).astype(int)
+    elif grid_options["name"] == "geographic":
+        spacing = grid_options["geographic_spacing"]
+        lats = grid_options["latitude"]
+        lons = grid_options["longitude"]
+        lat = lats[row]
+        lon = lons[col] % 360
+        radius = box.get_geographic_margins(lat, lon, global_flow_margin, grid_options)
+
+    global_flow_box = box.create_box(
+        row - radius[0], row + radius[0], col - radius[1], col + radius[1]
+    )
+    global_flow_box = box.clip_box(global_flow_box, shape)
+    missing_pixels = np.max(
+        [
+            global_flow_box["row_min"],
+            shape[0] - 1 - global_flow_box["row_max"],
+            global_flow_box["col_min"],
+            shape[1] - 1 - global_flow_box["col_max"],
+        ]
+    )
+    if missing_pixels > 0:
+        logger.warning(
+            f"Unique global flow box under spans grid rows or columns by "
+            f"up to {missing_pixels} pixels."
+        )
+    return global_flow_box

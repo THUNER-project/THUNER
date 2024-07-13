@@ -89,7 +89,7 @@ def get_connected_components(tracks, object_options):
     new_obj_counter = 0
     for i in range(len(new_objs)):
         # Require that components span all member objects
-        if not component_span(masks, new_objs[i]):
+        if not component_span(masks, list(new_objs[i])):
             continue
         # Require total areas of member objects are above thresholds after grouping
         if not check_areas(masks, tracks, object_options, list(new_objs[i])):

@@ -12,6 +12,7 @@ import xarray as xr
 from thor.log import setup_logger
 from thor.utils import format_time
 from thor.utils import haversine
+import thor.grid as grid
 
 
 logger = setup_logger(__name__, level="DEBUG")
@@ -376,28 +377,37 @@ def get_parent(dataset_options):
     return parent
 
 
-def get_range_mask(dataset, dataset_options):
+def create_range_mask(dataset, dataset_options, grid_options):
     """Create mask for gridcells greater than range from central point."""
+    lons = grid_options["longitude"]
+    lats = grid_options["latitude"]
+    if grid_options["name"] == "cartesian":
+        X, Y = np.meshgrid(grid_options["x"], grid_options["y"])
+        distances = np.sqrt(X**2 + Y**2)
+    elif grid_options["name"] == "geographic":
+        origin_longitude = float(dataset.attrs["origin_longitude"])
+        origin_latitude = float(dataset.attrs["origin_latitude"])
+        LON, LAT = np.meshgrid(lons, lats)
+        distances = haversine(LAT, LON, origin_latitude, origin_longitude)
+    else:
+        raise ValueError("Grid name must be 'cartesian' or 'geographic'.")
 
-    longitudes = dataset.longitude.values
-    latitudes = dataset.latitude.values
-    origin_longitude = float(dataset.attrs["origin_longitude"])
-    origin_latitude = float(dataset.attrs["origin_latitude"])
-
-    LON, LAT = np.meshgrid(longitudes, latitudes)
-    distances = haversine(LAT, LON, origin_latitude, origin_longitude)
     units_dict = {"m": 1, "km": 1e3}
     range = dataset_options["range"] * units_dict[dataset_options["range_units"]]
     mask = distances <= range
     contour = cv2.findContours(
-        mask.astype(np.uint8),
-        cv2.RETR_LIST,
-        cv2.CHAIN_APPROX_NONE,
+        mask.astype(np.uint8), cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE
     )[0][0]
     contour = np.append(contour, [contour[0]], axis=0)
-    range_latitudes = latitudes[contour[:, :, 1]].flatten()
-    range_longitudes = longitudes[contour[:, :, 0]].flatten()
-    return mask, range_latitudes, range_longitudes
+
+    contour_rows, contour_cols = contour[:, :, 1].flatten(), contour[:, :, 0].flatten()
+    if grid_options["name"] == "cartesian":
+        boundary_lats = lats[contour_rows, contour_rows]
+        boundary_lons = lons[contour_rows, contour_cols]
+    elif grid_options["name"] == "geographic":
+        boundary_lats = lats[contour_rows]
+        boundary_lons = lons[contour_cols]
+    return mask, boundary_lats, boundary_lons
 
 
 def save_converted_dataset(dataset, dataset_options):

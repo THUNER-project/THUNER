@@ -1,9 +1,15 @@
-"""Methods for calcualting cross correlation, a.k.a. optical flow."""
+"""
+Methods for calcualting cross correlation, a.k.a. optical flow. Key papers include the 
+following.
+
+Leese et al. (1971), An automated technique for obtaining cloud motion from 
+geosynchronous satellite data using cross correlation. 
+https://dx.doi.org/10.1175/1520-0450(1971)010<0118:AATFOC>2.0.CO;2
+"""
 
 import numpy as np
 from scipy import ndimage
 import thor.object.box as box
-from thor.utils import get_cartesian_displacement, geodesic_forward
 from thor.match.utils import get_grids
 
 
@@ -11,13 +17,8 @@ def get_flow(bounding_box, object_tracks, object_options, grid_options, flow_mar
     """Get the optical flow within bounding_box."""
 
     current_grid, previous_grid = get_grids(object_tracks, object_options)
-    current_grid = current_grid.copy()
-    previous_grid = previous_grid.copy()
-    grid_spacing = grid_options["geographic_spacing"]
-    latitudes = current_grid.latitude.values
-    longitudes = current_grid.longitude.values
-    flow_margin_row, flow_margin_col = box.get_gridcell_margins(
-        bounding_box, latitudes, longitudes, flow_margin, grid_spacing
+    flow_margin_row, flow_margin_col = box.get_margins_pixels(
+        bounding_box, flow_margin, grid_options
     )
     flow_box = bounding_box.copy()
     flow_box = box.expand_box(flow_box, flow_margin_row, flow_margin_col)
@@ -52,16 +53,6 @@ def calculate_flow(grid1, grid2, global_flow=False):
     # Calculate flow relative to center - see fft_flow.
     flow = flow - (dims - np.array([row_centre, column_centre]))
     return flow
-
-
-def convert_flow_cartesian(flow, previous_lat, previous_lon, geographic_spacing):
-    current_lat = previous_lat + flow[0] * geographic_spacing[0]
-    current_lon = previous_lon + flow[1] * geographic_spacing[1]
-
-    flow_meters = get_cartesian_displacement(
-        previous_lat, previous_lon, current_lat, current_lon
-    )
-    return flow_meters
 
 
 def get_cross_covariance(grid1, grid2):

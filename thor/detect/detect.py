@@ -112,20 +112,9 @@ def detect(track_input_records, tracks, level_index, obj, object_options, grid_o
     mask.data = ndimage.label(binary_grid)[0]
     mask.name = f"{object_options['name']}_mask"
 
-    if (
-        grid_options["name"] == "geographic"
-        and "gridcell_area" in dataset.variables.keys()
-    ):
-        gridcell_area = dataset["gridcell_area"]
-    elif grid_options["name"] == "cartesian":
-        spacing = grid_options["cartesian_spacing"]
-        gridcell_area = spacing[1] * spacing[2]
-    else:
-        ValueError("Invalid grid name or missing gridcell_area variable.")
-
     if object_options["detection"]["min_area"] is not None:
         mask = clear_small_area_objects(
-            mask, object_options["detection"]["min_area"], gridcell_area
+            mask, object_options["detection"]["min_area"], dataset["gridcell_area"]
         )
 
     current_mask = copy.deepcopy(object_tracks["current_mask"])

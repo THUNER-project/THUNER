@@ -3,16 +3,23 @@
 from pathlib import Path
 import glob
 import numpy as np
+from matplotlib.colors import BoundaryNorm
 import pyart.graph.cm_colorblind as pcm
 import thor.visualize.utils as utils
 from thor.log import setup_logger
 
 logger = setup_logger(__name__)
 
-grid_formats = {
+reflectivity_levels = np.arange(-10, 60 + 5, 5)
+reflectivity_norm = BoundaryNorm(
+    reflectivity_levels, ncolors=pcm.HomeyerRainbow.N, clip=True
+)
+
+pcolormesh_style = {
     "reflectivity": {
         "cmap": pcm.HomeyerRainbow,
-        "levels": np.arange(-10, 60 + 5, 5),
+        "shading": "nearest",
+        "norm": reflectivity_norm,
     },
 }
 
@@ -21,7 +28,6 @@ mask_colors = [
     "magenta",
     "purple",
     "teal",
-    "darkkhaki",
     "saddlebrown",
     "hotpink",
 ]

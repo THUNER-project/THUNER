@@ -133,31 +133,6 @@ def get_time_interval(current_grid, previous_grid):
         return None
 
 
-geod = Geod(ellps="WGS84")
-geodesic_inverse = np.vectorize(
-    lambda lon1, lat1, lon2, lat2: geod.inv(lon1, lat1, lon2, lat2)
-)
-geodesic_forward = np.vectorize(
-    lambda lon, lat, direction, distance: geod.fwd(lon, lat, direction, distance)
-)
-geodesic_distance = lambda lon1, lat1, lon2, lat2: geodesic_inverse(
-    lon1, lat1, lon2, lat2
-)[2]
-
-
-def get_cartesian_displacement(start_lat, start_lon, end_lat, end_lon):
-    """
-    Calculate the Cartesian displacement in metres between two points
-    on the Earth's surface.
-    """
-    direction, backward_direction, distance = geodesic_inverse(
-        start_lon, start_lat, end_lon, end_lat
-    )
-    x_displacement = distance * np.cos(np.radians(direction))
-    y_displacement = distance * np.sin(np.radians(direction))
-    return x_displacement, y_displacement
-
-
 use_numba = True
 
 

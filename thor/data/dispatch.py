@@ -109,6 +109,7 @@ def update_track_input_records(time, track_input_records, data_options, grid_opt
 
 
 def update_tag_input_records(time, tag_input_records, data_options, grid_options):
+    """Update the tag input records."""
     for name in tag_input_records.keys():
         input_record = tag_input_records[name]
         boilerplate_update(time, input_record, data_options[name], grid_options)
