@@ -286,7 +286,7 @@ def cell_object(
     threshold=None,
     tracking_method="tint",
     altitudes=[500, 3e3],
-    min_area=4,
+    min_area=80,
     tags=None,
     **kwargs,
 ):

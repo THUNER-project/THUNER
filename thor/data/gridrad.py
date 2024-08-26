@@ -1,3 +1,4 @@
+import copy
 from functools import reduce
 import numpy as np
 import pandas as pd
@@ -311,7 +312,7 @@ def remove_clutter(ds, variables=None, low_level=True, below_anvil=False):
     return ds
 
 
-def convert_gridrad(time, input_record, dataset_options, grid_options):
+def convert_gridrad(time, input_record, track_options, dataset_options, grid_options):
     """Convert gridrad data to the standard format."""
     filepath = dataset_options["filepaths"][input_record["current_file_index"]]
     utils.log_convert(logger, dataset_options["name"], filepath)
@@ -358,21 +359,54 @@ def convert_gridrad(time, input_record, dataset_options, grid_options):
     area_attrs = {"units": "km^2", "standard_name": "area", "valid_min": 0}
     ds["gridcell_area"].attrs.update(area_attrs)
 
+    # Get the domain mask associated with the given object
+    # Note the relevant domain mask is a function of how the object is detected, e.g.
+    # which levels!
+    previous_domain_mask = copy.deepcopy(input_record["current_domain_mask"])
+    previous_boundary_coords = copy.deepcopy(
+        input_record["current_boundary_coordinates"]
+    )
+    input_record["previous_domain_masks"].append(previous_domain_mask)
+    input_record["previous_boundary_coordinates"].append(previous_boundary_coords)
+
+    domain_mask = get_domain_mask(ds, track_options, dataset_options, grid_options)
+    input_record["current_domain_mask"] = domain_mask
+
+    boundary_coords = utils.get_mask_boundary(domain_mask, grid_options)
+    input_record["current_boundary_coordinates"] = boundary_coords
+
+    # Apply the domain mask to the current grid
+    ds = ds.where(domain_mask)
+
     return ds
 
 
-def get_domain_mask(track_input_records, dataset_options, object_options, grid_options):
+def get_domain_mask(ds, track_options, dataset_options, grid_options):
     """
     Get a domain mask for a GridRad dataset.
     """
-    ds = track_input_records[object_options["dataset"]]["dataset"]
-    mask, boundary_coords = utils.mask_from_observations(
-        ds, dataset_options, grid_options, object_options
-    )
-    return mask, boundary_coords
+
+    domain_masks = []
+    dataset_name = dataset_options["name"]
+    for level in range(len(track_options)):
+        for obj in track_options[level].keys():
+            detected = "detection" in track_options[level][obj]
+            uses_dataset = dataset_name == track_options[level][obj]["dataset"]
+            if detected and uses_dataset:
+                object_options = track_options[level][obj]
+                mask = utils.mask_from_observations(ds, dataset_options, object_options)
+                domain_masks.append(mask)
+    # Combine the masks
+    if len(domain_masks) == 0:
+        raise ValueError(
+            f"{dataset_name} not used for object detection. Check track_options."
+        )
+    domain_mask = reduce(lambda x, y: x * y, domain_masks)
+    domain_mask = utils.smooth_mask(domain_mask)
+    return domain_mask
 
 
-def update_dataset(time, input_record, dataset_options, grid_options):
+def update_dataset(time, input_record, track_options, dataset_options, grid_options):
     """
     Update a gridrad dataset.
 
@@ -397,7 +431,9 @@ def update_dataset(time, input_record, dataset_options, grid_options):
 
     input_record["current_file_index"] += 1
     if conv_options["load"] is False:
-        dataset = convert_gridrad(time, input_record, dataset_options, grid_options)
+        dataset = convert_gridrad(
+            time, input_record, track_options, dataset_options, grid_options
+        )
     else:
         dataset = xr.open_dataset(
             dataset_options["filepaths"][input_record["current_file_index"]]

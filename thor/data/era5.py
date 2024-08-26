@@ -337,7 +337,7 @@ def generate_era5_times():
     return
 
 
-def update_dataset(time, input_record, dataset_options, grid_options):
+def update_dataset(time, input_record, track_options, dataset_options, grid_options):
     """Update ERA5 dataset."""
 
     utils.log_dataset_update(logger, dataset_options["name"], time)
@@ -355,8 +355,8 @@ def update_dataset(time, input_record, dataset_options, grid_options):
         issue_cdsapi_requests(cds_name, requests, local_paths)
         pass
 
-    lat_range = (grid_options["latitude"].min(), grid_options["latitude"].max())
-    lon_range = (grid_options["longitude"].min(), grid_options["longitude"].max())
+    lat_range = (min(grid_options["latitude"]), max(grid_options["latitude"]))
+    lon_range = (min(grid_options["longitude"]), max(grid_options["longitude"]))
 
     with tempfile.TemporaryDirectory() as tmp:
         for field in dataset_options["fields"]:

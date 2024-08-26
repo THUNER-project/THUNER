@@ -1,7 +1,5 @@
 """
-This code is from the python documentation and is
-designed to read in the version number.
-See: https://packaging.python.org/en/latest/guides/single-sourcing-package-version/
+Package setup methods.
 """
 
 from setuptools import setup
@@ -40,10 +38,15 @@ def create_user_config(output_directory=Path.home() / "THOR_output"):
 
 
 def post_setup():
-    output_dir = input(
-        "Please specify the default output directory. "
-        f"Leave blank for {Path.home() / 'THOR_output'}: "
-    )
+    """Allow user to specify the default output directory."""
+    if os.isatty(0):  # Check if running in an interactive terminal
+        output_dir = input(
+            "Please specify the default output directory. "
+            f"Leave blank for {Path.home() / 'THOR_output'}: "
+        )
+    else:
+        output_dir = ""
+
     if output_dir == "":
         output_dir = Path.home() / "THOR_output"
     try:

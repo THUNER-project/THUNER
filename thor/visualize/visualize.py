@@ -1,5 +1,7 @@
 """General display methods."""
 
+from PIL import Image
+import imageio
 from pathlib import Path
 import glob
 import numpy as np
@@ -48,39 +50,49 @@ map_colors = {
 }
 
 base_styles = {"paper": "default", "presentation": "dark_background"}
+custom_styles_dir = Path(__file__).parent / "styles"
 
 styles = {
-    style: [base_styles[style], f"../thor/visualize/styles/{style}.mplstyle"]
+    style: [base_styles[style], custom_styles_dir / f"{style}.mplstyle"]
     for style in base_styles.keys()
 }
 
 
-def animate(visualize_options, output_directory):
+def get_filepaths_dates(fig_type, obj, output_directory):
+    filepaths = glob.glob(
+        str(output_directory / "visualize" / fig_type / obj / "*.png")
+    )
+    filepaths = np.array(sorted(filepaths))
+    dates = []
+    for filepath in filepaths:
+        date = Path(filepath).stem
+        date = f"{date[:8]}"
+        dates.append(date)
+    dates = np.array(dates)
+    return filepaths, dates
 
-    def get_filepaths_dates(fig_type, obj, output_directory):
-        filepaths = glob.glob(
-            str(output_directory / "visualize" / fig_type / obj / "*.png")
-        )
-        filepaths = np.array(sorted(filepaths))
-        dates = []
-        for filepath in filepaths:
-            date = Path(filepath).stem
-            date = f"{date[:8]}"
-            dates.append(date)
-        dates = np.array(dates)
-        return filepaths, dates
+
+def animate_all(visualize_options, output_directory):
 
     for obj in visualize_options.keys():
         for fig_type in visualize_options[obj]["figures"].keys():
             if visualize_options[obj]["figures"][fig_type]["animate"]:
-                filepaths, dates = get_filepaths_dates(fig_type, obj, output_directory)
-                for date in np.unique(dates):
-                    filepaths_date = filepaths[dates == date]
-                    output_filepath = (
-                        output_directory / "visualize" / fig_type / f"{obj}_{date}.gif"
-                    )
-                    logger.info(
-                        f"Animating {fig_type} figures for {obj} objects on "
-                        f"{date[:4]}-{date[4:6]}-{date[6:8]}."
-                    )
-                    utils.call_convert(" ".join(filepaths_date), output_filepath)
+                animate_object(fig_type, obj, output_directory)
+
+
+def animate_object(fig_type, obj, output_directory):
+    """
+    Animate object figures.
+    """
+    filepaths, dates = get_filepaths_dates(fig_type, obj, output_directory)
+    for date in np.unique(dates):
+        filepaths_date = filepaths[dates == date]
+        output_filepath = (
+            output_directory / "visualize" / fig_type / f"{obj}_{date}.gif"
+        )
+        logger.info(
+            f"Animating {fig_type} figures for {obj} objects on "
+            f"{date[:4]}-{date[4:6]}-{date[6:8]}."
+        )
+        images = [Image.open(f) for f in filepaths_date]
+        imageio.mimsave(output_filepath, images, fps=5, loop=0)

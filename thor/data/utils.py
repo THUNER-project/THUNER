@@ -393,7 +393,7 @@ def mask_from_input_record(
     return domain_mask, boundary_coords
 
 
-def mask_from_observations(dataset, dataset_options, grid_options, object_options=None):
+def mask_from_observations(dataset, dataset_options, object_options=None):
     """Create domain mask based on number of observations in each cell."""
 
     if object_options is None:
@@ -402,32 +402,35 @@ def mask_from_observations(dataset, dataset_options, grid_options, object_option
         altitudes = object_options["detection"]["altitudes"]
     num_obs = dataset["number_of_observations"].sel(altitude=slice(*altitudes))
     num_obs = num_obs.sum(dim="altitude")
-    mask = (num_obs > dataset_options["obs_thresh"]).values
-    mask = remove_small_holes(mask, area_threshold=50)
-    mask = remove_small_objects(mask, min_size=50)
+    mask = num_obs > dataset_options["obs_thresh"]
+    return mask
+
+
+def smooth_mask(mask):
+    mask_values = remove_small_holes(mask.values, area_threshold=50)
+    mask_values = remove_small_objects(mask_values, min_size=50)
     # Pad the mask before dilation/erosion to avoid edge effects
     pad_width = 3
-    mask = np.pad(mask, pad_width, mode="edge")
-    dilation_element = np.ones((2, 2))
-    erosion_element = np.ones((3, 3))
-    mask = binary_dilation(mask, structure=dilation_element)
-    mask = binary_erosion(mask, structure=erosion_element)
-    mask = mask[pad_width:-pad_width, pad_width:-pad_width]
-
-    boundary_coords = get_mask_boundary(mask, grid_options)
-    mask = xr.DataArray(mask, coords=num_obs.coords, dims=num_obs.dims)
-
-    return mask, boundary_coords
+    mask_values = np.pad(mask_values, pad_width, mode="edge")
+    dilation_element = np.ones((3, 3))
+    erosion_element = np.ones((4, 4))
+    mask_values = binary_dilation(mask_values, structure=dilation_element)
+    mask_values = binary_erosion(mask_values, structure=erosion_element)
+    mask_values = mask_values[pad_width:-pad_width, pad_width:-pad_width]
+    mask_values = remove_small_holes(mask_values, area_threshold=50)
+    mask_values = remove_small_objects(mask_values, min_size=50)
+    mask.values = mask_values
+    return mask
 
 
 def mask_from_range(dataset, dataset_options, grid_options):
     """Create domain mask for gridcells greater than range from central point."""
-    lons = grid_options["longitude"]
-    lats = grid_options["latitude"]
     if grid_options["name"] == "cartesian":
         X, Y = np.meshgrid(grid_options["x"], grid_options["y"])
         distances = np.sqrt(X**2 + Y**2)
     elif grid_options["name"] == "geographic":
+        lons = grid_options["longitude"]
+        lats = grid_options["latitude"]
         origin_longitude = float(dataset.attrs["origin_longitude"])
         origin_latitude = float(dataset.attrs["origin_latitude"])
         LON, LAT = np.meshgrid(lons, lats)
@@ -439,24 +442,20 @@ def mask_from_range(dataset, dataset_options, grid_options):
     range = dataset_options["range"] * units_dict[dataset_options["range_units"]]
     mask = distances <= range
 
-    boundary_coords = get_mask_boundary(mask, grid_options)
     coords = {"latitude": dataset.latitude, "longitude": dataset.longitude}
-    dims = {
-        "latitude": dataset.dims["latitude"],
-        "longitude": dataset.dims["longitude"],
-    }
+    dims = {"latitude": dataset.latitude, "longitude": dataset.longitude}
     mask = xr.DataArray(mask, coords=coords, dims=dims)
 
-    return mask, boundary_coords
+    return mask
 
 
 def get_mask_boundary(mask, grid_options):
     """Get domain mask boundary using cv2."""
 
-    lons = grid_options["longitude"]
-    lats = grid_options["latitude"]
+    lons = np.array(grid_options["longitude"])
+    lats = np.array(grid_options["latitude"])
     contours = cv2.findContours(
-        mask.astype(np.uint8), cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE
+        mask.values.astype(np.uint8), cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE
     )[0]
     boundary_coords = []
     for contour in contours:

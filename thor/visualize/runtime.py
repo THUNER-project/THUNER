@@ -26,11 +26,20 @@ proj = ccrs.PlateCarree()
 def get_extent(grid_options):
     """Get the cartopy extent."""
     return (
-        grid_options["longitude"].min(),
-        grid_options["longitude"].max(),
-        grid_options["latitude"].min(),
-        grid_options["latitude"].max(),
+        min(grid_options["longitude"]),
+        max(grid_options["longitude"]),
+        min(grid_options["latitude"]),
+        max(grid_options["latitude"]),
     )
+
+
+def get_boundaries(input_record, num_previous=1):
+    """Get the appropriate current and previous masks for matching."""
+    current_boundaries = input_record["current_boundary_coordinates"]
+    previous_boundaries = input_record["previous_boundary_coordinates"]
+    previous_boundaries = [previous_boundaries[-i] for i in range(1, num_previous + 1)]
+    boundaries = [current_boundaries] + previous_boundaries
+    return boundaries
 
 
 def detected_mask_template(grid, input_record, figure_options, extent):
@@ -43,9 +52,7 @@ def detected_mask_template(grid, input_record, figure_options, extent):
     if "instrument" in grid.attrs.keys() and "radar" in grid.attrs["instrument"]:
         radar_longitude = float(grid.attrs["origin_longitude"])
         radar_latitude = float(grid.attrs["origin_latitude"])
-        horizontal.add_radar_features(
-            ax, radar_longitude, radar_latitude, extent, input_record
-        )
+        horizontal.add_radar_features(ax, radar_longitude, radar_latitude, extent)
     return fig, ax
 
 
@@ -75,8 +82,9 @@ def detected_mask(
     if mask is not None:
         horizontal.mask(mask, ax, grid_options)
 
-    if object_tracks["current_boundary_coordinates"] is not None:
-        horizontal.add_domain_boundary(ax, object_tracks)
+    if input_record["current_boundary_coordinates"] is not None:
+        boundaries = input_record["current_boundary_coordinates"]
+        horizontal.add_domain_boundary(ax, boundaries)
 
     cbar_label = grid.name.title() + f" [{grid.units}]"
     fig.colorbar(pcm, label=cbar_label)
@@ -109,11 +117,7 @@ def grouped_mask_template(
         ):
             radar_longitude = float(grid_i.attrs["origin_longitude"])
             radar_latitude = float(grid_i.attrs["origin_latitude"])
-            horizontal.add_radar_features(
-                ax, radar_longitude, radar_latitude, extent, input_record
-            )
-        if "boundary_coordinates" in input_record.keys():
-            horizontal.add_domain_boundary(ax, input_record)
+            horizontal.add_radar_features(ax, radar_longitude, radar_latitude, extent)
         ax.set_title(member_objects[i].replace("_", " ").title())
     cbar_ax = fig.add_subplot(gs[0, -1])
     make_subplot_labels(axes, x_shift=-0.12, y_shift=0.06)
@@ -167,8 +171,9 @@ def grouped_mask(
         pcm = horizontal.grid(grid_i, ax, grid_options, add_colorbar=False)
         if mask_i is not None:
             horizontal.mask(mask_i, ax, grid_options)
-        if "boundary_coordinates" in input_record.keys():
-            horizontal.add_domain_boundary(ax, input_record)
+        if "current_boundary_coordinates" in input_record.keys():
+            boundaries = input_record["current_boundary_coordinates"]
+            horizontal.add_domain_boundary(ax, boundaries)
 
     cbar_label = grid_i.attrs["long_name"].title() + f" [{grid_i.attrs['units']}]"
     fig.colorbar(pcm, cax=cbar_ax, label=cbar_label)
@@ -198,9 +203,7 @@ def match_template(reference_grid, input_record, figure_options, extent):
         ):
             radar_longitude = float(reference_grid.attrs["origin_longitude"])
             radar_latitude = float(reference_grid.attrs["origin_latitude"])
-            horizontal.add_radar_features(
-                ax, radar_longitude, radar_latitude, extent, input_record
-            )
+            horizontal.add_radar_features(ax, radar_longitude, radar_latitude, extent)
     cbar_ax = fig.add_subplot(gs[0, -1])
     make_subplot_labels(axes, x_shift=-0.12, y_shift=0.06)
     return fig, axes, cbar_ax
@@ -263,7 +266,7 @@ def match_features(grid, object_record, axes, grid_options, unique_global_flow=T
         # Label object with corrected flow case and cost
         case = object_record["cases"][i]
         latitude = grid_options["latitude"]
-        lat_shift = 0.01 * (latitude.max() - latitude.min())  # Shift text up slightly
+        lat_shift = 0.01 * (max(latitude) - min(latitude))  # Shift text up slightly
         row, col = flow_box["row_max"], flow_box["col_min"]
         text_lat, text_lon = thor_grid.get_pixels_geographic(row, col, grid_options)
         text_lat = text_lat + lat_shift
@@ -295,6 +298,7 @@ def visualize_match(
     object_options = track_options[level_index][obj]
     grids = get_grids(object_tracks, object_options, num_previous=2)
     masks = get_masks(object_tracks, object_options, matched=True, num_previous=2)
+    all_boundaries = get_boundaries(input_record, num_previous=2)
 
     extent = get_extent(grid_options)
 
@@ -315,8 +319,8 @@ def visualize_match(
             pcm = horizontal.grid(grids[j], axes[i], grid_options, add_colorbar=False)
             if masks[j] is not None:
                 horizontal.mask(masks[j], axes[i], grid_options)
-            if "boundary_coordinates" in input_record.keys():
-                horizontal.add_domain_boundary(axes[i], input_record)
+            if "current_boundary_coordinates" in input_record.keys():
+                horizontal.add_domain_boundary(axes[i], all_boundaries[j])
     unique_global_flow = object_options["tracking"]["options"]["unique_global_flow"]
     match_features(grids[0], object_record, axes, grid_options, unique_global_flow)
     cbar_label = grids[0].attrs["long_name"].title() + f" [{grids[0].attrs['units']}]"

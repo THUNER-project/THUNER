@@ -86,10 +86,10 @@ def add_radar_features(ax, radar_lon, radar_lat, extent):
     return ax
 
 
-def add_domain_boundary(ax, object_tracks):
+def add_domain_boundary(ax, boundaries):
     """Add domain boundary to an ax."""
     logger.debug("Plotting boundary.")
-    for boundary in object_tracks["current_boundary_coordinates"]:
+    for boundary in boundaries:
         lons = boundary["longitude"]
         lats = boundary["latitude"]
         ax.plot(lons, lats, **domain_plot_style)

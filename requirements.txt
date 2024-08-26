@@ -21,4 +21,3 @@ arm_pyart
 tqdm
 cdsapi
 xesmf
-imagemagick

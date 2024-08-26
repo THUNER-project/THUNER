@@ -1,6 +1,7 @@
 """Process AURA data."""
 
 import inspect
+import copy
 from urllib.parse import urlparse
 from pathlib import Path
 import xarray as xr
@@ -471,11 +472,25 @@ def convert_cpol(time, input_record, dataset_options, grid_options):
         ds = ds.interp(altitude=grid_options["altitude"], method="linear")
 
     # Set data outside instrument range to NaN
-    keys = ["domain_mask", "boundary_coordinates"]
-    if not all(key in input_record.keys() for key in keys):
-        mask, coordinates = utils.mask_from_range(ds, dataset_options, grid_options)
-        input_record["domain_mask"] = mask
-        input_record["boundary_coordinates"] = coordinates
+    keys = ["current_domain_mask", "current_boundary_coordinates"]
+    if any(input_record[k] is None for k in keys):
+        # Get the domain mask and domain boundary. Note this is the region where data
+        # exists, not the detected object masks from the detect module.
+        mask = utils.mask_from_range(ds, dataset_options, grid_options)
+        boundary_coords = utils.get_mask_boundary(mask, grid_options)
+        input_record["current_domain_mask"] = mask
+        input_record["current_boundary_coordinates"] = boundary_coords
+    else:
+        mask = copy.deepcopy(input_record["current_domain_mask"])
+        coords = copy.deepcopy(input_record["current_boundary_coordinates"])
+        input_record["previous_domain_masks"].append(mask)
+        input_record["previous_boundary_coordinates"].append(coords)
+        # Note for AURA data the domain mask is calculated using a fixed range
+        # (e.g. 150 km), which is constant for all times. Therefore, the mask is not
+        # updated for each new file. Contrast this with, for instance, GridRad, where a
+        # new mask is calculated for each time step based on the altitudes of the
+        # objects being detected, and the required threshold on number of observations.
+
     for var in ds.data_vars.keys() - ["gridcell_area"]:
         # Check if the variable has horizontal dimensions
         if set(dims).issubset(set(ds[var].dims)):
@@ -492,7 +507,7 @@ def convert_operational():
     return ds
 
 
-def update_dataset(time, input_record, dataset_options, grid_options):
+def update_dataset(time, input_record, tracks, dataset_options, grid_options):
     """
     Update an aura dataset.
 
@@ -527,12 +542,6 @@ def update_dataset(time, input_record, dataset_options, grid_options):
         dataset = xr.open_dataset(
             dataset_options["filepaths"][input_record["current_file_index"]]
         )
-    if "domain_mask" not in input_record.keys():
-        domain_mask, boundary_coords = utils.mask_from_range(
-            input_record["dataset"], dataset_options, grid_options
-        )
-        input_record["domain_mask"] = domain_mask
-        input_record["boundary_coordinates"] = boundary_coords
     if conv_options["save"]:
         utils.save_converted_dataset(dataset, dataset_options)
     input_record["dataset"] = dataset

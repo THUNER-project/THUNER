@@ -53,6 +53,15 @@ def initialise_track_input_record(dataset_options):
     deque_length = dataset_options["deque_length"]
     input_record["previous_grids"] = deque([None] * deque_length, deque_length)
 
+    # Initialize deques of domain masks and boundary coordinates. For datasets like
+    # gridrad the domain mask is different for objects identified at different levels.
+    input_record["current_domain_mask"] = None
+    input_record["previous_domain_masks"] = deque([None] * deque_length, deque_length)
+    input_record["current_boundary_coordinates"] = None
+    input_record["previous_boundary_coordinates"] = deque(
+        [None] * deque_length, deque_length
+    )
+
     return input_record
 
 
@@ -81,15 +90,6 @@ def initialise_object_tracks(object_options):
     object_tracks["previous_grids"] = deque([None] * deque_length, deque_length)
     object_tracks["current_mask"] = None
     object_tracks["previous_masks"] = deque([None] * deque_length, deque_length)
-
-    # Initialize deques of domain masks and boundary coordinates. For datasets like
-    # gridrad the domain mask is different for objects identified at different levels.
-    object_tracks["current_domain_mask"] = None
-    object_tracks["previous_domain_masks"] = deque([None] * deque_length, deque_length)
-    object_tracks["current_boundary_coordinates"] = None
-    object_tracks["previous_boundary_coordinates"] = deque(
-        [None] * deque_length, deque_length
-    )
 
     if object_options["tracking"]["method"] is not None:
         match.initialise_match_records(object_tracks, object_options)
@@ -175,6 +175,7 @@ def simultaneous_track(
 
     """
 
+    logger.debug("Beginning simultaneous tracking.")
     option.check_options(track_options)
     dispatch.check_data_options(data_options)
     tracks = initialise_tracks(track_options, data_options)
@@ -195,7 +196,7 @@ def simultaneous_track(
 
         logger.info(f"Processing {format_time(time, filename_safe=False)}.")
         dispatch.update_track_input_records(
-            time, input_records["track"], data_options, grid_options
+            time, input_records["track"], track_options, data_options, grid_options
         )
         # loop over levels
         for level_index in range(len(track_options)):
@@ -213,12 +214,12 @@ def simultaneous_track(
                 output_directory,
             )
         dispatch.update_tag_input_records(
-            time, input_records["tag"], data_options, grid_options
+            time, input_records["tag"], track_options, data_options, grid_options
         )
 
     write.mask.write_final(tracks, track_options, output_directory, time)
     write.mask.aggregate(track_options, output_directory)
-    visualize.visualize.animate(visualize_options, output_directory)
+    visualize.visualize.animate_all(visualize_options, output_directory)
 
     return tracks
 
