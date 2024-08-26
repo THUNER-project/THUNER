@@ -9,6 +9,7 @@ import thor.detect.preprocess as preprocess
 from thor.log import setup_logger
 from thor.detect.steiner import steiner_scheme
 from thor.utils import get_time_interval
+import thor.data as data
 
 logger = setup_logger(__name__)
 
@@ -43,7 +44,7 @@ def steiner(grid, object_options):
             "Steiner et al. (1995) scheme only works with 2D grids. "
             "Apply a flattener first."
         )
-    elif grid.altitude != 3e3:
+    if "altitude" in grid.coords and grid.altitude != 3e3:
         logger.warning(
             "Steiner et al. (1995) scheme designed to work on 3 km altitude grids. "
             f"grid altitude {grid.altitude.values[0]/1e3} km."
@@ -51,13 +52,13 @@ def steiner(grid, object_options):
 
     binary_grid = xr.full_like(grid, 0)
     binary_grid.name = "binary_grid"
-    # try:
     if x.ndim == 1 and y.ndim == 1:
         X, Y = np.meshgrid(x, y)
     elif x.ndim == 2 and y.ndim == 2:
         X, Y = x, y
     else:
         raise ValueError("x and y must both be one or two dimensional.")
+
     steiner_class = steiner_scheme(grid.values, X, Y, coordinates=coordinates)
     steiner_class = steiner_class.astype(int)
     steiner_class[steiner_class != 2] = 0
@@ -78,7 +79,15 @@ flattener_dispatcher = {
 }
 
 
-def detect(track_input_records, tracks, level_index, obj, object_options, grid_options):
+def detect(
+    track_input_records,
+    tracks,
+    level_index,
+    obj,
+    dataset_options,
+    object_options,
+    grid_options,
+):
     """Detect objects in the given grid."""
 
     object_tracks = tracks[level_index][obj]
@@ -96,12 +105,12 @@ def detect(track_input_records, tracks, level_index, obj, object_options, grid_o
         object_tracks["gridcell_area"] = dataset["gridcell_area"]
 
     if object_options["detection"]["flatten_method"] is not None:
-        flattener = flattener_dispatcher.get(
-            object_options["detection"]["flatten_method"]
-        )
+        flatten_method = object_options["detection"]["flatten_method"]
+        flattener = flattener_dispatcher.get(flatten_method)
         processed_grid = flattener(grid, object_options)
     else:
         processed_grid = grid
+
     object_tracks["current_grid"] = processed_grid
 
     detecter = detecter_dispatcher.get(object_options["detection"]["method"])

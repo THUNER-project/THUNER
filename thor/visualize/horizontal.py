@@ -18,6 +18,8 @@ import thor.grid as thor_grid
 logger = setup_logger(__name__)
 
 proj = ccrs.PlateCarree()
+domain_plot_style = {"color": "tab:red", "linewidth": 1, "alpha": 0.8}
+domain_plot_style.update({"zorder": 1, "transform": proj, "linestyle": "--"})
 
 
 def grid(grid, ax, grid_options, add_colorbar=True):
@@ -77,19 +79,21 @@ def mask(mask, ax, grid_options):
     return colors
 
 
-def add_radar_features(ax, radar_lon, radar_lat, extent, input_record):
+def add_radar_features(ax, radar_lon, radar_lat, extent):
     """Add radar features to an ax."""
-    alpha = 0.8
-    plot_style = {"color": "tab:red", "linewidth": 1, "alpha": alpha}
-    plot_style.update({"zorder": 1, "transform": proj, "linestyle": "--"})
-    ax.plot([radar_lon, radar_lon], [extent[2], extent[3]], **plot_style)
-    ax.plot([extent[0], extent[1]], [radar_lat, radar_lat], **plot_style)
-    try:
-        lons = input_record["range_longitudes"]
-        lats = input_record["range_latitudes"]
-        ax.plot(lons, lats, **plot_style)
-    except:
-        logger.debug("No range boundaries to plot.")
+    ax.plot([radar_lon, radar_lon], [extent[2], extent[3]], **domain_plot_style)
+    ax.plot([extent[0], extent[1]], [radar_lat, radar_lat], **domain_plot_style)
+    return ax
+
+
+def add_domain_boundary(ax, object_tracks):
+    """Add domain boundary to an ax."""
+    logger.debug("Plotting boundary.")
+    for boundary in object_tracks["current_boundary_coordinates"]:
+        lons = boundary["longitude"]
+        lats = boundary["latitude"]
+        ax.plot(lons, lats, **domain_plot_style)
+    return ax
 
 
 def add_cartographic_features(

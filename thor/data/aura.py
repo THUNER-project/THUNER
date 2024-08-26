@@ -338,24 +338,16 @@ def generate_operational_urls(options):
     times = pd.DatetimeIndex(times)
 
     if options["level"] == "1":
-
         base_url += f"/{options['radar']}"
-
         for time in times:
-            url = (
-                f"{base_url}/{time.year:04}/vol/{options['radar']}"
-                f"_{time.year}{time.month:02}{time.day:02}.pvol.zip"
-            )
+            url = f"{base_url}/{time.year:04}/vol/{options['radar']}"
+            url += f"_{time.year}{time.month:02}{time.day:02}.pvol.zip"
             urls.append(url)
     elif options["level"] == "1b":
-
         base_url += f"/level_1b/{options['radar']}/grid"
-
         for time in times:
-            url = (
-                f"{base_url}/{time.year:04}/{options['radar']}"
-                f"_{time.year}{time.month:02}{time.day:02}_grid.zip"
-            )
+            url = f"{base_url}/{time.year:04}/{options['radar']}"
+            url += f"_{time.year}{time.month:02}{time.day:02}_grid.zip"
             urls.append(url)
 
     return sorted(urls)
@@ -479,28 +471,19 @@ def convert_cpol(time, input_record, dataset_options, grid_options):
         ds = ds.interp(altitude=grid_options["altitude"], method="linear")
 
     # Set data outside instrument range to NaN
-    if "range_mask" not in input_record.keys():
-        get_range_mask(ds, input_record, dataset_options, grid_options)
-    mask_coords = [(dims[0], ds[dims[0]].values), (dims[1], ds[dims[1]].values)]
-    mask_array = xr.DataArray(input_record["range_mask"], coords=mask_coords)
+    keys = ["domain_mask", "boundary_coordinates"]
+    if not all(key in input_record.keys() for key in keys):
+        mask, coordinates = utils.mask_from_range(ds, dataset_options, grid_options)
+        input_record["domain_mask"] = mask
+        input_record["boundary_coordinates"] = coordinates
     for var in ds.data_vars.keys() - ["gridcell_area"]:
         # Check if the variable has horizontal dimensions
         if set(dims).issubset(set(ds[var].dims)):
-            broadcasted_mask = mask_array.broadcast_like(ds[var])
+            broadcasted_mask = mask.broadcast_like(ds[var])
             # Apply the mask, setting unmasked values to NaN
             ds[var] = ds[var].where(broadcasted_mask)
 
     return ds
-
-
-def get_range_mask(ds, input_record, dataset_options, grid_options):
-    """Add the range mask to the input record."""
-    range_mask, range_latitudes, range_longitudes = utils.create_range_mask(
-        ds, dataset_options, grid_options
-    )
-    input_record["range_mask"] = range_mask
-    input_record["range_latitudes"] = range_latitudes
-    input_record["range_longitudes"] = range_longitudes
 
 
 def convert_operational():
@@ -544,8 +527,12 @@ def update_dataset(time, input_record, dataset_options, grid_options):
         dataset = xr.open_dataset(
             dataset_options["filepaths"][input_record["current_file_index"]]
         )
-        if "range_mask" not in input_record.keys():
-            get_range_mask(dataset, input_record, dataset_options, grid_options)
+    if "domain_mask" not in input_record.keys():
+        domain_mask, boundary_coords = utils.mask_from_range(
+            input_record["dataset"], dataset_options, grid_options
+        )
+        input_record["domain_mask"] = domain_mask
+        input_record["boundary_coordinates"] = boundary_coords
     if conv_options["save"]:
         utils.save_converted_dataset(dataset, dataset_options)
     input_record["dataset"] = dataset

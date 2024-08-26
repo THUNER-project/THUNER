@@ -9,10 +9,11 @@ import cdsapi
 import cv2
 import numpy as np
 import xarray as xr
+from skimage.morphology import remove_small_objects, remove_small_holes
+from scipy.ndimage import binary_dilation, binary_erosion
 from thor.log import setup_logger
 from thor.utils import format_time
 from thor.utils import haversine
-import thor.grid as grid
 
 
 logger = setup_logger(__name__, level="DEBUG")
@@ -377,8 +378,50 @@ def get_parent(dataset_options):
     return parent
 
 
-def create_range_mask(dataset, dataset_options, grid_options):
-    """Create mask for gridcells greater than range from central point."""
+def mask_from_input_record(
+    track_input_records, dataset_options, object_options, grid_options
+):
+    """
+    Get a domain mask from the input record. This function is used if a single domain
+    mask applies to all objects/times in the dataset.
+    """
+
+    input_record = track_input_records[dataset_options["name"]]
+    domain_mask = input_record["domain_mask"]
+    boundary_coords = input_record["boundary_coordinates"]
+
+    return domain_mask, boundary_coords
+
+
+def mask_from_observations(dataset, dataset_options, grid_options, object_options=None):
+    """Create domain mask based on number of observations in each cell."""
+
+    if object_options is None:
+        altitudes = [dataset.altitude.values.min(), dataset.altitude.values.max()]
+    else:
+        altitudes = object_options["detection"]["altitudes"]
+    num_obs = dataset["number_of_observations"].sel(altitude=slice(*altitudes))
+    num_obs = num_obs.sum(dim="altitude")
+    mask = (num_obs > dataset_options["obs_thresh"]).values
+    mask = remove_small_holes(mask, area_threshold=50)
+    mask = remove_small_objects(mask, min_size=50)
+    # Pad the mask before dilation/erosion to avoid edge effects
+    pad_width = 3
+    mask = np.pad(mask, pad_width, mode="edge")
+    dilation_element = np.ones((2, 2))
+    erosion_element = np.ones((3, 3))
+    mask = binary_dilation(mask, structure=dilation_element)
+    mask = binary_erosion(mask, structure=erosion_element)
+    mask = mask[pad_width:-pad_width, pad_width:-pad_width]
+
+    boundary_coords = get_mask_boundary(mask, grid_options)
+    mask = xr.DataArray(mask, coords=num_obs.coords, dims=num_obs.dims)
+
+    return mask, boundary_coords
+
+
+def mask_from_range(dataset, dataset_options, grid_options):
+    """Create domain mask for gridcells greater than range from central point."""
     lons = grid_options["longitude"]
     lats = grid_options["latitude"]
     if grid_options["name"] == "cartesian":
@@ -395,19 +438,40 @@ def create_range_mask(dataset, dataset_options, grid_options):
     units_dict = {"m": 1, "km": 1e3}
     range = dataset_options["range"] * units_dict[dataset_options["range_units"]]
     mask = distances <= range
-    contour = cv2.findContours(
-        mask.astype(np.uint8), cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE
-    )[0][0]
-    contour = np.append(contour, [contour[0]], axis=0)
 
-    contour_rows, contour_cols = contour[:, :, 1].flatten(), contour[:, :, 0].flatten()
-    if grid_options["name"] == "cartesian":
-        boundary_lats = lats[contour_rows, contour_rows]
-        boundary_lons = lons[contour_rows, contour_cols]
-    elif grid_options["name"] == "geographic":
-        boundary_lats = lats[contour_rows]
-        boundary_lons = lons[contour_cols]
-    return mask, boundary_lats, boundary_lons
+    boundary_coords = get_mask_boundary(mask, grid_options)
+    coords = {"latitude": dataset.latitude, "longitude": dataset.longitude}
+    dims = {
+        "latitude": dataset.dims["latitude"],
+        "longitude": dataset.dims["longitude"],
+    }
+    mask = xr.DataArray(mask, coords=coords, dims=dims)
+
+    return mask, boundary_coords
+
+
+def get_mask_boundary(mask, grid_options):
+    """Get domain mask boundary using cv2."""
+
+    lons = grid_options["longitude"]
+    lats = grid_options["latitude"]
+    contours = cv2.findContours(
+        mask.astype(np.uint8), cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE
+    )[0]
+    boundary_coords = []
+    for contour in contours:
+        contour = np.append(contour, [contour[0]], axis=0)
+        contour_rows = contour[:, :, 1].flatten()
+        contour_cols = contour[:, :, 0].flatten()
+        if grid_options["name"] == "cartesian":
+            boundary_lats = lats[contour_rows, contour_rows]
+            boundary_lons = lons[contour_rows, contour_cols]
+        elif grid_options["name"] == "geographic":
+            boundary_lats = lats[contour_rows]
+            boundary_lons = lons[contour_cols]
+        boundary_dict = {"latitude": boundary_lats, "longitude": boundary_lons}
+        boundary_coords.append(boundary_dict)
+    return boundary_coords
 
 
 def save_converted_dataset(dataset, dataset_options):

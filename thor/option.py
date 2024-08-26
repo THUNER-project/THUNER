@@ -282,11 +282,11 @@ def cell_object(
     variable="reflectivity",
     hierarchy_level=0,
     detection_method="steiner",
-    flatten_method="cross_section",
+    flatten_method="vertical_max",
     threshold=None,
     tracking_method="tint",
-    altitudes=[3e3],
-    min_area=60,
+    altitudes=[500, 3e3],
+    min_area=4,
     tags=None,
     **kwargs,
 ):
@@ -469,9 +469,9 @@ def mcs(dataset, tags=None, **kwargs):
     options = [
         {
             "cell": cell_object(
-                altitudes=[3000],
+                altitudes=[500, 3000],
                 dataset=dataset,
-                flatten_method="cross_section",
+                flatten_method="vertical_max",
                 threshold=40,
                 tracking_method="mint",
                 **kwargs,
@@ -483,7 +483,7 @@ def mcs(dataset, tags=None, **kwargs):
                 tracking_method=None,
                 detection_method="threshold",
                 flatten_method="vertical_max",
-                altitudes=[3500, 7500],
+                altitudes=[3500, 7000],
                 **kwargs,
             ),
             "anvil": anvil_object(
@@ -513,11 +513,16 @@ def check_options(options):
     options : dict
         Dictionary containing the input options.
     """
+
+    object_names = []
     for level_options in options:
         for object_options in level_options.values():
+            object_names.append(object_options["name"])
             if "global_flow_margin" in object_options.keys():
                 if options["global_flow_margin"] > 5e3:
                     raise ValueError("Global flow radius must be less than 5000 km.")
+    if len(object_names) != len(list(set(object_names))):
+        raise ValueError("Object names must be unique.")
 
     return options
 

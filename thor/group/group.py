@@ -9,7 +9,15 @@ import thor.detect.preprocess as preprocess
 from thor.utils import get_time_interval
 
 
-def group(track_input_records, tracks, level_index, obj, object_options, grid_options):
+def group(
+    track_input_records,
+    tracks,
+    level_index,
+    obj,
+    dataset_options,
+    object_options,
+    grid_options,
+):
     """Group objects into new objects."""
 
     dataset = track_input_records[object_options["dataset"]]["dataset"]
@@ -20,9 +28,11 @@ def group(track_input_records, tracks, level_index, obj, object_options, grid_op
 
     grid_dict = {}
     for member_obj, member_level in zip(member_objects, member_levels):
-        grid_dict[f"{member_obj}_grid"] = tracks[member_level][member_obj][
-            "current_grid"
-        ]
+        member_grid = tracks[member_level][member_obj]["current_grid"]
+        grid_dict[f"{member_obj}_grid"] = member_grid
+
+    # Store the domain boundaries associated with the consituent masks
+    boundary_dict = {}
 
     grid = xr.Dataset(grid_dict)
     mask = get_connected_components(tracks, object_options)

@@ -75,6 +75,9 @@ def detected_mask(
     if mask is not None:
         horizontal.mask(mask, ax, grid_options)
 
+    if object_tracks["current_boundary_coordinates"] is not None:
+        horizontal.add_domain_boundary(ax, object_tracks)
+
     cbar_label = grid.name.title() + f" [{grid.units}]"
     fig.colorbar(pcm, label=cbar_label)
     ax.set_title(f"{grid.time.values.astype('datetime64[s]')} UTC")
@@ -109,6 +112,8 @@ def grouped_mask_template(
             horizontal.add_radar_features(
                 ax, radar_longitude, radar_latitude, extent, input_record
             )
+        if "boundary_coordinates" in input_record.keys():
+            horizontal.add_domain_boundary(ax, input_record)
         ax.set_title(member_objects[i].replace("_", " ").title())
     cbar_ax = fig.add_subplot(gs[0, -1])
     make_subplot_labels(axes, x_shift=-0.12, y_shift=0.06)
@@ -162,6 +167,8 @@ def grouped_mask(
         pcm = horizontal.grid(grid_i, ax, grid_options, add_colorbar=False)
         if mask_i is not None:
             horizontal.mask(mask_i, ax, grid_options)
+        if "boundary_coordinates" in input_record.keys():
+            horizontal.add_domain_boundary(ax, input_record)
 
     cbar_label = grid_i.attrs["long_name"].title() + f" [{grid_i.attrs['units']}]"
     fig.colorbar(pcm, cax=cbar_ax, label=cbar_label)
@@ -229,7 +236,7 @@ def match_features(grid, object_record, axes, grid_options, unique_global_flow=T
             # If global flow not unique, plot for current object
             global_flow = object_record["global_flows"][i]
             global_flow_box = object_record["global_flow_boxes"][i]
-            horizontal.plot_box(axes[1], global_flow_box, grid, grid_options, alpha=0.5)
+            horizontal.plot_box(axes[1], global_flow_box, grid_options, alpha=0.5)
             horizontal.plot_vector(
                 axes[1], row, col, global_flow, grid_options, color="tab:red"
             )
@@ -308,6 +315,8 @@ def visualize_match(
             pcm = horizontal.grid(grids[j], axes[i], grid_options, add_colorbar=False)
             if masks[j] is not None:
                 horizontal.mask(masks[j], axes[i], grid_options)
+            if "boundary_coordinates" in input_record.keys():
+                horizontal.add_domain_boundary(axes[i], input_record)
     unique_global_flow = object_options["tracking"]["options"]["unique_global_flow"]
     match_features(grids[0], object_record, axes, grid_options, unique_global_flow)
     cbar_label = grids[0].attrs["long_name"].title() + f" [{grids[0].attrs['units']}]"

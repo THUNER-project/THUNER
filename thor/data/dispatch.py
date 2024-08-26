@@ -1,5 +1,6 @@
 """General input data processing."""
 
+import copy
 import thor.data.aura as aura
 import thor.data.era5 as era5
 import thor.data.gridrad as gridrad
@@ -106,6 +107,28 @@ def update_track_input_records(time, track_input_records, data_options, grid_opt
         input_record["current_grid"] = grid_from_dataset(
             input_record["dataset"], field, time
         )
+        input_record["current_domain_mask"] = None
+        input_record["current_boundary_coordinates"] = None
+
+        # Get the domain mask associated with the given object
+        # Note the relevant domain mask is a function of how the object is detected, e.g.
+        # which levels!
+        previous_domain_mask = copy.deepcopy(input_record["current_domain_mask"])
+        previous_boundary_coords = copy.deepcopy(
+            input_record["current_boundary_coordinates"]
+        )
+        input_record["previous_domain_masks"].append(previous_domain_mask)
+        input_record["previous_boundary_coordinates"].append(previous_boundary_coords)
+
+        get_domain_mask = get_domain_mask_dispatcher.get(object_options["dataset"])
+        domain_mask, boundary_coords = get_domain_mask(
+            track_input_records, dataset_options, object_options, grid_options
+        )
+        input_record["current_domain_mask"] = domain_mask
+        input_record["current_boundary_coordinates"] = boundary_coords
+
+        # Apply the domain mask to the current grid
+        processed_grid = processed_grid.where(domain_mask)
 
 
 def update_tag_input_records(time, tag_input_records, data_options, grid_options):

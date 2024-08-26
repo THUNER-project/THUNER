@@ -81,6 +81,16 @@ def initialise_object_tracks(object_options):
     object_tracks["previous_grids"] = deque([None] * deque_length, deque_length)
     object_tracks["current_mask"] = None
     object_tracks["previous_masks"] = deque([None] * deque_length, deque_length)
+
+    # Initialize deques of domain masks and boundary coordinates. For datasets like
+    # gridrad the domain mask is different for objects identified at different levels.
+    object_tracks["current_domain_mask"] = None
+    object_tracks["previous_domain_masks"] = deque([None] * deque_length, deque_length)
+    object_tracks["current_boundary_coordinates"] = None
+    object_tracks["previous_boundary_coordinates"] = deque(
+        [None] * deque_length, deque_length
+    )
+
     if object_options["tracking"]["method"] is not None:
         match.initialise_match_records(object_tracks, object_options)
     if object_options["mask_options"]["save"]:
@@ -270,7 +280,13 @@ def track_object(
     object_options = track_options[level_index][obj]
     get_objects = get_objects_dispatcher.get(object_options["method"])
     get_objects(
-        track_input_records, tracks, level_index, obj, object_options, grid_options
+        track_input_records,
+        tracks,
+        level_index,
+        obj,
+        dataset_options,
+        object_options,
+        grid_options,
     )
     match.match(tracks[level_index][obj], object_options, grid_options)
 

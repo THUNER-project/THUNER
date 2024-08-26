@@ -1,4 +1,4 @@
-import itertools
+from functools import reduce
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -9,6 +9,16 @@ from thor.log import setup_logger
 import thor.grid as grid
 
 logger = setup_logger(__name__)
+
+gridrad_variables = [
+    "Reflectivity",
+    "SpectrumWidth",
+    "AzShear",
+    "Divergence",
+    "DifferentialReflectivity",
+    "DifferentialPhase",
+    "CorrelationCoefficient",
+]
 
 
 def gridrad_data_options(
@@ -23,6 +33,7 @@ def gridrad_data_options(
     dataset_id="ds841.6",
     fields=None,
     version="v4_2",
+    obs_thresh=2,
 ):
     """
     Generate gridrad radar data options dictionary.
@@ -44,6 +55,7 @@ def gridrad_data_options(
     )
 
     options.update({"fields": fields, "version": version, "dataset_id": dataset_id})
+    options.update({"obs_thresh": obs_thresh})
 
     return options
 
@@ -67,64 +79,297 @@ def check_data_options(options):
         raise ValueError(f"Invalid dataset ID. Must be one of {valid_dataset_ids}.")
 
 
-def convert_gridrad(time, input_record, dataset_options, grid_options):
-    """Convert gridrad data to a standard format."""
-    filepath = dataset_options["filepaths"][input_record["current_file_index"]]
-    utils.log_convert(logger, dataset_options["name"], filepath)
-    gridrad = xr.open_dataset(filepath)
+def open_gridrad(path):
+    """
+    Open a GridRad netcdf file, converting variables with an "Index" dimension back to 3D
+    """
+    ds = xr.open_dataset(path)
+    for var in list(ds.data_vars):
+        if var != "index" and "Index" in ds[var].dims:
+            ds = reshape_variable(ds, var)
+    ds = ds.drop_vars("index")
+    return ds
 
-    if time not in gridrad.time.values:
-        raise ValueError(f"{time} not in {filepath}")
 
-    gridrad = gridrad.rename(
-        {
-            "Latitude": "latitude",
-            "Longitude": "longitude",
-            "Altitude": "altitude",
-        }
+def reshape_variable(ds, variable):
+    """
+    Reshape a variable in a GridRad dataset to a 3D grid. Adapted from code provided by
+    Stacey Hitchcock.
+    """
+    values = ds[variable].values
+    attrs = ds[variable].attrs
+    alt, lat, lon = ds["Altitude"], ds["Latitude"], ds["Longitude"]
+    new_values = np.zeros(len(alt) * len(lat) * len(lon))
+    new_values[ds.index.values] = values
+    new_shape = (len(alt), len(lat), len(lon))
+    new_dims = ["Altitude", "Latitude", "Longitude"]
+    new_coords = {"Altitude": alt, "Latitude": lat, "Longitude": lon}
+    ds[variable] = xr.DataArray(
+        new_values.reshape(new_shape), dims=new_dims, coords=new_coords
     )
-    altitude = gridrad["altitude"] * 1000  # Convert to meters
-    latitude = gridrad["latitude"]
-    longitude = gridrad["longitude"]
-    time = gridrad["time"]
-    array_size = len(longitude) * len(latitude) * len(altitude)
-    index = gridrad["index"].values
-    da_dict = {}
-    names_dict = {"reflectivity": "Reflectivity"}
-    coords = [
-        ("time", time.values),
-        ("altitude", altitude.values),
-        ("latitude", latitude.values),
-        ("longitude", longitude.values),
-    ]
-    for field in dataset_options["fields"]:
-        values = np.ones(array_size) * np.nan
-        values[index] = gridrad[names_dict[field]].values
-        shape = (len(time), len(altitude), len(latitude), len(longitude))
-        values = values.reshape(shape)
-        da = xr.DataArray(values, name=field, coords=coords)
-        for coord in ["time", "altitude", "latitude", "longitude"]:
-            da[coord].attrs = gridrad[coord].attrs
-        da["altitude"].attrs["units"] = "m"
-        del da["altitude"].attrs["delta"]
-        da.attrs = gridrad[names_dict[field]].attrs
-        da.attrs["long_name"] = field
-        da_dict[field] = da
-    ds = xr.Dataset(da_dict)
-    ds.attrs = gridrad.attrs
-    cell_areas = grid.get_cell_areas(ds.latitude.values, ds.longitude.values)
-    ds["gridcell_area"] = (["latitude", "longitude"], cell_areas)
-    ds["gridcell_area"].attrs.update(
-        {"units": "km^2", "standard_name": "area", "valid_min": 0}
+    ds[variable].attrs = attrs
+    return ds
+
+
+def filter(
+    ds,
+    weight_thresh=1.5,
+    echo_frac_thresh=0.6,
+    refl_thresh=0,
+    obs_thresh=2,
+    variables=None,
+):
+    """
+    Filter a GridRad dataset. Based on code from the GridRad website
+    https://gridrad.org/software.html and edits by Stacey Hitchcock.
+
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        The GridRad dataset.
+    weight_thresh : float, optional
+        The bin weight threshold. Default is 1.5.
+    echo_frac_thresh : float, optional
+        The echo fraction threshold. Default is 0.6.
+    refl_thresh : float, optional
+        The reflectivity threshold. Default is 0.
+    obs_thresh : int, optional
+        The number of observations. Default is 2.
+
+    Returns
+    -------
+    ds : xarray.Dataset
+        The filtered GridRad dataset
+    """
+
+    logger.debug("Filtering GridRad data")
+
+    if variables is None:
+        variables = [v for v in gridrad_variables if v in ds.variables]
+
+    echo_fraction = xr.zeros_like(ds["Nradecho"]).astype(float)
+    ob_inds = np.where(ds.Nradobs > 0)
+    echo_fraction.values[ob_inds] = (
+        ds["Nradecho"].values[ob_inds] / ds["Nradobs"].values[ob_inds]
     )
 
-    grid_options["latitude"] = latitude.values
-    grid_options["longitude"] = longitude.values
-    grid_options["altitude"] = altitude.values
-    grid_options["geographic_spacing"] = [latitude.delta, longitude.delta]
-    grid_options["shape"] = [len(latitude), len(longitude)]
+    # Get indices to filter
+    weight_cond = ds["wReflectivity"].values < weight_thresh
+    refl_cond = ds["Reflectivity"].values <= refl_thresh
+    frac_cond = echo_fraction.values < echo_frac_thresh
+    obs_cond = ds["Nradobs"].values <= obs_thresh
+    # Filter cells below weight and reflectivity thresholds
+    cond_refl = weight_cond & refl_cond
+    # Filter cells containing at < obs_thresh observations. If at least obs_thresh
+    # observations, filter cells with echoes in less than echo_fraction_thresh of the
+    # total observations
+    cond_frac = (obs_cond) | frac_cond
+    # Retain values not filtered
+    preserved = ~cond_refl & ~cond_frac
+    for var in variables:
+        ds[var] = ds[var].where(preserved)
 
     return ds
+
+
+def remove_speckles(ds, window_size=5, coverage_thresh=0.32, variables=None):
+    """
+    Remove speckles in GridRad data. Based on code from the GridRad website
+    https://gridrad.org/software.html and edits by Stacey Hitchcock. Modified from the
+    original to use xr.rolling instead of np.roll to correctly handle edges and corners.
+    """
+
+    logger.debug("Removing speckles from the GridRad data")
+
+    if variables is None:
+        variables = [v for v in gridrad_variables if v in ds.variables]
+
+    refl_exists = np.isfinite(ds["Reflectivity"]).astype(float)
+    # Set up dask chunking on altitude by forbidding chunking on lat/lon
+    # This sped up computation by factor of 4!
+    refl_exists = refl_exists.chunk({"Latitude": -1, "Longitude": -1})
+    # Create 5 by 5 window around each point and take mean.
+    # Note that setting min_periods=1 ensures that boundaries are appended with nans,
+    # and the means calculated from the non-nan values.
+    rolling_options = {"Latitude": window_size, "Longitude": window_size}
+    rolling_options.update({"center": True, "min_periods": 1})
+    cover = refl_exists.rolling(**rolling_options).mean()
+    # Find bins with low nearby areal echo coverage (i.e., speckles) and set to NaN.
+    for var in variables:
+        ds[var] = ds[var].where(cover > coverage_thresh)
+
+    return ds
+
+
+def remove_low_level_clutter(ds, variables=None):
+    """
+    Remove low level clutter from GridRad data. Based on code from the GridRad website
+    https://gridrad.org/software.html and edits by Stacey Hitchcock.
+    """
+
+    logger.debug("Removing low level clutter from the GridRad data")
+
+    # Determine max heights of non-nan reflectivity values. If entire column is nan,
+    # set max altitude to zero.
+    refl_max = ds.Reflectivity.max(dim="Altitude", skipna=True)
+    refl_0_alts = ds.Altitude.where(ds.Reflectivity > 0.0, 0.0)
+    refl_0_max_alt = refl_0_alts.max(dim="Altitude")
+    refl_0_min_alt = refl_0_alts.min(dim="Altitude")
+    refl_5_max_alt = ds.Altitude.where(ds.Reflectivity > 5.0, 0.0).max(dim="Altitude")
+    refl_15_max_alt = ds.Altitude.where(ds.Reflectivity > 15.0, 0.0).max(dim="Altitude")
+
+    # Check for very weak echos below 4 km
+    cond_1 = (refl_max < 20.0) & (refl_0_max_alt <= 4.0) & (refl_0_min_alt <= 3.0)
+    # Check for very weak echos below 5 km
+    cond_2 = (refl_max < 10.0) & (refl_0_max_alt <= 5.0) & (refl_0_min_alt <= 3.0)
+    # Check for weak echos below 5 km. Note the > 0.0 ensures values actually exist
+    cond_3 = (refl_5_max_alt <= 5.0) & (refl_5_max_alt > 0.0) & (refl_15_max_alt <= 3.0)
+    # Check for weak echos below 2 km
+    cond_4 = (refl_15_max_alt < 2.0) & (refl_15_max_alt > 0.0)
+    cond = np.logical_not(cond_1 | cond_2 | cond_3 | cond_4)
+    for var in variables:
+        ds[var] = ds[var].where(cond)
+    return ds
+
+
+def remove_clutter_below_anvils(ds, variables=None):
+    """
+    Remove clutter below anvils in GridRad data. Based on code from the GridRad website
+    https://gridrad.org/software.html and edits by Stacey Hitchcock.
+    """
+
+    logger.debug("Removing clutter below anvils from the GridRad data")
+
+    # Check if reflectivity exists at, above and below 4 km
+    exists = np.isfinite(ds.Reflectivity)
+    exists_above_4 = exists.where(ds.Altitude >= 4.0, drop=True)
+    exists_4 = exists_above_4.isel(Altitude=0)
+    exists_above_4 = exists_above_4.sum(dim="Altitude") > 0
+    exists_below_4 = exists.where(ds.Altitude < 4.0, drop=True).sum(dim="Altitude") > 0
+
+    cond = exists_4 | ~exists_above_4 | ~exists_below_4
+    for var in variables:
+        ds[var] = ds[var].where(cond)
+    return ds
+
+
+def remove_clutter(ds, variables=None, low_level=True, below_anvil=False):
+    """
+    Remove clutter from GridRad data. Based on code from the GridRad website
+    https://gridrad.org/software.html and edits by Stacey Hitchcock.
+
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        The GridRad dataset.
+    variables : list, optional
+        The variables to remove clutter from. Default is ["Reflectivity"].
+
+    Returns
+    -------
+    ds : xarray.Dataset
+        The GridRad dataset with clutter removed.
+    """
+
+    logger.debug("Removing clutter from the GridRad data")
+
+    if variables is None:
+        variables = [v for v in gridrad_variables if v in ds.variables]
+
+    # Remove low reflectivity low level clutter
+    cond = (ds.Reflectivity >= 10.0) | (ds.Altitude > 4.0)
+    for var in variables:
+        ds[var] = ds[var].where(cond)
+
+    # Attempt correlation based clutter removal if relevant variables exist
+    correlation_var_list = ["DifferentialReflectivity", "CorrelationCoefficient"]
+    if all(corr_var in ds.variables for corr_var in correlation_var_list):
+
+        # Require either high correlation or reflectivity
+        cond1 = ds["Reflectivity"] >= 40.0 | ds["r_HV"] >= 0.9
+        # Require moderate reflectivity or high correlation or low altitude
+        cond2 = ds["Reflectivity"] >= 25.0 | ds["CorrelationCoefficient"] >= 0.95
+        cond2 = cond2 | ds["Altitude"] < 10.0
+        # Require both conditions above be met
+        for var in variables:
+            ds[var] = ds[var].where(cond1 & cond2)
+
+    # First pass at speckle removal
+    ds = remove_speckles(ds, variables=variables)
+
+    if low_level:
+        # Remove low level clutter. Note this can remove some low level cloud/drizzle
+        ds = remove_low_level_clutter(ds, variables=variables)
+
+    if below_anvil:
+        # Remove clutter below anvils
+        ds = remove_clutter_below_anvils(ds, variables=variables)
+
+    # Second pass at speckle removal
+    ds = remove_speckles(ds, variables=variables)
+
+    return ds
+
+
+def convert_gridrad(time, input_record, dataset_options, grid_options):
+    """Convert gridrad data to the standard format."""
+    filepath = dataset_options["filepaths"][input_record["current_file_index"]]
+    utils.log_convert(logger, dataset_options["name"], filepath)
+
+    # Open the dataset and perform preliminary filtering and decluttering
+    ds = open_gridrad(filepath)
+    ds = filter(ds, refl_thresh=-10)
+    ds = remove_clutter(ds)
+
+    # Ensure the intended time is in the dataset
+    if time not in ds.time.values:
+        raise ValueError(f"{time} not in {filepath}")
+
+    # Restructure the dataset
+    names_dict = {"Latitude": "latitude", "Longitude": "longitude"}
+    names_dict.update({"Altitude": "altitude", "Reflectivity": "reflectivity"})
+    names_dict.update({"Nradobs": "number_of_observations"})
+    names_dict.update({"Nradecho": "number_of_echoes"})
+    ds = ds.rename(names_dict)
+
+    for dim in ["latitude", "longitude", "altitude"]:
+        ds[dim].attrs["standard_name"] = dim
+        ds[dim].attrs["long_name"] = dim
+    ds["altitude"] = ds["altitude"] * 1000  # Convert to meters
+    kept_fields = dataset_options["fields"] + ["number_of_observations"]
+    kept_fields += ["number_of_echoes"]
+    dropped_fields = [f for f in ds.data_vars if f not in kept_fields]
+    ds = ds.drop_vars(dropped_fields)
+
+    for field in dataset_options["fields"]:
+        ds[field] = ds[field].expand_dims("time")
+        ds[field].attrs["long_name"] = field
+
+    spacing = [ds.latitude.delta, ds.longitude.delta]
+    if grid_options["name"] == "geographic":
+        grid_options["latitude"] = ds.latitude.values
+        grid_options["longitude"] = ds.longitude.values
+        grid_options["altitude"] = ds.altitude.values
+        grid_options["geographic_spacing"] = spacing
+        grid_options["shape"] = [len(ds.latitude), len(ds.longitude)]
+
+    cell_areas = grid.get_cell_areas(grid_options)
+    ds["gridcell_area"] = (["latitude", "longitude"], cell_areas)
+    area_attrs = {"units": "km^2", "standard_name": "area", "valid_min": 0}
+    ds["gridcell_area"].attrs.update(area_attrs)
+
+    return ds
+
+
+def get_domain_mask(track_input_records, dataset_options, object_options, grid_options):
+    """
+    Get a domain mask for a GridRad dataset.
+    """
+    ds = track_input_records[object_options["dataset"]]["dataset"]
+    mask, boundary_coords = utils.mask_from_observations(
+        ds, dataset_options, grid_options, object_options
+    )
+    return mask, boundary_coords
 
 
 def update_dataset(time, input_record, dataset_options, grid_options):
@@ -208,8 +453,6 @@ def generate_gridrad_filepaths(options):
 
 
 def gridrad_grid_from_dataset(dataset, variable, time):
+    """Get a THOR grid from a GridRad dataset."""
     grid = dataset[variable].sel(time=time)
-    # preserved_attributes = dataset.attrs.keys() - ["field_names"]
-    # for attr in ["origin_longitude", "origin_latitude", "instrument"]:
-    #     grid.attrs[attr] = dataset.attrs[attr]
     return grid
