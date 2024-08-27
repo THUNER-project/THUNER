@@ -1,6 +1,6 @@
 # Python dependencies
-opencv-python
 numpy
+numba
 scipy
 scikit-image
 pandas
@@ -21,3 +21,4 @@ arm_pyart
 tqdm
 cdsapi
 xesmf
+opencv-python

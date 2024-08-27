@@ -62,16 +62,29 @@ def test_gridrad():
     track_options = option.mcs(
         dataset="gridrad",
         tags=["era5_pl", "era5_sl"],
-        global_flow_margin=75,
+        global_flow_margin=70,
         unique_global_flow=False,
     )
+    # Disable tracking/matching for cell and anvil objects
+    track_options[0]["cell"]["tracking"] = {"method": None}
+    track_options[0]["anvil"]["tracking"] = {"method": None}
     option.check_options(track_options)
     option.save_track_options(track_options, filename="gridrad_mcs")
 
     # Create the display_options dictionary
+    cell_vis_options = visualize.option.runtime_options(
+        "cell", save=True, style="presentation", figure_types=["mask"]
+    )
+    anvil_vis_options = visualize.option.runtime_options(
+        "anvil", save=True, style="presentation", figure_types=["mask"]
+    )
+    mcs_vis_options = visualize.option.runtime_options(
+        "mcs", save=True, style="presentation", figure_types=["mask", "match"]
+    )
     visualize_options = {
-        obj: visualize.option.runtime_options(obj, save=True, style="presentation")
-        for obj in ["cell", "anvil", "mcs"]
+        "cell": cell_vis_options,
+        "anvil": anvil_vis_options,
+        "mcs": mcs_vis_options,
     }
     visualize.option.save_display_options(visualize_options, filename="runtime_mcs")
 

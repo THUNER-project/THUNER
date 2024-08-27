@@ -25,12 +25,9 @@ proj = ccrs.PlateCarree()
 
 def get_extent(grid_options):
     """Get the cartopy extent."""
-    return (
-        min(grid_options["longitude"]),
-        max(grid_options["longitude"]),
-        min(grid_options["latitude"]),
-        max(grid_options["latitude"]),
-    )
+    lon = np.array(grid_options["longitude"])
+    lat = np.array(grid_options["latitude"])
+    return (lon.min(), lon.max(), lat.min(), lat.max())
 
 
 def get_boundaries(input_record, num_previous=1):
@@ -239,7 +236,7 @@ def match_features(grid, object_record, axes, grid_options, unique_global_flow=T
             # If global flow not unique, plot for current object
             global_flow = object_record["global_flows"][i]
             global_flow_box = object_record["global_flow_boxes"][i]
-            horizontal.plot_box(axes[1], global_flow_box, grid_options, alpha=0.5)
+            horizontal.plot_box(axes[1], global_flow_box, grid_options, alpha=0.8)
             horizontal.plot_vector(
                 axes[1], row, col, global_flow, grid_options, color="tab:red"
             )
@@ -265,8 +262,8 @@ def match_features(grid, object_record, axes, grid_options, unique_global_flow=T
             )
         # Label object with corrected flow case and cost
         case = object_record["cases"][i]
-        latitude = grid_options["latitude"]
-        lat_shift = 0.01 * (max(latitude) - min(latitude))  # Shift text up slightly
+        lat = np.array(grid_options["latitude"])
+        lat_shift = 0.01 * (lat.max() - lat.min())  # Shift text up slightly
         row, col = flow_box["row_max"], flow_box["col_min"]
         text_lat, text_lon = thor_grid.get_pixels_geographic(row, col, grid_options)
         text_lat = text_lat + lat_shift

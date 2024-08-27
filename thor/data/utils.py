@@ -428,6 +428,8 @@ def mask_from_range(dataset, dataset_options, grid_options):
     if grid_options["name"] == "cartesian":
         X, Y = np.meshgrid(grid_options["x"], grid_options["y"])
         distances = np.sqrt(X**2 + Y**2)
+        coords = {"y": dataset.y, "x": dataset.x}
+        dims = {"y": dataset.y, "x": dataset.x}
     elif grid_options["name"] == "geographic":
         lons = grid_options["longitude"]
         lats = grid_options["latitude"]
@@ -435,15 +437,14 @@ def mask_from_range(dataset, dataset_options, grid_options):
         origin_latitude = float(dataset.attrs["origin_latitude"])
         LON, LAT = np.meshgrid(lons, lats)
         distances = haversine(LAT, LON, origin_latitude, origin_longitude)
+        coords = {"latitude": dataset.latitude, "longitude": dataset.longitude}
+        dims = {"latitude": dataset.latitude, "longitude": dataset.longitude}
     else:
         raise ValueError("Grid name must be 'cartesian' or 'geographic'.")
 
     units_dict = {"m": 1, "km": 1e3}
     range = dataset_options["range"] * units_dict[dataset_options["range_units"]]
     mask = distances <= range
-
-    coords = {"latitude": dataset.latitude, "longitude": dataset.longitude}
-    dims = {"latitude": dataset.latitude, "longitude": dataset.longitude}
     mask = xr.DataArray(mask, coords=coords, dims=dims)
 
     return mask

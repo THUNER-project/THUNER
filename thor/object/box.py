@@ -106,8 +106,8 @@ def get_margins_pixels(bounding_box, flow_margin, grid_options):
 
     if grid_options["name"] == "cartesian":
         grid_spacing = grid_options["cartesian_spacing"]
-        flow_margin_row = int(np.ceil(flow_margin / grid_spacing[0]))
-        flow_margin_col = int(np.ceil(flow_margin / grid_spacing[1]))
+        flow_margin_row = int(np.ceil(flow_margin * 1e3 / grid_spacing[0]))
+        flow_margin_col = int(np.ceil(flow_margin * 1e3 / grid_spacing[1]))
     elif grid_options["name"] == "geographic":
         latitudes = grid_options["latitude"]
         longitudes = grid_options["longitude"]

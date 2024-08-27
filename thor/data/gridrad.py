@@ -3,11 +3,13 @@ from functools import reduce
 import numpy as np
 import pandas as pd
 import xarray as xr
+from skimage.morphology import remove_small_objects
 import thor.data.option as option
 from thor.config import get_outputs_directory
 import thor.data.utils as utils
 from thor.log import setup_logger
 import thor.grid as grid
+
 
 logger = setup_logger(__name__)
 
@@ -20,6 +22,17 @@ gridrad_variables = [
     "DifferentialPhase",
     "CorrelationCoefficient",
 ]
+
+
+gridrad_names_dict = {
+    "reflectivity": "Reflectivity",
+    "spectrum_width": "SpectrumWidth",
+    "azimuthal_shear": "AzShear",
+    "divergence": "Divergence",
+    "differential_reflectivity": "DifferentialReflectivity",
+    "differential_phase": "DifferentialPhase",
+    "correlation_coefficient": "CorrelationCoefficient",
+}
 
 
 def gridrad_data_options(
@@ -80,15 +93,20 @@ def check_data_options(options):
         raise ValueError(f"Invalid dataset ID. Must be one of {valid_dataset_ids}.")
 
 
-def open_gridrad(path):
+def open_gridrad(path, dataset_options):
     """
     Open a GridRad netcdf file, converting variables with an "Index" dimension back to 3D
     """
     ds = xr.open_dataset(path)
-    for var in list(ds.data_vars):
+    kept_variables = [gridrad_names_dict[f] for f in dataset_options["fields"]]
+    kept_variables += ["Nradobs", "Nradecho", "wReflectivity", "CorrelationCoefficient"]
+    kept_variables = [v for v in kept_variables if v in ds.data_vars]
+    dropped_variables = [v for v in ds.data_vars if v not in kept_variables]
+    for var in kept_variables:
         if var != "index" and "Index" in ds[var].dims:
             ds = reshape_variable(ds, var)
-    ds = ds.drop_vars("index")
+    # ds = ds.drop_vars("index")
+    ds = ds.drop_vars(dropped_variables + ["index"])
     return ds
 
 
@@ -186,18 +204,10 @@ def remove_speckles(ds, window_size=5, coverage_thresh=0.32, variables=None):
         variables = [v for v in gridrad_variables if v in ds.variables]
 
     refl_exists = np.isfinite(ds["Reflectivity"]).astype(float)
-    # Set up dask chunking on altitude by forbidding chunking on lat/lon
-    # This sped up computation by factor of 4!
-    refl_exists = refl_exists.chunk({"Latitude": -1, "Longitude": -1})
-    # Create 5 by 5 window around each point and take mean.
-    # Note that setting min_periods=1 ensures that boundaries are appended with nans,
-    # and the means calculated from the non-nan values.
-    rolling_options = {"Latitude": window_size, "Longitude": window_size}
-    rolling_options.update({"center": True, "min_periods": 1})
-    cover = refl_exists.rolling(**rolling_options).mean()
-    # Find bins with low nearby areal echo coverage (i.e., speckles) and set to NaN.
+    min_size = window_size**3 * coverage_thresh
+    speckle_mask = remove_small_objects(refl_exists.values > 0, min_size=min_size)
     for var in variables:
-        ds[var] = ds[var].where(cover > coverage_thresh)
+        ds[var] = ds[var].where(speckle_mask)
 
     return ds
 
@@ -318,9 +328,11 @@ def convert_gridrad(time, input_record, track_options, dataset_options, grid_opt
     utils.log_convert(logger, dataset_options["name"], filepath)
 
     # Open the dataset and perform preliminary filtering and decluttering
-    ds = open_gridrad(filepath)
+    ds = open_gridrad(filepath, dataset_options)
     ds = filter(ds, refl_thresh=-10)
     ds = remove_clutter(ds)
+
+    logger.debug("Restructuring GridRad dataset.")
 
     # Ensure the intended time is in the dataset
     if time not in ds.time.values:

@@ -50,7 +50,7 @@ map_colors = {
 }
 
 base_styles = {"paper": "default", "presentation": "dark_background"}
-custom_styles_dir = Path(__file__).parent / "styles"
+custom_styles_dir = Path.home() / "Documents/THOR/thor/visualize/styles"
 
 styles = {
     style: [base_styles[style], custom_styles_dir / f"{style}.mplstyle"]
@@ -73,7 +73,8 @@ def get_filepaths_dates(fig_type, obj, output_directory):
 
 
 def animate_all(visualize_options, output_directory):
-
+    if visualize_options is None:
+        return
     for obj in visualize_options.keys():
         for fig_type in visualize_options[obj]["figures"].keys():
             if visualize_options[obj]["figures"][fig_type]["animate"]:

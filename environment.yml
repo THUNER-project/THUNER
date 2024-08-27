@@ -1,0 +1,28 @@
+name: THOR
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - numpy
+  - numba
+  - scipy
+  - scikit-image
+  - pandas
+  - matplotlib
+  - xarray
+  - cartopy
+  - typing_extensions
+  - pre-commit
+  - black
+  - pytest
+  - pytest-cov
+  - codecov
+  - ipykernel
+  - netcdf4
+  - h5netcdf
+  - requests
+  - arm_pyart
+  - tqdm
+  - cdsapi
+  - xesmf
+  - opencv

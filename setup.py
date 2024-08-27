@@ -157,7 +157,7 @@ setup(
     license="BSD-3-Clause License",
     packages=get_packages(PACKAGE_NAME),
     install_requires=get_requirements("requirements.txt"),
-    test_requires=["pytest"],
+    # test_requires=["pytest"],
     zip_safe=False,
     cmdclass={
         "install": CustomInstall,

@@ -14,11 +14,8 @@ install:
   - conda config --set always_yes yes --set changeps1 no
   - conda config --set show_channel_urls True
   - conda update --quiet conda
-  - ENV_NAME='THOR'
-  - conda create --quiet -n $ENV_NAME python=3.11
-  - source activate $ENV_NAME
-  - conda install -c conda-forge --quiet --file requirements.txt
-
+  - conda env create -f environment.yml
+  - conda activate myenv
   # Output debug info
   - conda list
   - conda info -a

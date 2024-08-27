@@ -355,8 +355,10 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
         issue_cdsapi_requests(cds_name, requests, local_paths)
         pass
 
-    lat_range = (min(grid_options["latitude"]), max(grid_options["latitude"]))
-    lon_range = (min(grid_options["longitude"]), max(grid_options["longitude"]))
+    lat = np.array(grid_options["latitude"])
+    lon = np.array(grid_options["longitude"])
+    lat_range = (lat.min(), lat.max())
+    lon_range = (lon.min(), lon.max())
 
     with tempfile.TemporaryDirectory() as tmp:
         for field in dataset_options["fields"]:

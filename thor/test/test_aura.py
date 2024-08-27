@@ -27,7 +27,7 @@ def test_cpol():
     # Parent directory for saving outputs
     base_local = Path.home() / "THOR_output"
     start = "2005-11-13T13:00:00"
-    end = "2005-11-13T19:00:00"
+    end = "2005-11-13T14:00:00"
 
     # Create the data_options dictionary
     converted_options = {"save": True, "load": False, "parent_converted": None}
@@ -57,16 +57,27 @@ def test_cpol():
 
     # Create the track_options dictionary
     track_options = option.mcs(dataset="cpol", tags=["era5_pl", "era5_sl"])
-    option.save_track_options(track_options, filename="cpol_mcs")
+    # Disable tracking/matching for cell and anvil objects
+    track_options[0]["cell"]["tracking"] = {"method": None}
+    track_options[0]["anvil"]["tracking"] = {"method": None}
+    option.check_options(track_options)
+    option.save_track_options(track_options, filename="gridrad_mcs")
 
     # Create the display_options dictionary
-    visualize_options = {
-        obj: visualize.option.runtime_options(obj, save=True, style="presentation")
-        for obj in ["cell", "anvil", "mcs"]
-    }
-    visualize_options["middle_cloud"] = visualize.option.runtime_options(
-        "middle_cloud", save=True, style="presentation", figure_types=["mask"]
+    cell_vis_options = visualize.option.runtime_options(
+        "cell", save=True, style="presentation", figure_types=["mask"]
     )
+    anvil_vis_options = visualize.option.runtime_options(
+        "anvil", save=True, style="presentation", figure_types=["mask"]
+    )
+    mcs_vis_options = visualize.option.runtime_options(
+        "mcs", save=True, style="presentation", figure_types=["mask", "match"]
+    )
+    visualize_options = {
+        "cell": cell_vis_options,
+        "anvil": anvil_vis_options,
+        "mcs": mcs_vis_options,
+    }
     visualize.option.save_display_options(visualize_options, filename="runtime_mcs")
 
     # Test tracking in geographic coordinates
@@ -89,7 +100,7 @@ def test_cpol():
     grid.check_options(grid_options)
     grid.save_grid_options(grid_options, filename="cpol_cartesian")
 
-    output_directory = base_local / "runs/cpol_cartesian_demo"
+    output_directory = base_local / "runs/cpol_demo_cartesian"
     if output_directory.exists():
         shutil.rmtree(output_directory)
     times = data.utils.generate_times(data_options["cpol"])
@@ -100,5 +111,5 @@ def test_cpol():
         track_options,
         tag_options,
         visualize_options,
-        output_directory=base_local / "runs/cpol_cartesian_demo",
+        output_directory=output_directory,
     )
