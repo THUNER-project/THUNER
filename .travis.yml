@@ -22,7 +22,7 @@ install:
   - pip install .
 
 before_script:
-  # Create .cdsapirc file
+  # Create .cdsapirc file asdf
   - cat <<EOF > ~/.cdsapirc
 url: https://cds.climate.copernicus.eu/api/v2
 key: $CDSAPI_KEY
