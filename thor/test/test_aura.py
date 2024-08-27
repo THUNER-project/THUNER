@@ -95,7 +95,7 @@ def test_cpol():
         output_directory=output_directory,
     )
 
-    # Test tracking in Cartesian coordinates
+    # Test tracking in Cartesian coordinates tt
     grid_options = grid.create_options(name="cartesian", regrid=True)
     grid.check_options(grid_options)
     grid.save_grid_options(grid_options, filename="cpol_cartesian")
