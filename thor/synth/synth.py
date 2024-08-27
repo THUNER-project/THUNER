@@ -43,11 +43,39 @@ def dataset(
     return ds
 
 
-def cell(lat, lon, alt, time, radius, intensity, eccentricity, orientation):
+def add_cell(
+    ds,
+    lat_center,
+    lon_center,
+    alt_center,
+    radius,
+    intensity,
+    eccentricity,
+    orientation,
+):
+    # Create a meshgrid for the coordinates
+    lon, lat, alt = np.meshgrid(ds.longitude, ds.latitude, ds.altitude)
 
-    # Generate synthetic reflectivity data for a cell object using gaussian
+    # Calculate the rotated coordinates
+    x_rot = (lon - lon_center) * np.cos(orientation)
+    x_rot += (lat - lat_center) * np.sin(orientation)
+    y_rot = -(lon - lon_center) * np.sin(orientation)
+    y_rot += (lat - lat_center) * np.cos(orientation)
 
-    
+    # Calculate the distance from the center for each point in the grid, considering eccentricity
+    distance = np.sqrt(
+        (x_rot / radius) ** 2
+        + (y_rot / (radius * eccentricity)) ** 2
+        + (alt - alt_center) ** 2
+    )
+
+    # Apply a Gaussian function to create an elliptical pattern
+    reflectivity = intensity * np.exp(-(distance**2) / 2)
+    reflectivity[reflectivity < 0.05 * intensity] = np.nan
+
+    # Add the generated data to the ds DataArray
+    ds.values = np.maximum(ds.values, reflectivity)
+    return ds
 
 
 def anvil():
