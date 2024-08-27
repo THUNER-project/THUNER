@@ -1,34 +1,39 @@
 dist: jammy
 language: python
 python:
-- '3.10'
+  - '3.10'
+
 install:
-- export CONDA_BASE=http://repo.continuum.io/miniconda/Miniconda3;
-- wget ${CONDA_BASE}-latest-Linux-x86_64.sh -O miniconda.sh;
-- bash miniconda.sh -b -p $HOME/miniconda
-- export PATH="$HOME/miniconda/bin:$PATH"
-- hash -r
-- conda init
-- source ~/.bashrc
-- conda config --set always_yes yes --set changeps1 no
-- conda config --set show_channel_urls True
-- conda update --quiet conda
-- conda env create -f environment.yml
-- conda activate THOR
-- conda list
-- conda info -a
-- pip install .
+  - export CONDA_BASE=http://repo.continuum.io/miniconda/Miniconda3;
+  - wget ${CONDA_BASE}-latest-Linux-x86_64.sh -O miniconda.sh;
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - export PATH="$HOME/miniconda/bin:$PATH"
+  - hash -r
+  - conda init
+  - source ~/.bashrc
+  - conda config --set always_yes yes --set changeps1 no
+  - conda config --set show_channel_urls True
+  - conda update --quiet conda
+  - conda env create -f environment.yml
+  - conda activate THOR
+  - conda list
+  - conda info -a
+  - pip install .
+
 before_script:
 # Create .cdsapirc file
-- |
-  cat <<EOF > ~/.cdsapirc
-  url: https://cds.climate.copernicus.eu/api/v2
-  key: $CDSAPI_KEY
-  EOF
+  - |
+    cat <<EOF > ~/.cdsapirc
+    url: https://cds.climate.copernicus.eu/api/v2
+    key: $CDSAPI_KEY
+    EOF
+
 script:
-- python -m pytest --verbose --color=yes -s --cov=thor
+  - python -m pytest --verbose --color=yes -s --cov=thor
+
 env:
-global:
-- secure: EPwD3wpCWqRN9NP1tPvHwUD0wDZZFfu5uIGZ+coaGZsSaDAwTEh20d08060iAe6sSLvK3cJsmchT4Q/HKPJc9kY1rscV8L4MZm89Ie0S+cItfjlAYu7WkasIghL4sDbUl8XTOXKVr4kLra9pFYpFB37VElz3S7X9+5rx9thqBND/MdCN/dMQ/a7kaNU9wVoRIF8O5nf8BaBgKHQlGkpNt2kFyBL5QYamMHRa5tuuOqtcyUR23IWe3ZIBMd/EhTGpK7+TuxYH9Q6yKCybg9yFhYsiNn7EK6bej8ujLdA08RpV/MwS/OvYuX38mjdoTyEFo2ZrzcDpAsEGFbY/r89cRo8/PvR5twG2Acvmh8dgf49C8UM0arEmvG5n+YJMuF70IOwHwha/8JMfZupgwf0/DgkAOvwB/iAC5NqbSqBvGe/VbWlyo+wyyz5OGb0gxgCUwUKfgf4raI7LAr6uFu8tszzwySNQ6Sm6yEmlo7ESf7Wvs1lROXqvhJtyZcuzbufZWkyIbZnQBYPkVbM7uTs7PWp37LlJmEdNA6pR/BZVdQFIy+d9l5kzuRHxgdza2WAINH2gLLs8J9XFU6GCG6d6nkoAJlcblcvBSpApccrqGBhvBXZXl3HQ63Z4GqasdsgqbFNKGTdKsFDo9ePFWLWfjcCBmnPhaQyq88uPWext4JY=
+  global:
+    - secure: EPwD3wpCWqRN9NP1tPvHwUD0wDZZFfu5uIGZ+coaGZsSaDAwTEh20d08060iAe6sSLvK3cJsmchT4Q/HKPJc9kY1rscV8L4MZm89Ie0S+cItfjlAYu7WkasIghL4sDbUl8XTOXKVr4kLra9pFYpFB37VElz3S7X9+5rx9thqBND/MdCN/dMQ/a7kaNU9wVoRIF8O5nf8BaBgKHQlGkpNt2kFyBL5QYamMHRa5tuuOqtcyUR23IWe3ZIBMd/EhTGpK7+TuxYH9Q6yKCybg9yFhYsiNn7EK6bej8ujLdA08RpV/MwS/OvYuX38mjdoTyEFo2ZrzcDpAsEGFbY/r89cRo8/PvR5twG2Acvmh8dgf49C8UM0arEmvG5n+YJMuF70IOwHwha/8JMfZupgwf0/DgkAOvwB/iAC5NqbSqBvGe/VbWlyo+wyyz5OGb0gxgCUwUKfgf4raI7LAr6uFu8tszzwySNQ6Sm6yEmlo7ESf7Wvs1lROXqvhJtyZcuzbufZWkyIbZnQBYPkVbM7uTs7PWp37LlJmEdNA6pR/BZVdQFIy+d9l5kzuRHxgdza2WAINH2gLLs8J9XFU6GCG6d6nkoAJlcblcvBSpApccrqGBhvBXZXl3HQ63Z4GqasdsgqbFNKGTdKsFDo9ePFWLWfjcCBmnPhaQyq88uPWext4JY=
+
 after_success:
-- codecov
+  - codecov
