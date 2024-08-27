@@ -10,14 +10,12 @@ install:
   - bash miniconda.sh -b -p $HOME/miniconda
   - export PATH="$HOME/miniconda/bin:$PATH"
 
-  # Initialize conda
-  - conda init
-
   # Create environment
   - conda config --set always_yes yes --set changeps1 no
   - conda config --set show_channel_urls True
   - conda update --quiet conda
   - conda env create -f environment.yml
+  - conda init
   - conda activate THOR
   # Output debug info
   - conda list
