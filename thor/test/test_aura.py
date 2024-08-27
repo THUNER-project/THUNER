@@ -80,7 +80,7 @@ def test_cpol():
     }
     visualize.option.save_display_options(visualize_options, filename="runtime_mcs")
 
-    # Test tracking in geographic coordinates
+    # Test tracking in geographic coordinates s
     output_directory = base_local / "runs/cpol_demo_geographic"
     if output_directory.exists():
         shutil.rmtree(output_directory)
