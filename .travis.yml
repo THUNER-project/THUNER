@@ -23,10 +23,8 @@ install:
 
 before_script:
   # Create .cdsapirc file
-  - cat <<EOF > ~/.cdsapirc
-url: https://cds.climate.copernicus.eu/api/v2
-key: $CDSAPI_KEY
-EOF
+  - chmod +x create_cdsapirc.sh
+  - ./create_cdsapirc.sh
 
 script:
   - python -m pytest --verbose --color=yes -s --cov=thor
