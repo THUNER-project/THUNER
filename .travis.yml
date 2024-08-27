@@ -21,9 +21,14 @@ install:
   - conda info -a
   - pip install .
 
+before_script:
+  # Create .cdsapirc file
+  - cat <<EOF > ~/.cdsapirc
+url: https://cds.climate.copernicus.eu/api/v2
+key: $CDSAPI_KEY
+EOF
+
 script:
-  - echo "url: https://cds.climate.copernicus.eu/api/v2" > ~/.cdsapirc
-  - echo "key: $CDSAPI_KEY" >> ~/.cdsapirc
   - python -m pytest --verbose --color=yes -s --cov=thor
 
 env:
