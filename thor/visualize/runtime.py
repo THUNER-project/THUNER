@@ -368,6 +368,8 @@ def visualize(
     # Close all current figures
     plt.close("all")
 
+    logger.debug("Generating runtime visualizations.")
+
     object_options = track_options[level_index][obj]
 
     if not visualize_options or not visualize_options.get(object_options["name"]):

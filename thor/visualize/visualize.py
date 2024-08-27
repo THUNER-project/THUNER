@@ -50,7 +50,7 @@ map_colors = {
 }
 
 base_styles = {"paper": "default", "presentation": "dark_background"}
-custom_styles_dir = Path.home() / "Documents/THOR/thor/visualize/styles"
+custom_styles_dir = Path(__file__).parent / "styles"
 
 styles = {
     style: [base_styles[style], custom_styles_dir / f"{style}.mplstyle"]
