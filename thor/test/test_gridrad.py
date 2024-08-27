@@ -25,7 +25,7 @@ def test_gridrad():
     """
 
     # Parent directory for saving outputs
-    base_local = Path("/home/ewan/THOR_output")
+    base_local = Path(__file__).parent / "THOR_output"
     start = "2010-01-20T18:00:00"
     end = "2010-01-20T19:00:00"
 
@@ -53,10 +53,7 @@ def test_gridrad():
     grid.save_grid_options(grid_options, filename="gridrad_geographic")
 
     # Create the tag_options dictionary
-    era5_pl_tag_options = data.era5.tag_options()
-    era5_sl_tag_options = data.era5.tag_options(dataset="era5_sl")
-    tag_options = option.consolidate_options([era5_pl_tag_options, era5_sl_tag_options])
-    tag.save_tag_options(tag_options, filename="era5")
+    tag_options = None
 
     # Create the track_options dictionary
     track_options = option.mcs(
@@ -88,7 +85,7 @@ def test_gridrad():
     }
     visualize.option.save_display_options(visualize_options, filename="runtime_mcs")
 
-    output_directory = base_local / "runs/gridrad_demo"
+    output_directory = base_local / "runs/gridrad_test"
     if output_directory.exists():
         shutil.rmtree(output_directory)
     times = data.utils.generate_times(data_options["gridrad"])
@@ -99,5 +96,5 @@ def test_gridrad():
         track_options,
         tag_options,
         visualize_options,
-        output_directory=base_local / "runs/gridrad_demo",
+        output_directory=output_directory,
     )
