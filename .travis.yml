@@ -23,6 +23,7 @@ install:
 
 before_script:
   # Create .cdsapirc file
+  - ls -la
   - chmod +x create_cdsapirc.sh
   - ./create_cdsapirc.sh
 

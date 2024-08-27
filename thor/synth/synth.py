@@ -3,6 +3,7 @@ Module for generating synthetic reflectivity data for testing.
 """
 
 import numpy as np
+import xarray as xr
 
 
 def dataset(
@@ -34,11 +35,19 @@ def dataset(
         np.timedelta64(time_step),
     )
 
-    ds_values = np.ones((len(time), len(alt), len(lat), len(lon))) * np.nan
+    ds_values = np.ones((len(alt), len(lat), len(lon))) * np.nan
+    ds = xr.DataArray(
+        ds_values,
+        coords=[("altitude", alt), ("latitude", lat), ("longitude", lon)],
+    )
+    return ds
 
 
-def cell():
-    pass
+def cell(lat, lon, alt, time, radius, intensity, eccentricity, orientation):
+
+    # Generate synthetic reflectivity data for a cell object using gaussian
+
+    
 
 
 def anvil():
