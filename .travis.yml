@@ -18,7 +18,7 @@ install:
   - conda config --set show_channel_urls True
   - conda update --quiet conda
   - conda env create -f environment.yml
-  - conda activate myenv
+  - conda activate THOR
   # Output debug info
   - conda list
   - conda info -a
