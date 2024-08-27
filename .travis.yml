@@ -5,8 +5,8 @@ python:
   - '3.10'
 
 install:
-  - export CONDA_BASE=http://repo.continuum.io/miniconda/Miniconda3;
-  - wget ${CONDA_BASE}-latest-Linux-x86_64.sh -O miniconda.sh;
+  - export CONDA_BASE=http://repo.continuum.io/miniconda/Miniconda3
+  - wget ${CONDA_BASE}-latest-Linux-x86_64.sh -O miniconda.sh
   - bash miniconda.sh -b -p $HOME/miniconda
   - export PATH="$HOME/miniconda/bin:$PATH"
   - hash -r
@@ -21,12 +21,9 @@ install:
   - conda info -a
   - pip install .
 
-before_script:
-  # Create .cdsapirc file
+script:
   - echo "url: https://cds.climate.copernicus.eu/api/v2" > ~/.cdsapirc
   - echo "key: $CDSAPI_KEY" >> ~/.cdsapirc
-
-script:
   - python -m pytest --verbose --color=yes -s --cov=thor
 
 env:
