@@ -25,14 +25,6 @@ before_script:
   url: https://cds.climate.copernicus.eu/api/v2
   key: $CDSAPI_KEY
   EOF
-# Create .cads-api-client.json file
-- |
-  cat <<EOF > ~/.cads-api-client.json
-  {
-    "url": "https://cds.climate.copernicus.eu/api/v2",
-    "key": "$CDSAPI_KEY"
-  }
-  EOF
 script:
 - python -m pytest --verbose --color=yes -s --cov=thor
 env:
