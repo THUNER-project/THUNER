@@ -25,7 +25,7 @@ def test_gridrad():
     """
 
     # Parent directory for saving outputs
-    base_local = Path(__file__).parent / "THOR_output"
+    base_local = Path("/home/ewan/THOR_output")
     start = "2010-01-20T18:00:00"
     end = "2010-01-20T19:00:00"
 
@@ -53,39 +53,29 @@ def test_gridrad():
     grid.save_grid_options(grid_options, filename="gridrad_geographic")
 
     # Create the tag_options dictionary
-    tag_options = None
+    era5_pl_tag_options = data.era5.tag_options()
+    era5_sl_tag_options = data.era5.tag_options(dataset="era5_sl")
+    tag_options = option.consolidate_options([era5_pl_tag_options, era5_sl_tag_options])
+    tag.save_tag_options(tag_options, filename="era5")
 
     # Create the track_options dictionary
     track_options = option.mcs(
         dataset="gridrad",
         tags=["era5_pl", "era5_sl"],
-        global_flow_margin=70,
+        global_flow_margin=75,
         unique_global_flow=False,
     )
-    # Disable tracking/matching for cell and anvil objects
-    track_options[0]["cell"]["tracking"] = {"method": None}
-    track_options[0]["anvil"]["tracking"] = {"method": None}
     option.check_options(track_options)
     option.save_track_options(track_options, filename="gridrad_mcs")
 
     # Create the display_options dictionary
-    cell_vis_options = visualize.option.runtime_options(
-        "cell", save=True, style="presentation", figure_types=["mask"]
-    )
-    anvil_vis_options = visualize.option.runtime_options(
-        "anvil", save=True, style="presentation", figure_types=["mask"]
-    )
-    mcs_vis_options = visualize.option.runtime_options(
-        "mcs", save=True, style="presentation", figure_types=["mask", "match"]
-    )
     visualize_options = {
-        "cell": cell_vis_options,
-        "anvil": anvil_vis_options,
-        "mcs": mcs_vis_options,
+        obj: visualize.option.runtime_options(obj, save=True, style="presentation")
+        for obj in ["cell", "anvil", "mcs"]
     }
     visualize.option.save_display_options(visualize_options, filename="runtime_mcs")
 
-    output_directory = base_local / "runs/gridrad_test"
+    output_directory = base_local / "runs/gridrad_demo"
     if output_directory.exists():
         shutil.rmtree(output_directory)
     times = data.utils.generate_times(data_options["gridrad"])
@@ -96,5 +86,5 @@ def test_gridrad():
         track_options,
         tag_options,
         visualize_options,
-        output_directory=output_directory,
+        output_directory=base_local / "runs/gridrad_demo",
     )

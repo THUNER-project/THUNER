@@ -20,14 +20,23 @@ install:
 - pip install .
 before_script:
 # Create .cdsapirc file
-- echo "url: https://cds.climate.copernicus.eu/api/v2" > ~/.cdsapirc
-- echo "key: $CDSAPI_KEY" >> ~/.cdsapirc
+- |
+  cat <<EOF > ~/.cdsapirc
+  url: https://cds.climate.copernicus.eu/api/v2
+  key: $CDSAPI_KEY
+  EOF
+# Create .cads-api-client.json file
+- |
+  cat <<EOF > ~/.cads-api-client.json
+  {
+    "url": "https://cds.climate.copernicus.eu/api/v2",
+    "key": "$CDSAPI_KEY"
+  }
+  EOF
 script:
 - python -m pytest --verbose --color=yes -s --cov=thor
 env:
-  matrix:
-  - CODECOV_TOKEN=0ef6a6d6-81a3-4af9-bdc5-5bd2db1e0065
-  global:
-  - secure: EPwD3wpCWqRN9NP1tPvHwUD0wDZZFfu5uIGZ+coaGZsSaDAwTEh20d08060iAe6sSLvK3cJsmchT4Q/HKPJc9kY1rscV8L4MZm89Ie0S+cItfjlAYu7WkasIghL4sDbUl8XTOXKVr4kLra9pFYpFB37VElz3S7X9+5rx9thqBND/MdCN/dMQ/a7kaNU9wVoRIF8O5nf8BaBgKHQlGkpNt2kFyBL5QYamMHRa5tuuOqtcyUR23IWe3ZIBMd/EhTGpK7+TuxYH9Q6yKCybg9yFhYsiNn7EK6bej8ujLdA08RpV/MwS/OvYuX38mjdoTyEFo2ZrzcDpAsEGFbY/r89cRo8/PvR5twG2Acvmh8dgf49C8UM0arEmvG5n+YJMuF70IOwHwha/8JMfZupgwf0/DgkAOvwB/iAC5NqbSqBvGe/VbWlyo+wyyz5OGb0gxgCUwUKfgf4raI7LAr6uFu8tszzwySNQ6Sm6yEmlo7ESf7Wvs1lROXqvhJtyZcuzbufZWkyIbZnQBYPkVbM7uTs7PWp37LlJmEdNA6pR/BZVdQFIy+d9l5kzuRHxgdza2WAINH2gLLs8J9XFU6GCG6d6nkoAJlcblcvBSpApccrqGBhvBXZXl3HQ63Z4GqasdsgqbFNKGTdKsFDo9ePFWLWfjcCBmnPhaQyq88uPWext4JY=
+global:
+- secure: EPwD3wpCWqRN9NP1tPvHwUD0wDZZFfu5uIGZ+coaGZsSaDAwTEh20d08060iAe6sSLvK3cJsmchT4Q/HKPJc9kY1rscV8L4MZm89Ie0S+cItfjlAYu7WkasIghL4sDbUl8XTOXKVr4kLra9pFYpFB37VElz3S7X9+5rx9thqBND/MdCN/dMQ/a7kaNU9wVoRIF8O5nf8BaBgKHQlGkpNt2kFyBL5QYamMHRa5tuuOqtcyUR23IWe3ZIBMd/EhTGpK7+TuxYH9Q6yKCybg9yFhYsiNn7EK6bej8ujLdA08RpV/MwS/OvYuX38mjdoTyEFo2ZrzcDpAsEGFbY/r89cRo8/PvR5twG2Acvmh8dgf49C8UM0arEmvG5n+YJMuF70IOwHwha/8JMfZupgwf0/DgkAOvwB/iAC5NqbSqBvGe/VbWlyo+wyyz5OGb0gxgCUwUKfgf4raI7LAr6uFu8tszzwySNQ6Sm6yEmlo7ESf7Wvs1lROXqvhJtyZcuzbufZWkyIbZnQBYPkVbM7uTs7PWp37LlJmEdNA6pR/BZVdQFIy+d9l5kzuRHxgdza2WAINH2gLLs8J9XFU6GCG6d6nkoAJlcblcvBSpApccrqGBhvBXZXl3HQ63Z4GqasdsgqbFNKGTdKsFDo9ePFWLWfjcCBmnPhaQyq88uPWext4JY=
 after_success:
 - codecov
