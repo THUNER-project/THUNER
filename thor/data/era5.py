@@ -307,13 +307,14 @@ def generate_cdsapi_requests(options, grid_options, daily=False):
             time = pd.Timestamp(time)
 
             request = {
-                "product_type": options["mode"],
-                "format": "netcdf",
-                "variable": field,
+                "product_type": [options["mode"]],
+                "data_format": "netcdf",
+                "download_format": "unarchived",
+                "variable": [field],
                 "pressure_level": options["pressure_levels"],
-                "year": f"{time.year:04}",
-                "month": f"{time.month:02}",
-                "day": f"{time.day:02}",
+                "year": [f"{time.year:04}"],
+                "month": [f"{time.month:02}"],
+                "day": [f"{time.day:02}"],
                 "time": [f"{i:02}" for i in range(0, 24)],
             }
 

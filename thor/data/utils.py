@@ -345,6 +345,16 @@ def log_convert(local_logger, name, filepath):
 
 
 def call_ncks(input_filepath, output_filepath, start, end, lat_range, lon_range):
+
+    # Check if time variable "time" or "valid_time". If "valid_time" convert to "time".
+    check_command = f"ncks -m {input_filepath} | grep 'valid_time'"
+    result = subprocess.run(check_command, shell=True, capture_output=True, text=True)
+
+    if "valid_time" in result.stdout:
+        rename_command = "ncap2 -s 'defdim(\"time\",valid_time)' -O "
+        rename_command += f"{input_filepath} {input_filepath}"
+        subprocess.run(rename_command, shell=True, check=True)
+
     command = (
         f"ncks -d time,{start},{end} "
         f"-d latitude,{lat_range[0]},{lat_range[1]} "

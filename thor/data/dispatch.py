@@ -3,6 +3,7 @@
 import copy
 import thor.data.aura as aura
 import thor.data.era5 as era5
+import thor.data.synthetic as synthetic
 import thor.data.gridrad as gridrad
 import thor.data.utils as utils
 from thor.log import setup_logger
@@ -18,13 +19,18 @@ update_dataset_dispatcher = {
     "gridrad": gridrad.update_dataset,
     "era5_pl": era5.update_dataset,
     "era5_sl": era5.update_dataset,
+    "synthetic": synthetic.update_dataset,
 }
 
+grid_from_dataset_basic = lambda dataset, variable, time: dataset[variable].sel(
+    time=time
+)
 
 grid_from_dataset_dispatcher = {
     "cpol": aura.cpol_grid_from_dataset,
     "gridrad": gridrad.gridrad_grid_from_dataset,
-    "operational": lambda dataset, variable, time: dataset[variable].sel(time=time),
+    "operational": grid_from_dataset_basic,
+    "synthetic": grid_from_dataset_basic,
 }
 
 
@@ -34,6 +40,7 @@ generate_filepaths_dispatcher = {
     "gridrad": gridrad.generate_gridrad_filepaths,
     "era5_pl": era5.generate_era5_filepaths,
     "era5_sl": era5.generate_era5_filepaths,
+    "synthetic": None,
 }
 
 
@@ -43,6 +50,7 @@ check_data_options_dispatcher = {
     "gridrad": gridrad.check_data_options,
     "era5_pl": era5.check_data_options,
     "era5_sl": era5.check_data_options,
+    "synthetic": synthetic.check_data_options,
 }
 
 
@@ -56,15 +64,16 @@ def check_data_options(data_options):
     """TBA."""
     for name in data_options.keys():
         check_data_options = check_data_options_dispatcher.get(name)
+        dataset_options = data_options[name]
         if check_data_options is None:
             message = "check_data_options function for dataset "
             message += f"{name} not found."
             raise KeyError(message)
         else:
-            check_data_options(data_options[name])
-        if data_options[name]["filepaths"] is None:
-            filepaths = generate_filepaths(data_options[name])
-            data_options[name]["filepaths"] = filepaths
+            check_data_options(dataset_options)
+        if "filepaths" in dataset_options and dataset_options["filepaths"] is None:
+            filepaths = generate_filepaths(dataset_options)
+            dataset_options["filepaths"] = filepaths
 
 
 def generate_filepaths(dataset_options):

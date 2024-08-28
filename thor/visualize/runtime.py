@@ -316,7 +316,7 @@ def visualize_match(
             pcm = horizontal.grid(grids[j], axes[i], grid_options, add_colorbar=False)
             if masks[j] is not None:
                 horizontal.mask(masks[j], axes[i], grid_options)
-            if "current_boundary_coordinates" in input_record.keys():
+            if input_record["current_boundary_coordinates"] is not None:
                 horizontal.add_domain_boundary(axes[i], all_boundaries[j])
     unique_global_flow = object_options["tracking"]["options"]["unique_global_flow"]
     match_features(grids[0], object_record, axes, grid_options, unique_global_flow)

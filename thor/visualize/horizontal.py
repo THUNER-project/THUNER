@@ -195,6 +195,8 @@ def initialize_gridlines(ax, extent, left_labels=True, bottom_labels=True):
 
     delta_grid = np.max([extent[1] - extent[0], extent[3] - extent[2]])
     spacing = (10 ** np.floor(np.log10(delta_grid))) / 2
+    if spacing < 1:
+        spacing = 1
     gridlines.xlocator = mticker.FixedLocator(np.arange(-180, 180 + spacing, spacing))
     gridlines.ylocator = mticker.FixedLocator(np.arange(-90, 90 + spacing, spacing))
     ax.set_extent(extent)

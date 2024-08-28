@@ -5,13 +5,14 @@ Module for generating synthetic reflectivity data for testing.
 import numpy as np
 import copy
 import xarray as xr
+from pyproj import Geod
+import inspect
+from scipy.stats import vonmises
 from thor.log import setup_logger
 from thor.config import get_outputs_directory
 import thor.data.option as option
-from scipy.stats import vonmises
 import thor.data.utils as utils
 import thor.grid as grid
-from pyproj import Geod
 
 
 logger = setup_logger(__name__)
@@ -66,6 +67,24 @@ def synthetic_data_options(
     return options
 
 
+def check_data_options(options):
+    """
+    Check the data options.
+
+    Parameters
+    ----------
+    options : dict
+        Dictionary containing the data options.
+    """
+
+    required_options = inspect.getfullargspec(synthetic_data_options).args
+
+    for key in required_options:
+        if key not in options.keys():
+            raise ValueError(f"Missing required key {key}")
+    return options
+
+
 def create_object_dictionary(
     time,
     center_latitude,
@@ -91,7 +110,7 @@ def create_object_dictionary(
     center_longitude : float
         The longitude of the center of the object.
     direction : float
-        The direction the object is moving in radians counterclockwise from east.
+        The direction the object is moving in radians clockwise from north.
     speed : float
         The speed the object is moving in metres per second.
     horizontal_radius : float, optional
@@ -145,37 +164,38 @@ def update_dataset(time, input_record, tracks, dataset_options, grid_options):
         input_record["objects"] = dataset_options["starting_objects"]
 
     updated_objects = copy.deepcopy(input_record["objects"])
-    for object in input_record["objects"]:
-        updated_objects.append(update_object(time, object))
+    for i in range(len(input_record["objects"])):
+        updated_objects[i] = update_object(time, input_record["objects"][i])
     input_record["objects"] = updated_objects
 
-    ds = create_dataset(grid_options)
+    ds = create_dataset(time, grid_options)
     for object in input_record["objects"]:
         ds = add_reflectivity(ds, **object)
 
     input_record["dataset"] = ds
 
 
-def update_object(time, object):
+def update_object(time, obj):
     """
     Update object based on the difference between time and the object time.
     """
-    time_diff = np.datetime64(time) - np.datetime64(object["time"])
-    time_diff = time_diff.astype("timedelta64[s]").astype(int)
-    distance = time_diff * object["speed"]
-    new_lat, new_lon = geod.fwd(
-        object["center_latitude"],
-        object["center_longitude"],
-        np.rad2deg(object["direction"]),
+    time_diff = np.datetime64(time) - np.datetime64(obj["time"])
+    time_diff = time_diff.astype("timedelta64[s]").astype(float)
+    distance = time_diff * obj["speed"]
+    new_lon, new_lat = geod.fwd(
+        obj["center_longitude"],
+        obj["center_latitude"],
+        np.rad2deg(obj["direction"]),
         distance,
     )[0:2]
-    object["center_latitude"] = new_lat
-    object["center_longitude"] = new_lon
-    object["time"] = time
-    return object
+    obj["center_latitude"] = new_lat
+    obj["center_longitude"] = new_lon
+    obj["time"] = time
+
+    return obj
 
 
-def create_dataset(grid_options):
+def create_dataset(time, grid_options):
     """
     Generate synthetic reflectivity data for testing.
 
@@ -190,14 +210,29 @@ def create_dataset(grid_options):
         Dictionary containing the synthetic reflectivity data.
     """
 
+    time = np.array([np.datetime64(time)]).astype("datetime64[ns]")
     lat = np.array(grid_options["latitude"])
     lon = np.array(grid_options["longitude"])
     alt = np.array(grid_options["altitude"])
 
-    ds_values = np.ones((len(alt), len(lat), len(lon))) * np.nan
+    ds_values = np.ones((1, len(alt), len(lat), len(lon))) * np.nan
     ds = xr.Dataset(
-        {"reflectivity": (["altitude", "latitude", "longitude"], ds_values)},
-        coords={"altitude": alt, "latitude": lat, "longitude": lon},
+        {"reflectivity": (["time", "altitude", "latitude", "longitude"], ds_values)},
+        coords={"time": time, "altitude": alt, "latitude": lat, "longitude": lon},
+    )
+    ds["reflectivity"].attrs.update({"long_name": "reflectivity", "units": "dBZ"})
+
+    if grid_options["name"] == "geographic":
+        dims = ["latitude", "longitude"]
+    elif grid_options["name"] == "cartesian":
+        dims = ["y", "x"]
+    else:
+        raise ValueError(f"Unknown grid type {grid_options}.")
+
+    cell_areas = grid.get_cell_areas(grid_options)
+    ds["gridcell_area"] = (dims, cell_areas)
+    ds["gridcell_area"].attrs.update(
+        {"units": "km^2", "standard_name": "area", "valid_min": 0}
     )
     return ds
 
@@ -230,7 +265,7 @@ def add_reflectivity(
     """
 
     # Create a meshgrid for the coordinates
-    lon, lat, alt = xr.broadcast(ds.longitude, ds.latitude, ds.altitude)
+    time, lon, lat, alt = xr.broadcast(ds.time, ds.longitude, ds.latitude, ds.altitude)
 
     # Calculate the rotated coordinates
     x_rot = (lon - center_longitude) * np.cos(orientation)

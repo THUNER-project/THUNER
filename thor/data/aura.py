@@ -459,6 +459,7 @@ def convert_cpol(time, input_record, dataset_options, grid_options):
         if np.unique(x_spacing).size > 1 or np.unique(y_spacing).size > 1:
             raise ValueError("x and y must have constant spacing.")
         grid_options["cartesian_spacing"] = [y_spacing[0], x_spacing[0]]
+
     # Define grid shape and gridcell areas
     grid_options["shape"] = [len(ds[dims[0]].values), len(ds[dims[1]].values)]
     cell_areas = grid.get_cell_areas(grid_options)
