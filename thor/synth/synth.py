@@ -43,7 +43,7 @@ def dataset(
     return ds
 
 
-def add_cell(
+def add_reflectivity(
     ds,
     lat_center,
     lon_center,
@@ -54,7 +54,7 @@ def add_cell(
     orientation,
 ):
     # Create a meshgrid for the coordinates
-    lon, lat, alt = np.meshgrid(ds.longitude, ds.latitude, ds.altitude)
+    lon, lat, alt = xr.broadcast(ds.longitude, ds.latitude, ds.altitude)
 
     # Calculate the rotated coordinates
     x_rot = (lon - lon_center) * np.cos(orientation)
@@ -71,12 +71,9 @@ def add_cell(
 
     # Apply a Gaussian function to create an elliptical pattern
     reflectivity = intensity * np.exp(-(distance**2) / 2)
-    reflectivity[reflectivity < 0.05 * intensity] = np.nan
+    reflectivity = reflectivity.where(reflectivity >= 0.05 * intensity, np.nan)
+    reflectivity = reflectivity.transpose(*ds.dims)
 
     # Add the generated data to the ds DataArray
-    ds.values = np.maximum(ds.values, reflectivity)
+    ds.values = xr.where(~np.isnan(reflectivity), reflectivity, ds)
     return ds
-
-
-def anvil():
-    pass

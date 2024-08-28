@@ -26,6 +26,8 @@ before_script:
   - ls -la
   - chmod +x create_cdsapirc.sh
   - ./create_cdsapirc.sh
+  - ln -s ~/.cdsapirc /home/travis/.cads-api-client.json
+
 
 script:
   - python -m pytest --verbose --color=yes -s --cov=thor
