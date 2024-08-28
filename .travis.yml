@@ -2,39 +2,32 @@ dist: jammy
 os: linux
 language: python
 python:
-  - '3.10'
-
+- '3.10'
 install:
-  - export CONDA_BASE=http://repo.continuum.io/miniconda/Miniconda3
-  - wget ${CONDA_BASE}-latest-Linux-x86_64.sh -O miniconda.sh
-  - bash miniconda.sh -b -p $HOME/miniconda
-  - export PATH="$HOME/miniconda/bin:$PATH"
-  - hash -r
-  - conda init
-  - source ~/.bashrc
-  - conda config --set always_yes yes --set changeps1 no
-  - conda config --set show_channel_urls True
-  - conda update --quiet conda
-  - conda env create -f environment.yml
-  - conda activate THOR
-  - conda list
-  - conda info -a
-  - pip install .
-
+- export CONDA_BASE=http://repo.continuum.io/miniconda/Miniconda3
+- wget ${CONDA_BASE}-latest-Linux-x86_64.sh -O miniconda.sh
+- bash miniconda.sh -b -p $HOME/miniconda
+- export PATH="$HOME/miniconda/bin:$PATH"
+- hash -r
+- conda init
+- source ~/.bashrc
+- conda config --set always_yes yes --set changeps1 no
+- conda config --set show_channel_urls True
+- conda update --quiet conda
+- conda env create -f environment.yml
+- conda activate THOR
+- conda list
+- conda info -a
+- pip install .
 before_script:
-  # Create .cdsapirc file
-  - ls -la
-  - chmod +x create_cdsapirc.sh
-  - ./create_cdsapirc.sh
-  - ln -s ~/.cdsapirc /home/travis/.cads-api-client.json
-
-
+- ls -la
+- chmod +x create_cdsapirc.sh
+- "./create_cdsapirc.sh"
+# - ln -s ~/.cdsapirc /home/travis/.cads-api-client.json
 script:
-  - python -m pytest --verbose --color=yes -s --cov=thor
-
+- python -m pytest --verbose --color=yes -s --cov=thor
 env:
   global:
-    - secure: EPwD3wpCWqRN9NP1tPvHwUD0wDZZFfu5uIGZ+coaGZsSaDAwTEh20d08060iAe6sSLvK3cJsmchT4Q/HKPJc9kY1rscV8L4MZm89Ie0S+cItfjlAYu7WkasIghL4sDbUl8XTOXKVr4kLra9pFYpFB37VElz3S7X9+5rx9thqBND/MdCN/dMQ/a7kaNU9wVoRIF8O5nf8BaBgKHQlGkpNt2kFyBL5QYamMHRa5tuuOqtcyUR23IWe3ZIBMd/EhTGpK7+TuxYH9Q6yKCybg9yFhYsiNn7EK6bej8ujLdA08RpV/MwS/OvYuX38mjdoTyEFo2ZrzcDpAsEGFbY/r89cRo8/PvR5twG2Acvmh8dgf49C8UM0arEmvG5n+YJMuF70IOwHwha/8JMfZupgwf0/DgkAOvwB/iAC5NqbSqBvGe/VbWlyo+wyyz5OGb0gxgCUwUKfgf4raI7LAr6uFu8tszzwySNQ6Sm6yEmlo7ESf7Wvs1lROXqvhJtyZcuzbufZWkyIbZnQBYPkVbM7uTs7PWp37LlJmEdNA6pR/BZVdQFIy+d9l5kzuRHxgdza2WAINH2gLLs8J9XFU6GCG6d6nkoAJlcblcvBSpApccrqGBhvBXZXl3HQ63Z4GqasdsgqbFNKGTdKsFDo9ePFWLWfjcCBmnPhaQyq88uPWext4JY=
-
+  - secure: UrbvOX0SndJj3eWMRSIM16Hc6GyboiqBhfXBisPRCUpiIIdPyVMpaKAhlXNVe8pUZ61xPEopdnDwjWV//15IXRxghkXT51RecacTwsCGioJNaXq1um4f5kIlFnyvhLfMiWCCVSKx9PvVkfEggLoY7rNsMCEzJoB91vlOyyIG92W1/NETO2L5uJiIYtIIB58QAHlwn6oqhAzWbk2qQ2wg7WZpz/6BrmY2z9m9gi/vLxB1lnVZ7AhfzopMSsquLxTT/mjI2UZbQRivYC//BawedfBfDbSb9Z5jj/O4QGlSygzPPP533rFZdodXFmHUzN+2H9baAgYQj0dcTZ5MUzRy9ok961bEAkDDTlmgfRM9OP9pOW8r4HoO22/OwR0HhpkBqu79z8Us1sdzkfyFionqIHu2IPu5Gwalq93QQ6Hc93TGsJJnWtGX+71n5m35R0KWDSquFO6rY3T1qPJNdehgXfjFCV89NC82oMWCh2v15F7liD/IxLAutsg29Y4nrD3AvKyv8c3CvASpLM66eq+RGzGnBMAiW7ZwMGjw1eSY/PwOImpEqXfoIOzKssObBxYC4h7RbM1n2DLRmHGSwwXKQ4F8WkuBh4uMVk8Fls0OiDtK+Nl0RqxWf91aE7OA5ngkrdTLaOCXhZ3ef4FFeXR0Hhz4vifx/das01dAFQuIaio=
 after_success:
-  - codecov
+- codecov
