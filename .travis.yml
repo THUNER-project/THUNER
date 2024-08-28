@@ -20,10 +20,10 @@ install:
 - conda info -a
 - pip install .
 before_script:
-- echo "url: https://cds-beta.climate.copernicus.eu/api" > ~/.cdsapirc
-- echo "key: $CDSAPI_KEY" >> ~/.cdsapirc
+- chmod +x create_cdsapirc.sh
+- "./create_cdsapirc.sh"
 script:
-- python -m pytest --verbose --color=yes -s --cov=thor
+- python -m pytest --verbose --color=yes -s --cov=thor --log-cli-level=INFO
 env:
   global:
   - secure: tg4J4EKBK9Qf0PljDQs6ibxFdR6IbjWeCG9LbBK9kPeilkQKviyLWmCpK1XP0ofXYvEyDMhvhp+N2/0uGSU18Qozp1lwWlZ/T+NsRq7Vf9loU1TLp4p28UAbbQAtuazJsIylmldjxSQ1lZokYc3C3Nd4fG/pZidum2EhqHuUAZZxcBnien7vJFQNp2SUvYBhXDOKr+5zTrLNAvp42gbcjsKtp5GBycsqGQwVxslydemXnjSCOBBE8zsSc74vnaEvtFe6blbqFDsapUPdKtwGxtyCI9BhzMQeNtELD/KnzQlcV/CcKS+esM3KjJZebfI7mfOXPaaXR5uZIWSCf8WF4jJmwoqH+4E0MU5SKkJtrs22jzchqLbuSznvnGf/6wdL94QV3u2GClogi7SndSBfoeWsbYuIS+2qrK+URV006Y9/JCCm+Syxc3allw1129+Q6PDHPF0Glri/f14F60r4hCPe+fGMEIZfKL9P26ftq7VwO2p3E5r//7Y0lEckCwPtSlVscj+mbVZLPawvZ3QvZA/D1oU8gdohJ73gzGi7GDLvdaqvLiAlpLrH0dTAichZIh0YcPL3NWBW9LbpQOCqpfsIyCG9uF/j8KjFlR3huoLJto5nl8ehRZxUTzxYSecmALNywZEcvEsyRuGxWD/oVit2PqpLm9YNLWgBGOCCH6o=
