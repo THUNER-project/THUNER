@@ -27,11 +27,11 @@ def match(object_tracks, object_options, grid_options):
     if object_options["tracking"]["method"] is None:
         return
     current_mask, previous_mask = get_masks(object_tracks, object_options)
-    logger.debug(f"Matching {object_options['name']} objects.")
+    logger.info(f"Matching {object_options['name']} objects.")
     current_ids = np.unique(current_mask)
     current_ids = current_ids[current_ids != 0]
     if previous_mask is None or np.max(previous_mask) == 0:
-        logger.debug("No previous mask, or no objects in previous mask.")
+        logger.info("No previous mask, or no objects in previous mask.")
         object_tracks["object_record"] = thor_object.empty_object_record()
         object_tracks["global_flow"] = None
         # Create matched mask by relabelling current mask with universal ids.
@@ -48,10 +48,10 @@ def match(object_tracks, object_options, grid_options):
     previous_ids[previous_ids > 0]
 
     if len(previous_ids) == 0:
-        logger.debug("New matchable objects. Initializing object record.")
+        logger.info("New matchable objects. Initializing object record.")
         thor_object.initialize_object_record(match_data, object_tracks, object_options)
     else:
-        logger.debug("Updating object record.")
+        logger.info("Updating object record.")
         thor_object.update_object_record(match_data, object_tracks, object_options)
 
     get_matched_mask(object_tracks, object_options, grid_options)

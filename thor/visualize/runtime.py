@@ -368,7 +368,7 @@ def visualize(
     # Close all current figures
     plt.close("all")
 
-    logger.debug("Generating runtime visualizations.")
+    logger.info("Generating runtime visualizations.")
 
     object_options = track_options[level_index][obj]
 

@@ -78,7 +78,7 @@ def check_valid_url(url):
         raise TypeError("url must be a string")
 
     # Send a HTTP request to the URL
-    logger.debug("Sending HTTP request to %s.", url)
+    logger.info("Sending HTTP request to %s.", url)
     try:
         response = requests.head(url, timeout=10)
         # Check if the request is successful
@@ -123,19 +123,19 @@ def download_file(url, parent_remote, parent_local):
     partial_filepath = filepath.with_suffix(".part")
 
     if filepath.exists():
-        logger.debug("%s already exists.", filepath)
+        logger.info("%s already exists.", filepath)
         return str(filepath)
     if partial_filepath.exists():
-        logger.debug("Resuming download of %s...", url)
+        logger.info("Resuming download of %s...", url)
         already_downloaded = partial_filepath.stat().st_size
         resume_header = {"Range": f"bytes={partial_filepath.stat().st_size}-"}
     else:
-        logger.debug("Initiating download of %s...", url)
+        logger.info("Initiating download of %s...", url)
         already_downloaded = 0
         resume_header = {}
 
     # Send a HTTP request to the URL
-    logger.debug("Sending HTTP request to %s.", url)
+    logger.info("Sending HTTP request to %s.", url)
     response = requests.get(url, headers=resume_header, stream=True, timeout=10)
     # Check if the request is successful
     if response.status_code == 200 or response.status_code == 206:
@@ -217,7 +217,7 @@ def consolidate_netcdf(filepaths, fields=None, concat_dim="time"):
         dataset = dataset[fields]
         datasets.append(dataset)
 
-    logger.debug("Concatenating datasets along %s.", concat_dim)
+    logger.info("Concatenating datasets along %s.", concat_dim)
     dataset = xr.concat(datasets, dim=concat_dim)
 
     return dataset
@@ -324,7 +324,7 @@ def cdsapi_retrieval(cds_name, request, local_path):
     None
     """
     if Path(local_path).exists():
-        logger.debug("%s already exists.", local_path)
+        logger.info("%s already exists.", local_path)
         return
 
     if not Path(local_path).parent.exists():
@@ -335,13 +335,13 @@ def cdsapi_retrieval(cds_name, request, local_path):
 
 
 def log_dataset_update(local_logger, name, time):
-    local_logger.debug(
+    local_logger.info(
         f"Updating {name} dataset for {format_time(time, filename_safe=False)}."
     )
 
 
 def log_convert(local_logger, name, filepath):
-    local_logger.debug("Converting %s data from %s", name, Path(filepath).name)
+    local_logger.info("Converting %s data from %s", name, Path(filepath).name)
 
 
 def call_ncks(input_filepath, output_filepath, start, end, lat_range, lon_range):

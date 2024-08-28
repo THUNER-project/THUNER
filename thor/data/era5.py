@@ -354,8 +354,8 @@ def issue_cdsapi_requests(cds_name, requests, local_paths):
 
             # Print progress messages while the download is running
             while download_thread.is_alive():
-                logger.debug(f"Downloading {path.name}. Please wait.")
-                time.sleep(30)  # Adjust the sleep time as needed
+                logger.info(f"Downloading {path.name}. Please wait.")
+                time.sleep(10)  # Adjust the sleep time as needed
 
             download_thread.join()
 
@@ -396,7 +396,7 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
     with tempfile.TemporaryDirectory() as tmp:
         for field in dataset_options["fields"]:
             for filepath in filepaths[field]:
-                logger.debug("Subsetting %s", Path(filepath).name)
+                logger.info("Subsetting %s", Path(filepath).name)
                 utils.call_ncks(
                     filepath, f"{tmp}/{field}.nc", start, end, lat_range, lon_range
                 )

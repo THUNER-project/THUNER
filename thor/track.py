@@ -175,7 +175,7 @@ def simultaneous_track(
 
     """
 
-    logger.debug("Beginning simultaneous tracking.")
+    logger.info("Beginning simultaneous tracking.")
     option.check_options(track_options)
     dispatch.check_data_options(data_options)
     tracks = initialise_tracks(track_options, data_options)
@@ -200,7 +200,7 @@ def simultaneous_track(
         )
         # loop over levels
         for level_index in range(len(track_options)):
-            logger.debug("Processing hierarchy level %s.", level_index)
+            logger.info("Processing hierarchy level %s.", level_index)
             track_level(
                 time,
                 level_index,
@@ -240,7 +240,7 @@ def track_level(
     level_tracks = tracks[level_index]
     level_options = track_options[level_index]
     for obj in level_tracks.keys():
-        logger.debug("Tracking %s.", obj)
+        logger.info("Tracking %s.", obj)
         dataset = level_options[obj]["dataset"]
         if dataset is None:
             dataset_options = None
