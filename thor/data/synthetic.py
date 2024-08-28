@@ -3,14 +3,19 @@ Module for generating synthetic reflectivity data for testing.
 """
 
 import numpy as np
+import copy
 import xarray as xr
 from thor.log import setup_logger
 from thor.config import get_outputs_directory
 import thor.data.option as option
 from scipy.stats import vonmises
+import thor.data.utils as utils
+import thor.grid as grid
+from pyproj import Geod
 
 
 logger = setup_logger(__name__)
+geod = Geod(ellps="WGS84")
 
 
 def synthetic_data_options(
@@ -62,12 +67,12 @@ def synthetic_data_options(
 
 
 def create_object_dictionary(
-    start,
+    time,
     center_latitude,
     center_longitude,
     direction,
     speed,
-    radius=0.1,
+    horizontal_radius=20,
     alt_center=3e3,
     alt_radius=1e3,
     intensity=50,
@@ -79,8 +84,8 @@ def create_object_dictionary(
 
     Parameters
     ----------
-    start : str
-        The start time of the object.
+    time : str
+        The time at which the object has the properties in the dictionary.
     center_latitude : float
         The latitude of the center of the object.
     center_longitude : float
@@ -89,6 +94,8 @@ def create_object_dictionary(
         The direction the object is moving in radians counterclockwise from east.
     speed : float
         The speed the object is moving in metres per second.
+    horizontal_radius : float, optional
+        The horizontal radius of the object in km; default is 10.
 
     Returns
     -------
@@ -97,10 +104,10 @@ def create_object_dictionary(
     """
 
     object_dict = {
-        "start": start,
+        "time": time,
         "center_latitude": center_latitude,
         "center_longitude": center_longitude,
-        "radius": radius,
+        "horizontal_radius": horizontal_radius,
         "alt_center": alt_center,
         "alt_radius": alt_radius,
         "intensity": intensity,
@@ -110,6 +117,62 @@ def create_object_dictionary(
         "speed": speed,
     }
     return object_dict
+
+
+def update_dataset(time, input_record, tracks, dataset_options, grid_options):
+    """
+    Update an aura dataset.
+
+    Parameters
+    ----------
+    time : datetime64
+        The time of the dataset.
+    object_tracks : dict
+        Dictionary containing the object tracks.
+    dataset_options : dict
+        Dictionary containing the dataset options.
+    grid_options : dict
+        Dictionary containing the grid options.
+
+    Returns
+    -------
+    dataset : object
+        The updated dataset.
+    """
+    utils.log_dataset_update(logger, dataset_options["name"], time)
+
+    if "objects" not in input_record.keys():
+        input_record["objects"] = dataset_options["starting_objects"]
+
+    updated_objects = copy.deepcopy(input_record["objects"])
+    for object in input_record["objects"]:
+        updated_objects.append(update_object(time, object))
+    input_record["objects"] = updated_objects
+
+    ds = create_dataset(grid_options)
+    for object in input_record["objects"]:
+        ds = add_reflectivity(ds, **object)
+
+    input_record["dataset"] = ds
+
+
+def update_object(time, object):
+    """
+    Update object based on the difference between time and the object time.
+    """
+    time_diff = np.datetime64(time) - np.datetime64(object["time"])
+    time_diff = time_diff.astype("timedelta64[s]").astype(int)
+    distance = time_diff * object["speed"]
+    new_lat, new_lon = geod.fwd(
+        object["center_latitude"],
+        object["center_longitude"],
+        np.rad2deg(object["direction"]),
+        distance,
+    )[0:2]
+    object["center_latitude"] = new_lat
+    object["center_longitude"] = new_lon
+    object["time"] = time
+    return object
 
 
 def create_dataset(grid_options):
@@ -141,14 +204,15 @@ def create_dataset(grid_options):
 
 def add_reflectivity(
     ds,
-    lat_center,
-    lon_center,
+    center_latitude,
+    center_longitude,
     horizontal_radius,
     alt_center,
     alt_radius,
     intensity,
     eccentricity,
     orientation,
+    **kwargs,
 ):
     """
     Add elliptical/gaussian synthetic reflectivity data to emulate cells, anvils etc.
@@ -169,10 +233,10 @@ def add_reflectivity(
     lon, lat, alt = xr.broadcast(ds.longitude, ds.latitude, ds.altitude)
 
     # Calculate the rotated coordinates
-    x_rot = (lon - lon_center) * np.cos(orientation)
-    x_rot += (lat - lat_center) * np.sin(orientation)
-    y_rot = -(lon - lon_center) * np.sin(orientation)
-    y_rot += (lat - lat_center) * np.cos(orientation)
+    x_rot = (lon - center_longitude) * np.cos(orientation)
+    x_rot += (lat - center_latitude) * np.sin(orientation)
+    y_rot = -(lon - center_longitude) * np.sin(orientation)
+    y_rot += (lat - center_latitude) * np.cos(orientation)
 
     # Convert horizontal_radius to approximate lat/lon radius.
     horizontal_radius = horizontal_radius / 111.32
