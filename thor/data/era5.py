@@ -1,7 +1,8 @@
 """Process ERA5 data."""
 
+import time
+import threading
 from pathlib import Path
-import calendar
 import inspect
 import tempfile
 import numpy as np
@@ -159,7 +160,7 @@ def check_data_options(options):
     return options
 
 
-def format_daterange(year, month):
+def format_daterange(year, month, day=None):
     """
     Format the date range string used in ERA5 file names on NCI Gadi,
     https://dx.doi.org/10.25914/5f48874388857.
@@ -176,12 +177,14 @@ def format_daterange(year, month):
     date_range_str : str
         The formatted date range str.
     """
-    last_day = calendar.monthrange(year, month)[1]
-    date_range_str = f"{year:04}{month:02}01-{year:04}{month:02}{last_day}"
+    if day is None:
+        date_range_str = f"{year:04}{month:02}"
+    else:
+        date_range_str = f"{year:04}{month:02}{day:02}"
     return date_range_str
 
 
-def generate_era5_filepaths(options, start=None, end=None, local=True):
+def generate_era5_filepaths(options, start=None, end=None, local=True, daily=True):
     """
     Generate era5 filepaths from dataset options dictionary.
 
@@ -216,11 +219,21 @@ def generate_era5_filepaths(options, start=None, end=None, local=True):
 
     base_filepath = f"{parent}/era5/{options['data_format']}/{options['mode']}"
 
-    times = np.arange(
-        np.datetime64(f"{start.year:04}-{start.month:02}"),
-        np.datetime64(f"{end.year:04}-{end.month:02}") + np.timedelta64(1, "M"),
-        np.timedelta64(1, "M"),
-    )
+    if daily:
+        # Note we typically store data locally in daily files
+        times = np.arange(
+            np.datetime64(f"{start.year:04}-{start.month:02}-{start.day:02}"),
+            np.datetime64(f"{end.year:04}-{end.month:02}-{start.day:02}")
+            + np.timedelta64(1, "D"),
+            np.timedelta64(1, "D"),
+        )
+    else:
+        # On GADI era5 data is stored in monthly files
+        times = np.arange(
+            np.datetime64(f"{start.year:04}-{start.month:02}"),
+            np.datetime64(f"{end.year:04}-{end.month:02}") + np.timedelta64(1, "M"),
+            np.timedelta64(1, "M"),
+        )
 
     filepaths = dict(
         zip(options["fields"], [[] for i in range(len(options["fields"]))])
@@ -229,7 +242,10 @@ def generate_era5_filepaths(options, start=None, end=None, local=True):
     for field in options["fields"]:
         for time in times:
             time = pd.Timestamp(time)
-            daterange_str = format_daterange(time.year, time.month)
+            if daily:
+                daterange_str = format_daterange(time.year, time.month, time.day)
+            else:
+                daterange_str = format_daterange(time.year, time.month)
             filepath = (
                 f"{base_filepath}/{field}/{time.year}/{field}_era5_oper_"
                 f"{short_data_format[options['data_format']]}_{daterange_str}.nc"
@@ -242,7 +258,7 @@ def generate_era5_filepaths(options, start=None, end=None, local=True):
     return filepaths
 
 
-def generate_cdsapi_requests(options, grid_options):
+def generate_cdsapi_requests(options, grid_options, daily=False):
     """
     Retrieve ERA5 data using the CDS API.
 
@@ -278,17 +294,17 @@ def generate_cdsapi_requests(options, grid_options):
         f"{options['parent_local']}/era5/{options['data_format']}/{options['mode']}"
     )
 
+    # Request a days data at a time fromt the API
     times = np.arange(
-        np.datetime64(f"{start.year:04}-{start.month:02}"),
-        np.datetime64(f"{end.year:04}-{end.month:02}") + np.timedelta64(1, "M"),
-        np.timedelta64(1, "M"),
+        np.datetime64(f"{start.year:04}-{start.month:02}-{start.day:02}"),
+        np.datetime64(f"{end.year:04}-{end.month:02}-{end.day:02}")
+        + np.timedelta64(1, "D"),
+        np.timedelta64(1, "D"),
     )
 
     for field in options["fields"]:
         for time in times:
             time = pd.Timestamp(time)
-
-            last_day = calendar.monthrange(time.year, time.month)[1]
 
             request = {
                 "product_type": options["mode"],
@@ -297,7 +313,7 @@ def generate_cdsapi_requests(options, grid_options):
                 "pressure_level": options["pressure_levels"],
                 "year": f"{time.year:04}",
                 "month": f"{time.month:02}",
-                "day": [f"{i:02}" for i in range(1, last_day + 1)],
+                "day": f"{time.day:02}",
                 "time": [f"{i:02}" for i in range(0, 24)],
             }
 
@@ -306,7 +322,7 @@ def generate_cdsapi_requests(options, grid_options):
             area = [lat[-1], lon[0], lat[0], lon[-1]]
             request["area"] = area
 
-            daterange_str = format_daterange(time.year, time.month)
+            daterange_str = format_daterange(time.year, time.month, time.day)
             local_path = (
                 f"{base_path}/{field}/{time.year}/{field}_era5_oper_"
                 f"{short_data_format[options['data_format']]}_{daterange_str}.nc"
@@ -320,11 +336,27 @@ def generate_cdsapi_requests(options, grid_options):
 def issue_cdsapi_requests(cds_name, requests, local_paths):
     """Issue cdsapi requests."""
 
-    c = cdsapi.Client()
+    def download_data(cds_name, request, local_path):
+        c = cdsapi.Client()
+        c.retrieve(cds_name, request, local_path)
+
     for field in requests.keys():
         for i in range(len(local_paths[field])):
-            Path(local_paths[field][i]).parent.mkdir(parents=True, exist_ok=True)
-            c.retrieve(cds_name, requests[field][i], local_paths[field][i])
+            path = Path(local_paths[field][i])
+            path.parent.mkdir(parents=True, exist_ok=True)
+            # Create a thread to run the download function
+            download_thread = threading.Thread(
+                target=download_data,
+                args=(cds_name, requests[field][i], local_paths[field][i]),
+            )
+            download_thread.start()
+
+            # Print progress messages while the download is running
+            while download_thread.is_alive():
+                logger.debug(f"Downloading {path.name}. Please wait.")
+                time.sleep(30)  # Adjust the sleep time as needed
+
+            download_thread.join()
 
 
 def convert_era5():
