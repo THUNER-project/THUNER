@@ -117,7 +117,6 @@ def boilerplate_object(
     mask_options=None,
     deque_length=2,
     tags=None,
-    display=False,
 ):
     """THOR object boilerplate.
 
@@ -150,7 +149,6 @@ def boilerplate_object(
         "deque_length": deque_length,
         "mask_options": mask_options,
         "tags": tags,
-        "display": display,
     }
     return options
 
@@ -294,6 +292,12 @@ def cell_object(
 
     Parameters
     ----------
+    name : str
+        Name of object to track.
+    dataset : str
+        Name of dataset to use for plotting.
+    variable : str
+        Variable to use for detection.
     filename : str
         Name of file to write configuration to.
 
