@@ -351,12 +351,12 @@ def call_ncks(input_filepath, output_filepath, start, end, lat_range, lon_range)
     result = subprocess.run(check_command, shell=True, capture_output=True, text=True)
 
     if "valid_time" in result.stdout:
-        rename_command = "ncap2 -s 'defdim(\"time\",valid_time)' -O "
-        rename_command += f"{input_filepath} {input_filepath}"
-        subprocess.run(rename_command, shell=True, check=True)
+        time_var = "valid_time"
+    else:
+        time_var = "time"
 
     command = (
-        f"ncks -d time,{start},{end} "
+        f"ncks -d {time_var},{start},{end} "
         f"-d latitude,{lat_range[0]},{lat_range[1]} "
         f"-d longitude,{lon_range[0]},{lon_range[1]} "
         f"{input_filepath} {output_filepath}"

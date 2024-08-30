@@ -27,3 +27,4 @@ dependencies:
   - xesmf
   - opencv
   - nco
+  - awscli

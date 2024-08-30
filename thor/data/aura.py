@@ -421,10 +421,8 @@ def convert_cpol(time, input_record, dataset_options, grid_options):
         if grid_options["latitude"] is None or grid_options["longitude"] is None:
             # If the lat/lon of the new grid were not specified, construct from spacing
             spacing = grid_options["geographic_spacing"]
-            logger.debug(
-                f"Creating new geographic grid with spacing "
-                f"{spacing[0]} m, {spacing[1]} m."
-            )
+            message = f"Creating new geographic grid with spacing {spacing[0]} m, {spacing[1]} m."
+            logger.info(message)
             if spacing is None:
                 raise ValueError("Spacing cannot be None if latitude/longitude None.")
             old_lats = cpol["latitude"].values

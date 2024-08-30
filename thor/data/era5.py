@@ -1,7 +1,8 @@
 """Process ERA5 data."""
 
-import time
-import threading
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
+import calendar
+import signal
 from pathlib import Path
 import inspect
 import tempfile
@@ -33,10 +34,9 @@ def data_options(
     data_format="pressure-levels",
     pressure_levels=None,
     fields=None,
-    start_latitude=None,
-    end_latitude=None,
-    start_longitude=None,
-    end_longitude=None,
+    storage="monthly",
+    latitude_range=None,
+    longitude_range=None,
     **kwargs,
 ):
     """
@@ -60,6 +60,12 @@ def data_options(
         The fields to include in the dataset; default is ["u", "v"].
     save : bool, optional
         Whether to save the dataset; default is True.
+    storage : str, optional
+        Whether the era5 data is stored in monthly or daily files; default is "monthly"
+        which is the format on GADI.
+    subset : bool, optional
+        Whether the whole ERA5 grid is stored, or just some region of interest. Default
+        is True.
     **kwargs
         Additional keyword arguments.
 
@@ -103,10 +109,9 @@ def data_options(
             "data_format": data_format,
             "fields": fields,
             "pressure_levels": pressure_levels,
-            "start_latitude": start_latitude,
-            "start_longitude": start_longitude,
-            "end_latitude": end_latitude,
-            "end_longitude": end_longitude,
+            "storage": storage,
+            "latitude_range": latitude_range,
+            "longitude_range": longitude_range,
         }
     )
 
@@ -135,23 +140,40 @@ def check_data_options(options):
         if key not in options.keys():
             raise ValueError(f"Missing required key {key}")
 
+    if options["latitude_range"] is None:
+        options["latitude_range"] = [-90, 90]
+        logger.warning("No longitude range provided. Setting to [-90, 90].")
+    else:
+        lat_range = np.array(options["latitude_range"])
+        if any(lat_range > 90) or any(lat_range < -90):
+            raise ValueError("latitude_range elements must be between -90 and 90.")
+        if lat_range[0] > lat_range[1]:
+            raise ValueError("latitude_range must be [min, max].")
+    if options["longitude_range"] is None:
+        options["longitude_range"] = [-180, 180]
+        logger.warning("No longitude range provided. Setting to [-180, 180].")
+    else:
+        lon_range = np.array(options["longitude_range"])
+        if any(lon_range > 360) or any(lon_range < -180):
+            raise ValueError("longitude_range elements must be between -180 and 360.")
+        if lon_range[0] > lon_range[1]:
+            raise ValueError("longitude_range must be [min, max].")
+
     min_start = np.datetime64("1959-01-01T00:00:00")
     if np.datetime64(options["start"]) < min_start:
         raise ValueError(f"start must be {min_start} or later.")
 
     data_formats = ["pressure-levels", "single-levels"]
     if options["data_format"] not in data_formats:
-        raise ValueError(
-            f"data_format must be one of {format_string_list(data_formats)}."
-        )
+        message = f"data_format must be one of {format_string_list(data_formats)}."
+        raise ValueError(message)
 
     if (
         options["data_format"] == "pressure-levels"
         and options["pressure_levels"] is None
     ):
-        raise ValueError(
-            "pressure_levels must be provided for pressure-levels data_format."
-        )
+        message = "pressure_levels must be provided for pressure-levels data_format."
+        raise ValueError(message)
 
     modes = ["monthly-averaged", "monthly-averaged-by-hour", "reanalysis"]
     if options["mode"] not in modes:
@@ -160,31 +182,68 @@ def check_data_options(options):
     return options
 
 
-def format_daterange(year, month, day=None):
+def format_daterange(options, time):
     """
     Format the date range string used in ERA5 file names on NCI Gadi,
     https://dx.doi.org/10.25914/5f48874388857.
 
     Parameters
     ----------
-    year : int
-        The year.
-    month : int
-        The month.
+    options : dict
+        Dictionary containing the data options.
+    time : np.datetime64, pd.Timestamp or str
+        The time to format.
 
     Returns
     -------
     date_range_str : str
         The formatted date range str.
     """
-    if day is None:
-        date_range_str = f"{year:04}{month:02}"
-    else:
-        date_range_str = f"{year:04}{month:02}{day:02}"
+
+    time = pd.Timestamp(time)
+    last_day = calendar.monthrange(time.year, time.month)[1]
+    if options["storage"] == "daily":
+        date_range_str = f"{time.year:04}{time.month:02}{time.day:02}"
+    elif options["storage"] == "monthly":
+        date_range_str = (
+            f"{time.year:04}{time.month:02}01-{time.year:04}{time.month:02}{last_day}"
+        )
     return date_range_str
 
 
-def generate_era5_filepaths(options, start=None, end=None, local=True, daily=True):
+def get_base_path(options, local=True):
+    """Get the base path for the ERA5 data."""
+    if local:
+        parent = options["parent_local"]
+    else:
+        parent = options["parent_remote"]
+
+    area = get_area(options)
+    area_str = get_area_string(area)
+    group = f"era5_{options['storage']}_{area_str}"
+    base_path = f"{parent}/{group}/era5/{options['data_format']}/{options['mode']}"
+    return base_path
+
+
+def get_file_datetimes(options, start, end):
+    """Get the datetimes corresponding to the filepaths."""
+    if options["storage"] == "daily":
+        # Note we typically store data locally in daily files
+        range_start = np.datetime64(f"{start.year:04}-{start.month:02}-{start.day:02}")
+        range_end = np.datetime64(f"{end.year:04}-{end.month:02}-{end.day:02}")
+        time_step = np.timedelta64(1, "D")
+    elif options["storage"] == "monthly":
+        # On GADI era5 data is stored in monthly files
+        range_start = np.datetime64(f"{start.year:04}-{start.month:02}")
+        range_end = np.datetime64(f"{end.year:04}-{end.month:02}")
+        time_step = np.timedelta64(1, "M")
+    else:
+        raise ValueError("options['storage'] must be either 'daily' or 'monthly'.")
+    times = np.arange(range_start, range_end + time_step, time_step)
+    return times
+
+
+def generate_era5_filepaths(options, start=None, end=None, local=True):
     """
     Generate era5 filepaths from dataset options dictionary.
 
@@ -201,6 +260,9 @@ def generate_era5_filepaths(options, start=None, end=None, local=True, daily=Tru
         Times associated with the URLs.
     """
 
+    # First get the base_path
+    base_path = get_base_path(options, local=local)
+
     if start is None or end is None:
         start = options["start"]
         # Add an hour to the end time to facilitate temporal interpolation
@@ -212,29 +274,10 @@ def generate_era5_filepaths(options, start=None, end=None, local=True, daily=Tru
 
     short_data_format = {"pressure-levels": "pl", "single-levels": "sfc"}
 
-    if local:
-        parent = options["parent_local"]
-    else:
-        parent = options["parent_remote"]
+    # Get the times corresponding to the filepaths
+    times = get_file_datetimes(options, start, end)
 
-    base_filepath = f"{parent}/era5/{options['data_format']}/{options['mode']}"
-
-    if daily:
-        # Note we typically store data locally in daily files
-        times = np.arange(
-            np.datetime64(f"{start.year:04}-{start.month:02}-{start.day:02}"),
-            np.datetime64(f"{end.year:04}-{end.month:02}-{start.day:02}")
-            + np.timedelta64(1, "D"),
-            np.timedelta64(1, "D"),
-        )
-    else:
-        # On GADI era5 data is stored in monthly files
-        times = np.arange(
-            np.datetime64(f"{start.year:04}-{start.month:02}"),
-            np.datetime64(f"{end.year:04}-{end.month:02}") + np.timedelta64(1, "M"),
-            np.timedelta64(1, "M"),
-        )
-
+    # We will store individual fields in separate files
     filepaths = dict(
         zip(options["fields"], [[] for i in range(len(options["fields"]))])
     )
@@ -242,12 +285,9 @@ def generate_era5_filepaths(options, start=None, end=None, local=True, daily=Tru
     for field in options["fields"]:
         for time in times:
             time = pd.Timestamp(time)
-            if daily:
-                daterange_str = format_daterange(time.year, time.month, time.day)
-            else:
-                daterange_str = format_daterange(time.year, time.month)
+            daterange_str = format_daterange(options, time)
             filepath = (
-                f"{base_filepath}/{field}/{time.year}/{field}_era5_oper_"
+                f"{base_path}/{field}/{time.year}/{field}_era5_oper_"
                 f"{short_data_format[options['data_format']]}_{daterange_str}.nc"
             )
             filepaths[field].append(filepath)
@@ -258,7 +298,7 @@ def generate_era5_filepaths(options, start=None, end=None, local=True, daily=Tru
     return filepaths
 
 
-def generate_cdsapi_requests(options, grid_options, daily=False):
+def generate_cdsapi_requests(options):
     """
     Retrieve ERA5 data using the CDS API.
 
@@ -277,7 +317,11 @@ def generate_cdsapi_requests(options, grid_options, daily=False):
         A dictionary containing the local file paths.
     """
 
+    # First get the base_path for where to store the files locally
+    base_path = get_base_path(options, local=True)
+
     short_data_format = {"pressure-levels": "pl", "single-levels": "sfc"}
+    short_format = short_data_format[options["data_format"]]
 
     requests = dict(zip(options["fields"], [[] for i in range(len(options["fields"]))]))
     local_paths = dict(
@@ -290,21 +334,26 @@ def generate_cdsapi_requests(options, grid_options, daily=False):
     # Add an hour to the end time to facilitate temporal interpolation
     end = pd.Timestamp(options["end"]) + pd.Timedelta(hours=1)
 
-    base_path = (
-        f"{options['parent_local']}/era5/{options['data_format']}/{options['mode']}"
-    )
+    area = get_area(options)
 
-    # Request a days data at a time fromt the API
-    times = np.arange(
-        np.datetime64(f"{start.year:04}-{start.month:02}-{start.day:02}"),
-        np.datetime64(f"{end.year:04}-{end.month:02}-{end.day:02}")
-        + np.timedelta64(1, "D"),
-        np.timedelta64(1, "D"),
-    )
+    # Get the times corresponding to the filepaths
+    times = get_file_datetimes(options, start, end)
+
+    # Define a function to get the days for the API request for each time
+    def get_days(time, options):
+        if options["storage"] == "daily":
+            days = [f"{time.day:02}"]
+        elif options["storage"] == "monthly":
+            last_day = calendar.monthrange(time.year, time.month)[1]
+            days = [f"{i:02}" for i in range(1, last_day + 1)]
+        else:
+            raise ValueError("options['storage'] must be either 'daily' or 'monthly'.")
+        return days
 
     for field in options["fields"]:
         for time in times:
             time = pd.Timestamp(time)
+            days = get_days(time, options)
 
             request = {
                 "product_type": [options["mode"]],
@@ -314,55 +363,96 @@ def generate_cdsapi_requests(options, grid_options, daily=False):
                 "pressure_level": options["pressure_levels"],
                 "year": [f"{time.year:04}"],
                 "month": [f"{time.month:02}"],
-                "day": [f"{time.day:02}"],
+                "day": days,
                 "time": [f"{i:02}" for i in range(0, 24)],
+                "area": area,
             }
-
-            lat = grid_options["latitude"]
-            lon = grid_options["longitude"]
-            area = [lat[-1], lon[0], lat[0], lon[-1]]
-            request["area"] = area
-
-            daterange_str = format_daterange(time.year, time.month, time.day)
-            local_path = (
-                f"{base_path}/{field}/{time.year}/{field}_era5_oper_"
-                f"{short_data_format[options['data_format']]}_{daterange_str}.nc"
-            )
+            daterange_str = format_daterange(options, time)
+            local_path = f"{base_path}/{field}/{time.year}/{field}_era5_oper_"
+            local_path += f"{short_format}_{daterange_str}.nc"
             requests[field].append(request)
             local_paths[field].append(local_path)
 
     return cds_name, requests, local_paths
 
 
-def issue_cdsapi_requests(cds_name, requests, local_paths):
-    """Issue cdsapi requests."""
+def get_area(options):
+    """Get the area for the CDS API request."""
+    if options["longitude_range"] is None:
+        max_lon = 180
+        min_lon = -180
+        logger.warning("No longitude range provided. ERA5 files cover all longitudes.")
+    else:
+        [min_lon, max_lon] = options["longitude_range"]
+    if options["latitude_range"] is None:
+        max_lat = 90
+        min_lat = -90
+        logger.warning("No latitude range provided. ERA5 files cover all latitudes.")
+    else:
+        [min_lat, max_lat] = options["latitude_range"]
+    [max_lat, max_lon] = [int(np.ceil(coord)) for coord in [max_lat, max_lon]]
+    [min_lat, min_lon] = [int(np.floor(coord)) for coord in [min_lat, min_lon]]
+    return [max_lat, min_lon, min_lat, max_lon]
+
+
+def get_area_string(area):
+    """Get the area string for the CDS API request."""
+
+    # Convert a signed latitude or longitude to a string, e.g. 150E
+    def format_lat(lat):
+        return "0" if lat == 0 else f"{int(abs(lat))}{'N' if lat > 0 else 'S'}"
+
+    def format_lon(lon):
+        return "0" if lon == 0 else f"{int(abs(lon))}{'E' if lon > 0 else 'W'}"
+
+    area_string = f"{format_lat(area[0])}_{format_lon(area[1])}_{format_lat(area[2])}_{format_lon(area[3])}"
+    return area_string
+
+
+def issue_cdsapi_requests(
+    cds_name, requests, local_paths, enforce_timeout=False, timeout=2
+):
+    """Issue cdsapi requests. Note the wait client functionality doesn't appear to work
+    yet. Will revisit after new release of cdsapi. For now allowing timeouts using the
+    thread pool executor."""
 
     def download_data(cds_name, request, local_path):
         c = cdsapi.Client()
-        c.retrieve(cds_name, request, local_path)
+        response = c.retrieve(cds_name, request, local_path)
+        return response
+
+    def handle_request(cds_name, request, local_path):
+        path = Path(local_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if enforce_timeout:
+
+            def signal_handler(signum, frame):
+                raise TimeoutError("Request timed out.")
+
+            signal.signal(signal.SIGALRM, signal_handler)
+            signal.alarm(timeout)
+            try:
+                download_data(cds_name, request, local_path)
+            except TimeoutError:
+                filename = Path(local_path).name
+                message = f"Request for {filename} timed out after {timeout} seconds."
+                logger.warning(message)
+            finally:
+                signal.alarm(0)
+        else:
+            download_data(cds_name, request, local_path)
 
     for field in requests.keys():
         for i in range(len(local_paths[field])):
-            path = Path(local_paths[field][i])
-            path.parent.mkdir(parents=True, exist_ok=True)
-            # Create a thread to run the download function
-            download_thread = threading.Thread(
-                target=download_data,
-                args=(cds_name, requests[field][i], local_paths[field][i]),
-            )
-            download_thread.start()
-
-            # Print progress messages while the download is running
-            while download_thread.is_alive():
-                logger.info(f"Downloading {path.name}. Please wait.")
-                time.sleep(10)  # Adjust the sleep time as needed
-
-            download_thread.join()
+            handle_request(cds_name, requests[field][i], local_paths[field][i])
 
 
-def convert_era5():
+def convert_era5(ds):
     """Convert ERA5 data."""
-    return
+    if "time_var" in ds.coords:
+        ds = ds.rename({"time_var": "time"})
+        logger.debug("Renamed time_var to time in era5 dataset.")
+    return ds
 
 
 def generate_era5_times():
@@ -382,9 +472,7 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
     )
     if not all_files_exist and dataset_options["attempt_download"]:
         logger.warning("One or more filepaths do not exist; attempting download.")
-        cds_name, requests, local_paths = generate_cdsapi_requests(
-            dataset_options, grid_options
-        )
+        cds_name, requests, local_paths = generate_cdsapi_requests(dataset_options)
         issue_cdsapi_requests(cds_name, requests, local_paths)
         pass
 
@@ -400,7 +488,9 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
                 utils.call_ncks(
                     filepath, f"{tmp}/{field}.nc", start, end, lat_range, lon_range
                 )
-        input_record["dataset"] = xr.open_mfdataset(f"{tmp}/*.nc").load()
+        ds = xr.open_mfdataset(f"{tmp}/*.nc").load()
+        ds = convert_era5(ds)
+        input_record["dataset"] = ds
 
 
 def tag_options(

@@ -4,6 +4,7 @@ language: python
 python:
 - '3.10'
 install:
+# Download and install Miniconda and setup conda 
 - export CONDA_BASE=http://repo.continuum.io/miniconda/Miniconda3
 - wget ${CONDA_BASE}-latest-Linux-x86_64.sh -O miniconda.sh
 - bash miniconda.sh -b -p $HOME/miniconda
@@ -14,18 +15,29 @@ install:
 - conda config --set always_yes yes --set changeps1 no
 - conda config --set show_channel_urls True
 - conda update --quiet conda
+# Create the THOR conda environment
 - conda env create -f environment.yml
 - conda activate THOR
 - conda list
 - conda info -a
+# Install the THOR package
 - pip install .
 before_script:
+# Configure the CDS API
 - chmod +x create_cdsapirc.sh
 - "./create_cdsapirc.sh"
+# Configure the AWS CLI
+- aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+- aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+- aws configure set default.region ap-southeast-2
+# Download the test data
+- aws s3 cp s3://thor-storage/THOR_output ~/THOR_output --recursive
 script:
 - python -m pytest --verbose --color=yes -s --cov=thor --log-cli-level=INFO
 env:
   global:
   - secure: tg4J4EKBK9Qf0PljDQs6ibxFdR6IbjWeCG9LbBK9kPeilkQKviyLWmCpK1XP0ofXYvEyDMhvhp+N2/0uGSU18Qozp1lwWlZ/T+NsRq7Vf9loU1TLp4p28UAbbQAtuazJsIylmldjxSQ1lZokYc3C3Nd4fG/pZidum2EhqHuUAZZxcBnien7vJFQNp2SUvYBhXDOKr+5zTrLNAvp42gbcjsKtp5GBycsqGQwVxslydemXnjSCOBBE8zsSc74vnaEvtFe6blbqFDsapUPdKtwGxtyCI9BhzMQeNtELD/KnzQlcV/CcKS+esM3KjJZebfI7mfOXPaaXR5uZIWSCf8WF4jJmwoqH+4E0MU5SKkJtrs22jzchqLbuSznvnGf/6wdL94QV3u2GClogi7SndSBfoeWsbYuIS+2qrK+URV006Y9/JCCm+Syxc3allw1129+Q6PDHPF0Glri/f14F60r4hCPe+fGMEIZfKL9P26ftq7VwO2p3E5r//7Y0lEckCwPtSlVscj+mbVZLPawvZ3QvZA/D1oU8gdohJ73gzGi7GDLvdaqvLiAlpLrH0dTAichZIh0YcPL3NWBW9LbpQOCqpfsIyCG9uF/j8KjFlR3huoLJto5nl8ehRZxUTzxYSecmALNywZEcvEsyRuGxWD/oVit2PqpLm9YNLWgBGOCCH6o=
+  - secure: Dcah3abkat35EuUxufBlIlgQG1TTYALdp0LSNpiiWbvtuk4qKLqEmyBC5I7qPDb3aG7BSDD/fzQI1b/s2pT7JSxRN/X3hoQU0wr8yzhcN5aKY4ZN/0aClwha8jKLqiCoAJIj7m3ztXQBuENMox+lc64xgBSCeh1i/da1xMFiPagXdV63Czb5W+SWQfmut+pJMJiyq5Hk3ykPB78CT7pEICI+7Ry8JFsdMfe+qhJS30fEkfweI5DeISAZrNcblHPsNk/b6ZJhzDp9+BItvrA5QNO82CsiegpqwtlnhWdQo7aNu/EdR5AXXTdF32gmyAooeu0uGql86nkUHVcuH6x7WC4/noqyEHCGNn73h0nMgQwtCJPKT57fEtV9wnwwOU1dkPcDpbdgOdbSEeAuP/8GWJHRDVp/40y5plA+NRygaSUIIRGAXbo2n2oDPve+5MlTaU0epyETpfFcopzdJm0anJttpqsSXfKYvRd+GzV+KV529ov5HycWFRcr3csrQfOPq+W0CPFBRZs4scMP8z0TogL2a/rqrn7CdDC8a/KA9w10zTFDNwx8geQ/Y7c5da6rRXSsQgUepkApTzqk02yxQksQlhIpK1l8c2Cq8EaAtHXWyG70n3HyogHMmB5Nc1/ojohUgpIH74oe0eEX9SlAlqTyvkomEEFGRZatSsy23eI=
+  - secure: ZccLNcefzdLJCHnJNMx67pvLEuZUBlM4voRYy0gj4ZcPrraw6nLvLMjVyrDiIXiNzCf9lRi4I9ppUBI3WMDwqLpeZkIlK5z4SUKXKB8a/QnGzJ+sIZmdKjx00cfJe2/0Hkm5NFdugHftDcJtHpCcFdO0YcsWNJP7Ok8Iv7YqCd2LT9Eqel9mDvpcAQogU5Mc4g3/Nx4BXkZGoCg89VnUqKtUf/ZprgQ5U9vCIsQ1KQHZcKrW5N6OAdqyVjneev5GaKXtmOg0NzXpiVU2VTka+3UAAtQOY9B+LIHATRVl1TEFt0kkcv9geuFjFkcmQEKG9HD39HBRNqETGkbkC9pr24pOJEK72R4WzaKIzz49BMQ+h7XmaW8ZqEHz0xMALDx2nmxrzotgnnUac2JosFg3BbrMqLKbuZ9haM/ySJabg94g2Q5Sld5ZUPMrKeyhCcgTqXNGZOIIJlI9kwz4mDTcVyfS4TiUdgQM0YnwkQ0vgL0/39B95tzS8f8ej+XQ/VIPWARIxHFmxRJaGlojebkYPth3O8+sgQGGamNwM4BXJ5kmsSo+f6vB0Iw0yfbzDkVEpDbu1zlSWUmS17NnunXA4xxV+eawHA4aZvMpI+Cm/WCL5wlWKLPrgcpGe+b0JAhLlRvKj16wSE3tFb4jKVa59la7FR6hdM57sIX9STbe1Fk=
 after_success:
 - codecov

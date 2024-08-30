@@ -3,7 +3,7 @@
 import yaml
 import inspect
 import numpy as np
-from pyproj import Geod
+from pyproj import Geod, Proj, Transformer
 from thor.utils import almost_equal, pad
 from thor.config import get_outputs_directory
 from thor.log import setup_logger
@@ -18,6 +18,8 @@ def create_options(
     altitude=None,
     latitude=None,
     longitude=None,
+    central_latitude=None,
+    central_longitude=None,
     x=None,
     y=None,
     projection=None,
@@ -84,11 +86,17 @@ def create_options(
         altitude = list(np.arange(0, 25e3 + altitude_spacing, altitude_spacing))
     if shape is None and (latitude is not None and longitude is not None):
         shape = (len(latitude), len(longitude))
+    if shape is None and (x is not None and y is not None):
+        shape = (len(y), len(x))
+    else:
+        logger.warning("Shape not specified. Will attempt to infer from input.")
 
     options = {
         "name": name,
         "latitude": latitude,
         "longitude": longitude,
+        "central_latitude": central_latitude,
+        "central_longitude": central_longitude,
         "altitude": altitude,
         "x": x,
         "y": y,
@@ -112,6 +120,62 @@ def create_options(
             yaml.dump(options, outfile, **dump_options)
 
     return options
+
+
+def cartesian_to_geographic_lcc(options, x, y):
+    """Get latitude, longitude coordinates from cartesian coordinates."""
+
+    if options["name"] != "cartesian":
+        raise ValueError("Grid name must be 'cartesian'.")
+    if options["latitude"] is not None and options["longitude"] is not None:
+        logger.warning("Latitude and longitude already specified.")
+    if options["central_latitude"] is None or options["central_longitude"] is None:
+        message = "Central latitude and longitude must be specified."
+        raise ValueError(message)
+
+    # Define the LCC projection
+    lcc_proj = Proj(
+        proj="lcc",
+        lat_1=options["central_latitude"],
+        lat_2=options["central_latitude"],
+        lat_0=options["central_latitude"],
+        lon_0=options["central_longitude"],
+    )
+
+    # Create a transformer to convert from LCC to geographic coordinates
+    transformer = Transformer.from_proj(lcc_proj, Proj(proj="latlong", datum="WGS84"))
+
+    # Transform the Cartesian coordinates to geographic coordinates
+    longitude, latitude = transformer.transform(x, y)
+    return longitude, latitude
+
+
+def geographic_to_cartesian_lcc(options, latitude, longitude):
+    """Get x, y coordinates from geographic coordinates."""
+
+    if options["name"] != "geographic":
+        raise ValueError("Grid name must be 'geographic'.")
+    if options["x"] is not None and options["y"] is not None:
+        logger.warning("x and y already specified.")
+    if options["central_latitude"] is None or options["central_longitude"] is None:
+        options["central_latitude"] = np.mean(options["latitude"])
+        options["central_longitude"] = np.mean(options["longitude"])
+
+    # Define the LCC projection
+    lcc_proj = Proj(
+        proj="lcc",
+        lat_1=options["central_latitude"],
+        lat_2=options["central_latitude"],
+        lat_0=options["central_latitude"],
+        lon_0=options["central_longitude"],
+    )
+
+    # Create a transformer to convert from geographic to LCC coordinates
+    transformer = Transformer.from_proj(Proj(proj="latlong", datum="WGS84"), lcc_proj)
+
+    # Transform the geographic coordinates to Cartesian coordinates
+    x, y = transformer.transform(longitude, latitude)
+    return x, y
 
 
 def save_grid_options(

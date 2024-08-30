@@ -114,7 +114,7 @@ def create_object_dictionary(
     speed : float
         The speed the object is moving in metres per second.
     horizontal_radius : float, optional
-        The horizontal radius of the object in km; default is 10.
+        The horizontal radius of the object in km; default is 20.
 
     Returns
     -------
@@ -160,6 +160,23 @@ def update_dataset(time, input_record, tracks, dataset_options, grid_options):
     """
     utils.log_dataset_update(logger, dataset_options["name"], time)
 
+    latitude = grid_options["latitude"]
+    longitude = grid_options["longitude"]
+    missing_geographic = (latitude is None) or (longitude is None)
+    x = grid_options["x"]
+    y = grid_options["y"]
+    missing_cartesian = (x is None) or (y is None)
+    if grid_options["name"] == "cartesian" and missing_geographic:
+        X, Y = np.meshgrid(grid_options["x"], grid_options["y"])
+        LON, LAT = grid.cartesian_to_geographic_lcc(grid_options, X, Y)
+        grid_options["latitude"] = LAT
+        grid_options["longitude"] = LON
+    if grid_options["name"] == "geographic" and missing_cartesian:
+        LON, LAT = np.meshgrid(longitude, latitude)
+        X, Y = grid.geographic_to_cartesian_lcc(grid_options, LAT, LON)
+        grid_options["x"] = X
+        grid_options["y"] = Y
+
     if "objects" not in input_record.keys():
         input_record["objects"] = dataset_options["starting_objects"]
 
@@ -169,6 +186,7 @@ def update_dataset(time, input_record, tracks, dataset_options, grid_options):
     input_record["objects"] = updated_objects
 
     ds = create_dataset(time, grid_options)
+
     for object in input_record["objects"]:
         ds = add_reflectivity(ds, **object)
 
@@ -210,24 +228,30 @@ def create_dataset(time, grid_options):
         Dictionary containing the synthetic reflectivity data.
     """
 
+    dims = grid.get_coordinate_names(grid_options)
+    if dims == ["latitude", "longitude"]:
+        alternative_dims = ["y", "x"]
+    elif dims == ["y", "x"]:
+        alternative_dims = ["latitude", "longitude"]
+    else:
+        raise ValueError("Invalid grid options")
+
     time = np.array([np.datetime64(time)]).astype("datetime64[ns]")
-    lat = np.array(grid_options["latitude"])
-    lon = np.array(grid_options["longitude"])
+    meridional_dim = np.array(grid_options[dims[0]])
+    zonal_dim = np.array(grid_options[dims[1]])
     alt = np.array(grid_options["altitude"])
 
-    ds_values = np.ones((1, len(alt), len(lat), len(lon))) * np.nan
-    ds = xr.Dataset(
-        {"reflectivity": (["time", "altitude", "latitude", "longitude"], ds_values)},
-        coords={"time": time, "altitude": alt, "latitude": lat, "longitude": lon},
-    )
+    # Create ds
+    ds_values = np.ones((1, len(alt), len(meridional_dim), len(zonal_dim))) * np.nan
+    coords = {"time": time, "altitude": alt}
+    coords.update({dims[0]: meridional_dim, dims[1]: zonal_dim})
+    variables_dict = {
+        "reflectivity": (["time", "altitude", dims[0], dims[1]], ds_values),
+        alternative_dims[0]: ([dims[0], dims[1]], grid_options[alternative_dims[0]]),
+        alternative_dims[1]: ([dims[0], dims[1]], grid_options[alternative_dims[1]]),
+    }
+    ds = xr.Dataset(variables_dict, coords=coords)
     ds["reflectivity"].attrs.update({"long_name": "reflectivity", "units": "dBZ"})
-
-    if grid_options["name"] == "geographic":
-        dims = ["latitude", "longitude"]
-    elif grid_options["name"] == "cartesian":
-        dims = ["y", "x"]
-    else:
-        raise ValueError(f"Unknown grid type {grid_options}.")
 
     cell_areas = grid.get_cell_areas(grid_options)
     ds["gridcell_area"] = (dims, cell_areas)
@@ -261,26 +285,28 @@ def add_reflectivity(
     lon_center : float
         The longitude of the center of the ellipse.
     horizontal_radius : float
-        The horizontal radius of the ellipse in km.
+        The horizontal "radius" of the ellipse in km. Note this is only an approximate
+        radius, as the object dimenensions are defined in geographic coordinates.
     """
 
-    # Create a meshgrid for the coordinates
-    time, lon, lat, alt = xr.broadcast(ds.time, ds.longitude, ds.latitude, ds.altitude)
+    LON, LAT, ALT = xr.broadcast(ds.time, ds.longitude, ds.latitude, ds.altitude)[1:]
+
+    # lon, lat, alt = xr.broadcast(ds.time, ds.longitude, ds.latitude, ds.altitude)[1:]
 
     # Calculate the rotated coordinates
-    x_rot = (lon - center_longitude) * np.cos(orientation)
-    x_rot += (lat - center_latitude) * np.sin(orientation)
-    y_rot = -(lon - center_longitude) * np.sin(orientation)
-    y_rot += (lat - center_latitude) * np.cos(orientation)
+    lon_rotated = (LON - center_longitude) * np.cos(orientation)
+    lon_rotated += (LAT - center_latitude) * np.sin(orientation)
+    lat_rotated = -(LON - center_longitude) * np.sin(orientation)
+    lat_rotated += (LAT - center_latitude) * np.cos(orientation)
 
     # Convert horizontal_radius to approximate lat/lon radius.
     horizontal_radius = horizontal_radius / 111.32
 
     # Calculate the distance from the center for each point in the grid, considering eccentricity
     distance = np.sqrt(
-        (x_rot / horizontal_radius) ** 2
-        + (y_rot / (horizontal_radius * eccentricity)) ** 2
-        + ((alt - alt_center) / alt_radius) ** 2
+        (lon_rotated / horizontal_radius) ** 2
+        + (lat_rotated / (horizontal_radius * eccentricity)) ** 2
+        + ((ALT - alt_center) / alt_radius) ** 2
     )
 
     # Apply a Gaussian function to create an elliptical pattern

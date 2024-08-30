@@ -254,12 +254,16 @@ def plot_vector(
         if start_lat is None or start_lon is None:
             start_lon = longitudes[row, col]
             start_lat = latitudes[row, col]
+        # Convert a vector [row, col] to azimuth direction. First get direction
+        # counter-clockwise from east.
         vector_direction = np.rad2deg(np.arctan2(vector[0], vector[1]))
+        # Now convert to azimuth direction, i.e. clockwise from north.
+        azimuth = (90 - vector_direction) % 360
         spacing = np.array(grid_options["cartesian_spacing"])
         cartesian_vector = np.array(vector) * spacing
         distance = np.sqrt(np.sum(cartesian_vector**2))
         end_lon, end_lat = thor_grid.geodesic_forward(
-            start_lon, start_lat, vector_direction, distance
+            start_lon, start_lat, azimuth, distance
         )[:2]
         geographic_vector = [end_lat - start_lat, end_lon - start_lon]
     elif grid_options["name"] == "geographic":
