@@ -116,7 +116,6 @@ def update_track_input_records(
     """Update the input record, i.e. grids and datasets."""
     for name in track_input_records.keys():
         input_record = track_input_records[name]
-        dataset_options = data_options[name]
         boilerplate_update(
             time, input_record, track_options, data_options[name], grid_options
         )

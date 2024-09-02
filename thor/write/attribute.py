@@ -6,33 +6,14 @@ import numpy as np
 import xarray as xr
 from thor.utils import format_time
 from thor.log import setup_logger
-import thor.write.utils as utils
+
 
 logger = setup_logger(__name__)
 
 
-def update(object_tracks, object_options):
-    """Update masks lists, and if necessary write to file."""
-    if not object_options["mask_options"]["save"]:
-        return
-
-    if object_options["tracking"]["method"] is None:
-        mask_type = "current_mask"
-    else:
-        mask_type = "current_matched_mask"
-
-    # Append mask to mask_list
-    object_tracks["mask_list"].append(object_tracks[mask_type])
-    return
-
-
-def write(object_tracks, object_options, output_directory):
-    """Write masks to file."""
-    mask_list = object_tracks["mask_list"]
+def write(mask_list, object_options, last_write_time, write_interval, output_directory):
+    """Write attributes to file."""
     object_name = object_options["name"]
-    last_write_time = object_tracks["last_write_time"]
-    write_interval = np.timedelta64(object_options["write_interval"], "h")
-
     last_write_str = format_time(last_write_time, filename_safe=False, day_only=False)
     current_str = format_time(
         last_write_time + write_interval, filename_safe=False, day_only=False
@@ -58,10 +39,6 @@ def write(object_tracks, object_options, output_directory):
     filepath = filepath / f"{format_time(last_write_str)}.nc"
     filepath.parent.mkdir(parents=True, exist_ok=True)
     masks.to_netcdf(filepath)
-    # Update last_write_time after writing
-    object_tracks["last_write_time"] = last_write_time + write_interval
-    # Empty mask_list after writing
-    object_tracks["mask_list"] = []
 
 
 def write_final(tracks, track_options, output_directory):
@@ -71,7 +48,13 @@ def write_final(tracks, track_options, output_directory):
         for obj in level_options.keys():
             if not level_options[obj]["mask_options"]["save"]:
                 continue
-            write(tracks[index][obj], level_options[obj], output_directory)
+            write(
+                tracks[index][obj]["mask_list"],
+                level_options[obj],
+                tracks[index][obj]["last_write_time"],
+                np.timedelta64(level_options[obj]["write_interval"]),
+                output_directory,
+            )
 
 
 def aggregate(track_options, output_directory, clean_up=True):

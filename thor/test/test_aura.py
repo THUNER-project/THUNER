@@ -67,7 +67,7 @@ def test_cpol_with_runtime_figures():
     tag.save_tag_options(tag_options, filename="era5")
 
     # Create the track_options dictionary
-    track_options = option.mcs(dataset="cpol", tags=["era5_pl", "era5_sl"])
+    track_options = option.mcs(dataset="cpol")
     option.check_options(track_options)
     option.save_track_options(track_options, filename="gridrad_mcs")
 
@@ -171,7 +171,7 @@ def test_cpol():
     tag.save_tag_options(tag_options, filename="era5")
 
     # Create the track_options dictionary
-    track_options = option.mcs(dataset="cpol", tags=["era5_pl", "era5_sl"])
+    track_options = option.mcs(dataset="cpol")
     option.check_options(track_options)
     option.save_track_options(track_options, filename="gridrad_mcs")
 

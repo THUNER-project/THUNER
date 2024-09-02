@@ -14,11 +14,15 @@ from thor.log import setup_logger
 from thor.utils import format_string_list, get_hour_interval
 import thor.data.utils as utils
 import thor.data.option as option
-import thor.tag as tag
 from thor.config import get_outputs_directory
 
 
 logger = setup_logger(__name__)
+
+era5_pressure_levels = ["1000", "975", "950", "925", "900", "875", "850", "825", "800"]
+era5_pressure_levels += ["775", "750", "700", "650", "600", "550", "500", "450", "400"]
+era5_pressure_levels += ["350", "300", "250", "225", "200", "175", "150", "125", "100"]
+era5_pressure_levels += ["70", "50", "30", "20", "10", "7", "5", "3", "2", "1"]
 
 
 def data_options(
@@ -491,23 +495,3 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
         ds = xr.open_mfdataset(f"{tmp}/*.nc").load()
         ds = convert_era5(ds)
         input_record["dataset"] = ds
-
-
-def tag_options(
-    name=None, dataset="era5_pl", time_method="linear", space_method="linear"
-):
-    """
-    Generate era5 tagging options dictionary.
-    """
-    if name is None:
-        name = dataset
-
-    options = tag.boilerplate_options(name, dataset, time_method, space_method)
-
-    return options
-
-
-era5_pressure_levels = ["1000", "975", "950", "925", "900", "875", "850", "825", "800"]
-era5_pressure_levels += ["775", "750", "700", "650", "600", "550", "500", "450", "400"]
-era5_pressure_levels += ["350", "300", "250", "225", "200", "175", "150", "125", "100"]
-era5_pressure_levels += ["70", "50", "30", "20", "10", "7", "5", "3", "2", "1"]

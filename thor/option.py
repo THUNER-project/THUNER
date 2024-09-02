@@ -6,6 +6,7 @@ import numpy as np
 from thor.utils import now_str, check_component_options
 from thor.config import get_outputs_directory
 from thor.log import setup_logger
+import thor.attribute as attribute
 
 
 logger = setup_logger(__name__)
@@ -116,7 +117,7 @@ def boilerplate_object(
     method="detect",
     mask_options=None,
     deque_length=2,
-    tags=None,
+    write_interval=1,
 ):
     """THOR object boilerplate.
 
@@ -130,6 +131,12 @@ def boilerplate_object(
         Hierarchy level of object.
     deque_length : int, optional
         How many previous scans to store when tracking.
+    tags : list, optional
+        List of tags to apply to object.
+    mask_options : dict, optional
+        Dictionary of mask options.
+    write_interval : int, optional
+        Interval at which to write data to disk in units of hours.
 
     Returns
     -------
@@ -148,7 +155,7 @@ def boilerplate_object(
         "method": method,
         "deque_length": deque_length,
         "mask_options": mask_options,
-        "tags": tags,
+        "write_interval": write_interval,
     }
     return options
 
@@ -163,7 +170,8 @@ def detected_object(
     flatten_method="vertical_max",
     altitudes=None,
     min_area=50,
-    tags=None,
+    attribute_options=None,
+    **kwargs,
 ):
     """Initialize THOR object configuration for detected objects, i.e.
     objects at the lowest hierarchy level.
@@ -190,8 +198,16 @@ def detected_object(
         Dictionary of global configuration options.
     """
 
+    if attribute_options is None:
+        if "core_attribute_names" in kwargs:
+            names = kwargs["core_attribute_names"]
+        else:
+            names = None
+        detect_attributes = attribute.option.core_attributes(names)
+        attribute_options = {"detect": detect_attributes}
+
     options = {
-        **boilerplate_object(name, hierarchy_level, tags=tags),
+        **boilerplate_object(name, hierarchy_level),
         "dataset": dataset,
         "variable": variable,
         "detection": {
@@ -201,6 +217,7 @@ def detected_object(
             "min_area": min_area,
         },
         "tracking": {"method": tracking_method},
+        "attribute": attribute_options,
     }
 
     return options
@@ -215,7 +232,8 @@ def grouped_object(
     hierarchy_level,
     grouping_method,
     tracking_method,
-    tags=None,
+    matched_object=None,
+    attribute_options=None,
     **kwargs,
 ):
     """Initialize THOR object configuration for grouped objects, i.e.
@@ -254,9 +272,17 @@ def grouped_object(
 
     mask_options = {"save": True, "load": False}
 
+    if attribute_options is None:
+        if "core_attribute_names" in kwargs:
+            names = kwargs["core_attribute_names"]
+        else:
+            names = None
+        group_attributes = attribute.option.core_attributes(names)
+        attribute_options = {"group": group_attributes}
+
     options = {
         **boilerplate_object(
-            name, hierarchy_level, method="group", tags=tags, mask_options=mask_options
+            name, hierarchy_level, method="group", mask_options=mask_options
         ),
         "dataset": dataset,
         "grouping": {
@@ -266,9 +292,12 @@ def grouped_object(
             "member_min_areas": member_min_areas,
         },
         "tracking": {"method": tracking_method, "options": mint_options(**kwargs)},
+        "attribute": attribute_options,
     }
 
-    options["tracking"]["options"]["matched_object"] = "cell"
+    if matched_object is None:
+        matched_object = member_objects[0]
+    options["tracking"]["options"]["matched_object"] = matched_object
 
     return options
 
@@ -285,7 +314,7 @@ def cell_object(
     tracking_method="tint",
     altitudes=[500, 3e3],
     min_area=10,
-    tags=None,
+    attribute_options=None,
     **kwargs,
 ):
     """Creates default THOR configuration for tracking cells.
@@ -316,8 +345,9 @@ def cell_object(
         tracking_method,
         altitudes=altitudes,
         flatten_method=flatten_method,
-        tags=tags,
         min_area=min_area,
+        attribute_options=attribute_options,
+        **kwargs,
     )
     if threshold:
         options["detection"]["threshold"] = threshold
@@ -339,7 +369,7 @@ def anvil_object(
     tracking_method="tint",
     altitudes=None,
     min_area=200,
-    tags=None,
+    attribute_options=None,
     **kwargs,
 ):
     """Creates default THOR configuration for tracking anvils.
@@ -363,7 +393,7 @@ def anvil_object(
         detection_method,
         tracking_method,
         min_area=min_area,
-        tags=tags,
+        attribute_options=attribute_options,
     )
     if threshold:
         options["detection"]["threshold"] = threshold
@@ -386,7 +416,7 @@ def mcs_object(
     hierarchy_level=1,
     grouping_method="graph",
     tracking_method="mint",
-    tags=None,
+    attribute_options=None,
     **kwargs,
 ):
     """Creates default THOR configuration for tracking MCSs.
@@ -411,14 +441,14 @@ def mcs_object(
         hierarchy_level,
         grouping_method,
         tracking_method,
-        tags=tags,
+        attribute_options=attribute_options,
         **kwargs,
     )
     return options
 
 
 # Consolidated configurations.
-def cell(dataset, tags=None, **kwargs):
+def cell(dataset, **kwargs):
     """Creates default THOR configuration for tracking convective cells.
 
     Parameters
@@ -432,12 +462,12 @@ def cell(dataset, tags=None, **kwargs):
         Dictionary of default configuration options.
     """
 
-    options = [{"cell": cell_object(dataset=dataset, tags=tags, **kwargs)}]
+    options = [{"cell": cell_object(dataset=dataset, **kwargs)}]
 
     return options
 
 
-def anvil(dataset, tags=None, **kwargs):
+def anvil(dataset, **kwargs):
     """Creates default THOR configuration for tracking stratiform anvils.
 
     Parameters
@@ -451,12 +481,12 @@ def anvil(dataset, tags=None, **kwargs):
         Dictionary of default configuration options.
     """
 
-    options = [{"anvil": anvil_object(dataset=dataset, tags=tags, **kwargs)}]
+    options = [{"anvil": anvil_object(dataset=dataset, **kwargs)}]
 
     return options
 
 
-def mcs(dataset, tags=None, **kwargs):
+def mcs(dataset, **kwargs):
     """Creates default THOR configuration for tracking MCSs.
 
     Parameters
@@ -469,6 +499,25 @@ def mcs(dataset, tags=None, **kwargs):
     options : dict
         Dictionary of default configuration options.
     """
+
+    # Create the attribute dictionary for the unmatched/untracked middle_cloud objects.
+    # For the cell and anvil objects, attributes are obtained from matching.
+    untracked_attribute_names = ["time", "id", "latitude", "longitude", "area"]
+    methods = [None, None]
+    methods += ["coordinate_from_mask", "coordinate_from_mask", "area_from_mask"]
+    descriptions = [
+        None,
+        None,
+        "latitude position of object center obtained from mask.",
+        "longitude position of object center obtained from mask.",
+        "area of object obtained from mask.",
+    ]
+    untracked_attribute_options = {
+        name: attribute.option.basic_attribute(name, method, description)
+        for name, method, description in zip(
+            untracked_attribute_names, methods, descriptions
+        )
+    }
 
     options = [
         {
@@ -488,6 +537,7 @@ def mcs(dataset, tags=None, **kwargs):
                 detection_method="threshold",
                 flatten_method="vertical_max",
                 altitudes=[3500, 7000],
+                attribute_options=untracked_attribute_options,
                 **kwargs,
             ),
             "anvil": anvil_object(
@@ -497,7 +547,7 @@ def mcs(dataset, tags=None, **kwargs):
                 **kwargs,
             ),
         },
-        {"mcs": mcs_object(tags=tags, dataset=dataset, **kwargs)},
+        {"mcs": mcs_object(dataset=dataset, **kwargs)},
     ]
 
     return options

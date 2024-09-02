@@ -1,6 +1,7 @@
 """Track storm objects in a dataset."""
 
 from collections import deque
+import numpy as np
 from thor.log import setup_logger
 import thor.option as option
 import thor.data.dispatch as dispatch
@@ -11,6 +12,7 @@ import thor.match.match as match
 from thor.config import get_outputs_directory
 from thor.utils import now_str, hash_dictionary, format_time
 import thor.write as write
+import thor.attribute as attribute
 
 logger = setup_logger(__name__)
 
@@ -95,6 +97,11 @@ def initialise_object_tracks(object_options):
         match.initialise_match_records(object_tracks, object_options)
     if object_options["mask_options"]["save"]:
         object_tracks["mask_list"] = []
+
+    if object_options["attribute"] is not None:
+        attribute.utils.initialize_attributes(object_tracks, object_options)
+    object_tracks["last_write_time"] = None
+
     return object_tracks
 
 
@@ -127,16 +134,13 @@ def initialise_tracks(track_options, data_options):
     return tracks
 
 
-def consolidate_options(
-    data_options, grid_options, track_options, tag_options, visualize_options
-):
+def consolidate_options(data_options, grid_options, track_options, visualize_options):
     """Consolidate the options for a given run."""
 
     consolidated_options = {
         "data_options": data_options,
         "grid_options": grid_options,
         "track_options": track_options,
-        "tag_options": tag_options,
         "visualize_options": visualize_options,
     }
 
@@ -148,7 +152,6 @@ def simultaneous_track(
     data_options,
     grid_options,
     track_options,
-    tag_options,
     visualize_options=None,
     output_directory=None,
 ):
@@ -182,7 +185,7 @@ def simultaneous_track(
     input_records = initialise_input_records(data_options)
 
     consolidated_options = consolidate_options(
-        track_options, data_options, grid_options, tag_options, visualize_options
+        track_options, data_options, grid_options, visualize_options
     )
 
     for time in times:
@@ -209,7 +212,6 @@ def simultaneous_track(
                 data_options,
                 grid_options,
                 track_options,
-                tag_options,
                 visualize_options,
                 output_directory,
             )
@@ -217,7 +219,7 @@ def simultaneous_track(
             time, input_records["tag"], track_options, data_options, grid_options
         )
 
-    write.mask.write_final(tracks, track_options, output_directory, time)
+    write.mask.write_final(tracks, track_options, output_directory)
     write.mask.aggregate(track_options, output_directory)
     visualize.visualize.animate_all(visualize_options, output_directory)
 
@@ -232,7 +234,6 @@ def track_level(
     data_options,
     grid_options,
     track_options,
-    tag_options,
     visualize_options,
     output_directory,
 ):
@@ -255,7 +256,6 @@ def track_level(
             dataset_options,
             grid_options,
             track_options,
-            tag_options,
             visualize_options,
             output_directory,
         )
@@ -272,13 +272,19 @@ def track_object(
     dataset_options,
     grid_options,
     track_options,
-    tag_options,
     visualize_options,
     output_directory,
 ):
     """Track the given object."""
-    # detect
+    # Get the object options
     object_options = track_options[level_index][obj]
+    object_tracks = tracks[level_index][obj]
+
+    # Write existing data to file if necessary
+    if write.utils.write_interval_reached(time, object_tracks, object_options):
+        write.mask.write(object_tracks, object_options, output_directory)
+
+    # Detect objects at time
     get_objects = get_objects_dispatcher.get(object_options["method"])
     get_objects(
         track_input_records,
@@ -289,9 +295,9 @@ def track_object(
         object_options,
         grid_options,
     )
-    match.match(tracks[level_index][obj], object_options, grid_options)
+    match.match(object_tracks, object_options, grid_options)
 
-    # visualize
+    # Visualize the operation of the algorithm
     visualize.runtime.visualize(
         track_input_records,
         tracks,
@@ -302,10 +308,9 @@ def track_object(
         visualize_options,
         output_directory,
     )
-    # write
-    write.mask.update(tracks[level_index][obj], object_options, output_directory)
-
-    # return tracks[level_index][obj]
+    # Update the lists used to periodically write data to file
+    write.attribute.update(object_tracks, object_options, output_directory)
+    write.mask.update(object_tracks, object_options)
 
 
 get_objects_dispatcher = {

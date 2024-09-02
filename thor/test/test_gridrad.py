@@ -61,7 +61,6 @@ logger = setup_logger(__name__)
 #     # Create the track_options dictionary
 #     track_options = option.mcs(
 #         dataset="gridrad",
-#         tags=["era5_pl", "era5_sl"],
 #         global_flow_margin=75,
 #         unique_global_flow=False,
 #     )
