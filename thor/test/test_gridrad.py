@@ -12,7 +12,6 @@ import thor.data.dispatch as dispatch
 import thor.grid as grid
 import thor.track as track
 import thor.option as option
-import thor.tag as tag
 import thor.visualize as visualize
 from thor.log import setup_logger
 

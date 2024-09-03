@@ -199,12 +199,8 @@ def detected_object(
     """
 
     if attribute_options is None:
-        if "core_attribute_names" in kwargs:
-            names = kwargs["core_attribute_names"]
-        else:
-            names = None
-        detect_attributes = attribute.option.core_attributes(names)
-        attribute_options = {"detect": detect_attributes}
+        core_attributes = attribute.option.core_attributes()
+        attribute_options = {"core": core_attributes}
 
     options = {
         **boilerplate_object(name, hierarchy_level),
@@ -273,12 +269,8 @@ def grouped_object(
     mask_options = {"save": True, "load": False}
 
     if attribute_options is None:
-        if "core_attribute_names" in kwargs:
-            names = kwargs["core_attribute_names"]
-        else:
-            names = None
-        group_attributes = attribute.option.core_attributes(names)
-        attribute_options = {"group": group_attributes}
+        core_attributes = attribute.option.core_attributes()
+        attribute_options = {"core": core_attributes}
 
     options = {
         **boilerplate_object(
@@ -502,22 +494,8 @@ def mcs(dataset, **kwargs):
 
     # Create the attribute dictionary for the unmatched/untracked middle_cloud objects.
     # For the cell and anvil objects, attributes are obtained from matching.
-    untracked_attribute_names = ["time", "id", "latitude", "longitude", "area"]
-    methods = [None, None]
-    methods += ["coordinate_from_mask", "coordinate_from_mask", "area_from_mask"]
-    descriptions = [
-        None,
-        None,
-        "latitude position of object center obtained from mask.",
-        "longitude position of object center obtained from mask.",
-        "area of object obtained from mask.",
-    ]
-    untracked_attribute_options = {
-        name: attribute.option.basic_attribute(name, method, description)
-        for name, method, description in zip(
-            untracked_attribute_names, methods, descriptions
-        )
-    }
+    middle_cloud_attribute_options = attribute.option.core_attributes(tracked=False)
+    attribute_options = {"core": middle_cloud_attribute_options}
 
     options = [
         {
@@ -537,7 +515,7 @@ def mcs(dataset, **kwargs):
                 detection_method="threshold",
                 flatten_method="vertical_max",
                 altitudes=[3500, 7000],
-                attribute_options=untracked_attribute_options,
+                attribute_options=attribute_options,
                 **kwargs,
             ),
             "anvil": anvil_object(

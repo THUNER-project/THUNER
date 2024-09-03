@@ -41,8 +41,6 @@ def test_synthetic():
     data_options = option.consolidate_options([synthetic_options])
     dispatch.check_data_options(data_options)
     data.option.save_data_options(data_options, filename="synthetic")
-    # Create the tag_options dictionary
-    tag_options = None
 
     # Create the track_options dictionary
     track_options = option.cell(
@@ -62,7 +60,6 @@ def test_synthetic():
     visualize.option.save_display_options(
         visualize_options, filename="runtime_synthetic"
     )
-    tag_options = None
 
     output_directory = base_local / "runs/synthetic_demo_geographic"
     if output_directory.exists():
@@ -77,7 +74,6 @@ def test_synthetic():
         data_options,
         grid_options,
         track_options,
-        tag_options,
         visualize_options,
         output_directory=output_directory,
     )

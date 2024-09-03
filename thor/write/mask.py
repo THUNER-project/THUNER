@@ -77,6 +77,7 @@ def write_final(tracks, track_options, output_directory):
 def aggregate(track_options, output_directory, clean_up=True):
     """Aggregate masks into single file."""
 
+    logger.info("Aggregating mask files.")
     for level_options in track_options:
         for obj in level_options.keys():
             if not level_options[obj]["mask_options"]["save"]:

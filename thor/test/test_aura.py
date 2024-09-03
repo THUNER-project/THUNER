@@ -12,7 +12,6 @@ import thor.data.dispatch as dispatch
 import thor.grid as grid
 import thor.track as track
 import thor.option as option
-import thor.tag as tag
 import thor.visualize as visualize
 from thor.log import setup_logger
 
@@ -60,12 +59,6 @@ def test_cpol_with_runtime_figures():
     grid.check_options(grid_options)
     grid.save_grid_options(grid_options, filename="cpol_geographic")
 
-    # Create the tag_options dictionary
-    era5_pl_tag_options = data.era5.tag_options()
-    era5_sl_tag_options = data.era5.tag_options(dataset="era5_sl")
-    tag_options = option.consolidate_options([era5_pl_tag_options, era5_sl_tag_options])
-    tag.save_tag_options(tag_options, filename="era5")
-
     # Create the track_options dictionary
     track_options = option.mcs(dataset="cpol")
     option.check_options(track_options)
@@ -98,7 +91,6 @@ def test_cpol_with_runtime_figures():
         data_options,
         grid_options,
         track_options,
-        tag_options,
         visualize_options,
         output_directory=output_directory,
     )
@@ -117,7 +109,6 @@ def test_cpol_with_runtime_figures():
         data_options,
         grid_options,
         track_options,
-        tag_options,
         visualize_options,
         output_directory=output_directory,
     )
@@ -164,12 +155,6 @@ def test_cpol():
     grid.check_options(grid_options)
     grid.save_grid_options(grid_options, filename="cpol_geographic")
 
-    # Create the tag_options dictionary
-    era5_pl_tag_options = data.era5.tag_options()
-    era5_sl_tag_options = data.era5.tag_options(dataset="era5_sl")
-    tag_options = option.consolidate_options([era5_pl_tag_options, era5_sl_tag_options])
-    tag.save_tag_options(tag_options, filename="era5")
-
     # Create the track_options dictionary
     track_options = option.mcs(dataset="cpol")
     option.check_options(track_options)
@@ -187,7 +172,6 @@ def test_cpol():
         data_options,
         grid_options,
         track_options,
-        tag_options,
         visualize_options,
         output_directory=output_directory,
     )
@@ -201,12 +185,11 @@ def test_cpol():
     if output_directory.exists():
         shutil.rmtree(output_directory)
     times = data.utils.generate_times(data_options["cpol"])
-    tracks = track.simultaneous_track(
+    track.simultaneous_track(
         times,
         data_options,
         grid_options,
         track_options,
-        tag_options,
         visualize_options,
         output_directory=output_directory,
     )

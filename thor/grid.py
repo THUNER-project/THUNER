@@ -7,7 +7,7 @@ from pyproj import Geod, Proj, Transformer
 from thor.utils import almost_equal, pad
 from thor.config import get_outputs_directory
 from thor.log import setup_logger
-from thor.option import save_options
+import thor.option as option
 
 
 logger = setup_logger(__name__)
@@ -186,7 +186,9 @@ def save_grid_options(
     if filename is None:
         filename = grid_options["name"]
         append_time = True
-    save_options(grid_options, filename, options_directory, append_time=append_time)
+    option.save_options(
+        grid_options, filename, options_directory, append_time=append_time
+    )
 
 
 def check_spacing(array, dx):

@@ -220,7 +220,9 @@ def simultaneous_track(
         )
 
     write.mask.write_final(tracks, track_options, output_directory)
+    write.attribute.write_final(tracks, track_options, output_directory)
     write.mask.aggregate(track_options, output_directory)
+    write.attribute.aggregate(track_options, output_directory)
     visualize.visualize.animate_all(visualize_options, output_directory)
 
     return tracks
@@ -283,6 +285,7 @@ def track_object(
     # Write existing data to file if necessary
     if write.utils.write_interval_reached(time, object_tracks, object_options):
         write.mask.write(object_tracks, object_options, output_directory)
+        write.attribute.write(object_tracks, object_options, output_directory)
 
     # Detect objects at time
     get_objects = get_objects_dispatcher.get(object_options["method"])
@@ -309,7 +312,7 @@ def track_object(
         output_directory,
     )
     # Update the lists used to periodically write data to file
-    write.attribute.update(object_tracks, object_options, output_directory)
+    attribute.attribute.record(time, object_tracks, object_options, grid_options)
     write.mask.update(object_tracks, object_options)
 
 

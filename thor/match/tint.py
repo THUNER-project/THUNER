@@ -71,7 +71,7 @@ def get_costs_data(object_tracks, object_options, grid_options):
     global_flows = []
     corrected_flows = []
     cases = []
-    areas = []
+    previous_areas = []
     previous_centers = []
     bounding_boxes = []
     flow_boxes = []
@@ -122,12 +122,12 @@ def get_costs_data(object_tracks, object_options, grid_options):
         else:
             previous_displacement = np.array([np.nan, np.nan])
         previous_displacements.append(previous_displacement)
-        previous_row, previous_col, area = thor_object.get_object_center(
+        previous_row, previous_col, previous_area = thor_object.get_object_center(
             previous_id, previous_mask, grid_options, gridcell_area
         )
         previous_center = [previous_row, previous_col]
         previous_centers.append(previous_center)
-        areas.append(area)
+        previous_areas.append(previous_area)
         # Get the corrected flow
         corrected_flow, case = correct_local_flow(
             flow_box,  # Use this for flow vector origin
@@ -177,6 +177,7 @@ def get_costs_data(object_tracks, object_options, grid_options):
         "global_flow_boxes": np.array(global_flow_boxes),
         "previous_centers": np.array(previous_centers),  # Displacement vector origin
         "previous_displacements": np.array(previous_displacements),
+        "previous_areas": np.array(previous_areas),
     }
     return costs_data
 
