@@ -111,11 +111,18 @@ def aggregate_directory(directory, attribute_type, attribute_options, clean_up):
     """Aggregate attribute files within a directory into single file."""
     filepaths = glob.glob(str(directory / "*.csv"))
     df_list = []
+    index_cols = ["time"]
+    if "universal_id" in attribute_options.keys():
+        index_cols += ["universal_id"]
+    elif "id" in attribute_options.keys():
+        index_cols += ["id"]
+
     for filepath in filepaths:
-        df_list.append(pd.read_csv(filepath, index_col=["time"]))
+        df_list.append(pd.read_csv(filepath, index_col=index_cols))
     df = pd.concat(df_list)
     precision_dict = utils.get_precision_dict(attribute_options)
     df = df.round(precision_dict)
+    df = df.sort_index()
     # Store aggregated file in parent directory
     df.to_csv(directory.parent / f"{attribute_type}.csv")
     if clean_up:
