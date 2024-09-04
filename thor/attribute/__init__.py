@@ -6,4 +6,3 @@ from . import profile
 from . import utils
 from . import hybrid
 from . import attribute
-from . import option

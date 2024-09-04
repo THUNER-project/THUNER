@@ -199,8 +199,7 @@ def detected_object(
     """
 
     if attribute_options is None:
-        core_attributes = attribute.option.core_attributes()
-        attribute_options = {"core": core_attributes}
+        attribute_options = {"core": attribute.core.attributes()}
 
     options = {
         **boilerplate_object(name, hierarchy_level),
@@ -262,15 +261,26 @@ def grouped_object(
         Dictionary of global configuration options.
     """
     if not all([member_level < hierarchy_level for member_level in member_levels]):
-        raise ValueError(
-            "Member object hierarchy levels must be less than grouped object level."
-        )
+        message = "Member hierarchy levels must be less than grouped object level."
+        raise ValueError(message)
 
     mask_options = {"save": True, "load": False}
 
+    # Let "core" be an attribute option for "group" attributes, with
+    # the "core" attribute then being a dictionary containing the core attributes of
+    # each member object.
     if attribute_options is None:
-        core_attributes = attribute.option.core_attributes()
-        attribute_options = {"core": core_attributes}
+        tracked_options = attribute.core.attributes(tracked=True, matched=True)
+        untracked_options = attribute.core.attributes(tracked=False, matched=True)
+        attribute_options = {"group": {"member_objects": {}, name: {}}}
+        member_options = attribute_options["group"]["member_objects"]
+        # By default assume that the first member object is the matched/tracked object.
+        member_options[member_objects[0]] = {}
+        member_options[member_objects[0]]["core"] = tracked_options
+        for i in range(1, len(member_objects)):
+            member_options[member_objects[i]] = {}
+            member_options[member_objects[i]]["core"] = untracked_options
+        attribute_options["group"][name]["core"] = tracked_options
 
     options = {
         **boilerplate_object(
@@ -287,6 +297,7 @@ def grouped_object(
         "attribute": attribute_options,
     }
 
+    # If no matched object specified, assume first member object used for matching.
     if matched_object is None:
         matched_object = member_objects[0]
     options["tracking"]["options"]["matched_object"] = matched_object
@@ -494,8 +505,7 @@ def mcs(dataset, **kwargs):
 
     # Create the attribute dictionary for the unmatched/untracked middle_cloud objects.
     # For the cell and anvil objects, attributes are obtained from matching.
-    middle_cloud_attribute_options = attribute.option.core_attributes(tracked=False)
-    attribute_options = {"core": middle_cloud_attribute_options}
+    attribute_options = {"core": attribute.core.attributes(tracked=False)}
 
     options = [
         {

@@ -15,18 +15,44 @@ string_to_data_type = {
 }
 
 
+def initialize_core_attributes(attribute_options):
+    core_attributes = {attr: [] for attr in attribute_options.keys()}
+    return core_attributes
+
+
+def initialize_group_attributes(attribute_options):
+    member_attributes = {}
+    # Initialize member object attributes
+    member_options = attribute_options["member_objects"]
+    for obj in member_options.keys():
+        core_options = member_options[obj]["core"]
+        member_attributes[obj] = {}
+        member_attributes[obj]["core"] = initialize_core_attributes(core_options)
+    group_attributes = {"member_objects": member_attributes}
+    # Initialize grouped object attributes
+    obj = list(attribute_options.keys() - {"member_objects"})[0]
+    group_attributes[obj] = {}
+    obj_options = attribute_options[obj]["core"]
+    group_attributes[obj]["core"] = initialize_core_attributes(obj_options)
+    return group_attributes
+
+
+initialize_attributes_dispatcher = {
+    "core": initialize_core_attributes,
+    "group": initialize_group_attributes,
+}
+
+
 def initialize_attributes(object_tracks, object_options):
     object_tracks["attribute"] = {}
     for key in object_options["attribute"].keys():
-        object_tracks["attribute"][key] = {
-            attr: [] for attr in object_options["attribute"][key].keys()
-        }
+        initialize_func = initialize_attributes_dispatcher[key]
+        attribute_options = object_options["attribute"][key]
+        object_tracks["attribute"][key] = initialize_func(attribute_options)
 
 
-def create_dataframe(attribute_type, object_tracks, object_options):
-    """Create a pandas DataFrame from object attributes."""
-    attributes = object_tracks["attribute"][attribute_type]
-    options = object_options["attribute"][attribute_type]
+def attributes_dataframe(attributes, options):
+    """Create a pandas DataFrame from object attributes dictionary."""
     data_types = {name: options[name]["data_type"] for name in options.keys()}
     df = pd.DataFrame(attributes).astype(data_types)
     if "universal_id" in attributes.keys():
@@ -92,3 +118,12 @@ def read_attribute_csv(filepath, attribute_options=None):
     df = df.set_index(indexes)
 
     return df
+
+
+def get_precision_dict(attribute_options):
+    """Get precision dictionary for attribute options."""
+    precision_dict = {}
+    for key in attribute_options.keys():
+        if attribute_options[key]["data_type"] == float:
+            precision_dict[key] = attribute_options[key]["precision"]
+    return precision_dict
