@@ -26,7 +26,7 @@ def test_synthetic():
     grid.save_grid_options(grid_options, filename="synth_geographic")
 
     # Initialize synthetic objects
-    synthetic_object = synthetic.create_object_dictionary(
+    synthetic_object = synthetic.create_object(
         time=start,
         center_latitude=np.mean(lat),
         center_longitude=np.mean(lon),
