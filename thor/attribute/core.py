@@ -8,12 +8,14 @@ import xarray as xr
 from thor.log import setup_logger
 import thor.grid as grid
 from thor.object.object import get_object_center
+import thor.grid as grid
 
 logger = setup_logger(__name__)
 
 
-def attributes(names=None, tracked=True, matched=None, grouped=False):
-    """Create a dictionary of core attributes."""
+# Convenience functions for creating default core attribute options dictionaries
+def default(names=None, tracked=True, matched=None, grouped=False):
+    """Create a dictionary of default core attributes."""
 
     if matched is None:
         matched = tracked
@@ -29,54 +31,73 @@ def attributes(names=None, tracked=True, matched=None, grouped=False):
         if tracked:
             names += ["u_flow", "v_flow"]
             names += ["u_displacement", "v_displacement"]
-    attributes_dict = {name: attribute(name, tracked=tracked) for name in names}
+
+    attributes_dict = {}
+    for name in names:
+        attributes_dict[name] = attribute_dispatcher[name](name, tracked=tracked)
+
     return attributes_dict
 
 
-def id_attribute(name="id", method=None, description=None, tracked=True):
+def identity(name="id", method=None, description=None, tracked=True):
     """
     Options for id attribute.
     """
+    attribute_dict = {}
     data_type = int
     precision = None
+    units = None
     if method is None:
         if tracked:
             method = {"function": "ids_from_object_record"}
-            source = "object record."
         else:
             method = {"function": "ids_from_mask"}
-            source = "object mask."
     if description is None:
-        description = f"{name} taken from {source} "
+        description = f"{name} taken from object record or object mask. "
         description += "Unlike uid, id is not necessarily unique across time steps."
-    return method, description, data_type, precision
+    attribute_dict.update({"name": name, "method": method, "data_type": data_type})
+    attribute_dict.update({"precision": precision, "description": description})
+    attribute_dict.update({"units": units})
+
+    return attribute_dict
 
 
-def coordinate_attribute(name, method=None, description=None, tracked=True):
+def coordinate(name, method=None, description=None, tracked=True):
     """
     Options for coordinate attributes.
     """
+    attribute_dict = {}
     data_type = float
     precision = 4
+    if name == "latitude":
+        units = "degrees_north"
+    elif name == "longitude":
+        units = "degrees_east"
+    else:
+        raise ValueError(f"Coordinate must be 'latitude' or 'longitude'.")
     if method is None:
         if tracked:
             method = {"function": "coordinates_from_object_record"}
-            source = "object record."
         else:
             method = {"function": "coordinates_from_mask"}
-            source = "object mask."
     if description is None:
-        description = f"{name} position taken from the {source}; "
+        description = f"{name} position taken from the object_record or object mask; "
         description += f"usually a gridcell area weighted mean over the object mask."
-    return method, description, data_type, precision
+    attribute_dict.update({"name": name, "method": method, "data_type": data_type})
+    attribute_dict.update({"precision": precision, "description": description})
+    attribute_dict.update({"units": units})
+
+    return attribute_dict
 
 
-def velocity_attribute(name, method=None, description=None, tracked=True):
+def velocity(name, method=None, description=None, tracked=True):
     """
     Options for velocity attributes. Velocities only defined for tracked objects.
     """
+    attribute_dict = {}
     data_type = float
     precision = 1
+    units = "m/s"
     if not tracked:
         message = f"Velocity attribute {name} only defined for tracked objects."
         raise ValueError(message)
@@ -85,72 +106,69 @@ def velocity_attribute(name, method=None, description=None, tracked=True):
         method = {"function": "velocities_from_object_record"}
     if description is None:
         description = f"{name} velocities taken from the matching process."
-    return method, description, data_type, precision
+    attribute_dict.update({"name": name, "method": method, "data_type": data_type})
+    attribute_dict.update({"precision": precision, "description": description})
+    attribute_dict.update({"units": units})
+
+    return attribute_dict
 
 
-def area_attribute(name="area", method=None, description=None, tracked=True):
+def area(name="area", method=None, description=None, tracked=True):
     """
     Options for area attribute.
     """
+    attribute_dict = {}
     data_type = float
     precision = 1
+    units = "km^2"
     if method is None:
         if tracked:
             method = {"function": "areas_from_object_record"}
-            source = "object record."
         else:
             method = {"function": "areas_from_mask"}
-            source = "object mask."
     if description is None:
-        description = f"Object area taken from the {source}."
-    return method, description, data_type, precision
+        description = f"Object area taken from the object_record or object mask."
+    attribute_dict.update({"name": name, "method": method, "data_type": data_type})
+    attribute_dict.update({"precision": precision, "description": description})
+    attribute_dict.update({"units": units})
+
+    return attribute_dict
+
+
+def time(name="time", method=None, description=None, tracked=True):
+    """
+    Options for time attribute.
+    """
+    attribute_dict = {}
+    if method is None:
+        method = {"function": None}
+    if description is None:
+        description = f"Time taken from the tracking process."
+    data_type = "datetime64[s]"
+    units = None
+    precision = None
+    attribute_dict.update({"name": name, "method": method, "data_type": data_type})
+    attribute_dict.update({"precision": precision, "description": description})
+    attribute_dict.update({"units": units})
+
+    return attribute_dict
 
 
 attribute_dispatcher = {
-    "id": id_attribute,
-    "universal_id": id_attribute,
-    "latitude": coordinate_attribute,
-    "longitude": coordinate_attribute,
-    "u_flow": velocity_attribute,
-    "v_flow": velocity_attribute,
-    "u_displacement": velocity_attribute,
-    "v_displacement": velocity_attribute,
-    "area": area_attribute,
+    "id": identity,
+    "universal_id": identity,
+    "latitude": coordinate,
+    "longitude": coordinate,
+    "u_flow": velocity,
+    "v_flow": velocity,
+    "u_displacement": velocity,
+    "v_displacement": velocity,
+    "area": area,
+    "time": time,
 }
 
 
-def attribute(
-    name, method=None, description=None, tracked=True, data_type=None, precision=None
-):
-    """
-    Specify options for a core property, typically obtained from the matching process.
-    """
-    if name == "time":
-        if method is None:
-            method = {"function": None}
-        if description is None:
-            description = f"Time taken from the tracking process."
-        if data_type is None:
-            data_type = "datetime64[s]"
-    else:
-        if name in attribute_dispatcher.keys():
-            get_attr_options = attribute_dispatcher[name]
-            method, description, data_type, precision = get_attr_options(
-                name, method, description, tracked
-            )
-        elif method is None or description is None or data_type is None:
-            message = f"Property {name} not recognised. Please specify method and description."
-            raise ValueError(message)
-    attribute_options = {
-        "name": name,
-        "method": method,
-        "data_type": data_type,
-        "precision": precision,
-        "description": description,
-    }
-    return attribute_options
-
-
+# Functions for obtaining and recording core attributes
 def coordinates_from_object_record(
     name, time, object_tracks, attribute_options, grid_options, member_object=None
 ):
@@ -302,6 +320,7 @@ def ids_from_object_record(name, object_tracks, attribute_options, member_object
     return ids
 
 
+# Dispatch dictionary for getting core attributes
 get_attributes_dispatcher = {
     "coordinates_from_object_record": coordinates_from_object_record,
     "coordinates_from_mask": coordinates_from_mask,
@@ -336,9 +355,8 @@ def record_coordinates(
         message = f"Function {func} for obtaining lat and lon not recognised."
         raise ValueError(message)
 
-    arguments_to_get = ["latitude", time, object_tracks, options, grid_options]
-    arguments_to_get += [member_object]
-    lats, lons = get(*arguments_to_get)
+    args = ["latitude", time, object_tracks, options, grid_options, member_object]
+    lats, lons = get(*args)
     attributes["latitude"] += list(lats)
     attributes["longitude"] += list(lons)
 
@@ -392,6 +410,7 @@ def get_ids(time, object_tracks, attribute_options, member_object):
     return id_type, ids
 
 
+# Record core attributes
 def record(
     time,
     attributes,
@@ -401,7 +420,7 @@ def record(
     grid_options,
     member_object=None,
 ):
-    """Get object attributes."""
+    """Get object core attributes."""
     id_type, ids = get_ids(time, object_tracks, attribute_options, member_object)
     # If no objects, return
     if ids is None or len(ids) == 0:
@@ -418,6 +437,7 @@ def record(
     args = [attributes, attribute_options, time, object_tracks]
     args += [grid_options]
 
+    # Two dimensionality confusion here
     if "latitude" in keys or "longitude" in keys:
         record_coordinates(*args, member_object=member_object)
     if "u_flow" in keys or "v_flow" in keys:
@@ -431,12 +451,12 @@ def record(
     processed_attributes += ["u_flow", "v_flow", "u_displacement", "v_displacement"]
     remaining_attributes = [attr for attr in keys if attr not in processed_attributes]
     for name in remaining_attributes:
-        func = attribute_options[name]["method"]["function"]
-        get = get_attributes_dispatcher.get(func)
-        if get is not None:
+        attr_function = attribute_options[name]["method"]["function"]
+        get_attr = get_attributes_dispatcher.get(attr_function)
+        if get_attr is not None:
             args = [name, time, object_tracks, attribute_options, grid_options]
-            attribute = get(*args, member_object=member_object)
+            attribute = get_attr(*args, member_object=member_object)
             attributes[name] += list(attribute)
         else:
-            message = f"Function {func} for obtaining attribute {name} not recognised."
+            message = f"Function {attr_function} for obtaining attribute {name} not recognised."
             raise ValueError(message)

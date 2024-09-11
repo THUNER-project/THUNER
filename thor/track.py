@@ -84,6 +84,7 @@ def initialise_object_tracks(object_options):
 
     """
     object_tracks = {}
+    object_tracks["name"] = object_options["name"]
     object_tracks["object_count"] = 0
     object_tracks["tracks"] = []
     object_tracks["current_grid"] = None
@@ -101,8 +102,16 @@ def initialise_object_tracks(object_options):
     if object_options["mask_options"]["save"]:
         object_tracks["mask_list"] = []
 
-    if object_options["attribute"] is not None:
-        attribute.utils.initialize_attributes(object_tracks, object_options)
+    # Initialize attributes dictionaries
+    if object_options["attributes"] is not None:
+        # The current_attributes dict holds the attributes associated with matching the
+        # "previous" grid to the "current" grid. It is reset at the start of each time
+        # step.
+        current_attributes = attribute.utils.initialize_attributes(object_options)
+        object_tracks["current_attributes"] = current_attributes
+        attributes = attribute.utils.initialize_attributes(object_options)
+        object_tracks["attributes"] = attributes
+
     object_tracks["last_write_time"] = None
 
     return object_tracks

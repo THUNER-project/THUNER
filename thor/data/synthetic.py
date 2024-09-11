@@ -85,7 +85,7 @@ def check_data_options(options):
     return options
 
 
-def create_object_dictionary(
+def create_object(
     time,
     center_latitude,
     center_longitude,

@@ -15,40 +15,49 @@ string_to_data_type = {
 }
 
 
-def initialize_core_attributes(attribute_options):
-    core_attributes = {attr: [] for attr in attribute_options.keys()}
-    return core_attributes
+def initialize_attributes_detected(object_options):
+    """Initialize attributes lists for detected objects."""
+    attributes_dict = {}
+    for key in object_options["attributes"].keys():
+        attribute_options = object_options["attributes"][key]
+        attributes = {attr: [] for attr in attribute_options.keys()}
+        attributes_dict[key] = attributes
+    return attributes_dict
 
 
-def initialize_group_attributes(attribute_options):
-    member_attributes = {}
-    # Initialize member object attributes
-    member_options = attribute_options["member_objects"]
+def initialize_attributes_grouped(object_options):
+    """Initialize attributes lists for grouped objects."""
+    # First initialize attributes for member objects
+    member_options = object_options["attributes"]["member_objects"]
+    object_name = object_options["name"]
+    attributes_dict = {"member_objects": {}, object_name: {}}
+    member_attributes = attributes_dict["member_objects"]
     for obj in member_options.keys():
-        core_options = member_options[obj]["core"]
         member_attributes[obj] = {}
-        member_attributes[obj]["core"] = initialize_core_attributes(core_options)
-    group_attributes = {"member_objects": member_attributes}
-    # Initialize grouped object attributes
-    obj = list(attribute_options.keys() - {"member_objects"})[0]
-    group_attributes[obj] = {}
-    obj_options = attribute_options[obj]["core"]
-    group_attributes[obj]["core"] = initialize_core_attributes(obj_options)
-    return group_attributes
+        for attribute_type in member_options[obj].keys():
+            attribute_options = member_options[obj][attribute_type]
+            attributes = {attr: [] for attr in attribute_options.keys()}
+            member_attributes[obj][attribute_type] = attributes
+    # Now initialize attributes for grouped object
+    obj = list(object_options["attributes"].keys() - {"member_objects"})[0]
+    for attribute_type in object_options["attributes"][obj].keys():
+        attribute_options = object_options["attributes"][obj][attribute_type]
+        attributes = {attr: [] for attr in attribute_options.keys()}
+        attributes_dict[obj][attribute_type] = attributes
+    return attributes_dict
 
 
-initialize_attributes_dispatcher = {
-    "core": initialize_core_attributes,
-    "group": initialize_group_attributes,
-}
-
-
-def initialize_attributes(object_tracks, object_options):
-    object_tracks["attribute"] = {}
-    for key in object_options["attribute"].keys():
-        initialize_func = initialize_attributes_dispatcher[key]
-        attribute_options = object_options["attribute"][key]
-        object_tracks["attribute"][key] = initialize_func(attribute_options)
+def initialize_attributes(object_options):
+    """Initialize attributes lists for object tracks."""
+    if "detection" in object_options:
+        init_func = initialize_attributes_detected
+    elif "grouping" in object_options:
+        init_func = initialize_attributes_grouped
+    else:
+        message = "Object indentification method must be specified, i.e. "
+        message += "'detection' or 'grouping'."
+        raise ValueError(message)
+    return init_func(object_options)
 
 
 def attributes_dataframe(attributes, options):
@@ -87,7 +96,6 @@ def read_attribute_csv(filepath, attribute_options=None):
     -------
     pd.DataFrame
         DataFrame containing the CSV data.
-
     """
 
     if attribute_options is None:

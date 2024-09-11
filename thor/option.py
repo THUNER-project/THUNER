@@ -199,7 +199,7 @@ def detected_object(
     """
 
     if attribute_options is None:
-        attribute_options = {"core": attribute.core.attributes()}
+        attribute_options = {"core": attribute.core.default()}
 
     options = {
         **boilerplate_object(name, hierarchy_level),
@@ -212,7 +212,7 @@ def detected_object(
             "min_area": min_area,
         },
         "tracking": {"method": tracking_method},
-        "attribute": attribute_options,
+        "attributes": attribute_options,
     }
 
     return options
@@ -270,17 +270,21 @@ def grouped_object(
     # the "core" attribute then being a dictionary containing the core attributes of
     # each member object.
     if attribute_options is None:
-        tracked_options = attribute.core.attributes(tracked=True, matched=True)
-        untracked_options = attribute.core.attributes(tracked=False, matched=True)
-        attribute_options = {"group": {"member_objects": {}, name: {}}}
-        member_options = attribute_options["group"]["member_objects"]
+        tracked_options = attribute.core.default(tracked=True, matched=True)
+        untracked_options = attribute.core.default(tracked=False, matched=True)
+        # Note attributes for grouped objects are specified slightly differently
+        # than for detected objects; the dictionary has an extra layer of nesting to
+        # separate the attributes for member objects and for the grouped object.
+        attribute_options = {"member_objects": {}, name: {}}
+        member_options = attribute_options["member_objects"]
         # By default assume that the first member object is the matched/tracked object.
         member_options[member_objects[0]] = {}
         member_options[member_objects[0]]["core"] = tracked_options
         for i in range(1, len(member_objects)):
             member_options[member_objects[i]] = {}
             member_options[member_objects[i]]["core"] = untracked_options
-        attribute_options["group"][name]["core"] = tracked_options
+        attribute_options[name]["core"] = tracked_options
+        attribute_options[name]["group"] = attribute.group.default()
 
     options = {
         **boilerplate_object(
@@ -294,7 +298,7 @@ def grouped_object(
             "member_min_areas": member_min_areas,
         },
         "tracking": {"method": tracking_method, "options": mint_options(**kwargs)},
-        "attribute": attribute_options,
+        "attributes": attribute_options,
     }
 
     # If no matched object specified, assume first member object used for matching.
@@ -505,7 +509,7 @@ def mcs(dataset, **kwargs):
 
     # Create the attribute dictionary for the unmatched/untracked middle_cloud objects.
     # For the cell and anvil objects, attributes are obtained from matching.
-    attribute_options = {"core": attribute.core.attributes(tracked=False)}
+    member_attr_options = {"core": attribute.core.default(tracked=False)}
 
     options = [
         {
@@ -525,7 +529,7 @@ def mcs(dataset, **kwargs):
                 detection_method="threshold",
                 flatten_method="vertical_max",
                 altitudes=[3500, 7000],
-                attribute_options=attribute_options,
+                attribute_options=member_attr_options,
                 **kwargs,
             ),
             "anvil": anvil_object(
