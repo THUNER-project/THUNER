@@ -62,7 +62,7 @@ def test_cpol_with_runtime_figures():
     # Create the track_options dictionary
     track_options = option.mcs(dataset="cpol")
     option.check_options(track_options)
-    option.save_track_options(track_options, filename="gridrad_mcs")
+    option.save_track_options(track_options, filename="cpol_mcs")
 
     # Create the display_options dictionary
     cell_vis_options = visualize.option.runtime_options(
@@ -96,7 +96,7 @@ def test_cpol_with_runtime_figures():
     )
 
     # Test in Cartesian coordinates
-    grid_options = grid.create_options(name="cartesian", regrid=True)
+    grid_options = grid.create_options(name="cartesian", regrid=False)
     grid.check_options(grid_options)
     grid.save_grid_options(grid_options, filename="cpol_cartesian")
 
@@ -121,7 +121,7 @@ def test_cpol():
 
     # Parent directory for saving outputs
     base_local = Path.home() / "THOR_output"
-    start = "2005-11-13T13:00:00"
+    start = "2005-11-13T15:00:00"
     end = "2005-11-13T19:00:00"
 
     # Create the data_options dictionary
@@ -158,7 +158,7 @@ def test_cpol():
     # Create the track_options dictionary
     track_options = option.mcs(dataset="cpol")
     option.check_options(track_options)
-    option.save_track_options(track_options, filename="gridrad_mcs")
+    option.save_track_options(track_options, filename="cpol_mcs")
 
     visualize_options = None
 
@@ -177,7 +177,7 @@ def test_cpol():
     )
 
     # Test tracking in Cartesian coordinates
-    grid_options = grid.create_options(name="cartesian", regrid=True)
+    grid_options = grid.create_options(name="cartesian", regrid=False)
     grid.check_options(grid_options)
     grid.save_grid_options(grid_options, filename="cpol_cartesian")
 

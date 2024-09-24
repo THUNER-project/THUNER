@@ -11,6 +11,7 @@ import thor.option as option
 
 
 logger = setup_logger(__name__)
+grid_name_message = "Grid name must be 'cartesian' or 'geographic'."
 
 
 def create_options(
@@ -289,7 +290,7 @@ def get_cell_areas(options):
     elif options["name"] == "geographic":
         return get_geographic_cell_areas(options["latitude"], options["longitude"])
     else:
-        raise ValueError("Grid name must be 'cartesian' or 'geographic'.")
+        raise ValueError(grid_name_message)
 
 
 def get_coordinate_names(options):
@@ -299,7 +300,7 @@ def get_coordinate_names(options):
     elif options["name"] == "geographic":
         return ["latitude", "longitude"]
     else:
-        raise ValueError("Grid name must be 'cartesian' or 'geographic'.")
+        raise ValueError(grid_name_message)
 
 
 def get_distance(row_1, col_1, row_2, col_2, options):
@@ -392,7 +393,7 @@ def get_horizontal_spacing(options):
     elif options["name"] == "geographic":
         return options["geographic_spacing"]
     else:
-        raise ValueError("Grid name must be 'cartesian' or 'geographic'.")
+        raise ValueError(grid_name_message)
 
 
 def pixel_to_cartesian_vector(row, col, vector, options):
@@ -435,7 +436,7 @@ def pixel_to_cartesian_vector(row, col, vector, options):
             start_lat, start_lon, end_lat, end_lon
         )
     else:
-        raise ValueError("Grid name must be 'cartesian' or 'geographic'.")
+        raise ValueError(grid_name_message)
 
 
 geod = Geod(ellps="WGS84")
@@ -480,7 +481,7 @@ def get_pixels_geographic(rows, cols, grid_options):
         # lats, lons are 1D arrays
         lats, lons = [latitudes[row] for row in rows], [longitudes[col] for col in cols]
     else:
-        raise ValueError("Grid name must be 'cartesian' or 'geographic'.")
+        raise ValueError(grid_name_message)
     if scalar_input:
         lats = lats[0]
         lons = lons[0]

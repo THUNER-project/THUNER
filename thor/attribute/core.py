@@ -9,6 +9,7 @@ from thor.log import setup_logger
 import thor.grid as grid
 from thor.object.object import get_object_center
 import thor.grid as grid
+import thor.attribute.utils as utils
 
 logger = setup_logger(__name__)
 
@@ -236,7 +237,7 @@ def coordinates_from_mask(
     name, time, object_tracks, attribute_options, grid_options, member_object=None
 ):
     """Get object coordinate from mask."""
-    mask = get_previous_mask(attribute_options, object_tracks)
+    mask = utils.get_previous_mask(attribute_options, object_tracks)
     # If examining just a member of a grouped object, get masks for that object
     if member_object is not None and isinstance(mask, xr.Dataset):
         mask = mask[f"{member_object}_mask"]
@@ -259,24 +260,11 @@ def coordinates_from_mask(
     return lats, lons
 
 
-def get_previous_mask(attribute_options, object_tracks):
-    """Get the appropriate previous mask."""
-    if "universal_id" in attribute_options.keys():
-        mask_type = "previous_matched_masks"
-    elif "id" in attribute_options.keys():
-        mask_type = "previous_masks"
-    else:
-        message = "Either universal_id or id must be specified as an attribute."
-        raise ValueError(message)
-    mask = object_tracks[mask_type][-1]
-    return mask
-
-
 def areas_from_mask(
     name, time, object_tracks, attribute_options, grid_options, member_object=None
 ):
     """Get object area from mask."""
-    mask = get_previous_mask(attribute_options, object_tracks)
+    mask = utils.get_previous_mask(attribute_options, object_tracks)
     # If examining just a member of a grouped object, get masks for that object
     if member_object is not None and isinstance(mask, xr.Dataset):
         mask = mask[f"{member_object}_mask"]
@@ -296,7 +284,7 @@ def areas_from_mask(
 
 def ids_from_mask(attribute_name, object_tracks, attribute_options, member_object=None):
     """Get object ids from a labelled mask."""
-    previous_mask = get_previous_mask(attribute_options, object_tracks)
+    previous_mask = utils.get_previous_mask(attribute_options, object_tracks)
     if previous_mask is None:
         return None
     if member_object is not None:
@@ -413,6 +401,7 @@ def get_ids(time, object_tracks, attribute_options, member_object):
 # Record core attributes
 def record(
     time,
+    input_records,
     attributes,
     object_tracks,
     object_options,
@@ -437,7 +426,7 @@ def record(
     args = [attributes, attribute_options, time, object_tracks]
     args += [grid_options]
 
-    # Two dimensionality confusion here
+    # Two dimensionality checks
     if "latitude" in keys or "longitude" in keys:
         record_coordinates(*args, member_object=member_object)
     if "u_flow" in keys or "v_flow" in keys:

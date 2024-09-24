@@ -8,6 +8,7 @@ from tqdm import tqdm
 import cdsapi
 import cv2
 import numpy as np
+import pandas as pd
 import xarray as xr
 from skimage.morphology import remove_small_objects, remove_small_holes
 from scipy.ndimage import binary_dilation, binary_erosion
@@ -470,6 +471,7 @@ def get_mask_boundary(mask, grid_options):
     )[0]
     boundary_coords = []
     for contour in contours:
+        # Append the first point to the end to close the contour
         contour = np.append(contour, [contour[0]], axis=0)
         contour_rows = contour[:, :, 1].flatten()
         contour_cols = contour[:, :, 0].flatten()
@@ -481,7 +483,17 @@ def get_mask_boundary(mask, grid_options):
             boundary_lons = lons[contour_cols]
         boundary_dict = {"latitude": boundary_lats, "longitude": boundary_lons}
         boundary_coords.append(boundary_dict)
-    return boundary_coords
+    boundary_mask = xr.zeros_like(mask).astype(bool)
+    for coords in boundary_coords:
+        if grid_options["name"] == "cartesian":
+            boundary_mask.values[contour_rows, contour_cols] = True
+        elif grid_options["name"] == "geographic":
+            lat_indices = np.searchsorted(boundary_mask.latitude, coords["latitude"])
+            lon_indices = np.searchsorted(boundary_mask.longitude, coords["longitude"])
+            boundary_mask.values[lat_indices, lon_indices] = True
+        else:
+            raise ValueError("Grid name must be 'cartesian' or 'geographic'.")
+    return boundary_coords, boundary_mask
 
 
 def save_converted_dataset(dataset, dataset_options):

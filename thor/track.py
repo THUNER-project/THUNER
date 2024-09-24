@@ -60,6 +60,8 @@ def initialise_track_input_record(dataset_options):
     # gridrad the domain mask is different for objects identified at different levels.
     input_record["current_domain_mask"] = None
     input_record["previous_domain_masks"] = deque([None] * deque_length, deque_length)
+    input_record["current_boundary_mask"] = None
+    input_record["previous_boundary_masks"] = deque([None] * deque_length, deque_length)
     input_record["current_boundary_coordinates"] = None
     input_record["previous_boundary_coordinates"] = deque(
         [None] * deque_length, deque_length
@@ -200,6 +202,7 @@ def simultaneous_track(
         track_options, data_options, grid_options, visualize_options
     )
 
+    previous_time = None
     for time in times:
 
         if output_directory is None:
@@ -213,16 +216,22 @@ def simultaneous_track(
         dispatch.update_track_input_records(
             time, input_records["track"], track_options, data_options, grid_options
         )
+        dispatch.update_tag_input_records(
+            previous_time,
+            input_records["tag"],
+            track_options,
+            data_options,
+            grid_options,
+        )
         # loop over levels
         for level_index in range(len(track_options)):
             logger.info("Processing hierarchy level %s.", level_index)
-            track_level_args = [time, level_index, tracks, input_records["track"]]
+            track_level_args = [time, level_index, tracks, input_records]
             track_level_args += [data_options, grid_options, track_options]
             track_level_args += [visualize_options, output_directory]
             track_level(*track_level_args)
-        dispatch.update_tag_input_records(
-            time, input_records["tag"], track_options, data_options, grid_options
-        )
+
+        previous_time = time
 
     write.mask.write_final(tracks, track_options, output_directory)
     write.attribute.write_final(tracks, track_options, output_directory)
@@ -237,7 +246,7 @@ def track_level(
     time,
     level_index,
     tracks,
-    track_input_records,
+    input_records,
     data_options,
     grid_options,
     track_options,
@@ -254,7 +263,7 @@ def track_level(
             dataset_options = None
         else:
             dataset_options = data_options[dataset]
-        track_object_args = [time, level_index, obj, tracks, track_input_records]
+        track_object_args = [time, level_index, obj, tracks, input_records]
         track_object_args += [dataset_options, grid_options, track_options]
         track_object_args += [visualize_options, output_directory]
         track_object(*track_object_args)
@@ -267,7 +276,7 @@ def track_object(
     level_index,
     obj,
     tracks,
-    track_input_records,
+    input_records,
     dataset_options,
     grid_options,
     track_options,
@@ -278,6 +287,7 @@ def track_object(
     # Get the object options
     object_options = track_options[level_index][obj]
     object_tracks = tracks[level_index][obj]
+    track_input_records = input_records["track"]
 
     # Update current and previous time
     if object_tracks["current_time"] is not None:
@@ -303,7 +313,9 @@ def track_object(
     visualize_args += [grid_options, visualize_options, output_directory]
     visualize.runtime.visualize(*visualize_args)
     # Update the lists used to periodically write data to file
-    attribute.attribute.record(time, object_tracks, object_options, grid_options)
+    if object_tracks["previous_times"][-1] is not None:
+        args = [time, input_records, object_tracks, object_options, grid_options]
+        attribute.attribute.record(*args)
     write.mask.update(object_tracks, object_options)
 
 

@@ -472,18 +472,22 @@ def convert_cpol(time, input_record, dataset_options, grid_options):
 
     # Set data outside instrument range to NaN
     keys = ["current_domain_mask", "current_boundary_coordinates"]
+    keys += ["current_boundary_mask"]
     if any(input_record[k] is None for k in keys):
         # Get the domain mask and domain boundary. Note this is the region where data
         # exists, not the detected object masks from the detect module.
         mask = utils.mask_from_range(ds, dataset_options, grid_options)
-        boundary_coords = utils.get_mask_boundary(mask, grid_options)
+        boundary_coords, boundary_mask = utils.get_mask_boundary(mask, grid_options)
         input_record["current_domain_mask"] = mask
         input_record["current_boundary_coordinates"] = boundary_coords
+        input_record["current_boundary_mask"] = boundary_mask
     else:
         mask = copy.deepcopy(input_record["current_domain_mask"])
+        boundary_mask = copy.deepcopy(input_record["current_boundary_mask"])
         coords = copy.deepcopy(input_record["current_boundary_coordinates"])
         input_record["previous_domain_masks"].append(mask)
         input_record["previous_boundary_coordinates"].append(coords)
+        input_record["previous_boundary_masks"].append(boundary_mask)
         # Note for AURA data the domain mask is calculated using a fixed range
         # (e.g. 150 km), which is constant for all times. Therefore, the mask is not
         # updated for each new file. Contrast this with, for instance, GridRad, where a

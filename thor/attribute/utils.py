@@ -2,7 +2,7 @@
 
 import yaml
 import pandas as pd
-import numpy as np
+from collections import defaultdict
 from thor.log import setup_logger
 
 logger = setup_logger(__name__)
@@ -13,6 +13,58 @@ string_to_data_type = {
     "int": int,
     "datetime64[s]": "datetime64[s]",
 }
+
+
+def get_previous_mask(attribute_options, object_tracks):
+    """Get the appropriate previous mask."""
+    if "universal_id" in attribute_options.keys():
+        mask_type = "previous_matched_masks"
+    elif "id" in attribute_options.keys():
+        mask_type = "previous_masks"
+    else:
+        message = "Either universal_id or id must be specified as an attribute."
+        raise ValueError(message)
+    mask = object_tracks[mask_type][-1]
+    return mask
+
+
+def dict_to_tuple(d):
+    """Recursively convert a dictionary to a tuple of key-value pairs."""
+    return tuple(
+        (k, dict_to_tuple(v) if isinstance(v, dict) else v) for k, v in d.items()
+    )
+
+
+def tuple_to_dict(t):
+    """Recursively convert a tuple of key-value pairs back to a dictionary."""
+    return {k: tuple_to_dict(v) if isinstance(v, tuple) else v for k, v in t}
+
+
+def group_by_method(attributes):
+    """Group attributes dictionary by method key."""
+    grouped = defaultdict(list)
+    for key, value in attributes.items():
+        method = value["method"]
+        method_tuple = dict_to_tuple(method)
+        grouped[method_tuple].append(key)
+    return grouped
+
+
+def attribute_from_core(
+    name, time, object_tracks, attribute_options, grid_options, member_object=None
+):
+    """Get attribute from core object properties."""
+    # Check if grouped object
+    object_name = object_tracks["name"]
+    if object_name in object_tracks["current_attributes"]:
+        if member_object is not None and member_object is not object_name:
+            member_attr = object_tracks["current_attributes"]["member_objects"]
+            attr = member_attr[member_object]["core"][name]
+        else:
+            attr = object_tracks["current_attributes"][object_name]["core"][name]
+    else:
+        attr = object_tracks["current_attributes"]["core"][name]
+    return attr
 
 
 def initialize_attributes_detected(object_options):
@@ -68,7 +120,10 @@ def attributes_dataframe(attributes, options):
         id_index = "universal_id"
     else:
         id_index = "id"
-    df.set_index(["time", id_index], inplace=True)
+    multi_index = ["time", id_index]
+    if "altitude" in attributes.keys():
+        multi_index.append("altitude")
+    df.set_index(multi_index, inplace=True)
     df.sort_index(inplace=True)
     return df
 

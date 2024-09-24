@@ -378,14 +378,17 @@ def convert_gridrad(time, input_record, track_options, dataset_options, grid_opt
     previous_boundary_coords = copy.deepcopy(
         input_record["current_boundary_coordinates"]
     )
+    previous_boundary_mask = copy.deepcopy(input_record["current_boundary_mask"])
     input_record["previous_domain_masks"].append(previous_domain_mask)
     input_record["previous_boundary_coordinates"].append(previous_boundary_coords)
+    input_record["previous_boundary_masks"].append(previous_boundary_mask)
 
     domain_mask = get_domain_mask(ds, track_options, dataset_options, grid_options)
     input_record["current_domain_mask"] = domain_mask
 
-    boundary_coords = utils.get_mask_boundary(domain_mask, grid_options)
+    boundary_coords, boundary_mask = utils.get_mask_boundary(domain_mask, grid_options)
     input_record["current_boundary_coordinates"] = boundary_coords
+    input_record["current_boundary_mask"] = boundary_mask
 
     # Apply the domain mask to the current grid
     ds = ds.where(domain_mask)

@@ -88,7 +88,7 @@ def write_grouped(object_tracks, object_options, output_directory):
 
 
 def write(object_tracks, object_options, output_directory):
-    """Write masks to file."""
+    """Write attributes to file."""
 
     if "detection" in object_options:
         write_func = write_detected

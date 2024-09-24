@@ -6,11 +6,11 @@ module, which collect the attributes associated with grouped and detected object
 respectively.
 """
 
-from functools import partial
 from thor.log import setup_logger
 import thor.attribute.core as core
 import numpy as np
 import thor.grid as grid
+import thor.attribute.utils as utils
 
 logger = setup_logger(__name__)
 
@@ -61,15 +61,6 @@ def default(names=None, matched=True):
 
 
 # Methods for obtaining and recording attributes
-def attribute_from_core(
-    name, time, object_tracks, attribute_options, grid_options, member_object=None
-):
-    """Get attribute from core object properties."""
-    object_name = object_tracks["name"]
-    attr = object_tracks["current_attributes"][object_name]["core"][name]
-    return attr
-
-
 def offset_from_centers(
     name, time, object_tracks, attribute_options, grid_options, member_object=None
 ):
@@ -90,7 +81,7 @@ def offset_from_centers(
 
 
 get_attributes_dispatcher = {
-    "attribute_from_core": attribute_from_core,
+    "attribute_from_core": utils.attribute_from_core,
     "offset_from_centers": offset_from_centers,
 }
 
@@ -105,7 +96,7 @@ def record_offsets(
 ):
     """Record offset."""
     keys = attributes.keys()
-    if not "x_offset" in keys or not "y_offset" in keys:
+    if "x_offset" not in keys or "y_offset" not in keys:
         message = "Both x_offset and y_offset must be specified."
         raise ValueError(message)
     get_offsets_function = options["x_offset"]["method"]["function"]
@@ -126,6 +117,7 @@ def record_offsets(
 
 def record(
     time,
+    input_records,
     attributes,
     object_tracks,
     object_options,

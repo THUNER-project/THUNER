@@ -200,6 +200,8 @@ def detected_object(
 
     if attribute_options is None:
         attribute_options = {"core": attribute.core.default()}
+        attribute_options.update({"profile": attribute.profile.default("era5_pl")})
+        attribute_options.update({"quality": attribute.quality.default()})
 
     options = {
         **boilerplate_object(name, hierarchy_level),
@@ -270,8 +272,8 @@ def grouped_object(
     # the "core" attribute then being a dictionary containing the core attributes of
     # each member object.
     if attribute_options is None:
-        tracked_options = attribute.core.default(tracked=True, matched=True)
-        untracked_options = attribute.core.default(tracked=False, matched=True)
+        core_tracked = attribute.core.default(tracked=True, matched=True)
+        core_untracked = attribute.core.default(tracked=False, matched=True)
         # Note attributes for grouped objects are specified slightly differently
         # than for detected objects; the dictionary has an extra layer of nesting to
         # separate the attributes for member objects and for the grouped object.
@@ -279,12 +281,15 @@ def grouped_object(
         member_options = attribute_options["member_objects"]
         # By default assume that the first member object is the matched/tracked object.
         member_options[member_objects[0]] = {}
-        member_options[member_objects[0]]["core"] = tracked_options
+        member_options[member_objects[0]]["core"] = core_tracked
+        member_options[member_objects[0]]["quality"] = attribute.quality.default()
         for i in range(1, len(member_objects)):
             member_options[member_objects[i]] = {}
-            member_options[member_objects[i]]["core"] = untracked_options
-        attribute_options[name]["core"] = tracked_options
+            member_options[member_objects[i]]["core"] = core_untracked
+            member_options[member_objects[i]]["quality"] = attribute.quality.default()
+        attribute_options[name]["core"] = core_tracked
         attribute_options[name]["group"] = attribute.group.default()
+        attribute_options[name]["profile"] = attribute.profile.default("era5_pl")
 
     options = {
         **boilerplate_object(
@@ -509,7 +514,8 @@ def mcs(dataset, **kwargs):
 
     # Create the attribute dictionary for the unmatched/untracked middle_cloud objects.
     # For the cell and anvil objects, attributes are obtained from matching.
-    member_attr_options = {"core": attribute.core.default(tracked=False)}
+    middle_attr_options = {"core": attribute.core.default(tracked=False)}
+    middle_attr_options.update({"quality": attribute.quality.default(matched=False)})
 
     options = [
         {
@@ -529,7 +535,7 @@ def mcs(dataset, **kwargs):
                 detection_method="threshold",
                 flatten_method="vertical_max",
                 altitudes=[3500, 7000],
-                attribute_options=member_attr_options,
+                attribute_options=middle_attr_options,
                 **kwargs,
             ),
             "anvil": anvil_object(

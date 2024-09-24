@@ -23,7 +23,6 @@ def update(object_tracks, object_options):
 
     # Append mask to mask_list
     object_tracks["mask_list"].append(object_tracks[mask_type])
-    return
 
 
 def write(object_tracks, object_options, output_directory):
@@ -38,7 +37,7 @@ def write(object_tracks, object_options, output_directory):
         last_write_time + write_interval, filename_safe=False, day_only=False
     )
     message = f"Writing {object_name} masks from {last_write_str} to {current_str}, "
-    message += f"inclusive and non-inclusive, respectively."
+    message += "inclusive and non-inclusive, respectively."
     logger.info(message)
     combine_attrs_options = ["identical", "drop_conflicts"]
     for option in combine_attrs_options:

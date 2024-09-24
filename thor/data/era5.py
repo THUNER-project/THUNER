@@ -1,6 +1,6 @@
 """Process ERA5 data."""
 
-from concurrent.futures import ThreadPoolExecutor, TimeoutError
+from concurrent.futures import TimeoutError
 import calendar
 import signal
 from pathlib import Path
@@ -453,15 +453,18 @@ def issue_cdsapi_requests(
 
 def convert_era5(ds):
     """Convert ERA5 data."""
+    if "level" in ds.coords:
+        ds = ds.rename({"level": "pressure"})
     if "time_var" in ds.coords:
         ds = ds.rename({"time_var": "time"})
         logger.debug("Renamed time_var to time in era5 dataset.")
+    if "r" in ds.data_vars:
+        ds = ds.rename({"r": "relative_humidity"})
+    if "t" in ds.data_vars:
+        ds = ds.rename({"t": "temperature"})
+    if "z" in ds.data_vars:
+        ds = ds.rename({"z": "geopotential"})
     return ds
-
-
-def generate_era5_times():
-    """Generate ERA5 times."""
-    return
 
 
 def update_dataset(time, input_record, track_options, dataset_options, grid_options):
@@ -482,8 +485,9 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
 
     lat = np.array(grid_options["latitude"])
     lon = np.array(grid_options["longitude"])
-    lat_range = (lat.min(), lat.max())
-    lon_range = (lon.min(), lon.max())
+    # Expand the lat and lon ranges to include a buffer to ensure required gridpoints are included
+    lat_range = (lat.min() - 0.25, lat.max() + 0.25)
+    lon_range = (lon.min() - 0.25, lon.max() + 0.25)
 
     with tempfile.TemporaryDirectory() as tmp:
         for field in dataset_options["fields"]:

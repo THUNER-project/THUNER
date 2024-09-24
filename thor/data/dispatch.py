@@ -135,6 +135,8 @@ def update_tag_input_records(
     time, tag_input_records, track_options, data_options, grid_options
 ):
     """Update the tag input records."""
+    if time is None:
+        return
     for name in tag_input_records.keys():
         input_record = tag_input_records[name]
         boilerplate_update(
