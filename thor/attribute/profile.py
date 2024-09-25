@@ -17,22 +17,20 @@ def altitude():
     """
     Specify options for a core property, typically obtained from the matching process.
     """
-    attribute_dict = {}
+    name = "altitude"
+    method = None
     data_type = float
     precision = 1
     units = "m"
     description = "Altitude coordinate of profile."
-    attribute_dict.update({"name": "altitude", "method": None, "data_type": data_type})
-    attribute_dict.update({"precision": precision, "description": description})
-    attribute_dict.update({"units": units})
-    return attribute_dict
+    args = [name, method, data_type, precision, description, units]
+    return utils.get_attribute_dict(*args)
 
 
 def wind(dataset, name, method=None, description=None):
     """
     Specify options for a core property, typically obtained from the matching process.
     """
-    attribute_dict = {}
     data_type = float
     precision = 1
     units = "m/s"
@@ -41,17 +39,14 @@ def wind(dataset, name, method=None, description=None):
         method["args"] = {"center_type": "area_weighted"}
     if description is None:
         description = f"Vertical {name} profile, typically at the object center."
-    attribute_dict.update({"name": name, "method": method, "data_type": data_type})
-    attribute_dict.update({"precision": precision, "description": description})
-    attribute_dict.update({"units": units})
-    return attribute_dict
+    args = [name, method, data_type, precision, description, units]
+    return utils.get_attribute_dict(*args)
 
 
 def temperature(dataset, name, method=None, description=None):
     """
     Specify options for a core property, typically obtained from the matching process.
     """
-    attribute_dict = {}
     data_type = float
     precision = 2
     units = "K"
@@ -60,17 +55,14 @@ def temperature(dataset, name, method=None, description=None):
         method["args"] = {"center_type": "area_weighted"}
     if description is None:
         description = f"Vertical {name} profile, typically at the object center."
-    attribute_dict.update({"name": name, "method": method, "data_type": data_type})
-    attribute_dict.update({"precision": precision, "description": description})
-    attribute_dict.update({"units": units})
-    return attribute_dict
+    args = [name, method, data_type, precision, description, units]
+    return utils.get_attribute_dict(*args)
 
 
 def relative_humidity(dataset, name="relative_humidity", method=None, description=None):
     """
     Specify options for a core property, typically obtained from the matching process.
     """
-    attribute_dict = {}
     data_type = float
     precision = 1
     units = "%"
@@ -79,10 +71,8 @@ def relative_humidity(dataset, name="relative_humidity", method=None, descriptio
         method["args"] = {"center_type": "area_weighted"}
     if description is None:
         description = f"Vertical {name} profile, typically at the object center."
-    attribute_dict.update({"name": name, "method": method, "data_type": data_type})
-    attribute_dict.update({"precision": precision, "description": description})
-    attribute_dict.update({"units": units})
-    return attribute_dict
+    args = [name, method, data_type, precision, description, units]
+    return utils.get_attribute_dict(*args)
 
 
 def default(dataset, names=None, matched=True):

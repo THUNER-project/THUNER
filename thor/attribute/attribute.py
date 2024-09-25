@@ -1,6 +1,6 @@
 """Methods for getting object attributes."""
 
-from thor.attribute import core, group, profile, utils, quality
+from thor.attribute import core, group, profile, utils, quality, tag, ellipse
 from thor.log import setup_logger
 
 logger = setup_logger(__name__)
@@ -10,6 +10,8 @@ record_dispatcher = {
     "group": group.record,
     "profile": profile.record,
     "quality": quality.record,
+    "tag": tag.record,
+    "ellipse": ellipse.record,
 }
 
 
@@ -26,6 +28,7 @@ def record_detected(time, input_record, object_tracks, object_options, grid_opti
         record_func(*args)
 
 
+# But what if a member object is also a grouped object?
 def record_grouped(time, input_record, object_tracks, object_options, grid_options):
     """Get object attributes."""
     # First get the attributes of each member object

@@ -44,7 +44,6 @@ def identity(name="id", method=None, description=None, tracked=True):
     """
     Options for id attribute.
     """
-    attribute_dict = {}
     data_type = int
     precision = None
     units = None
@@ -56,18 +55,14 @@ def identity(name="id", method=None, description=None, tracked=True):
     if description is None:
         description = f"{name} taken from object record or object mask. "
         description += "Unlike uid, id is not necessarily unique across time steps."
-    attribute_dict.update({"name": name, "method": method, "data_type": data_type})
-    attribute_dict.update({"precision": precision, "description": description})
-    attribute_dict.update({"units": units})
-
-    return attribute_dict
+    args = [name, method, data_type, precision, description, units]
+    return utils.get_attribute_dict(*args)
 
 
 def coordinate(name, method=None, description=None, tracked=True):
     """
     Options for coordinate attributes.
     """
-    attribute_dict = {}
     data_type = float
     precision = 4
     if name == "latitude":
@@ -84,18 +79,14 @@ def coordinate(name, method=None, description=None, tracked=True):
     if description is None:
         description = f"{name} position taken from the object_record or object mask; "
         description += f"usually a gridcell area weighted mean over the object mask."
-    attribute_dict.update({"name": name, "method": method, "data_type": data_type})
-    attribute_dict.update({"precision": precision, "description": description})
-    attribute_dict.update({"units": units})
-
-    return attribute_dict
+    args = [name, method, data_type, precision, description, units]
+    return utils.get_attribute_dict(*args)
 
 
 def velocity(name, method=None, description=None, tracked=True):
     """
     Options for velocity attributes. Velocities only defined for tracked objects.
     """
-    attribute_dict = {}
     data_type = float
     precision = 1
     units = "m/s"
@@ -107,18 +98,14 @@ def velocity(name, method=None, description=None, tracked=True):
         method = {"function": "velocities_from_object_record"}
     if description is None:
         description = f"{name} velocities taken from the matching process."
-    attribute_dict.update({"name": name, "method": method, "data_type": data_type})
-    attribute_dict.update({"precision": precision, "description": description})
-    attribute_dict.update({"units": units})
-
-    return attribute_dict
+    args = [name, method, data_type, precision, description, units]
+    return utils.get_attribute_dict(*args)
 
 
 def area(name="area", method=None, description=None, tracked=True):
     """
     Options for area attribute.
     """
-    attribute_dict = {}
     data_type = float
     precision = 1
     units = "km^2"
@@ -129,18 +116,14 @@ def area(name="area", method=None, description=None, tracked=True):
             method = {"function": "areas_from_mask"}
     if description is None:
         description = f"Object area taken from the object_record or object mask."
-    attribute_dict.update({"name": name, "method": method, "data_type": data_type})
-    attribute_dict.update({"precision": precision, "description": description})
-    attribute_dict.update({"units": units})
-
-    return attribute_dict
+    args = [name, method, data_type, precision, description, units]
+    return utils.get_attribute_dict(*args)
 
 
 def time(name="time", method=None, description=None, tracked=True):
     """
     Options for time attribute.
     """
-    attribute_dict = {}
     if method is None:
         method = {"function": None}
     if description is None:
@@ -148,11 +131,8 @@ def time(name="time", method=None, description=None, tracked=True):
     data_type = "datetime64[s]"
     units = None
     precision = None
-    attribute_dict.update({"name": name, "method": method, "data_type": data_type})
-    attribute_dict.update({"precision": precision, "description": description})
-    attribute_dict.update({"units": units})
-
-    return attribute_dict
+    args = [name, method, data_type, precision, description, units]
+    return utils.get_attribute_dict(*args)
 
 
 attribute_dispatcher = {
@@ -170,9 +150,7 @@ attribute_dispatcher = {
 
 
 # Functions for obtaining and recording core attributes
-def coordinates_from_object_record(
-    name, time, object_tracks, attribute_options, grid_options, member_object=None
-):
+def coordinates_from_object_record(object_tracks, grid_options):
     """
     Get coordinate from object record created by the matching process to avoid
     redundant calculation.
@@ -191,21 +169,17 @@ def coordinates_from_object_record(
     return latitudes, longitudes
 
 
-def areas_from_object_record(
-    name, time, object_tracks, attribute_options, grid_options, member_object=None
-):
+def areas_from_object_record(object_tracks, attribute_options):
     """
     Get area from object record created by the matching process to avoid redundant
     calculation.
     """
     areas = object_tracks["object_record"]["previous_areas"]
-    data_type = attribute_options[name]["data_type"]
+    data_type = attribute_options["area"]["data_type"]
     return areas.astype(data_type)
 
 
-def velocities_from_object_record(
-    name, time, object_tracks, attribute_options, grid_options, member_object=None
-):
+def velocities_from_object_record(name, object_tracks, attribute_options, grid_options):
     """Get velocity from object record created by the matching process."""
     centers = object_tracks["object_record"]["previous_centers"]
     # Get the "shift" vectors, i.e. the distance vector between the object's previous and
@@ -234,7 +208,7 @@ def velocities_from_object_record(
 
 
 def coordinates_from_mask(
-    name, time, object_tracks, attribute_options, grid_options, member_object=None
+    object_tracks, attribute_options, grid_options, member_object
 ):
     """Get object coordinate from mask."""
     mask = utils.get_previous_mask(attribute_options, object_tracks)
@@ -242,7 +216,7 @@ def coordinates_from_mask(
     if member_object is not None and isinstance(mask, xr.Dataset):
         mask = mask[f"{member_object}_mask"]
     gridcell_area = object_tracks["gridcell_area"]
-    ids = ids_from_mask(name, object_tracks, attribute_options, member_object)
+    ids = ids_from_mask(object_tracks, attribute_options, member_object)
 
     lats, lons = [], []
     for obj_id in ids:
@@ -254,15 +228,12 @@ def coordinates_from_mask(
             lats.append(grid_options["latitude"][row, col])
             lons.append(grid_options["longitude"][row, col])
 
-    data_type = attribute_options[name]["data_type"]
-    lats = np.array(lats).astype(data_type)
-    lons = np.array(lons).astype(data_type)
+    lats = np.array(lats).astype(attribute_options["latitude"]["data_type"])
+    lons = np.array(lons).astype(attribute_options["longitude"]["data_type"])
     return lats, lons
 
 
-def areas_from_mask(
-    name, time, object_tracks, attribute_options, grid_options, member_object=None
-):
+def areas_from_mask(object_tracks, attribute_options, grid_options, member_object):
     """Get object area from mask."""
     mask = utils.get_previous_mask(attribute_options, object_tracks)
     # If examining just a member of a grouped object, get masks for that object
@@ -270,19 +241,18 @@ def areas_from_mask(
         mask = mask[f"{member_object}_mask"]
 
     gridcell_area = object_tracks["gridcell_area"]
-    ids = ids_from_mask(name, object_tracks, attribute_options)
+    ids = ids_from_mask(object_tracks, attribute_options, member_object)
 
     areas = []
     for obj_id in ids:
         area = get_object_center(obj_id, mask, grid_options, gridcell_area)[2]
         areas.append(area)
 
-    data_type = attribute_options[name]["data_type"]
-    areas = np.array(areas).astype(data_type)
+    areas = np.array(areas).astype(attribute_options["area"]["data_type"])
     return areas
 
 
-def ids_from_mask(attribute_name, object_tracks, attribute_options, member_object=None):
+def ids_from_mask(object_tracks, attribute_options, member_object):
     """Get object ids from a labelled mask."""
     previous_mask = utils.get_previous_mask(attribute_options, object_tracks)
     if previous_mask is None:
@@ -301,7 +271,7 @@ def ids_from_mask(attribute_name, object_tracks, attribute_options, member_objec
     return ids
 
 
-def ids_from_object_record(name, object_tracks, attribute_options, member_object=None):
+def ids_from_object_record(name, object_tracks):
     """Get object ids from the object record to avoid recalculating."""
     object_record_names = {"universal_id": "universal_ids", "id": "previous_ids"}
     ids = object_tracks["object_record"][object_record_names[name]]
@@ -322,7 +292,7 @@ get_attributes_dispatcher = {
 
 def record_coordinates(
     attributes,
-    options,
+    attribute_options,
     time,
     object_tracks,
     grid_options,
@@ -333,8 +303,8 @@ def record_coordinates(
     if not "latitude" in keys or not "longitude" in keys:
         message = "Both latitude and longitude must be specified."
         raise ValueError(message)
-    func = options["latitude"]["method"]["function"]
-    lon_func = options["longitude"]["method"]["function"]
+    func = attribute_options["latitude"]["method"]["function"]
+    lon_func = attribute_options["longitude"]["method"]["function"]
     if func != lon_func:
         message = "Functions for acquring latitude and longitude must be the same."
         raise ValueError(message)
@@ -342,8 +312,12 @@ def record_coordinates(
     if get is None:
         message = f"Function {func} for obtaining lat and lon not recognised."
         raise ValueError(message)
-
-    args = ["latitude", time, object_tracks, options, grid_options, member_object]
+    from_mask_args = [object_tracks, attribute_options, grid_options, member_object]
+    args_dispatcher = {
+        "coordinates_from_object_record": [object_tracks, grid_options],
+        "coordinates_from_mask": from_mask_args,
+    }
+    args = args_dispatcher.get(func)
     lats, lons = get(*args)
     attributes["latitude"] += list(lats)
     attributes["longitude"] += list(lons)
@@ -351,35 +325,38 @@ def record_coordinates(
 
 def record_velocities(
     attributes,
-    options,
-    time,
+    attribute_options,
     object_tracks,
     grid_options,
     velocity_type="flow",
-    member_object=None,
 ):
     """Record object coordinates."""
     keys = attributes.keys()
     if not f"u_{velocity_type}" in keys or not f"v_{velocity_type}" in keys:
         message = "Both u and v compononents must be specified."
         raise ValueError(message)
-    func = options[f"u_{velocity_type}"]["method"]["function"]
-    lon_func = options[f"v_{velocity_type}"]["method"]["function"]
+    func = attribute_options[f"u_{velocity_type}"]["method"]["function"]
+    lon_func = attribute_options[f"v_{velocity_type}"]["method"]["function"]
     if func != lon_func:
         message = "Functions for acquring u and v velocities must be the same."
         raise ValueError(message)
-    get = get_attributes_dispatcher.get(func)
-    if get is None:
+    get_velocities = get_attributes_dispatcher.get(func)
+    if get_velocities is None:
         message = f"Function {func} for obtaining u and v not recognised."
         raise ValueError(message)
 
-    u_str = f"u_{velocity_type}"
-    v, u = get(u_str, time, object_tracks, options, grid_options, member_object)
+    object_tracks, attribute_options, grid_options
+
+    name = "u_" + velocity_type
+    velocities_args = [name, object_tracks, attribute_options, grid_options]
+    args_dispatcher = {"velocities_from_object_record": velocities_args}
+    args = args_dispatcher.get(func)
+    v, u = get_velocities(*args)
     attributes[f"v_{velocity_type}"] += list(v)
     attributes[f"u_{velocity_type}"] += list(u)
 
 
-def get_ids(time, object_tracks, attribute_options, member_object):
+def get_ids(object_tracks, attribute_options, member_object):
     """Get object ids."""
 
     if attribute_options is None:
@@ -389,9 +366,15 @@ def get_ids(time, object_tracks, attribute_options, member_object):
     elif "id" in attribute_options:
         id_type = "id"
 
+    arguments_dispatcher = {
+        "ids_from_mask": [object_tracks, attribute_options, member_object],
+        "ids_from_object_record": [id_type, object_tracks],
+    }
+
     func = attribute_options[id_type]["method"]["function"]
     get = get_attributes_dispatcher.get(func)
-    ids = get(id_type, object_tracks, attribute_options, member_object)
+    args = arguments_dispatcher.get(func)
+    ids = get(*args)
 
     if ids is not None:
         ids = np.array(ids).astype(attribute_options[id_type]["data_type"])
@@ -410,7 +393,7 @@ def record(
     member_object=None,
 ):
     """Get object core attributes."""
-    id_type, ids = get_ids(time, object_tracks, attribute_options, member_object)
+    id_type, ids = get_ids(object_tracks, attribute_options, member_object)
     # If no objects, return
     if ids is None or len(ids) == 0:
         return
@@ -423,29 +406,38 @@ def record(
     attributes[id_type] += list(ids)
     keys = attributes.keys()
 
-    args = [attributes, attribute_options, time, object_tracks]
-    args += [grid_options]
-
     # Two dimensionality checks
     if "latitude" in keys or "longitude" in keys:
+        args = [attributes, attribute_options, time, object_tracks, grid_options]
         record_coordinates(*args, member_object=member_object)
     if "u_flow" in keys or "v_flow" in keys:
-        record_velocities(*args, velocity_type="flow", member_object=member_object)
+        args = [attributes, attribute_options, object_tracks, grid_options, "flow"]
+        record_velocities(*args)
     if "u_displacement" in keys or "v_displacement" in keys:
-        args_dict = {"velocity_type": "displacement", "member_object": member_object}
-        record_velocities(*args, **args_dict)
+        args = [attributes, attribute_options, object_tracks, grid_options]
+        args += ["displacement"]
+        record_velocities(*args)
 
     # Get the remaining attributes
+    # First create a dispatcher for the arguments to the various get attribute functions
+    areas_args = [object_tracks, attribute_options, grid_options, member_object]
+    arguments_dispatcher = {
+        "areas_from_object_record": [object_tracks, attribute_options],
+        "areas_from_mask": areas_args,
+    }
     processed_attributes = ["time", id_type, "latitude", "longitude"]
     processed_attributes += ["u_flow", "v_flow", "u_displacement", "v_displacement"]
     remaining_attributes = [attr for attr in keys if attr not in processed_attributes]
     for name in remaining_attributes:
         attr_function = attribute_options[name]["method"]["function"]
         get_attr = get_attributes_dispatcher.get(attr_function)
-        if get_attr is not None:
-            args = [name, time, object_tracks, attribute_options, grid_options]
-            attribute = get_attr(*args, member_object=member_object)
-            attributes[name] += list(attribute)
-        else:
+        if get_attr is None:
             message = f"Function {attr_function} for obtaining attribute {name} not recognised."
             raise ValueError(message)
+        args = arguments_dispatcher.get(attr_function)
+        if args is None:
+            message = f"Arguments for function {attr_function} not specified in "
+            message += "arguments_dispatcher."
+            raise ValueError(message)
+        attribute = get_attr(*args)
+        attributes[name] += list(attribute)

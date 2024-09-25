@@ -1,7 +1,5 @@
 """Methods for working with attributes related to quality control."""
 
-import numpy as np
-from itertools import chain
 from thor.log import setup_logger
 import thor.attribute.core as core
 import thor.attribute.utils as utils
@@ -15,15 +13,14 @@ def boundary_overlap():
     """
     Options for the boundary_overlap fraction attribute.
     """
-    attribute_dict = {}
+    name = "boundary_overlap"
+    method = None
     data_type = float
     precision = 6
     units = None
     description = "Fraction of object area comprised on boundary pixels."
-    attribute_dict.update({"name": "boundary_overlap", "method": None})
-    attribute_dict.update({"precision": precision, "description": description})
-    attribute_dict.update({"data_type": data_type, "units": units})
-    return attribute_dict
+    args = [name, method, data_type, precision, description, units]
+    return utils.get_attribute_dict(*args)
 
 
 def default(names=None, matched=True):

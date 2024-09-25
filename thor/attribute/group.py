@@ -20,7 +20,6 @@ def offset(name, method=None, description=None, matched=True):
     """
     Specify options for a core property, typically obtained from the matching process.
     """
-    attribute_dict = {}
     data_type = float
     precision = 1
     units = "km"
@@ -31,10 +30,8 @@ def offset(name, method=None, description=None, matched=True):
         method["args"] = {"objects": ["cell", "anvil"]}
     if description is None:
         description = f"{name} of one member object center from another."
-    attribute_dict.update({"name": name, "method": method, "data_type": data_type})
-    attribute_dict.update({"precision": precision, "description": description})
-    attribute_dict.update({"units": units})
-    return attribute_dict
+    args = [name, method, data_type, precision, description, units]
+    return utils.get_attribute_dict(*args)
 
 
 def default(names=None, matched=True):

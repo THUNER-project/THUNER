@@ -15,6 +15,15 @@ string_to_data_type = {
 }
 
 
+def get_attribute_dict(name, method, data_type, precision, description, units):
+    """Create a dictionary of attribute options."""
+    attribute_dict = {}
+    attribute_dict.update({"name": name, "method": method, "data_type": data_type})
+    attribute_dict.update({"precision": precision, "description": description})
+    attribute_dict.update({"units": units})
+    return attribute_dict
+
+
 def get_previous_mask(attribute_options, object_tracks):
     """Get the appropriate previous mask."""
     if "universal_id" in attribute_options.keys():

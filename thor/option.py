@@ -198,9 +198,15 @@ def detected_object(
         Dictionary of global configuration options.
     """
 
+    profile_dataset = kwargs.get("profile_dataset", "era5_pl")
+    tag_dataset = kwargs.get("tag_dataset", "era5_sl")
+
     if attribute_options is None:
         attribute_options = {"core": attribute.core.default()}
-        attribute_options.update({"profile": attribute.profile.default("era5_pl")})
+        attribute_options.update(
+            {"profile": attribute.profile.default(profile_dataset)}
+        )
+        attribute_options.update({"tag": attribute.tag.default(tag_dataset)})
         attribute_options.update({"quality": attribute.quality.default()})
 
     options = {
@@ -283,13 +289,19 @@ def grouped_object(
         member_options[member_objects[0]] = {}
         member_options[member_objects[0]]["core"] = core_tracked
         member_options[member_objects[0]]["quality"] = attribute.quality.default()
+        member_options[member_objects[0]]["ellipse"] = attribute.ellipse.default()
         for i in range(1, len(member_objects)):
             member_options[member_objects[i]] = {}
             member_options[member_objects[i]]["core"] = core_untracked
             member_options[member_objects[i]]["quality"] = attribute.quality.default()
+            member_options[member_objects[0]]["ellipse"] = attribute.ellipse.default()
+        # Define the attributes for the grouped object.
         attribute_options[name]["core"] = core_tracked
         attribute_options[name]["group"] = attribute.group.default()
-        attribute_options[name]["profile"] = attribute.profile.default("era5_pl")
+        profile_dataset = kwargs.get("profile_dataset", "era5_pl")
+        tag_dataset = kwargs.get("tag_dataset", "era5_sl")
+        attribute_options[name]["profile"] = attribute.profile.default(profile_dataset)
+        attribute_options[name]["tag"] = attribute.tag.default(tag_dataset)
 
     options = {
         **boilerplate_object(
