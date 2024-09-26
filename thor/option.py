@@ -435,7 +435,7 @@ def anvil_object(
 def mcs_object(
     dataset,
     name="mcs",
-    member_objects=["cell", "middle_cloud", "anvil"],
+    member_objects=["cell", "middle_echo", "anvil"],
     member_levels=[0, 0, 0],
     member_min_areas=[80, 400, 800],  # km^2
     hierarchy_level=1,
@@ -525,7 +525,7 @@ def mcs(dataset, **kwargs):
         Dictionary of default configuration options.
     """
 
-    # Create the attribute dictionary for the unmatched/untracked middle_cloud objects.
+    # Create the attribute dictionary for the unmatched/untracked middle_echo objects.
     # For the cell and anvil objects, attributes are obtained from matching.
     middle_attr_options = {"core": attribute.core.default(tracked=False)}
     middle_attr_options.update({"quality": attribute.quality.default(matched=False)})
@@ -540,8 +540,8 @@ def mcs(dataset, **kwargs):
                 tracking_method="mint",
                 **kwargs,
             ),
-            "middle_cloud": cell_object(
-                name="middle_cloud",
+            "middle_echo": cell_object(
+                name="middle_echo",
                 dataset=dataset,
                 threshold=20,
                 tracking_method=None,

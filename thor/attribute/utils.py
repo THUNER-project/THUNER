@@ -146,7 +146,7 @@ def read_metadata_yml(filepath):
     return attribute_options
 
 
-def read_attribute_csv(filepath, attribute_options=None, dask=False):
+def read_attribute_csv(filepath, attribute_options=None, dask=False, multi_index=True):
     """
     Read a CSV file and return a DataFrame.
 
@@ -191,7 +191,7 @@ def read_attribute_csv(filepath, attribute_options=None, dask=False):
     if "altitude" in df.columns:
         indexes.append("altitude")
     # Workaround for Dask not supporting multi-index
-    if not dask:
+    if multi_index and not dask:
         df = df.set_index(indexes)
     else:
         df = df.set_index(indexes[0])
