@@ -2,11 +2,6 @@
 
 from pathlib import Path
 import shutil
-import glob
-import numpy as np
-import xarray as xr
-import pandas as pd
-import matplotlib.pyplot as plt
 import thor.data as data
 import thor.data.dispatch as dispatch
 import thor.grid as grid
@@ -28,6 +23,11 @@ def test_cpol_with_runtime_figures():
     start = "2005-11-13T15:00:00"
     end = "2005-11-13T16:00:00"
 
+    output_directory = base_local / "runs/cpol_demo_geographic_with_runtime_figures"
+    if output_directory.exists():
+        shutil.rmtree(output_directory)
+    options_directory = output_directory / "options"
+
     # Create the data_options dictionary
     converted_options = {"save": True, "load": False, "parent_converted": None}
     cpol_options = data.aura.cpol_data_options(
@@ -53,16 +53,16 @@ def test_cpol_with_runtime_figures():
     )
 
     dispatch.check_data_options(data_options)
-    data.option.save_data_options(data_options, filename="cpol_era5")
+    data.option.save_data_options(data_options, options_directory)
 
     grid_options = grid.create_options(name="geographic")
     grid.check_options(grid_options)
-    grid.save_grid_options(grid_options, filename="cpol_geographic")
+    grid.save_grid_options(grid_options, options_directory)
 
     # Create the track_options dictionary
     track_options = option.mcs(dataset="cpol")
     option.check_options(track_options)
-    option.save_track_options(track_options, filename="cpol_mcs")
+    option.save_track_options(track_options, options_directory)
 
     # Create the display_options dictionary
     cell_vis_options = visualize.option.runtime_options(
@@ -79,12 +79,9 @@ def test_cpol_with_runtime_figures():
         "anvil": anvil_vis_options,
         "mcs": mcs_vis_options,
     }
-    visualize.option.save_display_options(visualize_options, filename="runtime_mcs")
+    visualize.option.save_display_options(visualize_options, options_directory)
 
-    # Test in geographic coordinates s
-    output_directory = base_local / "runs/cpol_demo_geographic_with_runtime_figures"
-    if output_directory.exists():
-        shutil.rmtree(output_directory)
+    # Test in geographic coordinates
     times = data.utils.generate_times(data_options["cpol"])
     track.simultaneous_track(
         times,
@@ -96,13 +93,18 @@ def test_cpol_with_runtime_figures():
     )
 
     # Test in Cartesian coordinates
-    grid_options = grid.create_options(name="cartesian", regrid=False)
-    grid.check_options(grid_options)
-    grid.save_grid_options(grid_options, filename="cpol_cartesian")
-
     output_directory = base_local / "runs/cpol_demo_cartesian_with_runtime_figures"
     if output_directory.exists():
         shutil.rmtree(output_directory)
+    options_directory = output_directory / "options"
+
+    grid_options = grid.create_options(name="cartesian", regrid=False)
+    grid.check_options(grid_options)
+    grid.save_grid_options(grid_options, options_directory)
+    option.save_options(track_options, options_directory)
+    data.option.save_data_options(data_options, options_directory)
+    visualize.option.save_display_options(visualize_options, options_directory)
+
     times = data.utils.generate_times(data_options["cpol"])
     track.simultaneous_track(
         times,
@@ -121,8 +123,13 @@ def test_cpol():
 
     # Parent directory for saving outputs
     base_local = Path.home() / "THOR_output"
-    start = "2005-11-13T15:00:00"
-    end = "2005-11-13T19:00:00"
+    start = "2005-11-13T00:00:00"
+    end = "2005-11-14T00:00:00"
+
+    output_directory = base_local / "runs/cpol_demo_geographic"
+    if output_directory.exists():
+        shutil.rmtree(output_directory)
+    options_directory = output_directory / "options"
 
     # Create the data_options dictionary
     converted_options = {"save": True, "load": False, "parent_converted": None}
@@ -149,23 +156,20 @@ def test_cpol():
     )
 
     dispatch.check_data_options(data_options)
-    data.option.save_data_options(data_options, filename="cpol_era5")
+    data.option.save_data_options(data_options, options_directory)
 
     grid_options = grid.create_options(name="geographic")
     grid.check_options(grid_options)
-    grid.save_grid_options(grid_options, filename="cpol_geographic")
+    grid.save_grid_options(grid_options, options_directory)
 
     # Create the track_options dictionary
     track_options = option.mcs(dataset="cpol")
     option.check_options(track_options)
-    option.save_track_options(track_options, filename="cpol_mcs")
+    option.save_track_options(track_options, options_directory)
 
     visualize_options = None
 
-    # Test tracking in geographic coordinates s
-    output_directory = base_local / "runs/cpol_demo_geographic"
-    if output_directory.exists():
-        shutil.rmtree(output_directory)
+    # Test tracking in geographic coordinates
     times = data.utils.generate_times(data_options["cpol"])
     track.simultaneous_track(
         times,
@@ -177,13 +181,16 @@ def test_cpol():
     )
 
     # Test tracking in Cartesian coordinates
-    grid_options = grid.create_options(name="cartesian", regrid=False)
-    grid.check_options(grid_options)
-    grid.save_grid_options(grid_options, filename="cpol_cartesian")
-
     output_directory = base_local / "runs/cpol_demo_cartesian"
     if output_directory.exists():
         shutil.rmtree(output_directory)
+
+    grid_options = grid.create_options(name="cartesian", regrid=False)
+    grid.check_options(grid_options)
+    grid.save_grid_options(grid_options, filename="cpol_cartesian")
+    option.save_options(track_options, options_directory)
+    data.option.save_data_options(data_options, options_directory)
+
     times = data.utils.generate_times(data_options["cpol"])
     track.simultaneous_track(
         times,

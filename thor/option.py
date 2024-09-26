@@ -1,6 +1,7 @@
 """Methods for creating and modifying default tracking configurations."""
 
 import yaml
+import copy
 from pathlib import Path
 import numpy as np
 from thor.utils import now_str, check_component_options
@@ -592,14 +593,18 @@ def check_options(options):
 
 
 def save_track_options(
-    options, filename=None, options_directory=None, append_time=False
+    options, options_directory=None, filename="track", append_time=False
 ):
+    """Save the tracking options to a yml file."""
+    # Create a copy so we can drop the attributes info - this is stored in the attributes
+    # metadata instead.
+    options = copy.deepcopy(options)
+    for level_options in options:
+        for object_options in level_options.values():
+            object_options.pop("attributes", None)
 
     if options_directory is None:
-        options_directory = get_outputs_directory() / "options/track_options"
-    if filename is None:
-        filename = "track_options"
-        append_time = True
+        options_directory = get_outputs_directory() / "options/track"
     save_options(options, filename, options_directory, append_time)
 
 
@@ -612,7 +617,7 @@ def save_options(options, filename=None, options_directory=None, append_time=Fal
         filename = Path(filename).stem
     if append_time:
         filename += f"_{now_str()}"
-    filename += ".yaml"
+    filename += ".yml"
     if options_directory is None:
         options_directory = get_outputs_directory() / "options"
     if not options_directory.exists():

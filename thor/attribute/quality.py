@@ -50,10 +50,8 @@ def record_boundary_overlaps(
     input_records,
     attributes,
     attribute_options,
-    time,
     object_tracks,
     object_options,
-    grid_options,
     member_object=None,
 ):
     """Get boundary overlap from mask."""
@@ -116,19 +114,18 @@ def record(
     for name in core_attributes:
         attr_function = attribute_options[name]["method"]["function"]
         get_attr = get_attributes_dispatcher.get(attr_function)
-        if get_attr is not None:
-            args = [name, time, object_tracks, attribute_options, grid_options]
-            attr = get_attr(*args, member_object=member_object)
-            attributes[name] += list(attr)
-        else:
+        if get_attr is None:
             message = f"Function {attr_function} for obtaining attribute {name} not recognised."
             raise ValueError(message)
+        # Should add an arguments dispatcher here
+        attr = get_attr(name, object_tracks, member_object)
+        attributes[name] += list(attr)
 
     if attributes["time"] is None or len(attributes["time"]) == 0:
         return
 
     # Get non-core attributes
     if "boundary_overlap" in remaining_attributes:
-        args = [input_records, attributes, attribute_options, time, object_tracks]
-        args += [object_options, grid_options]
-        record_boundary_overlaps(*args, member_object=member_object)
+        args = [input_records, attributes, attribute_options, object_tracks]
+        args += [object_options, member_object]
+        record_boundary_overlaps(*args)

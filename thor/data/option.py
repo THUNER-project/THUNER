@@ -81,15 +81,12 @@ def boilerplate_options(
 
 
 def save_data_options(
-    data_options, filename=None, options_directory=None, append_time=False
+    data_options, options_directory=None, filename="data", append_time=False
 ):
     """TBA."""
 
     if options_directory is None:
-        options_directory = get_outputs_directory() / "options/data_options"
-    if filename is None:
-        filename = "data_options"
-        append_time = True
+        options_directory = get_outputs_directory() / "options/data"
     save_options(data_options, filename, options_directory, append_time=append_time)
 
 

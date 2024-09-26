@@ -18,12 +18,17 @@ def test_synthetic():
     start = "2005-11-13T00:00:00"
     end = "2005-11-13T01:00:00"
 
+    output_directory = base_local / "runs/synthetic_demo_geographic"
+    if output_directory.exists():
+        shutil.rmtree(output_directory)
+    options_directory = output_directory / "options"
+
     # Create a grid
     lat = np.arange(-14.0, -10.0 + 0.025 / 2, 0.025).round(3).tolist()
     lon = np.arange(129.0, 133.0 + 0.025 / 2, 0.025).round(3).tolist()
     grid_options = grid.create_options(name="geographic", latitude=lat, longitude=lon)
     grid.check_options(grid_options)
-    grid.save_grid_options(grid_options, filename="synth_geographic")
+    grid.save_grid_options(grid_options, options_directory)
 
     # Initialize synthetic objects
     synthetic_object = synthetic.create_object(
@@ -58,7 +63,7 @@ def test_synthetic():
         [synthetic_options, era5_pl_options, era5_sl_options]
     )
     dispatch.check_data_options(data_options)
-    data.option.save_data_options(data_options, filename="synthetic")
+    data.option.save_data_options(data_options, options_directory)
 
     # Create the track_options dictionary
     track_options = option.cell(
@@ -67,7 +72,7 @@ def test_synthetic():
         global_flow_margin=70,
         unique_global_flow=False,
     )
-    option.save_track_options(track_options, filename="synthetic_cell")
+    option.save_track_options(track_options, options_directory)
 
     # Create the display_options dictionary
     visualize_options = {
@@ -75,13 +80,8 @@ def test_synthetic():
             "cell", save=True, style="presentation"
         )
     }
-    visualize.option.save_display_options(
-        visualize_options, filename="runtime_synthetic"
-    )
+    visualize.option.save_display_options(visualize_options, options_directory)
 
-    output_directory = base_local / "runs/synthetic_demo_geographic"
-    if output_directory.exists():
-        shutil.rmtree(output_directory)
     times = np.arange(
         np.datetime64(start),
         np.datetime64(end) + np.timedelta64(10, "m"),
@@ -97,6 +97,11 @@ def test_synthetic():
     )
 
     # Test cartesian grid tracking
+    output_directory = base_local / "runs/synthetic_demo_cartesian"
+    if output_directory.exists():
+        shutil.rmtree(output_directory)
+    options_directory = output_directory / "options"
+
     central_latitude = -10
     central_longitude = 132
 
@@ -111,11 +116,10 @@ def test_synthetic():
         central_longitude=central_longitude,
     )
     grid.check_options(grid_options)
-    grid.save_grid_options(grid_options, filename="synthetic_cartesian")
+    grid.save_grid_options(grid_options, options_directory)
+    option.save_track_options(track_options, options_directory)
+    data.option.save_data_options(data_options, options_directory)
 
-    output_directory = base_local / "runs/synthetic_demo_cartesian"
-    if output_directory.exists():
-        shutil.rmtree(output_directory)
     times = np.arange(
         np.datetime64(start),
         np.datetime64(end) + np.timedelta64(10, "m"),

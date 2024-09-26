@@ -140,9 +140,7 @@ interpolate_dispatcher = {
 
 
 # Methods for obtaining and recording attributes
-def from_centers(
-    names, time, input_records, attributes, object_tracks, method, grid_options
-):
+def from_centers(names, input_records, attributes, object_tracks, method, grid_options):
     """
     Calculate profile from object centers.
 
@@ -169,7 +167,7 @@ get_profiles_dispatcher = {"from_centers": from_centers}
 
 
 def record_profiles(
-    names, time, input_records, attributes, object_tracks, method, grid_options
+    names, input_records, attributes, object_tracks, method, grid_options
 ):
     """Get profiles from tag datasets."""
     method = utils.tuple_to_dict(method)
@@ -178,9 +176,11 @@ def record_profiles(
         message = f"Function {method['function']} for obtaining profiles "
         message += "not recognised."
         raise ValueError(message)
-    profiles = get_prof(
-        names, time, input_records, attributes, object_tracks, method, grid_options
-    )
+    from_centers_args = [names, input_records, attributes, object_tracks]
+    from_centers_args += [method, grid_options]
+    args_dispatcher = {"from_centers": from_centers_args}
+    args = args_dispatcher[method["function"]]
+    profiles = get_prof(*args)
     attributes.update(profiles)
 
 
@@ -189,7 +189,6 @@ def record(
     input_records,
     attributes,
     object_tracks,
-    object_options,
     attribute_options,
     grid_options,
     member_object=None,
@@ -208,15 +207,13 @@ def record(
     altitude = grid_options["altitude"]
     # Get the appropriate core attributes
     for name in core_attributes:
-        args = [name, time, object_tracks, attribute_options, grid_options]
         attr_function = attribute_options[name]["method"]["function"]
         get_attr = get_attributes_dispatcher.get(attr_function)
-        if get_attr is not None:
-            attr = get_attr(*args, member_object=member_object)
-            attributes[name] += list(attr)
-        else:
+        if get_attr is None:
             message = f"Function {attr_function} for obtaining attribute {name} not recognised."
             raise ValueError(message)
+        attr = get_attr(name, object_tracks, member_object)
+        attributes[name] += list(attr)
 
     if attributes["time"] is None or len(attributes["time"]) == 0:
         return
@@ -230,7 +227,7 @@ def record(
     grouped_by_method = utils.group_by_method(profile_attributes)
     for method in grouped_by_method.keys():
         names = grouped_by_method[method]
-        args = [names, time, input_records, attributes, object_tracks, method]
+        args = [names, input_records, attributes, object_tracks, method]
         args += [grid_options]
         record_profiles(*args)
 

@@ -59,7 +59,7 @@ def create_options(
         options[key] = value
 
     if save:
-        filepath = get_outputs_directory() / "option/default/wrf.yaml"
+        filepath = get_outputs_directory() / "option/default/wrf.yml"
         with open(filepath, "w") as outfile:
             yaml.dump(
                 options,

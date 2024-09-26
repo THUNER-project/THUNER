@@ -85,6 +85,7 @@ def create_options(
 
     if regrid and altitude is None:
         altitude = list(np.arange(0, 25e3 + altitude_spacing, altitude_spacing))
+        altitude = [float(alt) for alt in altitude]
     if shape is None and (latitude is not None and longitude is not None):
         shape = (len(latitude), len(longitude))
     if shape is None and (x is not None and y is not None):
@@ -114,7 +115,7 @@ def create_options(
         options[key] = value
 
     if save:
-        filepath = get_outputs_directory() / "option/default/grid.yaml"
+        filepath = get_outputs_directory() / "option/default/grid.yml"
         dump_options = {"default_flow_style": False, "allow_unicode": True}
         dump_options.update({"sort_keys": False})
         with open(filepath, "w") as outfile:
@@ -180,13 +181,10 @@ def geographic_to_cartesian_lcc(options, latitude, longitude):
 
 
 def save_grid_options(
-    grid_options, filename=None, options_directory=None, append_time=False
+    grid_options, options_directory=None, filename="grid", append_time=False
 ):
     if options_directory is None:
-        options_directory = get_outputs_directory() / "options/grid_options"
-    if filename is None:
-        filename = grid_options["name"]
-        append_time = True
+        options_directory = get_outputs_directory() / "options/grid"
     option.save_options(
         grid_options, filename, options_directory, append_time=append_time
     )

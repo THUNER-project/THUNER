@@ -180,14 +180,10 @@ def cv2_ellipse(mask, id, grid_options):
 
 
 def from_mask(
-    names,
-    time,
-    input_records,
     attributes,
     attribute_options,
     object_tracks,
     grid_options,
-    method,
     member_object=None,
 ):
     """
@@ -226,15 +222,12 @@ get_attributes_dispatcher = {
 
 
 def record_ellipse(
-    names,
-    time,
-    input_records,
     attributes,
     attribute_options,
     object_tracks,
     grid_options,
     method,
-    member_object=None,
+    member_object,
 ):
     """Record ellipse properties."""
     method = utils.tuple_to_dict(method)
@@ -243,18 +236,18 @@ def record_ellipse(
         message = f"Function {method['function']} for obtaining ellipse properties "
         message += "not recognised."
         raise ValueError(message)
-    args = [names, time, input_records, attributes, attribute_options, object_tracks]
-    args += [grid_options, method]
-    ellipse = get_ellipse(*args, member_object=member_object)
+    from_mask_args = [attributes, attribute_options, object_tracks, grid_options]
+    from_mask_args += [member_object]
+    args_dispatcher = {"from_mask": from_mask_args}
+    args = args_dispatcher[method["function"]]
+    ellipse = get_ellipse(*args)
     attributes.update(ellipse)
 
 
 def record(
     time,
-    input_records,
     attributes,
     object_tracks,
-    object_options,
     attribute_options,
     grid_options,
     member_object=None,
@@ -270,11 +263,10 @@ def record(
     remaining_attributes = [attr for attr in keys if attr not in core_attributes]
     # Get the appropriate core attributes
     for name in core_attributes:
-        args = [name, time, object_tracks, attribute_options, grid_options]
         attr_function = attribute_options[name]["method"]["function"]
         get_attr = get_attributes_dispatcher.get(attr_function)
         if get_attr is not None:
-            attr = get_attr(*args, member_object=member_object)
+            attr = get_attr(name, object_tracks, member_object)
             attributes[name] += list(attr)
         else:
             message = f"Function {attr_function} for obtaining attribute {name} not recognised."
@@ -287,7 +279,6 @@ def record(
     ellipse_attributes = {key: attribute_options[key] for key in remaining_attributes}
     grouped_by_method = utils.group_by_method(ellipse_attributes)
     for method in grouped_by_method.keys():
-        names = grouped_by_method[method]
-        args = [names, time, input_records, attributes, attribute_options]
-        args += [object_tracks, grid_options, method]
-        record_ellipse(*args, member_object=member_object)
+        args = [attributes, attribute_options, object_tracks, grid_options]
+        args += [method, member_object]
+        record_ellipse(*args)

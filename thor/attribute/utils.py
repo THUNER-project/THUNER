@@ -2,6 +2,7 @@
 
 import yaml
 import pandas as pd
+import dask.dataframe as dd
 from collections import defaultdict
 from thor.log import setup_logger
 
@@ -59,9 +60,7 @@ def group_by_method(attributes):
     return grouped
 
 
-def attribute_from_core(
-    name, time, object_tracks, attribute_options, grid_options, member_object=None
-):
+def attribute_from_core(name, object_tracks, member_object):
     """Get attribute from core object properties."""
     # Check if grouped object
     object_name = object_tracks["name"]
@@ -147,7 +146,7 @@ def read_metadata_yml(filepath):
     return attribute_options
 
 
-def read_attribute_csv(filepath, attribute_options=None):
+def read_attribute_csv(filepath, attribute_options=None, dask=False):
     """
     Read a CSV file and return a DataFrame.
 
@@ -161,6 +160,10 @@ def read_attribute_csv(filepath, attribute_options=None):
     pd.DataFrame
         DataFrame containing the CSV data.
     """
+    if dask:
+        read_csv = dd.read_csv
+    else:
+        read_csv = pd.read_csv
 
     if attribute_options is None:
         try:
@@ -173,10 +176,10 @@ def read_attribute_csv(filepath, attribute_options=None):
         keys = attribute_options.keys()
         keys = [key for key in keys if key != "time"]
         data_types = {name: attribute_options[name]["data_type"] for name in keys}
-        df = pd.read_csv(filepath, dtype=data_types, parse_dates=["time"])
+        df = read_csv(filepath, dtype=data_types, parse_dates=["time"])
     else:
         logger.warning("No metadata; data types not enforced.")
-        df = pd.read_csv(filepath)
+        df = read_csv(filepath)
     indexes = ["time"]
     if "universal_id" in df.columns:
         id_index = "universal_id"
@@ -187,7 +190,11 @@ def read_attribute_csv(filepath, attribute_options=None):
     indexes.append(id_index)
     if "altitude" in df.columns:
         indexes.append("altitude")
-    df = df.set_index(indexes)
+    # Workaround for Dask not supporting multi-index
+    if not dask:
+        df = df.set_index(indexes)
+    else:
+        df = df.set_index(indexes[0])
 
     return df
 

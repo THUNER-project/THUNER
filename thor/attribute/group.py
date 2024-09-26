@@ -16,7 +16,7 @@ logger = setup_logger(__name__)
 
 
 # Convenience functions for defining default attribute options
-def offset(name, method=None, description=None, matched=True):
+def offset(name, method=None, description=None):
     """
     Specify options for a core property, typically obtained from the matching process.
     """
@@ -51,16 +51,14 @@ def default(names=None, matched=True):
     attributes["latitude"] = core.coordinate("latitude", method=core_method)
     attributes["longitude"] = core.coordinate("longitude", method=core_method)
     attributes[id_type] = core.identity(id_type, method=core_method)
-    attributes["x_offset"] = offset("x_offset", matched=matched)
-    attributes["y_offset"] = offset("y_offset", matched=matched)
+    attributes["x_offset"] = offset("x_offset")
+    attributes["y_offset"] = offset("y_offset")
 
     return attributes
 
 
 # Methods for obtaining and recording attributes
-def offset_from_centers(
-    name, time, object_tracks, attribute_options, grid_options, member_object=None
-):
+def offset_from_centers(name, object_tracks, attribute_options):
     """Calculate offset between object centers."""
     member_attributes = object_tracks["current_attributes"]["member_objects"]
     objects = attribute_options[name]["method"]["args"]["objects"]
@@ -83,21 +81,14 @@ get_attributes_dispatcher = {
 }
 
 
-def record_offsets(
-    attributes,
-    options,
-    time,
-    object_tracks,
-    grid_options,
-    member_object=None,
-):
+def record_offsets(attributes, attribute_options, object_tracks):
     """Record offset."""
     keys = attributes.keys()
     if "x_offset" not in keys or "y_offset" not in keys:
         message = "Both x_offset and y_offset must be specified."
         raise ValueError(message)
-    get_offsets_function = options["x_offset"]["method"]["function"]
-    y_get_offsets_function = options["y_offset"]["method"]["function"]
+    get_offsets_function = attribute_options["x_offset"]["method"]["function"]
+    y_get_offsets_function = attribute_options["y_offset"]["method"]["function"]
     if get_offsets_function != y_get_offsets_function:
         message = "Functions for acquring y_offset and x_offset must be the same."
         raise ValueError(message)
@@ -106,7 +97,9 @@ def record_offsets(
         message = f"Function {get_offsets_function} for obtaining x_offset and y_offset not recognised."
         raise ValueError(message)
 
-    args = ["y_offset", time, object_tracks, options, grid_options, member_object]
+    offset_args = ["y_offset", object_tracks, attribute_options]
+    args_dispatcher = {"offset_from_centers": offset_args}
+    args = args_dispatcher[get_offsets_function]
     y_offsets, x_offsets = get_offsets(*args)
     attributes["y_offset"] += list(y_offsets)
     attributes["x_offset"] += list(x_offsets)
@@ -114,10 +107,8 @@ def record_offsets(
 
 def record(
     time,
-    input_records,
     attributes,
     object_tracks,
-    object_options,
     attribute_options,
     grid_options,
     member_object=None,
@@ -128,23 +119,19 @@ def record(
     core_attributes += ["u_flow", "v_flow", "u_displacement", "v_displacement"]
     keys = attributes.keys()
     core_attributes = [attr for attr in core_attributes if attr in keys]
-    remaining_attributes = [attr for attr in keys if attr not in core_attributes]
     # Get the appropriate core attributes
     for name in core_attributes:
         attr_function = attribute_options[name]["method"]["function"]
         get_attr = get_attributes_dispatcher.get(attr_function)
-        if get_attr is not None:
-            args = [name, time, object_tracks, attribute_options, grid_options]
-            attr = get_attr(*args, member_object=member_object)
-            attributes[name] += list(attr)
-        else:
+        if get_attr is None:
             message = f"Function {attr_function} for obtaining attribute {name} not recognised."
             raise ValueError(message)
+        attr = get_attr(name, object_tracks, member_object)
+        attributes[name] += list(attr)
 
     if attributes["time"] is None or len(attributes["time"]) == 0:
         return
 
     # Get non-core attributes
-    if "x_offset" in keys or "y_offset" in keys:
-        args = [attributes, attribute_options, time, object_tracks, grid_options]
-        record_offsets(*args, member_object=None)
+    if "x_offset" in keys and "y_offset" in keys:
+        record_offsets(attributes, attribute_options, object_tracks)

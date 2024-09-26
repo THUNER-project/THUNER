@@ -81,13 +81,10 @@ def runtime_options(
 
 
 def save_display_options(
-    display_options, filename=None, options_directory=None, append_time=False
+    display_options, options_directory=None, filename="visualize", append_time=False
 ):
     """Save the display options."""
 
     if options_directory is None:
-        options_directory = get_outputs_directory() / "options/visualize_options"
-    if filename is None:
-        filename = "visualize_options"
-        append_time = True
+        options_directory = get_outputs_directory() / "options/visualize"
     save_options(display_options, filename, options_directory, append_time=append_time)

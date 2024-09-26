@@ -1,6 +1,10 @@
 """
 Methods for defining property options associated with detected objects, and for 
-measuring such properties.
+measuring such properties. As in other parts of this package, I have favoured dicts
+over classes. However, attributes are probably more cleanly implemented as classes, 
+and could be refactored as such in the future. Note also the inelegant way attribute
+combinations (e.g. latitude and longitude) are handled. Again this could be improved in
+future.
 """
 
 import numpy as np
@@ -291,12 +295,7 @@ get_attributes_dispatcher = {
 
 
 def record_coordinates(
-    attributes,
-    attribute_options,
-    time,
-    object_tracks,
-    grid_options,
-    member_object=None,
+    attributes, attribute_options, object_tracks, grid_options, member_object
 ):
     """Record object coordinates."""
     keys = attributes.keys()
@@ -324,11 +323,7 @@ def record_coordinates(
 
 
 def record_velocities(
-    attributes,
-    attribute_options,
-    object_tracks,
-    grid_options,
-    velocity_type="flow",
+    attributes, attribute_options, object_tracks, grid_options, velocity_type
 ):
     """Record object coordinates."""
     keys = attributes.keys()
@@ -383,11 +378,8 @@ def get_ids(object_tracks, attribute_options, member_object):
 
 # Record core attributes
 def record(
-    time,
-    input_records,
     attributes,
     object_tracks,
-    object_options,
     attribute_options,
     grid_options,
     member_object=None,
@@ -406,14 +398,15 @@ def record(
     attributes[id_type] += list(ids)
     keys = attributes.keys()
 
-    # Two dimensionality checks
-    if "latitude" in keys or "longitude" in keys:
-        args = [attributes, attribute_options, time, object_tracks, grid_options]
-        record_coordinates(*args, member_object=member_object)
-    if "u_flow" in keys or "v_flow" in keys:
+    # Need a better way of handling attributes like lat lon which come in groups
+    if "latitude" in keys and "longitude" in keys:
+        args = [attributes, attribute_options, object_tracks, grid_options]
+        args += [member_object]
+        record_coordinates(*args)
+    if "u_flow" in keys and "v_flow" in keys:
         args = [attributes, attribute_options, object_tracks, grid_options, "flow"]
         record_velocities(*args)
-    if "u_displacement" in keys or "v_displacement" in keys:
+    if "u_displacement" in keys and "v_displacement" in keys:
         args = [attributes, attribute_options, object_tracks, grid_options]
         args += ["displacement"]
         record_velocities(*args)

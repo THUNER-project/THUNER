@@ -80,7 +80,7 @@ def create_options(
         options[key] = value
 
     if save:
-        filepath = str(get_outputs_directory() / "option/access.yaml")
+        filepath = str(get_outputs_directory() / "option/access.yml")
         logger.debug(f"Saving options to {filepath}")
         with open(filepath, "w") as outfile:
             yaml.dump(

@@ -1,5 +1,6 @@
 """Methods for getting object attributes."""
 
+import copy
 from thor.attribute import core, group, profile, utils, quality, tag, ellipse
 from thor.log import setup_logger
 
@@ -15,44 +16,81 @@ record_dispatcher = {
 }
 
 
-def record_detected(time, input_record, object_tracks, object_options, grid_options):
+def get_record_arguments(
+    attributes_type,
+    time,
+    input_records,
+    attributes,
+    object_tracks,
+    object_options,
+    attribute_options,
+    grid_options,
+    member_object=None,
+):
+    """Get the arguments for the specific record functions."""
+    core_arguments = [attributes, object_tracks, attribute_options, grid_options]
+    core_arguments += [member_object]
+    group_arguments = [time, attributes, object_tracks, attribute_options]
+    group_arguments += [grid_options, member_object]
+    profile_arguments = [time, input_records, attributes, object_tracks]
+    profile_arguments += [attribute_options, grid_options, member_object]
+    quality_arguments = [time, input_records, attributes, object_tracks, object_options]
+    quality_arguments += [attribute_options, grid_options, member_object]
+    tag_arguments = profile_arguments
+    ellipse_arguments = [time, attributes, object_tracks, attribute_options]
+    ellipse_arguments += [grid_options, member_object]
+    argument_dispatcher = {
+        "core": core_arguments,
+        "group": group_arguments,
+        "profile": profile_arguments,
+        "quality": quality_arguments,
+        "tag": tag_arguments,
+        "ellipse": ellipse_arguments,
+    }
+    return argument_dispatcher[attributes_type]
+
+
+def record_detected(time, input_records, object_tracks, object_options, grid_options):
     """Get detected object attributes."""
-    attribute_options = object_options["attributes"]
+    all_attribute_options = object_options["attributes"]
     # Get the object attributes of each type, e.g. core, tag, profile
-    for attributes_type in attribute_options.keys():
-        options = attribute_options[attributes_type]
+    for attributes_type in all_attribute_options.keys():
+        attribute_options = all_attribute_options[attributes_type]
         attributes = object_tracks["current_attributes"][attributes_type]
         record_func = record_dispatcher[attributes_type]
-        args = [time, input_record, attributes, object_tracks, object_options]
-        args += [options, grid_options]
+        args = [time, input_records, attributes, object_tracks, object_options]
+        args += [attribute_options, grid_options]
+        args = get_record_arguments(attributes_type, *args)
         record_func(*args)
 
 
 # But what if a member object is also a grouped object?
-def record_grouped(time, input_record, object_tracks, object_options, grid_options):
+def record_grouped(time, input_records, object_tracks, object_options, grid_options):
     """Get object attributes."""
     # First get the attributes of each member object
     member_options = object_options["attributes"]["member_objects"]
     member_attributes = object_tracks["current_attributes"]["member_objects"]
     for obj in member_attributes.keys():
         obj_attributes = member_attributes[obj]
-        for attribute_type in obj_attributes.keys():
-            options = member_options[obj][attribute_type]
-            attributes = obj_attributes[attribute_type]
-            record_func = record_dispatcher[attribute_type]
-            record_args = [time, input_record, attributes, object_tracks]
-            record_args += [object_options, options, grid_options]
-            record_func(*record_args, member_object=obj)
+        for attributes_type in obj_attributes.keys():
+            attribute_options = member_options[obj][attributes_type]
+            attributes = obj_attributes[attributes_type]
+            record_func = record_dispatcher[attributes_type]
+            args = [time, input_records, attributes, object_tracks, object_options]
+            args += [attribute_options, grid_options, obj]
+            args = get_record_arguments(attributes_type, *args)
+            record_func(*args)
     # Now get attributes of the grouped object
     obj = list(object_options["attributes"].keys() - {"member_objects"})[0]
     obj_attributes = object_tracks["current_attributes"][obj]
-    for attribute_type in obj_attributes.keys():
-        options = object_options["attributes"][obj][attribute_type]
-        attributes = obj_attributes[attribute_type]
-        record_func = record_dispatcher[attribute_type]
-        record_args = [time, input_record, attributes, object_tracks]
-        record_args += [object_options, options, grid_options]
-        record_func(*record_args, member_object=obj)
+    for attributes_type in obj_attributes.keys():
+        attribute_options = object_options["attributes"][obj][attributes_type]
+        attributes = obj_attributes[attributes_type]
+        record_func = record_dispatcher[attributes_type]
+        args = [time, input_records, attributes, object_tracks, object_options]
+        args += [attribute_options, grid_options, obj]
+        args = get_record_arguments(attributes_type, *args)
+        record_func(*args)
 
 
 def append_detected(object_tracks):
@@ -61,10 +99,10 @@ def append_detected(object_tracks):
     """
     attributes = object_tracks["attributes"]
     current_attributes = object_tracks["current_attributes"]
-    for attribute_type in current_attributes.keys():
-        for attr in current_attributes[attribute_type].keys():
-            attr_list = attributes[attribute_type][attr]
-            attr_list += current_attributes[attribute_type][attr]
+    for attributes_type in current_attributes.keys():
+        for attr in current_attributes[attributes_type].keys():
+            attr_list = attributes[attributes_type][attr]
+            attr_list += current_attributes[attributes_type][attr]
 
 
 def append_grouped(object_tracks):
@@ -75,18 +113,18 @@ def append_grouped(object_tracks):
     current_member_attributes = object_tracks["current_attributes"]["member_objects"]
     # First append attributes for member objects
     for obj in member_attributes.keys():
-        for attribute_type in member_attributes[obj].keys():
-            for attr in member_attributes[obj][attribute_type].keys():
-                attr_list = member_attributes[obj][attribute_type][attr]
-                attr_list += current_member_attributes[obj][attribute_type][attr]
+        for attributes_type in member_attributes[obj].keys():
+            for attr in member_attributes[obj][attributes_type].keys():
+                attr_list = member_attributes[obj][attributes_type][attr]
+                attr_list += current_member_attributes[obj][attributes_type][attr]
     # Now append attributes for grouped object
     obj = list(object_tracks["attributes"].keys() - {"member_objects"})[0]
     attributes = object_tracks["attributes"][obj]
     current_attributes = object_tracks["current_attributes"][obj]
-    for attribute_type in current_attributes.keys():
-        for attr in current_attributes[attribute_type].keys():
-            attr_list = attributes[attribute_type][attr]
-            attr_list += current_attributes[attribute_type][attr]
+    for attributes_type in current_attributes.keys():
+        for attr in current_attributes[attributes_type].keys():
+            attr_list = attributes[attributes_type][attr]
+            attr_list += current_attributes[attributes_type][attr]
 
 
 def record(time, input_records, object_tracks, object_options, grid_options):
