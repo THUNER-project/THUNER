@@ -83,6 +83,6 @@ def aggregate(track_options, output_directory, clean_up=True):
                 continue
             filepaths = glob.glob(f"{output_directory}/masks/{obj}/*.nc")
             masks = xr.open_mfdataset(filepaths)
-            masks.to_netcdf(output_directory / f"masks/{obj}_masks.nc")
+            masks.to_netcdf(output_directory / f"masks/{obj}.nc")
             if clean_up:
                 shutil.rmtree(output_directory / f"masks/{obj}")

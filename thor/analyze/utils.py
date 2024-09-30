@@ -16,3 +16,19 @@ def read_options(output_directory):
             name = Path(filepath).stem
             all_options[name] = options
     return all_options
+
+
+def temporal_smooth(df, window_size=6):
+    """
+    Apply a temporal smoother to each object.
+    """
+
+    def smooth_group(group):
+        smoothed = group.rolling(window=window_size, min_periods=1, center=True).mean()
+        return smoothed
+
+    # Group over all indexes except time, i.e. only smooth over time index
+    indexes_to_group = [idx for idx in df.index.names if idx != "time"]
+    smoothed_df = df.groupby(indexes_to_group, group_keys=False)
+    smoothed_df = smoothed_df.apply(smooth_group)
+    return smoothed_df

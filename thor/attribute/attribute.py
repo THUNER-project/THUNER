@@ -1,6 +1,5 @@
 """Methods for getting object attributes."""
 
-import copy
 from thor.attribute import core, group, profile, utils, quality, tag, ellipse
 from thor.log import setup_logger
 
@@ -32,11 +31,12 @@ def get_record_arguments(
     core_arguments += [member_object]
     group_arguments = [time, attributes, object_tracks, attribute_options]
     group_arguments += [grid_options, member_object]
-    profile_arguments = [time, input_records, attributes, object_tracks]
-    profile_arguments += [attribute_options, grid_options, member_object]
+    profile_arguments = [input_records, attributes, object_tracks, attribute_options]
+    profile_arguments += [grid_options, member_object]
     quality_arguments = [time, input_records, attributes, object_tracks, object_options]
     quality_arguments += [attribute_options, grid_options, member_object]
-    tag_arguments = profile_arguments
+    tag_arguments = [input_records, attributes, object_tracks, attribute_options]
+    tag_arguments += [member_object]
     ellipse_arguments = [time, attributes, object_tracks, attribute_options]
     ellipse_arguments += [grid_options, member_object]
     argument_dispatcher = {
@@ -93,6 +93,21 @@ def record_grouped(time, input_records, object_tracks, object_options, grid_opti
         record_func(*args)
 
 
+def append_attribute_type(current_attributes, attributes, attributes_type):
+    """
+    Append current_attributes dictionary to attributes dictionary for a given
+    attribute type.
+    """
+    for attr in current_attributes[attributes_type].keys():
+        if attributes_type == "profile" or attributes_type == "tag":
+            for dataset in current_attributes[attributes_type][attr].keys():
+                attr_list = attributes[attributes_type][attr][dataset]
+                attr_list += current_attributes[attributes_type][attr][dataset]
+        else:
+            attr_list = attributes[attributes_type][attr]
+            attr_list += current_attributes[attributes_type][attr]
+
+
 def append_detected(object_tracks):
     """
     Append current_attributes dictionary to attributes dictionary for detected objects.
@@ -100,9 +115,7 @@ def append_detected(object_tracks):
     attributes = object_tracks["attributes"]
     current_attributes = object_tracks["current_attributes"]
     for attributes_type in current_attributes.keys():
-        for attr in current_attributes[attributes_type].keys():
-            attr_list = attributes[attributes_type][attr]
-            attr_list += current_attributes[attributes_type][attr]
+        append_attribute_type(current_attributes, attributes, attributes_type)
 
 
 def append_grouped(object_tracks):
@@ -114,17 +127,15 @@ def append_grouped(object_tracks):
     # First append attributes for member objects
     for obj in member_attributes.keys():
         for attributes_type in member_attributes[obj].keys():
-            for attr in member_attributes[obj][attributes_type].keys():
-                attr_list = member_attributes[obj][attributes_type][attr]
-                attr_list += current_member_attributes[obj][attributes_type][attr]
+            attr = member_attributes[obj]
+            current_attr = current_member_attributes[obj]
+            append_attribute_type(current_attr, attr, attributes_type)
     # Now append attributes for grouped object
     obj = list(object_tracks["attributes"].keys() - {"member_objects"})[0]
     attributes = object_tracks["attributes"][obj]
     current_attributes = object_tracks["current_attributes"][obj]
     for attributes_type in current_attributes.keys():
-        for attr in current_attributes[attributes_type].keys():
-            attr_list = attributes[attributes_type][attr]
-            attr_list += current_attributes[attributes_type][attr]
+        append_attribute_type(current_attributes, attributes, attributes_type)
 
 
 def record(time, input_records, object_tracks, object_options, grid_options):

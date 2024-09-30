@@ -191,7 +191,7 @@ def simultaneous_track(
         The xarray dataset containing the object masks.
 
     """
-
+    logger.info("Beginning thor run. Saving output to %s.", output_directory)
     logger.info("Beginning simultaneous tracking.")
     option.check_options(track_options)
     dispatch.check_data_options(data_options)

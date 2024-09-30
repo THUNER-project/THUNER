@@ -22,7 +22,7 @@ def cape(dataset, name, method=None, description=None):
     return utils.get_attribute_dict(*args)
 
 
-def default(dataset, names=None, matched=True):
+def dataset_default(dataset, names=None, matched=True):
     """Create a dictionary of default attribute options of grouped objects."""
 
     if names is None:
@@ -43,6 +43,12 @@ def default(dataset, names=None, matched=True):
     if "cin" in names:
         attributes["cin"] = cape(dataset, "cin")
 
+    return attributes
+
+
+def default(datasets, names=None, matched=True):
+    """Create a dictionary of default attribute options across all datasets."""
+    attributes = {ds: dataset_default(ds, names, matched) for ds in datasets}
     return attributes
 
 
@@ -99,12 +105,27 @@ def record_tags(names, input_records, attributes, object_tracks, method):
 
 
 def record(
-    time,
     input_records,
     attributes,
     object_tracks,
     attribute_options,
-    grid_options,
+    member_object=None,
+):
+    for dataset in attribute_options.keys():
+        dataset_record(
+            input_records,
+            attributes[dataset],
+            object_tracks,
+            attribute_options[dataset],
+            member_object,
+        )
+
+
+def dataset_record(
+    input_records,
+    attributes,
+    object_tracks,
+    attribute_options,
     member_object=None,
 ):
     """Get group object attributes."""

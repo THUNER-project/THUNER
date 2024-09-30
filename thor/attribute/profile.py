@@ -75,8 +75,10 @@ def relative_humidity(dataset, name="relative_humidity", method=None, descriptio
     return utils.get_attribute_dict(*args)
 
 
-def default(dataset, names=None, matched=True):
-    """Create a dictionary of default attribute options of grouped objects."""
+# Modify below approach to allow for multiple tagging/profile datasets.
+# Simply create another function to call the one below.
+def dataset_default(dataset, names=None, matched=True):
+    """Create a dictionary of default attribute options for a specified dataset."""
 
     if names is None:
         names = ["time", "latitude", "longitude", "altitude", "temperature"]
@@ -100,7 +102,12 @@ def default(dataset, names=None, matched=True):
     if "u" in names and "v" in names:
         attributes["u"] = wind(dataset, "u")
         attributes["v"] = wind(dataset, "v")
+    return attributes
 
+
+def default(datasets, names=None, matched=True):
+    """Create a dictionary of default attribute options across all datasets."""
+    attributes = {ds: dataset_default(ds, names, matched) for ds in datasets}
     return attributes
 
 
@@ -185,7 +192,25 @@ def record_profiles(
 
 
 def record(
-    time,
+    input_records,
+    attributes,
+    object_tracks,
+    attribute_options,
+    grid_options,
+    member_object=None,
+):
+    for dataset in attribute_options.keys():
+        dataset_record(
+            input_records,
+            attributes[dataset],
+            object_tracks,
+            attribute_options[dataset],
+            grid_options,
+            member_object,
+        )
+
+
+def dataset_record(
     input_records,
     attributes,
     object_tracks,

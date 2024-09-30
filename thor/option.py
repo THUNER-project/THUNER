@@ -205,9 +205,9 @@ def detected_object(
     if attribute_options is None:
         attribute_options = {"core": attribute.core.default()}
         attribute_options.update(
-            {"profile": attribute.profile.default(profile_dataset)}
+            {"profile": attribute.profile.default([profile_dataset])}
         )
-        attribute_options.update({"tag": attribute.tag.default(tag_dataset)})
+        attribute_options.update({"tag": attribute.tag.default([tag_dataset])})
         attribute_options.update({"quality": attribute.quality.default()})
 
     options = {
@@ -301,8 +301,10 @@ def grouped_object(
         attribute_options[name]["group"] = attribute.group.default()
         profile_dataset = kwargs.get("profile_dataset", "era5_pl")
         tag_dataset = kwargs.get("tag_dataset", "era5_sl")
-        attribute_options[name]["profile"] = attribute.profile.default(profile_dataset)
-        attribute_options[name]["tag"] = attribute.tag.default(tag_dataset)
+        attribute_options[name]["profile"] = attribute.profile.default(
+            [profile_dataset]
+        )
+        attribute_options[name]["tag"] = attribute.tag.default([tag_dataset])
 
     options = {
         **boilerplate_object(

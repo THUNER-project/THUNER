@@ -13,6 +13,8 @@ string_to_data_type = {
     "float": float,
     "int": int,
     "datetime64[s]": "datetime64[s]",
+    "bool": bool,
+    "str": str,
 }
 
 
@@ -77,11 +79,21 @@ def attribute_from_core(name, object_tracks, member_object):
 
 def initialize_attributes_detected(object_options):
     """Initialize attributes lists for detected objects."""
-    attributes_dict = {}
-    for key in object_options["attributes"].keys():
-        attribute_options = object_options["attributes"][key]
-        attributes = {attr: [] for attr in attribute_options.keys()}
-        attributes_dict[key] = attributes
+    attribute_types = object_options["attributes"].keys()
+    attributes_dict = {t: {} for t in attribute_types}
+    for attribute_type in attribute_types:
+        if attribute_type == "tag" or attribute_type == "profile":
+            datasets = object_options["attributes"][attribute_type].keys()
+            attributes_dict[attribute_type] = {ds: {} for ds in datasets}
+            for dataset in object_options["attributes"][attribute_type].keys():
+                all_options = object_options["attributes"][attribute_type]
+                attribute_options = all_options[dataset]
+                attributes = {attr: [] for attr in attribute_options.keys()}
+                attributes_dict[attribute_type][dataset] = attributes
+        else:
+            attribute_options = object_options["attributes"][attribute_type]
+            attributes = {attr: [] for attr in attribute_options.keys()}
+            attributes_dict[attribute_type] = attributes
     return attributes_dict
 
 
@@ -93,17 +105,35 @@ def initialize_attributes_grouped(object_options):
     attributes_dict = {"member_objects": {}, object_name: {}}
     member_attributes = attributes_dict["member_objects"]
     for obj in member_options.keys():
-        member_attributes[obj] = {}
+        member_types = member_options[obj].keys()
+        member_attributes[obj] = {t: {} for t in member_types}
         for attribute_type in member_options[obj].keys():
-            attribute_options = member_options[obj][attribute_type]
-            attributes = {attr: [] for attr in attribute_options.keys()}
-            member_attributes[obj][attribute_type] = attributes
+            if attribute_type == "tag" or attribute_type == "profile":
+                datasets = member_options[obj][attribute_type].keys()
+                member_attributes[obj][attribute_type] = {ds: {} for ds in datasets}
+                for dataset in datasets:
+                    attribute_options = member_options[obj][attribute_type][dataset]
+                    attributes = {attr: [] for attr in attribute_options.keys()}
+                    member_attributes[obj][attribute_type][dataset] = attributes
+            else:
+                attribute_options = member_options[obj][attribute_type]
+                attributes = {attr: [] for attr in attribute_options.keys()}
+                member_attributes[obj][attribute_type] = attributes
     # Now initialize attributes for grouped object
     obj = list(object_options["attributes"].keys() - {"member_objects"})[0]
     for attribute_type in object_options["attributes"][obj].keys():
-        attribute_options = object_options["attributes"][obj][attribute_type]
-        attributes = {attr: [] for attr in attribute_options.keys()}
-        attributes_dict[obj][attribute_type] = attributes
+        if attribute_type == "tag" or attribute_type == "profile":
+            datasets = object_options["attributes"][obj][attribute_type].keys()
+            attributes_dict[obj][attribute_type] = {ds: {} for ds in datasets}
+            for dataset in datasets:
+                obj_attribute_options = object_options["attributes"][obj]
+                attribute_options = obj_attribute_options[attribute_type][dataset]
+                attributes = {attr: [] for attr in attribute_options.keys()}
+                attributes_dict[obj][attribute_type][dataset] = attributes
+        else:
+            attribute_options = object_options["attributes"][obj][attribute_type]
+            attributes = {attr: [] for attr in attribute_options.keys()}
+            attributes_dict[obj][attribute_type] = attributes
     return attributes_dict
 
 
@@ -146,7 +176,22 @@ def read_metadata_yml(filepath):
     return attribute_options
 
 
-def read_attribute_csv(filepath, attribute_options=None, dask=False, multi_index=True):
+def get_indexes(attribute_options):
+    """Get the indexes for the attribute DataFrame."""
+    indexes = ["time"]
+    if "universal_id" in attribute_options.keys():
+        id_index = "universal_id"
+    elif "id" in attribute_options.keys():
+        id_index = "id"
+    else:
+        ValueError("No object id column found in attribute options.")
+    indexes.append(id_index)
+    if "altitude" in attribute_options.keys():
+        indexes.append("altitude")
+    return indexes
+
+
+def read_attribute_csv(filepath, attribute_options=None, columns=None):
     """
     Read a CSV file and return a DataFrame.
 
@@ -160,42 +205,29 @@ def read_attribute_csv(filepath, attribute_options=None, dask=False, multi_index
     pd.DataFrame
         DataFrame containing the CSV data.
     """
-    if dask:
-        read_csv = dd.read_csv
-    else:
-        read_csv = pd.read_csv
 
     if attribute_options is None:
         try:
-            stem = filepath.stem
-            meta_path = filepath.with_stem(f"{stem}_metadata").with_suffix(".yml")
+            meta_path = filepath.with_suffix(".yml")
             attribute_options = read_metadata_yml(meta_path)
         except FileNotFoundError:
             logger.warning("No metadata file found for %s.", filepath)
-    if attribute_options is not None:
-        keys = attribute_options.keys()
-        keys = [key for key in keys if key != "time"]
-        data_types = {name: attribute_options[name]["data_type"] for name in keys}
-        df = read_csv(filepath, dtype=data_types, parse_dates=["time"])
-    else:
-        logger.warning("No metadata; data types not enforced.")
-        df = read_csv(filepath)
-    indexes = ["time"]
-    if "universal_id" in df.columns:
-        id_index = "universal_id"
-    elif "id" in df.columns:
-        id_index = "id"
-    else:
-        ValueError("No object id column found in CSV file.")
-    indexes.append(id_index)
-    if "altitude" in df.columns:
-        indexes.append("altitude")
-    # Workaround for Dask not supporting multi-index
-    if multi_index and not dask:
-        df = df.set_index(indexes)
-    else:
-        df = df.set_index(indexes[0])
 
+    if attribute_options is None:
+        message = "No metadata; loading entire dataframe and data types not enforced."
+        logger.warning(message)
+        return pd.read_csv(filepath)
+
+    indexes = get_indexes(attribute_options)
+    if columns is None:
+        columns = list(attribute_options.keys())
+    all_columns = indexes + [col for col in columns if col not in indexes]
+    data_types = {name: attribute_options[name]["data_type"] for name in all_columns}
+    # Remove time column as pd handles this separately
+    data_types.pop("time", None)
+    args_dict = {"usecols": all_columns, "dtype": data_types, "parse_dates": ["time"]}
+    df = pd.read_csv(filepath, **args_dict)
+    df = df.set_index(indexes)
     return df
 
 
