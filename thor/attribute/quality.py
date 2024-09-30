@@ -95,13 +95,11 @@ def record_boundary_overlaps(
 
 
 def record(
-    time,
     input_records,
     attributes,
     object_tracks,
     object_options,
     attribute_options,
-    grid_options,
     member_object=None,
 ):
     """Get group object attributes."""

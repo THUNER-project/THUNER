@@ -80,6 +80,38 @@ def runtime_options(
     return options
 
 
+def horizontal_attribute_options(
+    name,
+    save=True,
+    parent_local=None,
+    attributes=None,
+    quality_control=True,
+    fields=None,
+    extent=None,
+    template=None,
+    style="paper",
+):
+    """Default options for horizontal attribute visualization."""
+
+    # Set the default object attributes to display
+    if attributes is None:
+        attributes = ["velocity", "relative_velocity", "shear", "ambient"]
+    # Set the default dataset fields to display
+    if fields is None:
+        fields = ["reflectivity"]
+
+    options = {
+        **boilerplate_options(name, save, parent_local),
+        "attributes": attributes,
+        "quality_control": quality_control,
+        "fields": fields,
+        "extent": extent,
+        "template": template,
+        "style": style,
+    }
+    return options
+
+
 def save_display_options(
     display_options, options_directory=None, filename="visualize", append_time=False
 ):

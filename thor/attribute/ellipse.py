@@ -245,14 +245,13 @@ def record_ellipse(
 
 
 def record(
-    time,
     attributes,
     object_tracks,
     attribute_options,
     grid_options,
     member_object=None,
 ):
-    """Get group object attributes."""
+    """Get ellipse object attributes."""
     # Get core attributes
     previous_time = object_tracks["previous_times"][-1]
     if previous_time is None:

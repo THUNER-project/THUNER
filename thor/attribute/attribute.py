@@ -17,7 +17,6 @@ record_dispatcher = {
 
 def get_record_arguments(
     attributes_type,
-    time,
     input_records,
     attributes,
     object_tracks,
@@ -29,16 +28,15 @@ def get_record_arguments(
     """Get the arguments for the specific record functions."""
     core_arguments = [attributes, object_tracks, attribute_options, grid_options]
     core_arguments += [member_object]
-    group_arguments = [time, attributes, object_tracks, attribute_options]
-    group_arguments += [grid_options, member_object]
+    group_arguments = [attributes, object_tracks, attribute_options, member_object]
     profile_arguments = [input_records, attributes, object_tracks, attribute_options]
     profile_arguments += [grid_options, member_object]
-    quality_arguments = [time, input_records, attributes, object_tracks, object_options]
-    quality_arguments += [attribute_options, grid_options, member_object]
+    quality_arguments = [input_records, attributes, object_tracks, object_options]
+    quality_arguments += [attribute_options, member_object]
     tag_arguments = [input_records, attributes, object_tracks, attribute_options]
     tag_arguments += [member_object]
-    ellipse_arguments = [time, attributes, object_tracks, attribute_options]
-    ellipse_arguments += [grid_options, member_object]
+    ellipse_arguments = [attributes, object_tracks, attribute_options, grid_options]
+    ellipse_arguments += [member_object]
     argument_dispatcher = {
         "core": core_arguments,
         "group": group_arguments,
@@ -58,7 +56,7 @@ def record_detected(time, input_records, object_tracks, object_options, grid_opt
         attribute_options = all_attribute_options[attributes_type]
         attributes = object_tracks["current_attributes"][attributes_type]
         record_func = record_dispatcher[attributes_type]
-        args = [time, input_records, attributes, object_tracks, object_options]
+        args = [input_records, attributes, object_tracks, object_options]
         args += [attribute_options, grid_options]
         args = get_record_arguments(attributes_type, *args)
         record_func(*args)
@@ -76,7 +74,7 @@ def record_grouped(time, input_records, object_tracks, object_options, grid_opti
             attribute_options = member_options[obj][attributes_type]
             attributes = obj_attributes[attributes_type]
             record_func = record_dispatcher[attributes_type]
-            args = [time, input_records, attributes, object_tracks, object_options]
+            args = [input_records, attributes, object_tracks, object_options]
             args += [attribute_options, grid_options, obj]
             args = get_record_arguments(attributes_type, *args)
             record_func(*args)
@@ -87,7 +85,7 @@ def record_grouped(time, input_records, object_tracks, object_options, grid_opti
         attribute_options = object_options["attributes"][obj][attributes_type]
         attributes = obj_attributes[attributes_type]
         record_func = record_dispatcher[attributes_type]
-        args = [time, input_records, attributes, object_tracks, object_options]
+        args = [input_records, attributes, object_tracks, object_options]
         args += [attribute_options, grid_options, obj]
         args = get_record_arguments(attributes_type, *args)
         record_func(*args)

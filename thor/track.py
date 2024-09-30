@@ -28,30 +28,36 @@ def initialise_input_records(data_options):
         init_input_record = initialise_input_record_dispatcher.get(use)
         if init_input_record is None:
             raise KeyError(f"Initialisation function for {use} not found.")
-        input_record = init_input_record(data_options[name])
+        input_record = init_input_record(name, data_options[name])
         input_records[use][name] = input_record
 
     return input_records
 
 
-def initialise_boilerplate_input_record(dataset_options):
+def initialise_boilerplate_input_record(name, dataset_options):
     """
     Initialise the tag input record dictionary.
     """
 
     input_record = {}
+    input_record["name"] = name
     input_record["current_file_index"] = -1
     input_record["dataset"] = None
+    input_record["last_write_time"] = None
+    if "filepaths" in dataset_options.keys():
+        input_record["filepath_list"] = []
+        input_record["time_list"] = []
+        input_record["write_interval"] = np.timedelta64(1, "h")
 
     return input_record
 
 
-def initialise_track_input_record(dataset_options):
+def initialise_track_input_record(name, dataset_options):
     """
     Initialise the track input record dictionary.
     """
 
-    input_record = initialise_boilerplate_input_record(dataset_options)
+    input_record = initialise_boilerplate_input_record(name, dataset_options)
     input_record["current_grid"] = None
     deque_length = dataset_options["deque_length"]
     input_record["previous_grids"] = deque([None] * deque_length, deque_length)
@@ -214,7 +220,12 @@ def simultaneous_track(
 
         logger.info(f"Processing {format_time(time, filename_safe=False)}.")
         dispatch.update_track_input_records(
-            time, input_records["track"], track_options, data_options, grid_options
+            time,
+            input_records["track"],
+            track_options,
+            data_options,
+            grid_options,
+            output_directory,
         )
         dispatch.update_tag_input_records(
             previous_time,
@@ -233,10 +244,15 @@ def simultaneous_track(
 
         previous_time = time
 
+    # Write final data to file
     write.mask.write_final(tracks, track_options, output_directory)
     write.attribute.write_final(tracks, track_options, output_directory)
+    write.filepath.write_final(input_records["track"], output_directory)
+    # Aggregate files previously written to file
     write.mask.aggregate(track_options, output_directory)
     write.attribute.aggregate(track_options, output_directory)
+    write.filepath.aggregate(input_records["track"], output_directory)
+    # Animate the relevant figures
     visualize.visualize.animate_all(visualize_options, output_directory)
 
     return tracks

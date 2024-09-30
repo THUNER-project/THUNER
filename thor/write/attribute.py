@@ -123,7 +123,7 @@ def write(object_tracks, object_options, output_directory):
 
 
 def write_final(tracks, track_options, output_directory):
-    """Write final masks to file."""
+    """Write final attributes to file."""
 
     for index, level_options in enumerate(track_options):
         for obj in level_options.keys():

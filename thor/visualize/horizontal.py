@@ -43,11 +43,13 @@ def grid(grid, ax, grid_options, add_colorbar=True):
 contour_options = {"mode": cv2.RETR_LIST, "method": cv2.CHAIN_APPROX_SIMPLE}
 
 
-def mask(mask, ax, grid_options):
+def mask(mask, ax, grid_options, single_color=False):
     """Plot masks."""
 
     title = ax.get_title()
     colors = visualize.mask_colors
+    if single_color:
+        colors = [colors[0]]
     cmap = LinearSegmentedColormap.from_list("custom", colors, N=len(colors))
     object_labels = np.unique(mask.where(mask > 0).values)
     object_labels = object_labels[~np.isnan(object_labels)]

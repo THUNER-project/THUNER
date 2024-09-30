@@ -13,7 +13,7 @@ from thor.visualize.visualize import styles
 from thor.utils import format_time
 from thor.match.utils import get_grids, get_masks
 from thor.log import setup_logger
-from thor.visualize.utils import make_subplot_labels
+from thor.visualize.utils import make_subplot_labels, get_extent
 from thor.visualize.visualize import mask_colors
 from thor.object.box import get_box_center_coords
 import thor.grid as thor_grid
@@ -21,13 +21,6 @@ import thor.grid as thor_grid
 
 logger = setup_logger(__name__)
 proj = ccrs.PlateCarree()
-
-
-def get_extent(grid_options):
-    """Get the cartopy extent."""
-    lon = np.array(grid_options["longitude"])
-    lat = np.array(grid_options["latitude"])
-    return (lon.min(), lon.max(), lat.min(), lat.max())
 
 
 def get_boundaries(input_record, num_previous=1):
@@ -63,11 +56,11 @@ def detected_mask(
     grid = object_tracks["current_grid"]
     extent = get_extent(grid_options)
 
-    if "figure_template" not in figure_options.keys():
+    if "template" not in figure_options.keys():
         fig, ax = detected_mask_template(grid, input_record, figure_options, extent)
-        figure_options["figure_template"] = fig
+        figure_options["template"] = fig
 
-    fig = copy.deepcopy(figure_options["figure_template"])
+    fig = copy.deepcopy(figure_options["template"])
     ax = fig.axes[0]
 
     pcm = horizontal.grid(grid, ax, grid_options, add_colorbar=False)
@@ -90,9 +83,7 @@ def detected_mask(
     return fig, ax
 
 
-def grouped_mask_template(
-    grid, input_record, figure_options, extent, figsize, member_objects
-):
+def grouped_mask_template(grid, figure_options, extent, figsize, member_objects):
     """Create a template figure for grouped masks."""
     fig = plt.figure(figsize=figsize)
     style = figure_options["style"]
@@ -151,13 +142,13 @@ def grouped_mask(
     except KeyError:
         figsize = (len(member_objects) * 4, 3.5)
 
-    if "figure_template" not in figure_options.keys():
+    if "template" not in figure_options.keys():
         fig, axes, cbar_ax = grouped_mask_template(
-            grid, input_record, figure_options, extent, figsize, member_objects
+            grid, figure_options, extent, figsize, member_objects
         )
-        figure_options["figure_template"] = fig
+        figure_options["template"] = fig
 
-    fig = copy.deepcopy(figure_options["figure_template"])
+    fig = copy.deepcopy(figure_options["template"])
     axes = fig.axes[:-1]
     cbar_ax = fig.axes[-1]
 
@@ -299,13 +290,13 @@ def visualize_match(
 
     extent = get_extent(grid_options)
 
-    if "figure_template" not in figure_options.keys():
+    if "template" not in figure_options.keys():
         fig, ax, cbar_ax = match_template(
             grids[0], input_record, figure_options, extent
         )
-        figure_options["figure_template"] = fig
+        figure_options["template"] = fig
 
-    fig = copy.deepcopy(figure_options["figure_template"])
+    fig = copy.deepcopy(figure_options["template"])
     axes = fig.axes[:-1]
     cbar_ax = fig.axes[-1]
 

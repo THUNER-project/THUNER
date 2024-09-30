@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import shutil
+import os
 import thor.data as data
 import thor.data.dispatch as dispatch
 import thor.grid as grid
@@ -9,8 +10,12 @@ import thor.track as track
 import thor.option as option
 import thor.visualize as visualize
 from thor.log import setup_logger
+import thor.analyze as analyze
 
 logger = setup_logger(__name__)
+
+# Suppress the "wayland" plugin warning
+os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 
 def test_cpol_with_runtime_figures():
@@ -123,8 +128,8 @@ def test_cpol():
 
     # Parent directory for saving outputs
     base_local = Path.home() / "THOR_output"
-    start = "2005-11-13T00:00:00"
-    end = "2005-11-14T00:00:00"
+    start = "2005-11-13T14:00:00"
+    end = "2005-11-13T16:00:00"
 
     output_directory = base_local / "runs/cpol_demo_geographic"
     if output_directory.exists():
@@ -180,15 +185,21 @@ def test_cpol():
         output_directory=output_directory,
     )
 
+    analysis_options = analyze.mcs.analysis_options()
+    analyze.mcs.process_velocities(output_directory)
+    analyze.mcs.quality_control(output_directory, analysis_options)
+    analyze.mcs.classify_all(output_directory)
+
     # Test tracking in Cartesian coordinates
     output_directory = base_local / "runs/cpol_demo_cartesian"
     if output_directory.exists():
         shutil.rmtree(output_directory)
+    options_directory = output_directory / "options"
 
     grid_options = grid.create_options(name="cartesian", regrid=False)
     grid.check_options(grid_options)
-    grid.save_grid_options(grid_options, filename="cpol_cartesian")
-    option.save_options(track_options, options_directory)
+    grid.save_grid_options(grid_options, options_directory)
+    option.save_track_options(track_options, options_directory)
     data.option.save_data_options(data_options, options_directory)
 
     times = data.utils.generate_times(data_options["cpol"])

@@ -97,3 +97,11 @@ def animate_object(fig_type, obj, output_directory):
         )
         images = [Image.open(f) for f in filepaths_date]
         imageio.mimsave(output_filepath, images, fps=5, loop=0)
+
+
+def get_grid(time, filename, field, data_options, grid_options):
+    """
+    Get the grid from a file.
+    """
+    grid = utils.load_grid(filename)
+    return grid[field]

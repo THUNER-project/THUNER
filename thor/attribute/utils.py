@@ -181,11 +181,10 @@ def get_indexes(attribute_options):
     indexes = ["time"]
     if "universal_id" in attribute_options.keys():
         id_index = "universal_id"
+        indexes.append(id_index)
     elif "id" in attribute_options.keys():
         id_index = "id"
-    else:
-        ValueError("No object id column found in attribute options.")
-    indexes.append(id_index)
+        indexes.append(id_index)
     if "altitude" in attribute_options.keys():
         indexes.append("altitude")
     return indexes

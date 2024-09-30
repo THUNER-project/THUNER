@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import shutil
+import os
 import numpy as np
 import thor.data as data
 import thor.data.dispatch as dispatch
@@ -10,6 +11,10 @@ import thor.track as track
 import thor.option as option
 import thor.visualize as visualize
 import thor.data.synthetic as synthetic
+import thor.analyze as analyze
+
+# Suppress the "wayland" plugin warning
+os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 
 def test_synthetic():

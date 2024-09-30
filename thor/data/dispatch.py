@@ -6,6 +6,7 @@ import thor.data.era5 as era5
 import thor.data.synthetic as synthetic
 import thor.data.gridrad as gridrad
 import thor.data.utils as utils
+import thor.write as write
 from thor.log import setup_logger
 from thor.utils import time_in_dataset_range
 
@@ -111,7 +112,12 @@ def boilerplate_update(
 
 
 def update_track_input_records(
-    time, track_input_records, track_options, data_options, grid_options
+    time,
+    track_input_records,
+    track_options,
+    data_options,
+    grid_options,
+    output_directory,
 ):
     """Update the input record, i.e. grids and datasets."""
     for name in track_input_records.keys():
@@ -129,6 +135,15 @@ def update_track_input_records(
         input_record["current_grid"] = grid_from_dataset(
             input_record["dataset"], field, time
         )
+        if "filepaths" not in data_options[name].keys():
+            return
+        input_record["time_list"].append(time)
+        filepath = data_options[name]["filepaths"][input_record["current_file_index"]]
+        input_record["filepath_list"].append(filepath)
+
+        args = [time, input_record, input_record]
+        if write.utils.write_interval_reached(*args):
+            write.filepath.write(input_record, output_directory)
 
 
 def update_tag_input_records(

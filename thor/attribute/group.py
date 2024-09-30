@@ -106,11 +106,9 @@ def record_offsets(attributes, attribute_options, object_tracks):
 
 
 def record(
-    time,
     attributes,
     object_tracks,
     attribute_options,
-    grid_options,
     member_object=None,
 ):
     """Get group object attributes."""
