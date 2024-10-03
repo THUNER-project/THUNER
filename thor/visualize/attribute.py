@@ -1,5 +1,6 @@
 """Functions for visualizing object attributes and classifications."""
 
+import multiprocessing
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -7,13 +8,13 @@ import matplotlib
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import thor.visualize.horizontal as horizontal
-from thor.visualize.visualize import map_colors, styles, animate_object
+from thor.visualize.visualize import figure_colors, styles, animate_object
 from thor.log import setup_logger
 from thor.attribute.utils import read_attribute_csv
 from thor.analyze.utils import read_options
 import thor.data.dispatch as dispatch
 import thor.detect.detect as detect
-from thor.utils import format_time
+from thor.utils import format_time, check_futures
 
 logger = setup_logger(__name__)
 proj = ccrs.PlateCarree()
@@ -31,6 +32,7 @@ def mcs_series(
     convective_label="cell",
     dataset_name=None,
     animate=True,
+    parallel=False,
 ):
     """Visualize mcs attributes at specified times."""
     plt.close("all")
@@ -59,29 +61,34 @@ def mcs_series(
     if convert is None:
         message = f"Dataset {dataset_name} not found in dispatch."
         raise KeyError(message)
-    for time in times:
-        filepath = filepaths[dataset_name].loc[time]
-        args = [time, filepath, options["data"][dataset_name], options["grid"]]
-        ds, boundary_coords = convert(*args)
-        get_grid = dispatch.grid_from_dataset_dispatcher.get(dataset_name)
-        if get_grid is None:
-            message = f"Dataset {dataset_name} not found in grid from dataset "
-            message += "dispatcher."
-            raise KeyError(message)
-        grid = get_grid(ds, "reflectivity", time)
-        processed_grid = detect.rebuild_processed_grid(grid, track_options, "mcs", 1)
-        mask = masks.sel(time=time)
-        args = [output_directory, processed_grid, mask, boundary_coords]
-        args += [figure_options, options["grid"]]
-        figure_name = figure_options["name"]
-        with plt.style.context(styles[figure_options["style"]]):
-            fig, ax = mcs_horizontal(*args)
-            filename = f"{format_time(time)}.png"
-            filepath = output_directory / f"visualize/{figure_name}/{filename}"
-            filepath.parent.mkdir(parents=True, exist_ok=True)
-            logger.debug(f"Saving {figure_name} figure for {time}.")
-            fig.savefig(filepath, bbox_inches="tight")
+    # Generate first figure to create template
+    time = times[0]
+    args = [time, filepaths, masks, output_directory, figure_options]
+    args += [options, track_options, dataset_name, convert]
+    mcs_horizontal_wrapper(*args)
+    if len(times) == 1:
+        # Switch back to original backend
+        matplotlib.use(original_backend)
+        return
+    if parallel:
+        with multiprocessing.Pool() as pool:
+            results = []
+            for time in times[1:]:
+                args = [time, filepaths, masks, output_directory, figure_options]
+                args += [options, track_options, dataset_name, convert]
+                results.append(pool.apply_async(mcs_horizontal_wrapper, args))
+            for result in results:
+                try:
+                    result.get()  # Wait for the result and handle exceptions
+                except Exception as exc:
+                    print(f"Generated an exception: {exc}")
+    else:
+        for time in times[1:]:
+            args = [time, filepaths, masks, output_directory, figure_options]
+            args += [options, track_options, dataset_name, convert]
+            mcs_horizontal_wrapper(*args)
     if animate:
+        figure_name = figure_options["name"]
         save_directory = output_directory / f"visualize"
         figure_directory = output_directory / f"visualize/{figure_name}"
         args = [figure_name, "mcs", output_directory, save_directory]
@@ -89,6 +96,41 @@ def mcs_series(
         animate_object(*args)
     # Switch back to original backend
     matplotlib.use(original_backend)
+
+
+def mcs_horizontal_wrapper(
+    time,
+    filepaths,
+    masks,
+    output_directory,
+    figure_options,
+    options,
+    track_options,
+    dataset_name,
+    convert,
+):
+    """Wrapper for mcs_horizontal."""
+    filepath = filepaths[dataset_name].loc[time]
+    args = [time, filepath, options["data"][dataset_name], options["grid"]]
+    ds, boundary_coords = convert(*args)
+    get_grid = dispatch.grid_from_dataset_dispatcher.get(dataset_name)
+    if get_grid is None:
+        message = f"Dataset {dataset_name} not found in grid from dataset "
+        message += "dispatcher."
+        raise KeyError(message)
+    grid = get_grid(ds, "reflectivity", time)
+    processed_grid = detect.rebuild_processed_grid(grid, track_options, "mcs", 1)
+    mask = masks.sel(time=time)
+    args = [output_directory, processed_grid, mask, boundary_coords]
+    args += [figure_options, options["grid"]]
+    figure_name = figure_options["name"]
+    with plt.style.context(styles[figure_options["style"]]):
+        fig, ax = mcs_horizontal(*args)
+        filename = f"{format_time(time)}.png"
+        filepath = output_directory / f"visualize/{figure_name}/{filename}"
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+        logger.debug(f"Saving {figure_name} figure for {time}.")
+        fig.savefig(filepath, bbox_inches="tight")
 
 
 def mcs_horizontal(
@@ -132,6 +174,12 @@ def mcs_horizontal(
         velocity_attributes_horizontal(*args)
         displacement_attributes_horizontal(*args)
 
+    style = figure_options["style"]
+    key_color = figure_colors[style]["key"]
+    horizontal.vector_key(axes[0], color=key_color)
+    axes[0].set_title("Convective Echo")
+    axes[1].set_title("Anvil Echo")
+
     # Get legend proxy artists
     legend_handles = []
     attribute_names = figure_options["attributes"]
@@ -141,7 +189,7 @@ def mcs_horizontal(
         handle = horizontal.displacement_legend_artist(color, label)
         legend_handles.append(handle)
 
-    legend_color = map_colors[figure_options["style"]]["legend_color"]
+    legend_color = figure_colors[figure_options["style"]]["legend"]
     legend = axes[0].legend(handles=legend_handles[::-1], **mcs_legend_options)
     legend.get_frame().set_alpha(None)
     legend.get_frame().set_facecolor(legend_color)
@@ -237,9 +285,9 @@ def displacement_attributes_horizontal(axes, figure_options, object_attributes):
             quality = get_quality(quality_names, object_attributes)
             args = [axes[0], latitude, longitude, dx, dy, color, label]
             args_dict = {"quality": quality}
-            axes[0] = horizontal.cartesian_displacement(*args, **args_dict)
+            axes[0] = horizontal.cartesian_displacement(*args, **args_dict, arrow=False)
             args[0] = axes[1]
-            axes[1] = horizontal.cartesian_displacement(*args, **args_dict)
+            axes[1] = horizontal.cartesian_displacement(*args, **args_dict, arrow=False)
         legend_artist = horizontal.displacement_legend_artist(color, label)
         legend_handles.append(legend_artist)
 

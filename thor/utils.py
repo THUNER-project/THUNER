@@ -1,5 +1,5 @@
 "General utilities for the thor package."
-
+import concurrent.futures
 from datetime import datetime
 import json
 import hashlib
@@ -13,6 +13,15 @@ from thor.log import setup_logger
 
 
 logger = setup_logger(__name__)
+
+
+def check_futures(futures):
+    """Check the status of the futures."""
+    for future in concurrent.futures.as_completed(futures):
+        try:
+            future.result()
+        except Exception as exc:
+            logger.error("Generated an exception: %s", exc)
 
 
 def hash_dictionary(dictionary):

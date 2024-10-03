@@ -136,12 +136,12 @@ def add_cartographic_features(
         Axes object.
     """
 
-    colors = visualize.map_colors[style]
+    colors = visualize.figure_colors[style]
     ocean = cfeature.NaturalEarthFeature(
-        "physical", "ocean", scale, edgecolor="face", facecolor=colors["sea_color"]
+        "physical", "ocean", scale, edgecolor="face", facecolor=colors["sea"]
     )
     land = cfeature.NaturalEarthFeature(
-        "physical", "land", scale, edgecolor="face", facecolor=colors["land_color"]
+        "physical", "land", scale, edgecolor="face", facecolor=colors["land"]
     )
     states_provinces = cfeature.NaturalEarthFeature(
         category="cultural",
@@ -153,7 +153,7 @@ def add_cartographic_features(
     ax.add_feature(land, zorder=0)
     ax.add_feature(ocean, zorder=0)
     ax.add_feature(states_provinces, zorder=0)
-    ax.coastlines(resolution=scale, zorder=1, color=colors["coast_color"])
+    ax.coastlines(resolution=scale, zorder=1, color=colors["coast"])
     gridlines = initialize_gridlines(
         ax, extent=extent, left_labels=left_labels, bottom_labels=bottom_labels
     )
@@ -263,8 +263,20 @@ def displacement_legend_artist(color, label):
     return legend_artist
 
 
+def vector_key(ax, u=10, v=0, color="k"):
+    """Add a vector key to the plot."""
+    fig = ax.get_figure()
+    start_point = fig.transFigure.transform((0.85, 1))
+    [longitude, latitude] = ax.transData.inverted().transform(start_point)
+    args = [ax, latitude, longitude, u, v, color, None]
+    cartesian_velocity(*args, quality=True)
+    start_point = fig.transFigure.transform((0.915, 1))
+    [longitude, latitude] = ax.transData.inverted().transform(start_point)
+    ax.text(longitude, latitude, f"{u} m/s", ha="left", va="center")
+
+
 def cartesian_displacement(
-    ax, start_latitude, start_longitude, dx, dy, color, label, quality=True
+    ax, start_latitude, start_longitude, dx, dy, color, label, quality=True, arrow=True
 ):
     """Plot a displacement provided in cartesian coordinates."""
     linewidth = displacement_linewidth
@@ -283,8 +295,11 @@ def cartesian_displacement(
         patheffects.Normal(),
     ]
     args_dict = {"path_effects": path_effects}
+    tmp_vector_options = copy.deepcopy(vector_options)
+    if not arrow:
+        tmp_vector_options.update({"head_width": 0, "head_length": 0})
     if quality:
-        ax.arrow(*args, **vector_options, **args_dict)
+        ax.arrow(*args, **tmp_vector_options, **args_dict, clip_on=False)
 
     return ax
 

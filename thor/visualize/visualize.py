@@ -34,18 +34,20 @@ mask_colors = [
     "hotpink",
 ]
 
-map_colors = {
+figure_colors = {
     "paper": {
-        "land_color": tuple(np.array([249.0, 246.0, 216.0]) / (256)),
-        "sea_color": tuple(np.array([240.0, 240.0, 256.0]) / (256)),
-        "coast_color": "black",
-        "legend_color": "w",
+        "land": tuple(np.array([249.0, 246.0, 216.0]) / (256)),
+        "sea": tuple(np.array([240.0, 240.0, 256.0]) / (256)),
+        "coast": "black",
+        "legend": "w",
+        "key": "k",
     },
     "presentation": {
-        "land_color": tuple(np.array([249.0, 246.0, 216.0]) / (256 * 3.5)),
-        "sea_color": tuple(np.array([245.0, 245.0, 256.0]) / (256 * 3.5)),
-        "coast_color": "white",
-        "legend_color": tuple(np.array([249.0, 246.0, 216.0]) / (256 * 3.5)),
+        "land": tuple(np.array([249.0, 246.0, 216.0]) / (256 * 3.5)),
+        "sea": tuple(np.array([245.0, 245.0, 256.0]) / (256 * 3.5)),
+        "coast": "white",
+        "legend": tuple(np.array([249.0, 246.0, 216.0]) / (256 * 3.5)),
+        "key": "tab:purple",
     },
 }
 
@@ -102,13 +104,9 @@ def animate_object(
     for date in np.unique(dates):
         filepaths_date = filepaths[dates == date]
         output_filepath = save_directory / f"{animation_name}_{date}.gif"
-        logger.info(
-            f"Animating {fig_type} figures for {obj} objects on "
-            f"{date[:4]}-{date[4:6]}-{date[6:8]}."
-        )
+        logger.info(f"Saving animation to {output_filepath}.")
         images = [Image.open(f) for f in filepaths_date]
         imageio.mimsave(output_filepath, images, fps=5, loop=0)
-        logger.info(f"Saving {date} animation to {output_filepath}.")
 
 
 def get_grid(time, filename, field, data_options, grid_options):
