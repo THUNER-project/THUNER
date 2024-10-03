@@ -32,8 +32,6 @@ def group(
         grid_dict[f"{member_obj}_grid"] = member_grid
 
     # Store the domain boundaries associated with the consituent masks
-    boundary_dict = {}
-
     grid = xr.Dataset(grid_dict)
     mask = get_connected_components(tracks, object_options)
 

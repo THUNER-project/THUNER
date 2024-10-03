@@ -1,16 +1,20 @@
 """Horizontal cross-section features."""
 
+import copy
 import numpy as np
-
 import cv2
+import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
+import matplotlib.patheffects as patheffects
+import matplotlib.lines as mlines
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.patches import FancyArrowPatch
 from matplotlib.colors import BoundaryNorm
 import cartopy.feature as cfeature
 from cartopy import crs as ccrs
 import thor.visualize.visualize as visualize
+from thor.visualize.utils import get_extent, make_subplot_labels
 from thor.log import setup_logger
 from thor.object.box import get_geographic_box_coords
 import thor.grid as thor_grid
@@ -22,7 +26,7 @@ domain_plot_style = {"color": "tab:red", "linewidth": 1, "alpha": 0.8}
 domain_plot_style.update({"zorder": 1, "transform": proj, "linestyle": "--"})
 
 
-def grid(grid, ax, grid_options, add_colorbar=True):
+def show_grid(grid, ax, grid_options, add_colorbar=True):
     """Plot a grid cross section."""
 
     if grid_options["name"] == "geographic":
@@ -43,13 +47,13 @@ def grid(grid, ax, grid_options, add_colorbar=True):
 contour_options = {"mode": cv2.RETR_LIST, "method": cv2.CHAIN_APPROX_SIMPLE}
 
 
-def mask(mask, ax, grid_options, single_color=False):
+def show_mask(mask, ax, grid_options, single_color=False):
     """Plot masks."""
 
     title = ax.get_title()
     colors = visualize.mask_colors
     if single_color:
-        colors = [colors[0]]
+        colors = [colors[0]] * len(colors)
     cmap = LinearSegmentedColormap.from_list("custom", colors, N=len(colors))
     object_labels = np.unique(mask.where(mask > 0).values)
     object_labels = object_labels[~np.isnan(object_labels)]
@@ -67,7 +71,7 @@ def mask(mask, ax, grid_options, single_color=False):
         binary_mask = mask.where(mask == i, 0).astype(bool)
         color_index = (i - 1) % len(colors)
         pcm_mask = (color_index * binary_mask).where(binary_mask)
-        pcm = ax.pcolormesh(LON, LAT, pcm_mask, **mesh_style)
+        ax.pcolormesh(LON, LAT, pcm_mask, **mesh_style)
         binary_array = binary_mask.values.astype(np.uint8)
         contours = cv2.findContours(binary_array, **contour_options)[0]
         for contour in contours:
@@ -223,6 +227,10 @@ arrow_options.update({"zorder": 3, "transform": proj})
 arrow_origin_options = {"marker": "o", "zorder": 3, "markersize": 1, "transform": proj}
 
 
+vector_options = {"color": "w", "zorder": 5, "head_width": 0.016, "head_length": 0.024}
+vector_options.update({"length_includes_head": True, "transform": proj})
+
+
 def get_geographic_vector_scale(grid_options):
     """
     Scale vectors so that a vector of 1 gridcell corresponds to 1/50 of the domain.
@@ -237,7 +245,62 @@ def get_geographic_vector_scale(grid_options):
     return vector_scale
 
 
-def plot_vector(
+displacement_linewidth = 2
+
+
+def displacement_legend_artist(color, label):
+    """Create a legend artist for a displacement provided in cartesian coordinates."""
+    linewidth = displacement_linewidth
+    path_effects = [
+        patheffects.Stroke(linewidth=linewidth + 2, foreground=color),
+        patheffects.Normal(),
+    ]
+    args_dict = {"color": "w", "linewidth": linewidth - 0.5, "linestyle": "-"}
+    args_dict.update({"zorder": 4, "transform": proj, "path_effects": path_effects})
+    legend_artist = mlines.Line2D([], [], **args_dict)
+    legend_artist.set_label(label)
+    legend_artist.set_path_effects(path_effects)
+    return legend_artist
+
+
+def cartesian_displacement(
+    ax, start_latitude, start_longitude, dx, dy, color, label, quality=True
+):
+    """Plot a displacement provided in cartesian coordinates."""
+    linewidth = displacement_linewidth
+    distance = np.sqrt(dx**2 + dy**2)
+    vector_direction = np.rad2deg(np.arctan2(dy, dx))
+    # Now convert to azimuth direction, i.e. clockwise from north.
+    azimuth = (90 - vector_direction) % 360
+    args = [start_longitude, start_latitude, azimuth, distance]
+    end_longitude, end_latitude = thor_grid.geodesic_forward(*args)[:2]
+    dlon = end_longitude - start_longitude
+    dlat = end_latitude - start_latitude
+
+    args = [start_longitude, start_latitude, dlon, dlat]
+    path_effects = [
+        patheffects.Stroke(linewidth=linewidth + 2, foreground=color),
+        patheffects.Normal(),
+    ]
+    args_dict = {"path_effects": path_effects}
+    if quality:
+        ax.arrow(*args, **vector_options, **args_dict)
+
+    return ax
+
+
+def cartesian_velocity(
+    ax, start_latitude, start_longitude, u, v, color, label, dt=3600, quality=True
+):
+    """Plot a velocity provided in cartesian coordinates."""
+
+    # Scale velocities so they represent the displacement after dt seconds
+    dx, dy = u * dt, v * dt
+    args = [ax, start_latitude, start_longitude, dx, dy, color, label, quality]
+    return cartesian_displacement(*args)
+
+
+def pixel_vector(
     ax,
     row,
     col,
@@ -292,3 +355,115 @@ def plot_box(ax, box, grid_options, linestyle="--", alpha=1, color="tab:red"):
     box_style = {"color": color, "linewidth": 1, "linestyle": linestyle}
     box_style.update({"alpha": alpha, "transform": proj})
     ax.plot(lons, lats, **box_style)
+
+
+def detected_mask_template(grid, figure_options, extent):
+    """Create a template figure for masks."""
+    fig = plt.figure(figsize=(6, 3.5))
+    ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
+    add_cartographic_features(
+        ax, style=figure_options["style"], scale="10m", extent=extent
+    )
+    if "instrument" in grid.attrs.keys() and "radar" in grid.attrs["instrument"]:
+        radar_longitude = float(grid.attrs["origin_longitude"])
+        radar_latitude = float(grid.attrs["origin_latitude"])
+        add_radar_features(ax, radar_longitude, radar_latitude, extent)
+    return fig, ax
+
+
+def detected_mask(grid, mask, grid_options, figure_options, boundary_coordinates):
+    """Plot masks for a detected object."""
+
+    extent = get_extent(grid_options)
+    single_color = figure_options["single_color"]
+    if figure_options["template"] is None:
+        fig, ax = detected_mask_template(grid, figure_options, extent)
+        figure_options["template"] = fig
+    fig = copy.deepcopy(figure_options["template"])
+    ax = fig.axes[0]
+    if grid is not None:
+        pcm = show_grid(grid, ax, grid_options, add_colorbar=False)
+    if mask is not None:
+        show_mask(mask, ax, grid_options, single_color)
+    if boundary_coordinates is not None:
+        add_domain_boundary(ax, boundary_coordinates)
+    cbar_label = grid.name.title() + f" [{grid.units}]"
+    fig.colorbar(pcm, label=cbar_label)
+    ax.set_title(f"{grid.time.values.astype('datetime64[s]')} UTC")
+
+    return fig, ax
+
+
+def grouped_mask_template(grid, figure_options, extent, figsize, member_objects):
+    """Create a template figure for grouped masks."""
+    fig = plt.figure(figsize=figsize)
+    style = figure_options["style"]
+    nrows = 1
+    ncols = len(member_objects) + 1
+    width_ratios = [1] * len(member_objects) + [0.05]
+    gs = gridspec.GridSpec(nrows, ncols, width_ratios=width_ratios)
+    axes = []
+    for i in range(len(member_objects)):
+        ax = fig.add_subplot(gs[0, i], projection=proj)
+        axes.append(ax)
+        args_dict = {"extent": extent, "style": style, "scale": "10m"}
+        args_dict.update({"left_labels": (i == 0)})
+        ax = add_cartographic_features(ax, **args_dict)[0]
+        ax.set_title(member_objects[i].replace("_", " ").title())
+        if grid is None:
+            continue
+        grid_i = grid[f"{member_objects[i]}_grid"]
+        if (
+            "instrument" in grid_i.attrs.keys()
+            and "radar" in grid_i.attrs["instrument"]
+        ):
+            radar_longitude = float(grid_i.attrs["origin_longitude"])
+            radar_latitude = float(grid_i.attrs["origin_latitude"])
+            add_radar_features(ax, radar_longitude, radar_latitude, extent)
+    cbar_ax = fig.add_subplot(gs[0, -1])
+    make_subplot_labels(axes, x_shift=-0.12, y_shift=0.06)
+    return fig, axes, cbar_ax
+
+
+def grouped_mask(
+    grid, mask, grid_options, figure_options, member_objects, boundary_coordinates
+):
+    """Plot masks for a grouped object."""
+
+    extent = get_extent(grid_options)
+    single_color = figure_options["single_color"]
+
+    try:
+        figsize = figure_options["figsize"]
+    except KeyError:
+        logger.info("No figsize provided. Using default.")
+        figsize = (len(member_objects) * 4, 3.5)
+
+    if figure_options["template"] is None:
+        args = [grid, figure_options, extent, figsize, member_objects]
+        fig, axes, cbar_ax = grouped_mask_template(*args)
+        figure_options["template"] = fig
+
+    fig = copy.deepcopy(figure_options["template"])
+    axes = fig.axes[:-1]
+    cbar_ax = fig.axes[-1]
+
+    pcm = None
+    for i in range(len(member_objects)):
+        ax = axes[i]
+        mask_i = mask[f"{member_objects[i]}_mask"]
+        if mask_i is not None:
+            show_mask(mask_i, ax, grid_options, single_color)
+        if boundary_coordinates is not None:
+            add_domain_boundary(ax, boundary_coordinates)
+        if grid is None:
+            continue
+        grid_i = grid[f"{member_objects[i]}_grid"]
+        if grid_i is not None:
+            pcm = show_grid(grid_i, ax, grid_options, add_colorbar=False)
+    if pcm is not None and grid is not None:
+        cbar_label = grid_i.attrs["long_name"].title() + f" [{grid_i.attrs['units']}]"
+        fig.colorbar(pcm, cax=cbar_ax, label=cbar_label)
+    fig.suptitle(f"{mask.time.values.astype('datetime64[s]')} UTC", y=1.05)
+
+    return fig, axes

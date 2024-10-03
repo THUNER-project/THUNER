@@ -23,6 +23,15 @@ update_dataset_dispatcher = {
     "synthetic": synthetic.update_dataset,
 }
 
+convert_dataset_dispatcher = {
+    "cpol": aura.convert_cpol,
+    "operational": aura.convert_operational,
+    "gridrad": gridrad.convert_gridrad,
+    "era5_pl": era5.convert_era5,
+    "era5_sl": era5.convert_era5,
+    "synthetic": synthetic.convert_synthetic,
+}
+
 grid_from_dataset_basic = lambda dataset, variable, time: dataset[variable].sel(
     time=time
 )

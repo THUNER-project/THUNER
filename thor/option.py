@@ -1,4 +1,4 @@
-"""Methods for creating and modifying default tracking configurations."""
+"""Functions for creating and modifying default tracking configurations."""
 
 import yaml
 import copy

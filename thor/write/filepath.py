@@ -1,4 +1,4 @@
-"""Methods for writing filepaths for each dataset to file."""
+"""Functions for writing filepaths for each dataset to file."""
 
 from pathlib import Path
 import glob

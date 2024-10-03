@@ -1,4 +1,4 @@
-"""Methods for getting object attributes."""
+"""Functions for getting object attributes."""
 
 from thor.attribute import core, group, profile, utils, quality, tag, ellipse
 from thor.log import setup_logger

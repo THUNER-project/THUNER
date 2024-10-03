@@ -1,5 +1,5 @@
 """
-Methods for defining attribute options associated with vertical profile attributes.
+Functions for defining attribute options associated with vertical profile attributes.
 """
 
 import numpy as np
@@ -146,7 +146,7 @@ interpolate_dispatcher = {
 }
 
 
-# Methods for obtaining and recording attributes
+# Functions for obtaining and recording attributes
 def from_centers(names, input_records, attributes, object_tracks, method, grid_options):
     """
     Calculate profile from object centers.

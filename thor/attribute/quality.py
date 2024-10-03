@@ -1,4 +1,4 @@
-"""Methods for working with attributes related to quality control."""
+"""Functions for working with attributes related to quality control."""
 
 from thor.log import setup_logger
 import thor.attribute.core as core
@@ -86,7 +86,7 @@ def record_boundary_overlaps(
             overlaps.append(0)
         else:
             obj_mask = mask == obj_id
-            overlap = obj_mask * boundary_mask
+            overlap = (obj_mask * boundary_mask) == True
             area_fraction = areas.where(overlap).sum() / areas.where(obj_mask).sum()
             overlaps.append(float(area_fraction.values))
 

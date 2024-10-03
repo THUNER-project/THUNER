@@ -1,5 +1,5 @@
 """
-Methods for calcualting cross correlation, a.k.a. optical flow. Key papers include the 
+Functions for calcualting cross correlation, a.k.a. optical flow. Key papers include the 
 following.
 
 Leese et al. (1971), An automated technique for obtaining cloud motion from 

@@ -1,4 +1,4 @@
-"""Methods for creating bounding boxes."""
+"""Functions for creating bounding boxes."""
 
 import numpy as np
 from thor.log import setup_logger

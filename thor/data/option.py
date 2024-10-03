@@ -1,4 +1,4 @@
-"""General data options methods."""
+"""General data options functions."""
 
 from thor.log import setup_logger
 from thor.option import save_options

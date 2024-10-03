@@ -32,20 +32,6 @@ def get_boundaries(input_record, num_previous=1):
     return boundaries
 
 
-def detected_mask_template(grid, input_record, figure_options, extent):
-    """Create a template figure for masks."""
-    fig = plt.figure(figsize=(6, 3.5))
-    ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
-    horizontal.add_cartographic_features(
-        ax, style=figure_options["style"], scale="10m", extent=extent
-    )
-    if "instrument" in grid.attrs.keys() and "radar" in grid.attrs["instrument"]:
-        radar_longitude = float(grid.attrs["origin_longitude"])
-        radar_latitude = float(grid.attrs["origin_latitude"])
-        horizontal.add_radar_features(ax, radar_longitude, radar_latitude, extent)
-    return fig, ax
-
-
 def detected_mask(
     input_record, tracks, level_index, obj, track_options, grid_options, figure_options
 ):
@@ -54,62 +40,17 @@ def detected_mask(
     object_tracks = tracks[level_index][obj]
     object_options = track_options[level_index][obj]
     grid = object_tracks["current_grid"]
-    extent = get_extent(grid_options)
-
-    if "template" not in figure_options.keys():
-        fig, ax = detected_mask_template(grid, input_record, figure_options, extent)
-        figure_options["template"] = fig
-
-    fig = copy.deepcopy(figure_options["template"])
-    ax = fig.axes[0]
-
-    pcm = horizontal.grid(grid, ax, grid_options, add_colorbar=False)
 
     if object_options["tracking"]["method"] is None:
         mask = object_tracks["current_mask"]
     else:
         mask = object_tracks["current_matched_mask"]
-    if mask is not None:
-        horizontal.mask(mask, ax, grid_options)
 
-    if input_record["current_boundary_coordinates"] is not None:
-        boundaries = input_record["current_boundary_coordinates"]
-        horizontal.add_domain_boundary(ax, boundaries)
-
-    cbar_label = grid.name.title() + f" [{grid.units}]"
-    fig.colorbar(pcm, label=cbar_label)
-    ax.set_title(f"{grid.time.values.astype('datetime64[s]')} UTC")
+    boundary_coordinates = input_record["current_boundary_coordinates"]
+    args = [grid, mask, grid_options, figure_options, boundary_coordinates]
+    fig, ax = horizontal.detected_mask(*args)
 
     return fig, ax
-
-
-def grouped_mask_template(grid, figure_options, extent, figsize, member_objects):
-    """Create a template figure for grouped masks."""
-    fig = plt.figure(figsize=figsize)
-    style = figure_options["style"]
-    nrows = 1
-    ncols = len(member_objects) + 1
-    width_ratios = [1] * len(member_objects) + [0.05]
-    gs = gridspec.GridSpec(nrows, ncols, width_ratios=width_ratios)
-    axes = []
-    for i in range(len(member_objects)):
-        ax = fig.add_subplot(gs[0, i], projection=proj)
-        axes.append(ax)
-        ax = horizontal.add_cartographic_features(
-            ax, extent=extent, style=style, scale="10m", left_labels=(i == 0)
-        )[0]
-        grid_i = grid[f"{member_objects[i]}_grid"]
-        if (
-            "instrument" in grid_i.attrs.keys()
-            and "radar" in grid_i.attrs["instrument"]
-        ):
-            radar_longitude = float(grid_i.attrs["origin_longitude"])
-            radar_latitude = float(grid_i.attrs["origin_latitude"])
-            horizontal.add_radar_features(ax, radar_longitude, radar_latitude, extent)
-        ax.set_title(member_objects[i].replace("_", " ").title())
-    cbar_ax = fig.add_subplot(gs[0, -1])
-    make_subplot_labels(axes, x_shift=-0.12, y_shift=0.06)
-    return fig, axes, cbar_ax
 
 
 def grouped_mask(
@@ -137,40 +78,15 @@ def grouped_mask(
     grid = object_tracks["current_grid"]
     extent = get_extent(grid_options)
 
-    try:
-        figsize = figure_options["figsize"]
-    except KeyError:
-        figsize = (len(member_objects) * 4, 3.5)
-
-    if "template" not in figure_options.keys():
-        fig, axes, cbar_ax = grouped_mask_template(
-            grid, figure_options, extent, figsize, member_objects
-        )
-        figure_options["template"] = fig
-
-    fig = copy.deepcopy(figure_options["template"])
-    axes = fig.axes[:-1]
-    cbar_ax = fig.axes[-1]
-
-    for i in range(len(member_objects)):
-        ax = axes[i]
-        grid_i = grid[f"{member_objects[i]}_grid"]
-        mask_i = mask[f"{member_objects[i]}_mask"]
-        pcm = horizontal.grid(grid_i, ax, grid_options, add_colorbar=False)
-        if mask_i is not None:
-            horizontal.mask(mask_i, ax, grid_options)
-        if "current_boundary_coordinates" in input_record.keys():
-            boundaries = input_record["current_boundary_coordinates"]
-            horizontal.add_domain_boundary(ax, boundaries)
-
-    cbar_label = grid_i.attrs["long_name"].title() + f" [{grid_i.attrs['units']}]"
-    fig.colorbar(pcm, cax=cbar_ax, label=cbar_label)
-    fig.suptitle(f"{grid.time.values.astype('datetime64[s]')} UTC", y=1.05)
+    boundary_coordinates = input_record["current_boundary_coordinates"]
+    args = [grid, mask, grid_options, figure_options, member_objects]
+    args += [boundary_coordinates]
+    fig, ax = horizontal.grouped_mask(*args)
 
     return fig, ax
 
 
-def match_template(reference_grid, input_record, figure_options, extent):
+def match_template(reference_grid, figure_options, extent):
     """Create a template for match figures."""
     fig = plt.figure(figsize=(12, 3))
     gs = gridspec.GridSpec(1, 4, width_ratios=[1, 1, 1, 0.05])
@@ -178,13 +94,9 @@ def match_template(reference_grid, input_record, figure_options, extent):
     for i in range(3):
         ax = fig.add_subplot(gs[0, i], projection=proj)
         axes.append(ax)
-        ax = horizontal.add_cartographic_features(
-            ax,
-            extent=extent,
-            style=figure_options["style"],
-            scale="10m",
-            left_labels=(i == 0),
-        )[0]
+        args_dict = {"extent": extent, "style": figure_options["style"], "scale": "10m"}
+        args_dict.update({"left_labels": (i == 0)})
+        ax = horizontal.add_cartographic_features(ax, **args_dict)[0]
         if (
             "instrument" in reference_grid.attrs.keys()
             and "radar" in reference_grid.attrs["instrument"]
@@ -208,7 +120,7 @@ def match_features(grid, object_record, axes, grid_options, unique_global_flow=T
             lon, lat = None, None
         [row, col] = np.ceil(np.array(grid_options["shape"]) / 2).astype(int)
         vector_options = {"start_lat": lat, "start_lon": lon, "color": "tab:red"}
-        horizontal.plot_vector(
+        horizontal.pixel_vector(
             axes[1], row, col, global_flow, grid_options, **vector_options
         )
     for i in range(len(object_record["previous_ids"])):
@@ -228,13 +140,13 @@ def match_features(grid, object_record, axes, grid_options, unique_global_flow=T
             global_flow = object_record["global_flows"][i]
             global_flow_box = object_record["global_flow_boxes"][i]
             horizontal.plot_box(axes[1], global_flow_box, grid_options, alpha=0.8)
-            horizontal.plot_vector(
+            horizontal.pixel_vector(
                 axes[1], row, col, global_flow, grid_options, color="tab:red"
             )
         # Plot the local flow box, and the local and corrected flow vectors
         horizontal.plot_box(axes[1], flow_box, grid_options, color=color)
-        horizontal.plot_vector(axes[1], row, col, flow, grid_options, color="silver")
-        horizontal.plot_vector(
+        horizontal.pixel_vector(axes[1], row, col, flow, grid_options, color="silver")
+        horizontal.pixel_vector(
             axes[1], row, col, corrected_flow, grid_options, linestyle=":"
         )
         # Plot the search box
@@ -243,14 +155,8 @@ def match_features(grid, object_record, axes, grid_options, unique_global_flow=T
         if np.all(np.logical_not(np.isnan(displacement))):
             # Subtract displacement from previous center to get the origin
             origin = center - displacement.astype(int)
-            horizontal.plot_vector(
-                axes[0],
-                origin[0],
-                origin[1],
-                displacement,
-                grid_options,
-                color="silver",
-            )
+            args = [axes[0], origin[0], origin[1], displacement, grid_options]
+            horizontal.pixel_vector(*args, color="silver")
         # Label object with corrected flow case and cost
         case = object_record["cases"][i]
         lat = np.array(grid_options["latitude"])
@@ -290,10 +196,8 @@ def visualize_match(
 
     extent = get_extent(grid_options)
 
-    if "template" not in figure_options.keys():
-        fig, ax, cbar_ax = match_template(
-            grids[0], input_record, figure_options, extent
-        )
+    if figure_options["template"] is None:
+        fig, ax, cbar_ax = match_template(grids[0], figure_options, extent)
         figure_options["template"] = fig
 
     fig = copy.deepcopy(figure_options["template"])
@@ -304,9 +208,10 @@ def visualize_match(
         j = 2 - i
         if grids[j] is not None:
             axes[i].set_title(grids[j].time.values.astype("datetime64[s]"))
-            pcm = horizontal.grid(grids[j], axes[i], grid_options, add_colorbar=False)
+            args = [grids[j], axes[i], grid_options, False]
+            pcm = horizontal.show_grid(*args)
             if masks[j] is not None:
-                horizontal.mask(masks[j], axes[i], grid_options)
+                horizontal.show_mask(masks[j], axes[i], grid_options)
             if input_record["current_boundary_coordinates"] is not None:
                 horizontal.add_domain_boundary(axes[i], all_boundaries[j])
     unique_global_flow = object_options["tracking"]["options"]["unique_global_flow"]

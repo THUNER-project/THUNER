@@ -3,6 +3,7 @@
 from pathlib import Path
 import shutil
 import os
+import numpy as np
 import thor.data as data
 import thor.data.dispatch as dispatch
 import thor.grid as grid
@@ -60,9 +61,11 @@ def test_cpol_with_runtime_figures():
     dispatch.check_data_options(data_options)
     data.option.save_data_options(data_options, options_directory)
 
-    grid_options = grid.create_options(name="geographic")
+    altitude = list(np.arange(0, 25e3 + 500, 500))
+    altitude = [float(alt) for alt in altitude]
+    grid_options = grid.create_options(name="geographic", altitude=altitude)
     grid.check_options(grid_options)
-    grid.save_grid_options(grid_options, options_directory)
+    grid.save_grid_options(grid_options, options_directory, altitude=altitude)
 
     # Create the track_options dictionary
     track_options = option.mcs(dataset="cpol")
@@ -103,10 +106,12 @@ def test_cpol_with_runtime_figures():
         shutil.rmtree(output_directory)
     options_directory = output_directory / "options"
 
-    grid_options = grid.create_options(name="cartesian", regrid=False)
+    grid_options = grid.create_options(
+        name="cartesian", regrid=False, altitude=altitude
+    )
     grid.check_options(grid_options)
     grid.save_grid_options(grid_options, options_directory)
-    option.save_options(track_options, options_directory)
+    option.save_track_options(track_options, options_directory)
     data.option.save_data_options(data_options, options_directory)
     visualize.option.save_display_options(visualize_options, options_directory)
 
@@ -163,7 +168,9 @@ def test_cpol():
     dispatch.check_data_options(data_options)
     data.option.save_data_options(data_options, options_directory)
 
-    grid_options = grid.create_options(name="geographic")
+    altitude = list(np.arange(0, 25e3 + 500, 500))
+    altitude = [float(alt) for alt in altitude]
+    grid_options = grid.create_options(name="geographic", altitude=altitude)
     grid.check_options(grid_options)
     grid.save_grid_options(grid_options, options_directory)
 
@@ -189,6 +196,10 @@ def test_cpol():
     analyze.mcs.process_velocities(output_directory)
     analyze.mcs.quality_control(output_directory, analysis_options)
     analyze.mcs.classify_all(output_directory)
+    figure_options = visualize.option.horizontal_attribute_options(
+        "mcs_velocity_analysis", style="presentation"
+    )
+    visualize.attribute.mcs_series(output_directory, start, end, figure_options)
 
     # Test tracking in Cartesian coordinates
     output_directory = base_local / "runs/cpol_demo_cartesian"
@@ -196,7 +207,9 @@ def test_cpol():
         shutil.rmtree(output_directory)
     options_directory = output_directory / "options"
 
-    grid_options = grid.create_options(name="cartesian", regrid=False)
+    grid_options = grid.create_options(
+        name="cartesian", regrid=False, altitude=altitude
+    )
     grid.check_options(grid_options)
     grid.save_grid_options(grid_options, options_directory)
     option.save_track_options(track_options, options_directory)
@@ -211,3 +224,12 @@ def test_cpol():
         visualize_options,
         output_directory=output_directory,
     )
+
+    analysis_options = analyze.mcs.analysis_options()
+    analyze.mcs.process_velocities(output_directory)
+    analyze.mcs.quality_control(output_directory, analysis_options)
+    analyze.mcs.classify_all(output_directory)
+    figure_options = visualize.option.horizontal_attribute_options(
+        "mcs_velocity_analysis", style="presentation"
+    )
+    visualize.attribute.mcs_series(output_directory, start, end, figure_options)

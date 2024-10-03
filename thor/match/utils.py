@@ -1,4 +1,4 @@
-"""General matching methods."""
+"""General matching functions."""
 
 
 def get_masks(object_tracks, object_options, matched=False, num_previous=1):

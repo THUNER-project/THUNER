@@ -1,4 +1,4 @@
-"""Methods for writing object masks."""
+"""Functions for writing object masks."""
 
 import glob
 import shutil

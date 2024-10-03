@@ -1,4 +1,4 @@
-"""Methods for analyzing objects."""
+"""Functions for analyzing objects."""
 
 import copy
 import numpy as np

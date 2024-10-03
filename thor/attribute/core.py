@@ -1,5 +1,5 @@
 """
-Methods for defining property options associated with detected objects, and for 
+Functions for defining property options associated with detected objects, and for 
 measuring such properties. As in other parts of this package, I have favoured dicts
 over classes. However, attributes are probably more cleanly implemented as classes, 
 and could be refactored as such in the future. Note also the inelegant way attribute

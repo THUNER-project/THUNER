@@ -52,7 +52,7 @@ def default(datasets, names=None, matched=True):
     return attributes
 
 
-# Methods for obtaining and recording attributes
+# Functions for obtaining and recording attributes
 def from_centers(names, input_records, attributes, object_tracks, method):
     """
     Calculate profile from object centers.

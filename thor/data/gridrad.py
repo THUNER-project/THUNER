@@ -322,10 +322,31 @@ def remove_clutter(ds, variables=None, low_level=True, below_anvil=False):
     return ds
 
 
-def convert_gridrad(time, input_record, track_options, dataset_options, grid_options):
-    """Convert gridrad data to the standard format."""
+def get_gridrad(time, input_record, track_options, dataset_options, grid_options):
     filepath = dataset_options["filepaths"][input_record["current_file_index"]]
     utils.log_convert(logger, dataset_options["name"], filepath)
+    ds, boundary_coords = convert_gridrad(
+        time, filepath, track_options, dataset_options, grid_options
+    )
+
+    previous_domain_mask = copy.deepcopy(input_record["current_domain_mask"])
+    previous_boundary_coords = copy.deepcopy(
+        input_record["current_boundary_coordinates"]
+    )
+    previous_boundary_mask = copy.deepcopy(input_record["current_boundary_mask"])
+
+    input_record["previous_domain_masks"].append(previous_domain_mask)
+    input_record["previous_boundary_coordinates"].append(previous_boundary_coords)
+    input_record["previous_boundary_masks"].append(previous_boundary_mask)
+
+    input_record["current_domain_mask"] = ds["domain_mask"]
+    input_record["current_boundary_coordinates"] = boundary_coords
+    input_record["current_boundary_mask"] = ds["boundary_mask"]
+    return ds
+
+
+def convert_gridrad(time, filepath, track_options, dataset_options, grid_options):
+    """Convert gridrad data to the standard format."""
 
     # Open the dataset and perform preliminary filtering and decluttering
     ds = open_gridrad(filepath, dataset_options)
@@ -374,29 +395,18 @@ def convert_gridrad(time, input_record, track_options, dataset_options, grid_opt
     # Get the domain mask associated with the given object
     # Note the relevant domain mask is a function of how the object is detected, e.g.
     # which levels!
-    previous_domain_mask = copy.deepcopy(input_record["current_domain_mask"])
-    previous_boundary_coords = copy.deepcopy(
-        input_record["current_boundary_coordinates"]
-    )
-    previous_boundary_mask = copy.deepcopy(input_record["current_boundary_mask"])
-    input_record["previous_domain_masks"].append(previous_domain_mask)
-    input_record["previous_boundary_coordinates"].append(previous_boundary_coords)
-    input_record["previous_boundary_masks"].append(previous_boundary_mask)
-
-    domain_mask = get_domain_mask(ds, track_options, dataset_options, grid_options)
-    input_record["current_domain_mask"] = domain_mask
-
+    domain_mask = get_domain_mask(ds, track_options, dataset_options)
     boundary_coords, boundary_mask = utils.get_mask_boundary(domain_mask, grid_options)
-    input_record["current_boundary_coordinates"] = boundary_coords
-    input_record["current_boundary_mask"] = boundary_mask
+    ds["domain_mask"] = domain_mask
+    ds["boundary_mask"] = boundary_mask
 
     # Apply the domain mask to the current grid
     ds = ds.where(domain_mask)
 
-    return ds
+    return ds, boundary_coords
 
 
-def get_domain_mask(ds, track_options, dataset_options, grid_options):
+def get_domain_mask(ds, track_options, dataset_options):
     """
     Get a domain mask for a GridRad dataset.
     """

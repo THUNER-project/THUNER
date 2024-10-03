@@ -1,4 +1,4 @@
-"""Methods for writing object masks."""
+"""Functions for writing object masks."""
 
 import yaml
 import glob

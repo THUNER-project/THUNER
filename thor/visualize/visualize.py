@@ -1,4 +1,4 @@
-"""General display methods."""
+"""General display functions."""
 
 from PIL import Image
 import imageio
@@ -39,13 +39,13 @@ map_colors = {
         "land_color": tuple(np.array([249.0, 246.0, 216.0]) / (256)),
         "sea_color": tuple(np.array([240.0, 240.0, 256.0]) / (256)),
         "coast_color": "black",
-        "leg_color": "w",
+        "legend_color": "w",
     },
     "presentation": {
         "land_color": tuple(np.array([249.0, 246.0, 216.0]) / (256 * 3.5)),
         "sea_color": tuple(np.array([245.0, 245.0, 256.0]) / (256 * 3.5)),
         "coast_color": "white",
-        "leg_color": tuple(np.array([249.0, 246.0, 216.0]) / (256 * 3.5)),
+        "legend_color": tuple(np.array([249.0, 246.0, 216.0]) / (256 * 3.5)),
     },
 }
 
@@ -58,11 +58,8 @@ styles = {
 }
 
 
-def get_filepaths_dates(fig_type, obj, output_directory):
-    filepaths = glob.glob(
-        str(output_directory / "visualize" / fig_type / obj / "*.png")
-    )
-    filepaths = np.array(sorted(filepaths))
+def get_filepaths_dates(directory):
+    filepaths = np.array(sorted(glob.glob(str(directory / "*.png"))))
     dates = []
     for filepath in filepaths:
         date = Path(filepath).stem
@@ -81,22 +78,37 @@ def animate_all(visualize_options, output_directory):
                 animate_object(fig_type, obj, output_directory)
 
 
-def animate_object(fig_type, obj, output_directory):
+def animate_object(
+    fig_type,
+    obj,
+    output_directory,
+    save_directory=None,
+    figure_directory=None,
+    animation_name=None,
+):
     """
     Animate object figures.
     """
-    filepaths, dates = get_filepaths_dates(fig_type, obj, output_directory)
+    if save_directory is None:
+        save_directory = output_directory / "visualize" / fig_type
+    if figure_directory is None:
+        figure_directory = output_directory / "visualize" / fig_type / obj
+    if animation_name is None:
+        animation_name = obj
+
+    logger.info(f"Animating {fig_type} figures for {obj} objects.")
+
+    filepaths, dates = get_filepaths_dates(figure_directory)
     for date in np.unique(dates):
         filepaths_date = filepaths[dates == date]
-        output_filepath = (
-            output_directory / "visualize" / fig_type / f"{obj}_{date}.gif"
-        )
+        output_filepath = save_directory / f"{animation_name}_{date}.gif"
         logger.info(
             f"Animating {fig_type} figures for {obj} objects on "
             f"{date[:4]}-{date[4:6]}-{date[6:8]}."
         )
         images = [Image.open(f) for f in filepaths_date]
         imageio.mimsave(output_filepath, images, fps=5, loop=0)
+        logger.info(f"Saving {date} animation to {output_filepath}.")
 
 
 def get_grid(time, filename, field, data_options, grid_options):

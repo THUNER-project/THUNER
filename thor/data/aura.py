@@ -3,7 +3,6 @@
 import inspect
 import copy
 from urllib.parse import urlparse
-from pathlib import Path
 import xarray as xr
 import xesmf as xe
 import numpy as np
@@ -393,9 +392,38 @@ def setup_operational(data_options, grid_options, url, directory):
     return dataset
 
 
-def convert_cpol(time, input_record, dataset_options, grid_options):
-    """Convert CPOL data to a standard format."""
+def get_cpol(time, input_record, dataset_options, grid_options):
+    """Update the CPOL input_record for tracking."""
     filepath = dataset_options["filepaths"][input_record["current_file_index"]]
+    ds, boundary_coords = convert_cpol(time, filepath, dataset_options, grid_options)
+
+    # Set data outside instrument range to NaN
+    keys = ["current_domain_mask", "current_boundary_coordinates"]
+    keys += ["current_boundary_mask"]
+    if any(input_record[k] is None for k in keys):
+        # Get the domain mask and domain boundary. Note this is the region where data
+        # exists, not the detected object masks from the detect module.
+        input_record["current_domain_mask"] = ds["domain_mask"]
+        input_record["current_boundary_coordinates"] = boundary_coords
+        input_record["current_boundary_mask"] = ds["boundary_mask"]
+    else:
+        domain_mask = copy.deepcopy(input_record["current_domain_mask"])
+        boundary_mask = copy.deepcopy(input_record["current_boundary_mask"])
+        boundary_coords = copy.deepcopy(input_record["current_boundary_coordinates"])
+        input_record["previous_domain_masks"].append(domain_mask)
+        input_record["previous_boundary_coordinates"].append(boundary_coords)
+        input_record["previous_boundary_masks"].append(boundary_mask)
+        # Note for AURA data the domain mask is calculated using a fixed range
+        # (e.g. 150 km), which is constant for all times. Therefore, the mask is not
+        # updated for each new file. Contrast this with, for instance, GridRad, where a
+        # new mask is calculated for each time step based on the altitudes of the
+        # objects being detected, and the required threshold on number of observations.
+
+    return ds
+
+
+def convert_cpol(time, filepath, dataset_options, grid_options):
+    """Convert CPOL data to a standard format."""
     utils.log_convert(logger, dataset_options["name"], filepath)
     cpol = xr.open_dataset(filepath)
 
@@ -446,7 +474,8 @@ def convert_cpol(time, input_record, dataset_options, grid_options):
 
     elif grid_options["name"] == "cartesian":
         dims = ["y", "x"]
-        ds = cpol
+        # Interpolate vertically
+        ds = cpol.interp(altitude=grid_options["altitude"], method="linear")
         grid_options["latitude"] = ds["latitude"].values
         grid_options["longitude"] = ds["longitude"].values
         if grid_options["x"] is None or grid_options["y"] is None:
@@ -470,38 +499,21 @@ def convert_cpol(time, input_record, dataset_options, grid_options):
     else:
         ds = ds.interp(altitude=grid_options["altitude"], method="linear")
 
-    # Set data outside instrument range to NaN
-    keys = ["current_domain_mask", "current_boundary_coordinates"]
-    keys += ["current_boundary_mask"]
-    if any(input_record[k] is None for k in keys):
-        # Get the domain mask and domain boundary. Note this is the region where data
-        # exists, not the detected object masks from the detect module.
-        mask = utils.mask_from_range(ds, dataset_options, grid_options)
-        boundary_coords, boundary_mask = utils.get_mask_boundary(mask, grid_options)
-        input_record["current_domain_mask"] = mask
-        input_record["current_boundary_coordinates"] = boundary_coords
-        input_record["current_boundary_mask"] = boundary_mask
-    else:
-        mask = copy.deepcopy(input_record["current_domain_mask"])
-        boundary_mask = copy.deepcopy(input_record["current_boundary_mask"])
-        coords = copy.deepcopy(input_record["current_boundary_coordinates"])
-        input_record["previous_domain_masks"].append(mask)
-        input_record["previous_boundary_coordinates"].append(coords)
-        input_record["previous_boundary_masks"].append(boundary_mask)
-        # Note for AURA data the domain mask is calculated using a fixed range
-        # (e.g. 150 km), which is constant for all times. Therefore, the mask is not
-        # updated for each new file. Contrast this with, for instance, GridRad, where a
-        # new mask is calculated for each time step based on the altitudes of the
-        # objects being detected, and the required threshold on number of observations.
+    # Get the domain mask and domain boundary. Note this is the region where data
+    # exists, not the detected object masks from the detect module.
+    domain_mask = utils.mask_from_range(ds, dataset_options, grid_options)
+    boundary_coords, boundary_mask = utils.get_mask_boundary(domain_mask, grid_options)
+    ds["domain_mask"] = domain_mask
+    ds["boundary_mask"] = boundary_mask
 
     for var in ds.data_vars.keys() - ["gridcell_area"]:
         # Check if the variable has horizontal dimensions
         if set(dims).issubset(set(ds[var].dims)):
-            broadcasted_mask = mask.broadcast_like(ds[var])
+            broadcasted_mask = domain_mask.broadcast_like(ds[var])
             # Apply the mask, setting unmasked values to NaN
             ds[var] = ds[var].where(broadcasted_mask)
 
-    return ds
+    return ds, boundary_coords
 
 
 def convert_operational():
@@ -536,7 +548,7 @@ def update_dataset(time, input_record, tracks, dataset_options, grid_options):
     input_record["current_file_index"] += 1
     if conv_options["load"] is False:
         if dataset_options["name"] == "cpol":
-            dataset = convert_cpol(time, input_record, dataset_options, grid_options)
+            dataset = get_cpol(time, input_record, dataset_options, grid_options)
         elif dataset_options["name"] == "operational":
             dataset = convert_operational(
                 time, input_record, dataset_options, grid_options

@@ -1,5 +1,5 @@
 """
-Methods ellipse attributes.
+functions ellipse attributes.
 """
 
 import numpy as np

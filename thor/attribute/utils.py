@@ -190,7 +190,7 @@ def get_indexes(attribute_options):
     return indexes
 
 
-def read_attribute_csv(filepath, attribute_options=None, columns=None):
+def read_attribute_csv(filepath, attribute_options=None, columns=None, times=None):
     """
     Read a CSV file and return a DataFrame.
 
@@ -224,7 +224,15 @@ def read_attribute_csv(filepath, attribute_options=None, columns=None):
     data_types = {name: attribute_options[name]["data_type"] for name in all_columns}
     # Remove time column as pd handles this separately
     data_types.pop("time", None)
+    if times is not None:
+        index_df = pd.read_csv(filepath, usecols=["time"], parse_dates=["time"])
+        row_numbers = index_df[~index_df["time"].isin(times)].index.tolist()
+        # Increment row numbers by 1 to account for header
+        row_numbers = [i + 1 for i in row_numbers]
+    else:
+        row_numbers = None
     args_dict = {"usecols": all_columns, "dtype": data_types, "parse_dates": ["time"]}
+    args_dict.update({"skiprows": row_numbers})
     df = pd.read_csv(filepath, **args_dict)
     df = df.set_index(indexes)
     return df

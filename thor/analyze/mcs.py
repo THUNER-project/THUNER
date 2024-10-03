@@ -1,5 +1,5 @@
 """
-Methods for analyzing MCSs. In particular, for implementing the methodologies 
+Functions for analyzing MCSs. In particular, for implementing the methodologies 
 presented in the following papers:
 
 Short et al. (2023), Objectively diagnosing characteristics of mesoscale organization 
@@ -33,8 +33,6 @@ def process_velocities(
     member_objects = options["track"][1]["mcs"]["grouping"]["member_objects"]
     convective_label = member_objects[0]
 
-    options = utils.read_options(output_directory)
-    # Get the options for the convective objects
     convective_options = options["track"][0][convective_label]
     altitudes = convective_options["detection"]["altitudes"]
     filepath = output_directory / f"attributes/mcs/{profile_dataset}/profile.csv"
@@ -279,7 +277,8 @@ def quality_control(output_directory, analysis_options, analysis_directory=None)
     for name, description in zip(names, descriptions):
         args = [name, method, data_type, precision, description, units]
         attributes[name] = get_attribute_dict(*args)
-
+    attributes["time"] = attribute.core.time()
+    attributes["universal_id"] = attribute.core.identity("universal_id")
     filepath = analysis_directory / "quality.csv"
     quality = [convective_check, anvil_check, velocity_check, shear_check]
     quality += [relative_velocity_check, area_check, offset_check, major_check]
@@ -332,6 +331,8 @@ def classify_all(output_directory, analysis_directory=None):
     for name, description in zip(names, descriptions):
         args = [name, method, data_type, precision, description, units]
         attributes[name] = get_attribute_dict(*args)
+    attributes["time"] = attribute.core.time()
+    attributes["universal_id"] = attribute.core.identity("universal_id")
     labels = [["leading", "right", "trailing", "left"]]
     labels += [["front", "right", "back", "left"]]
     labels += [["leading", "right", "trailing", "left"]]

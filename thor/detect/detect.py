@@ -79,6 +79,33 @@ flattener_dispatcher = {
 }
 
 
+def rebuild_processed_grid(grid_data, track_options, obj, level):
+    grid_dict = {}
+    object_options = track_options[level][obj]
+    if "detection" in object_options:
+        grid_dict[f"{obj}_grid"] = process_grid(grid_data, object_options)
+    elif "grouping" in object_options:
+        member_objects = object_options["grouping"]["member_objects"]
+        member_levels = object_options["grouping"]["member_levels"]
+        for member_obj, member_level in zip(member_objects, member_levels):
+            args = [grid_data, track_options, member_obj, member_level]
+            grid_dict.update(rebuild_processed_grid(*args))
+    processed_grid = xr.Dataset(grid_dict)
+    return processed_grid
+
+
+def process_grid(grid, object_options):
+
+    if object_options["detection"]["flatten_method"] is not None:
+        flatten_method = object_options["detection"]["flatten_method"]
+    else:
+        logger.warning("No flattening method specified. Taking column max.")
+        flatten_method = "vertical_max"
+    flattener = flattener_dispatcher.get(flatten_method)
+    processed_grid = flattener(grid, object_options)
+    return processed_grid
+
+
 def detect(
     track_input_records,
     tracks,
@@ -104,12 +131,7 @@ def detect(
     if "gridcell_area" not in object_tracks.keys():
         object_tracks["gridcell_area"] = dataset["gridcell_area"]
 
-    if object_options["detection"]["flatten_method"] is not None:
-        flatten_method = object_options["detection"]["flatten_method"]
-        flattener = flattener_dispatcher.get(flatten_method)
-        processed_grid = flattener(grid, object_options)
-    else:
-        processed_grid = grid
+    processed_grid = process_grid(grid, object_options)
 
     object_tracks["current_grid"] = processed_grid
 
@@ -122,9 +144,8 @@ def detect(
     mask.name = f"{object_options['name']}_mask"
 
     if object_options["detection"]["min_area"] is not None:
-        mask = clear_small_area_objects(
-            mask, object_options["detection"]["min_area"], dataset["gridcell_area"]
-        )
+        args = [mask, object_options["detection"]["min_area"], dataset["gridcell_area"]]
+        mask = clear_small_area_objects(*args)
 
     current_mask = copy.deepcopy(object_tracks["current_mask"])
     object_tracks["previous_masks"].append(current_mask)

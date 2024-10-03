@@ -1,5 +1,5 @@
 """
-Methods for defining property options associated with grouped objects, and for 
+Functions for defining property options associated with grouped objects, and for 
 measuring such properties. Note the distinction between the attributes associated with 
 this module, and functions like record_detected and record_grouped in the attributes
 module, which collect the attributes associated with grouped and detected objects 
@@ -57,7 +57,7 @@ def default(names=None, matched=True):
     return attributes
 
 
-# Methods for obtaining and recording attributes
+# Functions for obtaining and recording attributes
 def offset_from_centers(name, object_tracks, attribute_options):
     """Calculate offset between object centers."""
     member_attributes = object_tracks["current_attributes"]["member_objects"]

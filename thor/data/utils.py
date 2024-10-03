@@ -466,9 +466,8 @@ def get_mask_boundary(mask, grid_options):
 
     lons = np.array(grid_options["longitude"])
     lats = np.array(grid_options["latitude"])
-    contours = cv2.findContours(
-        mask.values.astype(np.uint8), cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE
-    )[0]
+    mask_array = mask.fillna(0).values.astype(np.uint8)
+    contours = cv2.findContours(mask_array, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)[0]
     boundary_coords = []
     for contour in contours:
         # Append the first point to the end to close the contour
@@ -483,6 +482,7 @@ def get_mask_boundary(mask, grid_options):
             boundary_lons = lons[contour_cols]
         boundary_dict = {"latitude": boundary_lats, "longitude": boundary_lons}
         boundary_coords.append(boundary_dict)
+
     boundary_mask = xr.zeros_like(mask).astype(bool)
     for coords in boundary_coords:
         if grid_options["name"] == "cartesian":

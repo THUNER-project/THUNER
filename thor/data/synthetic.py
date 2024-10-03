@@ -321,6 +321,10 @@ def add_reflectivity(
     return ds
 
 
+def convert_synthetic():
+    pass
+
+
 # from scipy.stats import vonmises
 
 # # Parameters

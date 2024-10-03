@@ -1,4 +1,4 @@
-"""Test GridRad methods."""
+"""Test GridRad functions."""
 
 from pathlib import Path
 import shutil

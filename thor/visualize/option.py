@@ -1,4 +1,4 @@
-"""Display options methods."""
+"""Display options functions."""
 
 from thor.log import setup_logger
 from thor.option import save_options
@@ -49,6 +49,8 @@ def runtime_options(
     figure_types=["mask", "match"],
     style="paper",
     animate=True,
+    single_color=False,
+    template=None,
 ):
     """
     Generate dataset display dictionary.
@@ -69,12 +71,20 @@ def runtime_options(
     """
 
     figures = {
-        fig_type: {"style": style, "animate": animate} for fig_type in figure_types
+        fig_type: {
+            "style": style,
+            "animate": animate,
+            "single_color": single_color,
+            "template": template,
+        }
+        for fig_type in figure_types
     }
 
     options = {
         **boilerplate_options(name, save, parent_local),
         "figures": figures,
+        "single_color": single_color,
+        "template": template,
     }
 
     return options
@@ -89,13 +99,14 @@ def horizontal_attribute_options(
     fields=None,
     extent=None,
     template=None,
+    single_color=False,
     style="paper",
 ):
     """Default options for horizontal attribute visualization."""
 
     # Set the default object attributes to display
     if attributes is None:
-        attributes = ["velocity", "relative_velocity", "shear", "ambient"]
+        attributes = ["ambient", "relative_velocity", "velocity", "offset"]
     # Set the default dataset fields to display
     if fields is None:
         fields = ["reflectivity"]
@@ -108,6 +119,7 @@ def horizontal_attribute_options(
         "extent": extent,
         "template": template,
         "style": style,
+        "single_color": single_color,
     }
     return options
 

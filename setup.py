@@ -1,5 +1,5 @@
 """
-Package setup methods.
+Package setup functions.
 """
 
 from setuptools import setup
