@@ -1,6 +1,7 @@
 """General utilities for object attributes."""
 
 import yaml
+from pathlib import Path
 import pandas as pd
 import dask.dataframe as dd
 from collections import defaultdict
@@ -204,6 +205,8 @@ def read_attribute_csv(filepath, attribute_options=None, columns=None, times=Non
     pd.DataFrame
         DataFrame containing the CSV data.
     """
+
+    filepath = Path(filepath)
 
     if attribute_options is None:
         try:

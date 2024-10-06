@@ -14,7 +14,7 @@ from thor.attribute.utils import read_attribute_csv
 from thor.analyze.utils import read_options
 import thor.data.dispatch as dispatch
 import thor.detect.detect as detect
-from thor.utils import format_time, check_futures
+from thor.utils import format_time
 
 logger = setup_logger(__name__)
 proj = ccrs.PlateCarree()
@@ -51,7 +51,7 @@ def mcs_series(
             message = "Could not infer dataset used for detection. Provide manually."
             raise KeyError(message)
 
-    filepath = masks_filepath = output_directory / "masks/mcs.nc"
+    masks_filepath = output_directory / "masks/mcs.nc"
     masks = xr.open_dataset(masks_filepath)
     times = masks.time.values
     times = times[(times >= start_time) & (times <= end_time)]
@@ -82,6 +82,7 @@ def mcs_series(
                     result.get()  # Wait for the result and handle exceptions
                 except Exception as exc:
                     print(f"Generated an exception: {exc}")
+                    raise exc
     else:
         for time in times[1:]:
             args = [time, filepaths, masks, output_directory, figure_options]
@@ -99,6 +100,7 @@ def mcs_series(
 
 
 def mcs_horizontal_wrapper(
+    # args,
     time,
     filepaths,
     masks,
@@ -110,6 +112,9 @@ def mcs_horizontal_wrapper(
     convert,
 ):
     """Wrapper for mcs_horizontal."""
+    # [time, filepaths, masks, output_directory, figure_options] = args[:5]
+    # [options, track_options, dataset_name, convert] = args[5:]
+
     filepath = filepaths[dataset_name].loc[time]
     args = [time, filepath, options["data"][dataset_name], options["grid"]]
     ds, boundary_coords = convert(*args)
@@ -220,8 +225,9 @@ label_dispatcher = {
 }
 system_contained = ["convective_contained", "anvil_contained"]
 quality_dispatcher = {
+    "ambient": system_contained,
     "velocity": system_contained + ["velocity"],
-    "shear": ["shear"],
+    "shear": system_contained + ["shear"],
     "relative_velocity": system_contained + ["relative_velocity"],
     "offset": system_contained + ["offset"],
 }

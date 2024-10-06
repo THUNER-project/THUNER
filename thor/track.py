@@ -13,7 +13,8 @@ import thor.group.group as group
 import thor.visualize as visualize
 import thor.match.match as match
 from thor.config import get_outputs_directory
-from thor.utils import now_str, hash_dictionary, format_time, check_futures
+from thor.utils import now_str, hash_dictionary, format_time
+from thor.parallel import check_futures, check_results
 import thor.write as write
 import thor.attribute as attribute
 
@@ -294,13 +295,8 @@ def track_level(
             for obj in level_tracks.keys():
                 track_object_args = get_track_object_args(obj, level_options)
                 results.append(pool.apply_async(track_object, track_object_args))
-
             # Wait for all results to complete
-            for result in results:
-                try:
-                    result.get()  # Wait for the result and handle exceptions
-                except Exception as exc:
-                    print(f"Generated an exception: {exc}")
+            check_results(results)
     else:
         for obj in level_tracks.keys():
             track_object_args = get_track_object_args(obj, level_options)

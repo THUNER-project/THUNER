@@ -264,14 +264,13 @@ def visualize(
     # Close all current figures
     plt.close("all")
 
-    logger.info("Generating runtime visualizations.")
-
     object_options = track_options[level_index][obj]
 
     if not visualize_options or not visualize_options.get(object_options["name"]):
         return
     input_record = track_input_records[object_options["dataset"]]
     object_visualize_options = visualize_options.get(object_options["name"])
+    logger.info("Generating runtime visualizations.")
     for figure in object_visualize_options["figures"].keys():
         create_figure = create_figure_dispatcher.get(figure)
         if not create_figure:

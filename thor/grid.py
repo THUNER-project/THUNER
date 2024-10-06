@@ -64,7 +64,7 @@ def create_options(
     start_alt : float, optional
         Starting z-coordinate for the dataset; default is 0.
     end_alt : float, optional
-        Ending z-coordinate for the dataset; default is 25e3.
+        Ending z-coordinate for the dataset; default is 20e3.
     cartesian_spacing : list, optional
         Spacing for the cartesian grid [z, y, x] in metres; default is
         [500, 2500, 2500].
@@ -84,7 +84,7 @@ def create_options(
     """
 
     if regrid and altitude is None:
-        altitude = list(np.arange(0, 25e3 + altitude_spacing, altitude_spacing))
+        altitude = list(np.arange(0, 20e3 + altitude_spacing, altitude_spacing))
         altitude = [float(alt) for alt in altitude]
     if shape is None and (latitude is not None and longitude is not None):
         shape = (len(latitude), len(longitude))

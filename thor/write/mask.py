@@ -56,6 +56,7 @@ def write(object_tracks, object_options, output_directory):
     filepath = output_directory / f"masks/{object_name}/"
     filepath = filepath / f"{format_time(last_write_str)}.nc"
     filepath.parent.mkdir(parents=True, exist_ok=True)
+    masks = masks.astype(np.uint32)
     masks.to_netcdf(filepath)
     # Update last_write_time after writing
     object_tracks["last_write_time"] = last_write_time + write_interval
@@ -83,6 +84,7 @@ def aggregate(track_options, output_directory, clean_up=True):
                 continue
             filepaths = glob.glob(f"{output_directory}/masks/{obj}/*.nc")
             masks = xr.open_mfdataset(filepaths)
+            masks = masks.astype(np.uint32)
             masks.to_netcdf(output_directory / f"masks/{obj}.nc")
             if clean_up:
                 shutil.rmtree(output_directory / f"masks/{obj}")

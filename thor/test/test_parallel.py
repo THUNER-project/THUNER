@@ -1,5 +1,6 @@
 """Test setup."""
 
+import shutil
 from pathlib import Path
 import os
 import numpy as np
@@ -11,7 +12,9 @@ import thor.grid as grid
 import thor.track as track
 import thor.option as option
 import thor.visualize as visualize
+import thor.parallel as parallel
 from thor.log import setup_logger
+import thor.analyze as analyze
 
 logger = setup_logger(__name__)
 
@@ -19,49 +22,14 @@ logger = setup_logger(__name__)
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 
-def align_to_nearest_hour(time):
-    """Align a datetime to the nearest hour."""
-    dt = np.datetime64(time).astype(datetime.datetime)
-    if dt.minute >= 30:
-        dt = dt.replace(minute=0, second=0, microsecond=0) + datetime.timedelta(hours=1)
-    else:
-        dt = dt.replace(minute=0, second=0, microsecond=0)
-    return dt
-
-
-def generate_hourly_intervals(start, end):
-    """Generate a list of hourly intervals from start to end."""
-    intervals = []
-
-    # Convert np.datetime64 to datetime
-    start_dt = np.datetime64(start).astype(datetime.datetime)
-    end_dt = np.datetime64(end).astype(datetime.datetime)
-
-    current = align_to_nearest_hour(start_dt)
-
-    while current < end_dt:
-        next_hour = current + datetime.timedelta(hours=1)
-        # Convert datetime back to np.datetime64
-        intervals.append([np.datetime64(current), np.datetime64(next_hour)])
-        current = next_hour
-
-    return intervals
-
-
-def process_interval(i, time_interval, output_parent):
-    print(f"Interval {i}: {time_interval}")
-
-    start = str(time_interval[0].astype("datetime64[s]"))
-    end = str(time_interval[1].astype("datetime64[s]"))
-
-    output_directory = output_parent / f"interval_{i}"
-    options_directory = output_directory / "options"
+def setup(start, end, options_directory, grid_type="geographic"):
 
     # Create the data_options dictionary
     converted_options = {"save": True, "load": False, "parent_converted": None}
     cpol_options = data.aura.cpol_data_options(
         start=start, end=end, converted_options=converted_options
     )
+
     # Restrict the ERA5 data to a smaller region containing the CPOL radar
     lon_range = [129, 133]
     lat_range = [-14, -10]
@@ -75,6 +43,7 @@ def process_interval(i, time_interval, output_parent):
         latitude_range=lat_range,
         longitude_range=lon_range,
     )
+
     data_options = option.consolidate_options(
         [cpol_options, era5_pl_options, era5_sl_options]
     )
@@ -82,26 +51,32 @@ def process_interval(i, time_interval, output_parent):
     dispatch.check_data_options(data_options)
     data.option.save_data_options(data_options, options_directory)
 
-    altitude = list(np.arange(0, 25e3 + 500, 500))
+    altitude = list(np.arange(0, 20e3 + 500, 500))
     altitude = [float(alt) for alt in altitude]
-    grid_options = grid.create_options(name="geographic", altitude=altitude)
+    grid_options = grid.create_options(name=grid_type, altitude=altitude)
     grid.check_options(grid_options)
     grid.save_grid_options(grid_options, options_directory)
 
     # Create the track_options dictionary
     track_options = option.mcs(dataset="cpol")
+    option.check_options(track_options)
     option.save_track_options(track_options, options_directory)
-
-    # Create the display_options dictionary
-    visualize_options = {
-        obj: visualize.option.runtime_options(obj, save=True, style="presentation")
-        for obj in ["mcs"]
-    }
-    visualize_options["middle_echo"] = visualize.option.runtime_options(
-        "middle_echo", save=True, style="presentation", figure_types=["mask"]
-    )
-    # visualize.option.save_display_options(visualize_options, options_directory)
     visualize_options = None
+
+    return data_options, grid_options, track_options, visualize_options
+
+
+def process_interval(i, time_interval, output_parent):
+    print(f"Interval {i}: {time_interval}")
+
+    start = time_interval[0]
+    end = time_interval[1]
+
+    output_directory = output_parent / f"interval_{i}"
+    options_directory = output_directory / "options"
+
+    all_options = setup(start, end, options_directory)
+    data_options, grid_options, track_options, visualize_options = all_options
 
     # Track
     times = data.utils.generate_times(data_options["cpol"])
@@ -112,7 +87,7 @@ def process_interval(i, time_interval, output_parent):
         track_options,
         visualize_options,
         output_directory=output_directory,
-        parallel="thread",
+        parallel=True,
     )
 
 
@@ -120,11 +95,15 @@ if __name__ == "__main__":
 
     # Parent directory for saving outputs
     base_local = Path.home() / "THOR_output"
-    start = "2005-11-13T13:00:09"
-    end = "2005-11-13T17:00:00"
+    start = "2005-11-13T14:00"
+    end = "2005-11-13T18:00"
 
-    intervals = generate_hourly_intervals(start, end)
-    output_parent = base_local / "runs/parallel_demo"
+    intervals = parallel.generate_time_intervals(start, end)
+    output_parent = base_local / "runs/cpol_demo_parallel"
+    if output_parent.exists():
+        shutil.rmtree(output_parent)
+
+    setup(start, end, output_parent / "options")
 
     with multiprocessing.Pool() as pool:
         results = []
@@ -132,9 +111,23 @@ if __name__ == "__main__":
             results.append(
                 pool.apply_async(process_interval, (i, time_interval, output_parent))
             )
-
         for result in results:
             try:
                 result.get()  # Wait for the result and handle exceptions
             except Exception as exc:
                 print(f"Generated an exception: {exc}")
+
+    parallel.stitch_run(output_parent, intervals)
+    analysis_options = analyze.mcs.analysis_options()
+    analyze.mcs.process_velocities(output_parent)
+    analyze.mcs.quality_control(output_parent, analysis_options)
+    analyze.mcs.classify_all(output_parent)
+
+    figure_options = visualize.option.horizontal_attribute_options(
+        "mcs_velocity_analysis", style="presentation"
+    )
+    start_time = np.datetime64("2005-11-13T12:00")
+    end_time = np.datetime64("2005-11-13T22:00")
+    visualize.attribute.mcs_series(
+        output_parent, start_time, end_time, figure_options, parallel=True
+    )

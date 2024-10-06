@@ -611,7 +611,7 @@ def save_track_options(
 
 
 def save_options(options, filename=None, options_directory=None, append_time=False):
-
+    """Save the options to a yml file."""
     if filename is None:
         filename = now_str()
         append_time = False

@@ -50,7 +50,7 @@ def setup(start, end, options_directory, grid_type="geographic"):
     dispatch.check_data_options(data_options)
     data.option.save_data_options(data_options, options_directory)
 
-    altitude = list(np.arange(0, 25e3 + 500, 500))
+    altitude = list(np.arange(0, 20e3 + 500, 500))
     altitude = [float(alt) for alt in altitude]
     grid_options = grid.create_options(name=grid_type, altitude=altitude)
     grid.check_options(grid_options)
