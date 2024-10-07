@@ -246,6 +246,7 @@ def get_geographic_vector_scale(grid_options):
 
 
 displacement_linewidth = 2
+ellipse_axis_linewidth = 2
 
 
 def displacement_legend_artist(color, label):
@@ -273,6 +274,47 @@ def vector_key(ax, u=10, v=0, color="k"):
     start_point = fig.transFigure.transform((0.915, 1))
     [longitude, latitude] = ax.transData.inverted().transform(start_point)
     ax.text(longitude, latitude, f"{u} m/s", ha="left", va="center")
+
+
+def ellipse_axis(
+    ax, latitude, longitude, axis_length, orientation, label, style, quality=True
+):
+    """Display an ellipse axis."""
+    azimuth = (90 - np.rad2deg(orientation)) % 360
+    args = [longitude, latitude, azimuth, axis_length * 1e3 / 2]
+    lon_1, lat_1 = thor_grid.geodesic_forward(*args)[:2]
+    args[2] = (azimuth + 180) % 360
+    lon_2, lat_2 = thor_grid.geodesic_forward(*args)[:2]
+
+    colors = visualize.figure_colors[style]
+    axis_color = colors["ellipse_axis"]
+    shadow_color = colors["ellipse_axis_shadow"]
+    args_dict = {"shadow_color": shadow_color, "alpha": 0.9}
+    path_effects = [patheffects.SimpleLineShadow(**args_dict), patheffects.Normal()]
+    args_dict = {"color": axis_color, "linewidth": ellipse_axis_linewidth}
+    args_dict.update({"zorder": 3, "path_effects": path_effects, "transform": proj})
+    args_dict.update({"linestyle": "--"})
+    if quality:
+        ax.plot([lon_1, lon_2], [lat_1, lat_2], **args_dict)
+    args_dict = {"color": axis_color, "linewidth": ellipse_axis_linewidth}
+    args_dict.update({"zorder": 5, "path_effects": path_effects, "linestyle": "--"})
+    args_dict.update({"label": label})
+    legend_handle = mlines.Line2D([], [], **args_dict)
+    return legend_handle
+
+
+def ellipse_legend_artist(label, style):
+    """Create a legend artist for an ellipse axis."""
+    colors = visualize.figure_colors[style]
+    axis_color = colors["ellipse_axis"]
+    shadow_color = colors["ellipse_axis_shadow"]
+    args_dict = {"shadow_color": shadow_color, "alpha": 0.9}
+    path_effects = [patheffects.SimpleLineShadow(**args_dict), patheffects.Normal()]
+    args_dict = {"color": axis_color, "linewidth": ellipse_axis_linewidth}
+    args_dict.update({"zorder": 3, "path_effects": path_effects, "linestyle": "--"})
+    args_dict.update({"label": label})
+    legend_handle = mlines.Line2D([], [], **args_dict)
+    return legend_handle
 
 
 def cartesian_displacement(

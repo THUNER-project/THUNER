@@ -18,7 +18,7 @@ def test_cdsapi():
 
     grid_options = grid.create_options(name="geographic", latitude=lats, longitude=lons)
     era5.check_data_options(data_options)
-    filepaths = era5.generate_era5_filepaths(data_options, grid_options)
+    filepaths = era5.get_era5_filepaths(data_options, grid_options)
     cds_name, requests, local_paths = era5.generate_cdsapi_requests(data_options)
     assert filepaths == local_paths
     era5.issue_cdsapi_requests(cds_name, requests, local_paths, enforce_timeout=True)

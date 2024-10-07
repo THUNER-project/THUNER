@@ -45,7 +45,7 @@ def write_attributes(directory, last_write_str, attributes, attribute_options):
     directory.mkdir(parents=True, exist_ok=True)
     filepath = directory / f"{format_time(last_write_str)}.csv"
     df = utils.attributes_dataframe(attributes, attribute_options)
-    df.to_csv(filepath)
+    df.to_csv(filepath, na_rep="NA")
 
 
 def write_attribute_type(
@@ -147,7 +147,7 @@ def write_metadata(filepath, attribute_options):
 def write_csv(filepath, df, attribute_options=None):
     """Write attribute dataframe to csv."""
     if attribute_options is None:
-        df.to_csv(filepath)
+        df.to_csv(filepath, na_rep="NA")
         logger.warning("No attributes metadata provided. Writing csv without metadata.")
         return
     precision_dict = utils.get_precision_dict(attribute_options)
@@ -156,7 +156,7 @@ def write_csv(filepath, df, attribute_options=None):
     # Make filepath parent directory if it doesn't exist
     filepath.parent.mkdir(parents=True, exist_ok=True)
     logger.debug("Writing attribute dataframe to %s", filepath)
-    df.to_csv(filepath)
+    df.to_csv(filepath, na_rep="NA")
     write_metadata(Path(filepath).with_suffix(".yml"), attribute_options)
     return df
 
@@ -171,9 +171,14 @@ def aggregate_directory(directory, attribute_type, attribute_options, clean_up):
     elif "id" in attribute_options.keys():
         index_cols += ["id"]
 
+    data_types = utils.get_data_type_dict(attribute_options)
+    data_types.pop("time", None)
+
     for filepath in filepaths:
-        df_list.append(pd.read_csv(filepath, index_col=index_cols))
-    df = pd.concat(df_list)
+        args_dict = {"index_col": index_cols, "na_values": ["", "NA"]}
+        args_dict.update({"keep_default_na": True, "dtype": data_types})
+        df_list.append(pd.read_csv(filepath, **args_dict))
+    df = pd.concat(df_list, sort=False)
     aggregated_filepath = directory.parent / f"{attribute_type}.csv"
     write_csv(aggregated_filepath, df, attribute_options)
     if clean_up:

@@ -1,5 +1,4 @@
 "General utilities for the thor package."
-import concurrent.futures
 from datetime import datetime
 import json
 import hashlib
@@ -8,7 +7,6 @@ import pandas as pd
 from numba import njit, int32, float32
 from numba.typed import List
 from scipy.interpolate import interp1d
-from pyproj import Geod
 from thor.log import setup_logger
 
 

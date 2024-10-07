@@ -1,6 +1,7 @@
 """Functions for visualizing object attributes and classifications."""
 
 import multiprocessing
+import concurrent.futures
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -15,12 +16,13 @@ from thor.analyze.utils import read_options
 import thor.data.dispatch as dispatch
 import thor.detect.detect as detect
 from thor.utils import format_time
+import thor.parallel as parallel
 
 logger = setup_logger(__name__)
 proj = ccrs.PlateCarree()
 
 
-mcs_legend_options = {"loc": "lower center", "bbox_to_anchor": (1.15, -0.3), "ncol": 4}
+mcs_legend_options = {"loc": "lower center", "bbox_to_anchor": (1.15, -0.35), "ncol": 3}
 mcs_legend_options.update({"fancybox": True, "shadow": True})
 
 
@@ -32,7 +34,7 @@ def mcs_series(
     convective_label="cell",
     dataset_name=None,
     animate=True,
-    parallel=False,
+    parallel_figure=False,
 ):
     """Visualize mcs attributes at specified times."""
     plt.close("all")
@@ -65,29 +67,24 @@ def mcs_series(
     time = times[0]
     args = [time, filepaths, masks, output_directory, figure_options]
     args += [options, track_options, dataset_name, convert]
-    mcs_horizontal_wrapper(*args)
+    visualize_mcs(*args)
     if len(times) == 1:
         # Switch back to original backend
         matplotlib.use(original_backend)
         return
-    if parallel:
-        with multiprocessing.Pool() as pool:
-            results = []
+    if parallel_figure:
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+            futures = []
             for time in times[1:]:
                 args = [time, filepaths, masks, output_directory, figure_options]
                 args += [options, track_options, dataset_name, convert]
-                results.append(pool.apply_async(mcs_horizontal_wrapper, args))
-            for result in results:
-                try:
-                    result.get()  # Wait for the result and handle exceptions
-                except Exception as exc:
-                    print(f"Generated an exception: {exc}")
-                    raise exc
+                futures.append(executor.submit(visualize_mcs, *args))
+            parallel.check_futures(futures)
     else:
         for time in times[1:]:
             args = [time, filepaths, masks, output_directory, figure_options]
             args += [options, track_options, dataset_name, convert]
-            mcs_horizontal_wrapper(*args)
+            visualize_mcs(*args)
     if animate:
         figure_name = figure_options["name"]
         save_directory = output_directory / f"visualize"
@@ -99,8 +96,7 @@ def mcs_series(
     matplotlib.use(original_backend)
 
 
-def mcs_horizontal_wrapper(
-    # args,
+def visualize_mcs(
     time,
     filepaths,
     masks,
@@ -112,9 +108,6 @@ def mcs_horizontal_wrapper(
     convert,
 ):
     """Wrapper for mcs_horizontal."""
-    # [time, filepaths, masks, output_directory, figure_options] = args[:5]
-    # [options, track_options, dataset_name, convert] = args[5:]
-
     filepath = filepaths[dataset_name].loc[time]
     args = [time, filepath, options["data"][dataset_name], options["grid"]]
     ds, boundary_coords = convert(*args)
@@ -164,10 +157,17 @@ def mcs_horizontal(
         velocities = read_attribute_csv(filepath, times=[time]).loc[time]
         filepath = output_directory / "analysis/classification.csv"
         classification = read_attribute_csv(filepath, times=[time]).loc[time]
+        filepath = output_directory / "attributes/mcs/cell/ellipse.csv"
+        ellipse = read_attribute_csv(filepath, times=[time]).loc[time]
+        new_names = {"latitude": "ellipse_latitude", "longitude": "ellipse_longitude"}
+        ellipse = ellipse.rename(columns=new_names)
         filepath = output_directory / "analysis/quality.csv"
         quality = read_attribute_csv(filepath, times=[time]).loc[time]
-        attributes = pd.concat([group, velocities, classification, quality], axis=1)
+        attributes = pd.concat(
+            [ellipse, group, velocities, classification, quality], axis=1
+        )
         objs = group.reset_index()["universal_id"].values
+
     except KeyError:
         # If no attributes, return early
         objs = []
@@ -178,6 +178,7 @@ def mcs_horizontal(
         args = [axes, figure_options, obj_attr]
         velocity_attributes_horizontal(*args)
         displacement_attributes_horizontal(*args)
+        ellipse_attributes(*args)
 
     style = figure_options["style"]
     key_color = figure_colors[style]["key"]
@@ -187,6 +188,8 @@ def mcs_horizontal(
 
     # Get legend proxy artists
     legend_handles = []
+    handle = horizontal.ellipse_legend_artist("Major Axis", figure_options["style"])
+    legend_handles += [handle]
     attribute_names = figure_options["attributes"]
     for name in attribute_names:
         color = colors_dispatcher[name]
@@ -230,6 +233,8 @@ quality_dispatcher = {
     "shear": system_contained + ["shear"],
     "relative_velocity": system_contained + ["relative_velocity"],
     "offset": system_contained + ["offset"],
+    "major": ["convective_contained", "axis_ratio"],
+    "minor": ["convective_contained", "axis_ratio"],
 }
 
 
@@ -266,6 +271,24 @@ def get_quality(quality_names, object_attributes):
         qualities = object_attributes[quality_names]
         quality = qualities.all()
     return quality
+
+
+def ellipse_attributes(axes, figure_options, object_attributes):
+    """Add ellipse axis attributes."""
+
+    quality_names = quality_dispatcher.get("major")
+    quality = get_quality(quality_names, object_attributes)
+    latitude = object_attributes["ellipse_latitude"]
+    longitude = object_attributes["ellipse_longitude"]
+    major, orientation = object_attributes["major"], object_attributes["orientation"]
+    style = figure_options["style"]
+    args = [axes[0], latitude, longitude, major, orientation, "Major Axis", style]
+    args += [quality]
+    legend_handles = []
+    legend_handle = horizontal.ellipse_axis(*args)
+    legend_handles.append(legend_handle)
+
+    return legend_handles
 
 
 def displacement_attributes_horizontal(axes, figure_options, object_attributes):

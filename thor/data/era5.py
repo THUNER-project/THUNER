@@ -247,7 +247,7 @@ def get_file_datetimes(options, start, end):
     return times
 
 
-def generate_era5_filepaths(options, start=None, end=None, local=True):
+def get_era5_filepaths(options, start=None, end=None, local=True):
     """
     Generate era5 filepaths from dataset options dictionary.
 
@@ -473,7 +473,7 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
     utils.log_dataset_update(logger, dataset_options["name"], time)
 
     start, end = get_hour_interval(time)
-    filepaths = generate_era5_filepaths(dataset_options, start, end, local=True)
+    filepaths = get_era5_filepaths(dataset_options, start, end, local=True)
     all_files_exist = all(
         Path(filepath).exists() for field in filepaths.values() for filepath in field
     )

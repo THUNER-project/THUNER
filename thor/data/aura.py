@@ -235,7 +235,7 @@ def check_data_options(options):
         raise ValueError(f"name must be one of {format_string_list(names)}.")
 
 
-def generate_cpol_filepaths(options):
+def get_cpol_filepaths(options):
     """
     Generate cpol URLs from input options dictionary.
 

@@ -485,7 +485,7 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
 #     return case_dates
 
 
-def generate_gridrad_filepaths(options):
+def get_gridrad_filepaths(options):
     """
     Get the start and end dates for the cases in the GridRad-Severe dataset
     (doi.org/10.5065/2B46-1A97).

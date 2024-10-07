@@ -14,7 +14,6 @@ import thor.visualize as visualize
 import thor.match.match as match
 from thor.config import get_outputs_directory
 from thor.utils import now_str, hash_dictionary, format_time
-from thor.parallel import check_futures, check_results
 import thor.write as write
 import thor.attribute as attribute
 
@@ -177,7 +176,6 @@ def simultaneous_track(
     track_options,
     visualize_options=None,
     output_directory=None,
-    parallel=None,
 ):
     """
     Track objects across the hierachy simultaneously.
@@ -235,7 +233,7 @@ def simultaneous_track(
             track_level_args = [time, level_index, tracks, input_records]
             track_level_args += [data_options, grid_options, track_options]
             track_level_args += [visualize_options, output_directory]
-            track_level(*track_level_args, parallel=parallel)
+            track_level(*track_level_args)
 
         previous_time = time
 
@@ -263,7 +261,6 @@ def track_level(
     track_options,
     visualize_options,
     output_directory,
-    parallel=False,
 ):
     """Track a hierarchy level."""
     level_tracks = tracks[level_index]
@@ -281,32 +278,11 @@ def track_level(
         track_object_args += [visualize_options, output_directory]
         return track_object_args
 
-    if parallel == "thread":
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = []
-            for obj in level_tracks.keys():
-                track_object_args = get_track_object_args(obj, level_options)
-                futures.append(executor.submit(track_object, *track_object_args))
-            # Wait for all futures to complete
-            check_futures(futures)
-    elif parallel == "pool":
-        with multiprocessing.Pool() as pool:
-            results = []
-            for obj in level_tracks.keys():
-                track_object_args = get_track_object_args(obj, level_options)
-                results.append(pool.apply_async(track_object, track_object_args))
-            # Wait for all results to complete
-            check_results(results)
-    else:
-        for obj in level_tracks.keys():
-            track_object_args = get_track_object_args(obj, level_options)
-            track_object(*track_object_args)
+    for obj in level_tracks.keys():
+        track_object_args = get_track_object_args(obj, level_options)
+        track_object(*track_object_args)
 
     return level_tracks
-
-
-def unpack_and_track(args):
-    return track_object(*args)
 
 
 def track_object(

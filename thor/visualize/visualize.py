@@ -41,6 +41,8 @@ figure_colors = {
         "coast": "black",
         "legend": "w",
         "key": "k",
+        "ellipse_axis": "w",
+        "ellipse_axis_shadow": "grey",
     },
     "presentation": {
         "land": tuple(np.array([249.0, 246.0, 216.0]) / (256 * 3.5)),
@@ -48,6 +50,8 @@ figure_colors = {
         "coast": "white",
         "legend": tuple(np.array([249.0, 246.0, 216.0]) / (256 * 3.5)),
         "key": "tab:purple",
+        "ellipse_axis": "w",
+        "ellipse_axis_shadow": "k",
     },
 }
 

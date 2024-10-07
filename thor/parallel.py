@@ -11,8 +11,54 @@ from thor.log import setup_logger
 import thor.attribute as attribute
 import thor.write as write
 import thor.analyze as analyze
+import thor.data as data
+import thor.grid as grid
+import thor.option as option
+import thor.track as track
+
 
 logger = setup_logger(__name__)
+
+
+get_filepaths_dispatcher = {
+    "cpol": data.aura.get_cpol_filepaths,
+    "era5_pl": data.era5.get_era5_filepaths,
+    "era5_sl": data.era5.get_era5_filepaths,
+    "gridrad": data.gridrad.get_gridrad_filepaths,
+}
+
+
+def track_interval(
+    i,
+    time_interval,
+    data_options,
+    grid_options,
+    track_options,
+    visualize_options,
+    output_parent,
+):
+    output_directory = output_parent / f"interval_{i}"
+    options_directory = output_directory / "options"
+    interval_data_options = get_interval_data_options(data_options, time_interval)
+    data.option.save_data_options(interval_data_options, options_directory)
+    grid.save_grid_options(grid_options, options_directory)
+    option.save_track_options(track_options, options_directory)
+    times = data.utils.generate_times(interval_data_options["cpol"])
+    args = [times, interval_data_options, grid_options, track_options]
+    args += [visualize_options, output_directory]
+    track.simultaneous_track(*args)
+
+
+def get_interval_data_options(data_options, interval):
+    """Get the data options for a given interval."""
+    interval_data_options = data_options.copy()
+    for key in interval_data_options.keys():
+        interval_data_options[key]["start"] = interval[0]
+        interval_data_options[key]["end"] = interval[1]
+        get_filepaths = get_filepaths_dispatcher[key]
+        new_filepaths = get_filepaths(interval_data_options[key])
+        interval_data_options[key]["filepaths"] = new_filepaths
+    return interval_data_options
 
 
 def check_results(results):
@@ -33,15 +79,15 @@ def check_futures(futures):
             logger.error("Generated an exception: %s", exc)
 
 
-def generate_time_intervals(start, end, period="h"):
+def generate_time_intervals(start, end, period="h", overlap=pd.Timedelta(10, "m")):
     start = pd.Timestamp(start).floor(period)
     end = pd.Timestamp(end).ceil(period)
     intervals = []
-    previous, next = start, start + pd.Timedelta(1, period)
+    previous, next = start, start + pd.Timedelta(1, period) + overlap
     while next <= end:
         intervals.append((str(previous), str(next)))
-        previous = next
-        next = previous + pd.Timedelta(1, period)
+        previous = next - overlap
+        next = previous + pd.Timedelta(1, period) + overlap
     return intervals
 
 
@@ -118,6 +164,7 @@ def get_tracked_objects(track_options):
 def get_match_dicts(intervals, mask_file_dict, tracked_objects):
     """Get the match dictionaries for each interval."""
     match_dicts = {}
+    time_dicts = {}
     for i in range(len(intervals) - 1):
         filepaths_1 = mask_file_dict[i]
         filepaths_2 = mask_file_dict[i + 1]
@@ -126,18 +173,24 @@ def get_match_dicts(intervals, mask_file_dict, tracked_objects):
 
         if objects_1 != objects_2:
             raise ValueError("Different objects in each filepath list.")
-        interval_dicts = {}
+        interval_match_dicts = {}
+        interval_time_dicts = {}
+
         for j, obj in enumerate(objects_1):
-            if obj not in tracked_objects:
-                interval_dicts[obj] = None
-                continue
-            ds_1 = xr.open_mfdataset(filepaths_1[j], chunks={"time": 1})
-            ds_1 = ds_1.isel(time=-1).load()
             ds_2 = xr.open_mfdataset(filepaths_2[j], chunks={"time": 1})
             ds_2 = ds_2.isel(time=0).load()
-            interval_dicts[obj] = match_dataset(ds_1, ds_2)
-        match_dicts[i] = interval_dicts
-    return match_dicts
+            time = ds_2["time"].values
+            ds_1 = xr.open_mfdataset(filepaths_1[j], chunks={"time": 1})
+            ds_1 = ds_1.sel(time=time).load()
+            time = ds_1["time"].values
+            if obj not in tracked_objects:
+                interval_match_dicts[obj] = None
+            else:
+                interval_match_dicts[obj] = match_dataset(ds_1, ds_2)
+            interval_time_dicts[obj] = time
+        match_dicts[i] = interval_match_dicts
+        time_dicts[i] = interval_time_dicts
+    return match_dicts, time_dicts
 
 
 def stitch_records(record_file_dict, intervals):
@@ -155,7 +208,7 @@ def stitch_records(record_file_dict, intervals):
         write.attribute.write_csv(filepath, df, attribute_dict)
 
 
-def stitch_run(output_parent, intervals):
+def stitch_run(output_parent, intervals, cleanup=True):
     """Stitch together all attribute files for a given run."""
     logger.info("Stitching all attribute, mask and record files.")
     options = analyze.utils.read_options(output_parent / "interval_0")
@@ -163,7 +216,8 @@ def stitch_run(output_parent, intervals):
     tracked_objects = get_tracked_objects(track_options)[0]
     all_file_dicts = get_filepath_dicts(output_parent, intervals)
     csv_file_dict, mask_file_dict, record_file_dict = all_file_dicts
-    match_dicts = get_match_dicts(intervals, mask_file_dict, tracked_objects)
+    args = [intervals, mask_file_dict, tracked_objects]
+    match_dicts, time_dicts = get_match_dicts(*args)
     number_attributes = len(csv_file_dict[0])
     stitch_records(record_file_dict, intervals)
     id_dicts = {}
@@ -181,15 +235,16 @@ def stitch_run(output_parent, intervals):
             member_object = False
         else:
             member_object = True
-        args = [dfs, obj, filepaths, attribute_dict, match_dicts]
+        args = [dfs, obj, filepaths, attribute_dict, match_dicts, time_dicts]
         args += [intervals, tracked_objects]
         id_dict = stitch_attribute(*args)
         if not member_object and obj in tracked_objects:
             id_dicts[obj] = id_dict
     stitch_masks(mask_file_dict, intervals, id_dicts)
     # Remove all interval directories
-    for i in range(len(intervals)):
-        shutil.rmtree(Path(output_parent / f"interval_{i}"))
+    if cleanup:
+        for i in range(len(intervals)):
+            shutil.rmtree(Path(output_parent / f"interval_{i}"))
 
 
 def apply_mapping(mapping, mask):
@@ -220,10 +275,16 @@ def stitch_mask(intervals, masks, id_dicts, filepaths, obj):
         mapping = get_mapping(id_dicts, obj, i)
         new_mask = apply_mapping(mapping, mask)
         if i < len(intervals) - 1:
-            if masks[i + 1].time[0] != masks[i].time[-1]:
-                message = "Time intervals have produced non-continuous masks"
+            time = masks[i + 1].time[0].values
+            if time not in np.array(masks[i].time.values):
+                message = "Time intervals have produced non-overlapping time domains "
+                message += "for masks"
                 raise ValueError(message)
-            new_mask = new_mask.isel(time=slice(0, -1))
+            # Slice new mask, exluding times contained in the next interval
+            # Note the actual "slice" function doesn't work with high precision
+            # datetime indexes! Use boolean indexing on time dimension instead
+            condition = new_mask.time.values < time
+            new_mask = new_mask.sel(time=condition)
         new_masks.append(new_mask)
     mask = xr.concat(new_masks, dim="time")
     mask = mask.astype(np.uint32)
@@ -252,6 +313,7 @@ def stitch_attribute(
     filepaths,
     attribute_dict,
     match_dicts,
+    time_dicts,
     intervals,
     tracked_objects,
 ):
@@ -276,6 +338,10 @@ def stitch_attribute(
             max_id = 0
         df[id_type] = df[id_type] + current_max_id
         current_max_id += max_id
+        # df = df.set_index(index_columns)
+        if i < len(intervals) - 1:
+            end_time = time_dicts[i][obj]
+            df = df[df["time"] < end_time]
         df = df.set_index(index_columns)
         new_dfs.append(df)
     df = pd.concat(new_dfs)

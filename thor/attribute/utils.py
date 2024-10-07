@@ -3,7 +3,7 @@
 import yaml
 from pathlib import Path
 import pandas as pd
-import dask.dataframe as dd
+import numpy as np
 from collections import defaultdict
 from thor.log import setup_logger
 
@@ -208,17 +208,19 @@ def read_attribute_csv(filepath, attribute_options=None, columns=None, times=Non
 
     filepath = Path(filepath)
 
+    data_types = None
     if attribute_options is None:
         try:
             meta_path = filepath.with_suffix(".yml")
             attribute_options = read_metadata_yml(meta_path)
+            data_types = get_data_type_dict(attribute_options)
         except FileNotFoundError:
             logger.warning("No metadata file found for %s.", filepath)
 
     if attribute_options is None:
         message = "No metadata; loading entire dataframe and data types not enforced."
         logger.warning(message)
-        return pd.read_csv(filepath)
+        return pd.read_csv(filepath, na_values=["", "NA"], keep_default_na=True)
 
     indexes = get_indexes(attribute_options)
     if columns is None:
@@ -228,7 +230,9 @@ def read_attribute_csv(filepath, attribute_options=None, columns=None, times=Non
     # Remove time column as pd handles this separately
     data_types.pop("time", None)
     if times is not None:
-        index_df = pd.read_csv(filepath, usecols=["time"], parse_dates=["time"])
+        args_dict = {"usecols": ["time"], "parse_dates": ["time"]}
+        args_dict.update({"na_values": ["", "NA"], "keep_default_na": True})
+        index_df = pd.read_csv(filepath, **args_dict)
         row_numbers = index_df[~index_df["time"].isin(times)].index.tolist()
         # Increment row numbers by 1 to account for header
         row_numbers = [i + 1 for i in row_numbers]
@@ -236,6 +240,7 @@ def read_attribute_csv(filepath, attribute_options=None, columns=None, times=Non
         row_numbers = None
     args_dict = {"usecols": all_columns, "dtype": data_types, "parse_dates": ["time"]}
     args_dict.update({"skiprows": row_numbers})
+    args_dict.update({"na_values": ["", "NA"], "keep_default_na": True})
     df = pd.read_csv(filepath, **args_dict)
     df = df.set_index(indexes)
     return df
@@ -248,3 +253,11 @@ def get_precision_dict(attribute_options):
         if attribute_options[key]["data_type"] == float:
             precision_dict[key] = attribute_options[key]["precision"]
     return precision_dict
+
+
+def get_data_type_dict(attribute_options):
+    """Get precision dictionary for attribute options."""
+    data_type_dict = {}
+    for key in attribute_options.keys():
+        data_type_dict[key] = attribute_options[key]["data_type"]
+    return data_type_dict

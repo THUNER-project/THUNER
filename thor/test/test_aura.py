@@ -1,5 +1,6 @@
 """Test setup."""
 
+from memory_profiler import profile
 from pathlib import Path
 import shutil
 import os
@@ -140,7 +141,7 @@ def test_cpol_with_runtime_figures_cartesian():
     )
 
 
-def test_cpol_geographic(parallel=False):
+def test_cpol_geographic(parallel_figure=False):
     """
     Test cpol download and tracking.
     """
@@ -168,7 +169,6 @@ def test_cpol_geographic(parallel=False):
         track_options,
         visualize_options,
         output_directory=output_directory,
-        parallel="thread",
     )
 
     analysis_options = analyze.mcs.analysis_options()
@@ -179,7 +179,7 @@ def test_cpol_geographic(parallel=False):
         "mcs_velocity_analysis", style="presentation"
     )
     visualize.attribute.mcs_series(
-        output_directory, start, end, figure_options, parallel=parallel
+        output_directory, start, end, figure_options, parallel_figure=parallel_figure
     )
 
 
@@ -211,7 +211,6 @@ def test_cpol_cartesian():
         track_options,
         visualize_options,
         output_directory=output_directory,
-        parallel="thread",
     )
 
     analysis_options = analyze.mcs.analysis_options()
@@ -225,4 +224,4 @@ def test_cpol_cartesian():
 
 
 if __name__ == "__main__":
-    test_cpol_geographic(parallel=True)
+    test_cpol_geographic(parallel_figure=True)

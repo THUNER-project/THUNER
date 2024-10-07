@@ -45,11 +45,11 @@ grid_from_dataset_dispatcher = {
 
 
 generate_filepaths_dispatcher = {
-    "cpol": aura.generate_cpol_filepaths,
+    "cpol": aura.get_cpol_filepaths,
     "operational": aura.generate_operational_filepaths,
-    "gridrad": gridrad.generate_gridrad_filepaths,
-    "era5_pl": era5.generate_era5_filepaths,
-    "era5_sl": era5.generate_era5_filepaths,
+    "gridrad": gridrad.get_gridrad_filepaths,
+    "era5_pl": era5.get_era5_filepaths,
+    "era5_sl": era5.get_era5_filepaths,
     "synthetic": None,
 }
 

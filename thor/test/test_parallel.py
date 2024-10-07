@@ -5,7 +5,7 @@ from pathlib import Path
 import os
 import numpy as np
 import datetime
-import multiprocessing
+import concurrent.futures
 import thor.data as data
 import thor.data.dispatch as dispatch
 import thor.grid as grid
@@ -66,31 +66,6 @@ def setup(start, end, options_directory, grid_type="geographic"):
     return data_options, grid_options, track_options, visualize_options
 
 
-def process_interval(i, time_interval, output_parent):
-    print(f"Interval {i}: {time_interval}")
-
-    start = time_interval[0]
-    end = time_interval[1]
-
-    output_directory = output_parent / f"interval_{i}"
-    options_directory = output_directory / "options"
-
-    all_options = setup(start, end, options_directory)
-    data_options, grid_options, track_options, visualize_options = all_options
-
-    # Track
-    times = data.utils.generate_times(data_options["cpol"])
-    tracks = track.simultaneous_track(
-        times,
-        data_options,
-        grid_options,
-        track_options,
-        visualize_options,
-        output_directory=output_directory,
-        parallel=True,
-    )
-
-
 if __name__ == "__main__":
 
     # Parent directory for saving outputs
@@ -103,19 +78,13 @@ if __name__ == "__main__":
     if output_parent.exists():
         shutil.rmtree(output_parent)
 
-    setup(start, end, output_parent / "options")
-
-    with multiprocessing.Pool() as pool:
-        results = []
+    all_options = setup(start, end, output_parent / "options")
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        futures = []
         for i, time_interval in enumerate(intervals):
-            results.append(
-                pool.apply_async(process_interval, (i, time_interval, output_parent))
-            )
-        for result in results:
-            try:
-                result.get()  # Wait for the result and handle exceptions
-            except Exception as exc:
-                print(f"Generated an exception: {exc}")
+            args = [i, time_interval] + list(all_options) + [output_parent]
+            futures.append(executor.submit(parallel.track_interval, *args))
+        parallel.check_futures(futures)
 
     parallel.stitch_run(output_parent, intervals)
     analysis_options = analyze.mcs.analysis_options()
@@ -129,5 +98,5 @@ if __name__ == "__main__":
     start_time = np.datetime64("2005-11-13T12:00")
     end_time = np.datetime64("2005-11-13T22:00")
     visualize.attribute.mcs_series(
-        output_parent, start_time, end_time, figure_options, parallel=True
+        output_parent, start_time, end_time, figure_options, parallel_figure=True
     )
