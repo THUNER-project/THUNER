@@ -37,7 +37,7 @@ gridrad_names_dict = {
 
 def gridrad_data_options(
     start="2010-01-203T18:00:00",
-    end="2010-01-21T03:30:00",
+    end="2010-01-20T21:00:00",
     parent_remote="https://data.rda.ucar.edu",
     save_local=False,
     parent_local=str(get_outputs_directory() / "input_data/raw"),
@@ -328,20 +328,7 @@ def get_gridrad(time, input_record, track_options, dataset_options, grid_options
     ds, boundary_coords = convert_gridrad(
         time, filepath, track_options, dataset_options, grid_options
     )
-
-    previous_domain_mask = copy.deepcopy(input_record["current_domain_mask"])
-    previous_boundary_coords = copy.deepcopy(
-        input_record["current_boundary_coordinates"]
-    )
-    previous_boundary_mask = copy.deepcopy(input_record["current_boundary_mask"])
-
-    input_record["previous_domain_masks"].append(previous_domain_mask)
-    input_record["previous_boundary_coordinates"].append(previous_boundary_coords)
-    input_record["previous_boundary_masks"].append(previous_boundary_mask)
-
-    input_record["current_domain_mask"] = ds["domain_mask"]
-    input_record["current_boundary_coordinates"] = boundary_coords
-    input_record["current_boundary_mask"] = ds["boundary_mask"]
+    update_boundary_data(ds, boundary_coords, input_record)
     return ds
 
 
@@ -431,6 +418,22 @@ def get_domain_mask(ds, track_options, dataset_options):
     return domain_mask
 
 
+def update_boundary_data(dataset, boundary_coords, input_record):
+    previous_domain_mask = copy.deepcopy(input_record["current_domain_mask"])
+    previous_boundary_coords = copy.deepcopy(
+        input_record["current_boundary_coordinates"]
+    )
+    previous_boundary_mask = copy.deepcopy(input_record["current_boundary_mask"])
+
+    input_record["previous_domain_masks"].append(previous_domain_mask)
+    input_record["previous_boundary_coordinates"].append(previous_boundary_coords)
+    input_record["previous_boundary_masks"].append(previous_boundary_mask)
+
+    input_record["current_domain_mask"] = dataset["domain_mask"]
+    input_record["current_boundary_coordinates"] = boundary_coords
+    input_record["current_boundary_mask"] = dataset["boundary_mask"]
+
+
 def update_dataset(time, input_record, track_options, dataset_options, grid_options):
     """
     Update a gridrad dataset.
@@ -455,14 +458,16 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
     conv_options = dataset_options["converted_options"]
 
     input_record["current_file_index"] += 1
+    filepath = dataset_options["filepaths"][input_record["current_file_index"]]
     if conv_options["load"] is False:
-        dataset = convert_gridrad(
-            time, input_record, track_options, dataset_options, grid_options
-        )
+        args = [time, input_record, track_options, dataset_options, grid_options]
+        dataset = get_gridrad(*args)
     else:
-        dataset = xr.open_dataset(
-            dataset_options["filepaths"][input_record["current_file_index"]]
-        )
+        dataset = xr.open_dataset(filepath)
+        domain_mask = dataset["domain_mask"]
+        boundary_coords = utils.get_mask_boundary(domain_mask, grid_options)[0]
+        update_boundary_data(dataset, boundary_coords, input_record)
+
     if conv_options["save"]:
         utils.save_converted_dataset(dataset, dataset_options)
     input_record["dataset"] = dataset

@@ -522,7 +522,7 @@ def convert_operational():
     return ds
 
 
-def update_dataset(time, input_record, tracks, dataset_options, grid_options):
+def update_dataset(time, input_record, track_options, dataset_options, grid_options):
     """
     Update an aura dataset.
 

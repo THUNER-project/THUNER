@@ -1,3 +1,3 @@
-Thunderstorm Hierachical Object Reconnoitrer (THOR)
+Thunderstorm Hierachical Object Reconnoiterer (THOR)
 
 Package description. TBA

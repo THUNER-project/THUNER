@@ -1,6 +1,5 @@
 """Test setup."""
 
-from memory_profiler import profile
 from pathlib import Path
 import shutil
 import os
