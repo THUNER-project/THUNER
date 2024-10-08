@@ -118,11 +118,12 @@ def from_pressure_levels(names, previous_time, lats, lons, ds, grid_options):
         raise ValueError("Dataset must contain pressure levels or geopotential.")
 
     logger.debug(f"Interpolating from pressure levels to altitude using geopotential.")
-
+    ds["longitude"] = ds["longitude"] % 360
     profiles = ds[names + ["geopotential"]]
 
     lats_da = xr.DataArray(lats, dims="points")
     lons_da = xr.DataArray(lons, dims="points")
+    lons_da = lons_da % 360
     args_dict = {"latitude": lats_da, "longitude": lons_da}
     args_dict.update({"time": previous_time.astype("datetime64[ns]")})
     args_dict.update({"method": "linear"})

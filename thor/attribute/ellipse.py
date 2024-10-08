@@ -4,7 +4,7 @@ functions ellipse attributes.
 
 import numpy as np
 import xarray as xr
-import cv2 as cv
+import cv2
 from skimage.morphology.convex_hull import convex_hull_image
 from thor.log import setup_logger
 from thor.attribute import core
@@ -12,6 +12,9 @@ import thor.grid as grid
 import thor.attribute.utils as utils
 
 logger = setup_logger(__name__)
+# Set the number of cv2 threads to 0 to avoid crashes.
+# See https://github.com/opencv/opencv/issues/5150#issuecomment-675019390
+cv2.setNumThreads(0)
 
 
 def coordinate(name, method=None, description=None):
@@ -131,18 +134,18 @@ def geographic_pixel_to_distance(latitude, longitude, spacing, axis, orientation
 def cv2_ellipse(mask, id, grid_options):
     lats, lons = grid_options["latitude"], grid_options["longitude"]
     hull = convex_hull_image(mask == id).astype(np.uint8)
-    contours = cv.findContours(hull, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)[0]
+    contours = cv2.findContours(hull, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)[0]
 
     # Check if small object, and pad if necessary
     if len(contours[0]) > 6:
-        ellipse_properties = cv.fitEllipseDirect(contours[0])
+        ellipse_properties = cv2.fitEllipseDirect(contours[0])
     else:
         print("Object too small to fit ellipse. Retrying with padded contour.")
         new_contour = []
         for r in contours[0]:
             [new_contour.append(r) for i in range(3)]
         new_contour = np.array(new_contour)
-        ellipse_properties = cv.fitEllipseDirect(new_contour)
+        ellipse_properties = cv2.fitEllipseDirect(new_contour)
     [(column, row), (axis_1, axis_2), orientation] = ellipse_properties
     orientation = np.deg2rad(orientation)
 

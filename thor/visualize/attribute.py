@@ -22,8 +22,26 @@ logger = setup_logger(__name__)
 proj = ccrs.PlateCarree()
 
 
-mcs_legend_options = {"loc": "lower center", "bbox_to_anchor": (1.15, -0.35), "ncol": 3}
-mcs_legend_options.update({"fancybox": True, "shadow": True})
+mcs_legend_options = {"loc": "lower center", "bbox_to_anchor": (1.15, -0.375)}
+mcs_legend_options.update({"ncol": 3, "fancybox": True, "shadow": True})
+
+
+def get_altitude_labels(track_options, mcs_name="mcs", mcs_level=1):
+    """Get altitude labels for convective and stratiform objects."""
+    mcs_options = track_options[mcs_level][mcs_name]
+    convective = mcs_options["grouping"]["member_objects"][0]
+    convective_level = mcs_options["grouping"]["member_levels"][0]
+    stratiform = mcs_options["grouping"]["member_objects"][-1]
+    stratiform_level = mcs_options["grouping"]["member_levels"][-1]
+    convective_options = track_options[convective_level][convective]
+    stratiform_options = track_options[stratiform_level][stratiform]
+    convective_altitudes = np.array(convective_options["detection"]["altitudes"])
+    stratiform_altitudes = np.array(stratiform_options["detection"]["altitudes"])
+    convective_altitudes = np.round(convective_altitudes / 1e3, 1)
+    stratiform_altitudes = np.round(stratiform_altitudes / 1e3, 1)
+    convective_label = f"{convective_altitudes[0]:g} to {convective_altitudes[1]:g} km"
+    stratiform_label = f"{stratiform_altitudes[0]:g} to {stratiform_altitudes[1]:g} km"
+    return convective_label + " Altitude", stratiform_label + " Altitude"
 
 
 def mcs_series(
@@ -35,6 +53,8 @@ def mcs_series(
     dataset_name=None,
     animate=True,
     parallel_figure=False,
+    dt=3600,
+    by_date=True,
 ):
     """Visualize mcs attributes at specified times."""
     plt.close("all")
@@ -59,14 +79,9 @@ def mcs_series(
     times = times[(times >= start_time) & (times <= end_time)]
     record_filepath = output_directory / f"records/filepaths/{dataset_name}.csv"
     filepaths = read_attribute_csv(record_filepath)
-    convert = dispatch.convert_dataset_dispatcher.get(dataset_name)
-    if convert is None:
-        message = f"Dataset {dataset_name} not found in dispatch."
-        raise KeyError(message)
-    # Generate first figure to create template
     time = times[0]
     args = [time, filepaths, masks, output_directory, figure_options]
-    args += [options, track_options, dataset_name, convert]
+    args += [options, track_options, dataset_name, dt]
     visualize_mcs(*args)
     if len(times) == 1:
         # Switch back to original backend
@@ -77,13 +92,13 @@ def mcs_series(
             futures = []
             for time in times[1:]:
                 args = [time, filepaths, masks, output_directory, figure_options]
-                args += [options, track_options, dataset_name, convert]
+                args += [options, track_options, dataset_name, dt]
                 futures.append(executor.submit(visualize_mcs, *args))
             parallel.check_futures(futures)
     else:
         for time in times[1:]:
             args = [time, filepaths, masks, output_directory, figure_options]
-            args += [options, track_options, dataset_name, convert]
+            args += [options, track_options, dataset_name, dt]
             visualize_mcs(*args)
     if animate:
         figure_name = figure_options["name"]
@@ -91,7 +106,7 @@ def mcs_series(
         figure_directory = output_directory / f"visualize/{figure_name}"
         args = [figure_name, "mcs", output_directory, save_directory]
         args += [figure_directory, figure_name]
-        animate_object(*args)
+        animate_object(*args, by_date=by_date)
     # Switch back to original backend
     matplotlib.use(original_backend)
 
@@ -105,30 +120,43 @@ def visualize_mcs(
     options,
     track_options,
     dataset_name,
-    convert,
+    dt,
 ):
     """Wrapper for mcs_horizontal."""
     filepath = filepaths[dataset_name].loc[time]
-    args = [time, filepath, options["data"][dataset_name], options["grid"]]
+    dataset_options = options["data"][dataset_name]
+    convert = dispatch.convert_dataset_dispatcher.get(dataset_name)
+    if convert is None:
+        message = f"Dataset {dataset_name} not found in dispatch."
+        logger.debug(f"Getting grid from dataset at time {time}.")
+        raise KeyError(message)
+    convert_args_dispatcher = {
+        "cpol": [time, filepath, dataset_options, options["grid"]],
+        "gridrad": [time, filepath, track_options, dataset_options, options["grid"]],
+    }
+    args = convert_args_dispatcher[dataset_name]
     ds, boundary_coords = convert(*args)
+    logger.debug(f"Getting grid from dataset at time {time}.")
     get_grid = dispatch.grid_from_dataset_dispatcher.get(dataset_name)
     if get_grid is None:
         message = f"Dataset {dataset_name} not found in grid from dataset "
         message += "dispatcher."
         raise KeyError(message)
     grid = get_grid(ds, "reflectivity", time)
+    logger.debug(f"Rebuilding processed grid for time {time}.")
     processed_grid = detect.rebuild_processed_grid(grid, track_options, "mcs", 1)
     mask = masks.sel(time=time)
     args = [output_directory, processed_grid, mask, boundary_coords]
     args += [figure_options, options["grid"]]
     figure_name = figure_options["name"]
     with plt.style.context(styles[figure_options["style"]]):
-        fig, ax = mcs_horizontal(*args)
+        fig, ax = mcs_horizontal(*args, dt=dt)
         filename = f"{format_time(time)}.png"
         filepath = output_directory / f"visualize/{figure_name}/{filename}"
         filepath.parent.mkdir(parents=True, exist_ok=True)
         logger.debug(f"Saving {figure_name} figure for {time}.")
         fig.savefig(filepath, bbox_inches="tight")
+        plt.close(fig)
 
 
 def mcs_horizontal(
@@ -140,12 +168,17 @@ def mcs_horizontal(
     grid_options,
     convective_label="cell",
     anvil_label="anvil",
+    dt=3600,
 ):
     """Create a horizontal cross section plot."""
     member_objects = [convective_label, anvil_label]
+    options = read_options(output_directory)
+    track_options = options["track"]
 
     args = [grid, mask, grid_options, figure_options, member_objects]
     args += [boundary_coordinates]
+    time = grid.time.values
+    logger.debug(f"Creating grouped mask figure at time {time}.")
     fig, axes = horizontal.grouped_mask(*args)
 
     time = grid.time.values
@@ -176,18 +209,23 @@ def mcs_horizontal(
     for obj_id in objs:
         obj_attr = attributes.loc[obj_id]
         args = [axes, figure_options, obj_attr]
-        velocity_attributes_horizontal(*args)
+        velocity_attributes_horizontal(*args, dt=dt)
         displacement_attributes_horizontal(*args)
         ellipse_attributes(*args)
 
     style = figure_options["style"]
     key_color = figure_colors[style]["key"]
-    horizontal.vector_key(axes[0], color=key_color)
-    axes[0].set_title("Convective Echo")
-    axes[1].set_title("Anvil Echo")
+    horizontal.vector_key(axes[0], color=key_color, dt=dt)
+    args_dict = {"mcs_name": "mcs", "mcs_level": 1}
+    convective_label, stratiform_label = get_altitude_labels(track_options, **args_dict)
+
+    axes[0].set_title(convective_label)
+    axes[1].set_title(stratiform_label)
 
     # Get legend proxy artists
     legend_handles = []
+    handle = horizontal.domain_boundary_legend_artist()
+    legend_handles += [handle]
     handle = horizontal.ellipse_legend_artist("Major Axis", figure_options["style"])
     legend_handles += [handle]
     attribute_names = figure_options["attributes"]
@@ -238,7 +276,7 @@ quality_dispatcher = {
 }
 
 
-def velocity_attributes_horizontal(axes, figure_options, object_attributes):
+def velocity_attributes_horizontal(axes, figure_options, object_attributes, dt=3600):
     """
     Add velocity attributes. Assumes the attribtes dataframe has already
     been subset to the desired time and object, so is effectively a dictionary.
@@ -259,7 +297,7 @@ def velocity_attributes_horizontal(axes, figure_options, object_attributes):
         color = colors_dispatcher[attribute]
         label = label_dispatcher[attribute]
         args = [axes[0], latitude, longitude, u, v, color, label]
-        axes[0] = horizontal.cartesian_velocity(*args, quality=quality)
+        axes[0] = horizontal.cartesian_velocity(*args, quality=quality, dt=dt)
 
     return legend_handles
 

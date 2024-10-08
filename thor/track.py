@@ -248,8 +248,6 @@ def simultaneous_track(
     # Animate the relevant figures
     visualize.visualize.animate_all(visualize_options, output_directory)
 
-    return tracks
-
 
 def track_level(
     time,

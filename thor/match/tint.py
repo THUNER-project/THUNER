@@ -279,6 +279,7 @@ def get_matches(object_tracks, object_options, grid_options):
         parents.append(None)
         if cost >= max_cost:
             # Set to -1 if object has died (or merged)
+            logger.debug(f"Cost {cost} exceeds max_cost {max_cost}.")
             matches[1][i] = -1
     matches = matches[1] + 1  # Recall ids are 1 indexed. Dead objects now set to zero
     match_data = costs_data.copy()

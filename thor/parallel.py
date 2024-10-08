@@ -1,6 +1,7 @@
 """Parallel processing utilities."""
 
 import shutil
+import os
 import glob
 from pathlib import Path
 import pandas as pd
@@ -36,6 +37,7 @@ def track_interval(
     track_options,
     visualize_options,
     output_parent,
+    dataset_name,
 ):
     output_directory = output_parent / f"interval_{i}"
     options_directory = output_directory / "options"
@@ -43,7 +45,7 @@ def track_interval(
     data.option.save_data_options(interval_data_options, options_directory)
     grid.save_grid_options(grid_options, options_directory)
     option.save_track_options(track_options, options_directory)
-    times = data.utils.generate_times(interval_data_options["cpol"])
+    times = data.utils.generate_times(interval_data_options[dataset_name])
     args = [times, interval_data_options, grid_options, track_options]
     args += [visualize_options, output_directory]
     track.simultaneous_track(*args)
@@ -79,15 +81,31 @@ def check_futures(futures):
             logger.error("Generated an exception: %s", exc)
 
 
-def generate_time_intervals(start, end, period="h", overlap=pd.Timedelta(10, "m")):
-    start = pd.Timestamp(start).floor(period)
-    end = pd.Timestamp(end).ceil(period)
+def get_period(start, end, minimum_period=pd.Timedelta(1, "h")):
+    """
+    Get a suitable interval period for parallel processing based on number of cpus.
+    """
+    total_interval = pd.Timestamp(end) - pd.Timestamp(start)
+    period = total_interval / os.cpu_count()
+    # Get the interval in units of minimum_period
+    period = period.ceil(minimum_period)
+    period = max(period, minimum_period)
+    return period
+
+
+def get_time_intervals(
+    start, end, period=pd.Timedelta(1, "h"), overlap=pd.Timedelta(10, "m")
+):
+    start = pd.Timestamp(start).floor(pd.Timedelta(1, "h"))
+    end = pd.Timestamp(end)
     intervals = []
-    previous, next = start, start + pd.Timedelta(1, period) + overlap
+    previous, next = start, start + period + overlap
     while next <= end:
         intervals.append((str(previous), str(next)))
         previous = next - overlap
-        next = previous + pd.Timedelta(1, period) + overlap
+        next = previous + period + overlap
+    if next > end:
+        intervals.append((str(previous), str(end)))
     return intervals
 
 

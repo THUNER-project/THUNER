@@ -45,6 +45,8 @@ def write_attributes(directory, last_write_str, attributes, attribute_options):
     directory.mkdir(parents=True, exist_ok=True)
     filepath = directory / f"{format_time(last_write_str)}.csv"
     df = utils.attributes_dataframe(attributes, attribute_options)
+    precicion_dict = utils.get_precision_dict(attribute_options)
+    df = df.round(precicion_dict)
     df.to_csv(filepath, na_rep="NA")
 
 

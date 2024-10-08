@@ -62,13 +62,31 @@ def offset_from_centers(name, object_tracks, attribute_options):
     """Calculate offset between object centers."""
     member_attributes = object_tracks["current_attributes"]["member_objects"]
     objects = attribute_options[name]["method"]["args"]["objects"]
+    grouped_object = object_tracks["name"]
     if len(objects) != 2:
         raise ValueError("Offset calculation requires two objects.")
+    core_attributes = object_tracks["current_attributes"][grouped_object]["core"]
+    if "universal_id" in core_attributes.keys():
+        id_type = "universal_id"
+    else:
+        id_type = "id"
+    ids = np.array(core_attributes[id_type])
+    ids_1 = np.array(member_attributes[objects[0]]["core"][id_type])
+    ids_2 = np.array(member_attributes[objects[1]]["core"][id_type])
     lats1 = np.array(member_attributes[objects[0]]["core"]["latitude"])
     lons1 = np.array(member_attributes[objects[0]]["core"]["longitude"])
     lats2 = np.array(member_attributes[objects[1]]["core"]["latitude"])
     lons2 = np.array(member_attributes[objects[1]]["core"]["longitude"])
-    args = [lats1, lons1, lats2, lons2]
+
+    lats3, lons3, lats4, lons4 = [], [], [], []
+    # Re-order the arrays so that the ids match
+    for i in range(len(ids)):
+        lats3.append(lats1[ids_1 == ids[i]][0])
+        lons3.append(lons1[ids_1 == ids[i]][0])
+        lats4.append(lats2[ids_2 == ids[i]][0])
+        lons4.append(lons2[ids_2 == ids[i]][0])
+
+    args = [lats3, lons3, lats4, lons4]
     y_offsets, x_offsets = grid.geographic_to_cartesian_displacement(*args)
     # Convert to km
     y_offsets, x_offsets = y_offsets / 1000, x_offsets / 1000

@@ -20,6 +20,9 @@ from thor.object.box import get_geographic_box_coords
 import thor.grid as thor_grid
 
 logger = setup_logger(__name__)
+# Set the number of cv2 threads to 0 to avoid crashes.
+# See https://github.com/opencv/opencv/issues/5150#issuecomment-675019390
+cv2.setNumThreads(0)
 
 proj = ccrs.PlateCarree()
 domain_plot_style = {"color": "tab:red", "linewidth": 1, "alpha": 0.8}
@@ -100,6 +103,13 @@ def add_domain_boundary(ax, boundaries):
         lats = boundary["latitude"]
         ax.plot(lons, lats, **domain_plot_style)
     return ax
+
+
+def domain_boundary_legend_artist():
+    """Create a legend artist for a domain boundary."""
+    legend_artist = mlines.Line2D([], [], **domain_plot_style)
+    legend_artist.set_label("Domain Boundary")
+    return legend_artist
 
 
 def add_cartographic_features(
@@ -227,10 +237,6 @@ arrow_options.update({"zorder": 3, "transform": proj})
 arrow_origin_options = {"marker": "o", "zorder": 3, "markersize": 1, "transform": proj}
 
 
-vector_options = {"color": "w", "zorder": 5, "head_width": 0.016, "head_length": 0.024}
-vector_options.update({"length_includes_head": True, "transform": proj})
-
-
 def get_geographic_vector_scale(grid_options):
     """
     Scale vectors so that a vector of 1 gridcell corresponds to 1/50 of the domain.
@@ -245,18 +251,33 @@ def get_geographic_vector_scale(grid_options):
     return vector_scale
 
 
-displacement_linewidth = 2
-ellipse_axis_linewidth = 2
+displacement_linewidth = 3
+head_width = 0.01  # Specified in percent of x limits
+head_length = 0.0125  # Specified in percent of x limits
+ellipse_axis_linewidth = 1
+
+
+def percent_to_data(ax, percent):
+    """Get the percentage of x limits."""
+    x_min, x_max = ax.get_xlim()
+    data = percent * (x_max - x_min)
+    return data
+
+
+vector_options = {"color": "w", "zorder": 5, "head_width": head_width}
+vector_options.update({"head_length": head_length})
+vector_options.update({"linewidth": displacement_linewidth / 3})
+vector_options.update({"length_includes_head": True, "transform": proj})
 
 
 def displacement_legend_artist(color, label):
     """Create a legend artist for a displacement provided in cartesian coordinates."""
     linewidth = displacement_linewidth
     path_effects = [
-        patheffects.Stroke(linewidth=linewidth + 2, foreground=color),
+        patheffects.Stroke(linewidth=linewidth, foreground=color),
         patheffects.Normal(),
     ]
-    args_dict = {"color": "w", "linewidth": linewidth - 0.5, "linestyle": "-"}
+    args_dict = {"color": "w", "linewidth": linewidth / 3, "linestyle": "-"}
     args_dict.update({"zorder": 4, "transform": proj, "path_effects": path_effects})
     legend_artist = mlines.Line2D([], [], **args_dict)
     legend_artist.set_label(label)
@@ -264,16 +285,17 @@ def displacement_legend_artist(color, label):
     return legend_artist
 
 
-def vector_key(ax, u=10, v=0, color="k"):
+def vector_key(ax, u=-10, v=0, color="k", dt=3600):
     """Add a vector key to the plot."""
     fig = ax.get_figure()
-    start_point = fig.transFigure.transform((0.85, 1))
+    start_point = fig.transFigure.transform((0.875, 1))
     [longitude, latitude] = ax.transData.inverted().transform(start_point)
+    longitude = longitude % 360
     args = [ax, latitude, longitude, u, v, color, None]
-    cartesian_velocity(*args, quality=True)
-    start_point = fig.transFigure.transform((0.915, 1))
+    cartesian_velocity(*args, quality=True, dt=dt)
+    start_point = fig.transFigure.transform((0.89, 1))
     [longitude, latitude] = ax.transData.inverted().transform(start_point)
-    ax.text(longitude, latitude, f"{u} m/s", ha="left", va="center")
+    ax.text(longitude, latitude, f"{np.abs(u)} m/s", ha="left", va="center")
 
 
 def ellipse_axis(
@@ -290,6 +312,7 @@ def ellipse_axis(
     axis_color = colors["ellipse_axis"]
     shadow_color = colors["ellipse_axis_shadow"]
     args_dict = {"shadow_color": shadow_color, "alpha": 0.9}
+    args_dict.update({"offset": (ellipse_axis_linewidth, -ellipse_axis_linewidth)})
     path_effects = [patheffects.SimpleLineShadow(**args_dict), patheffects.Normal()]
     args_dict = {"color": axis_color, "linewidth": ellipse_axis_linewidth}
     args_dict.update({"zorder": 3, "path_effects": path_effects, "transform": proj})
@@ -328,18 +351,26 @@ def cartesian_displacement(
     azimuth = (90 - vector_direction) % 360
     args = [start_longitude, start_latitude, azimuth, distance]
     end_longitude, end_latitude = thor_grid.geodesic_forward(*args)[:2]
+    # Ensure that the end longitude is within the range [0, 360).
+    end_longitude = end_longitude % 360
     dlon = end_longitude - start_longitude
     dlat = end_latitude - start_latitude
 
     args = [start_longitude, start_latitude, dlon, dlat]
     path_effects = [
-        patheffects.Stroke(linewidth=linewidth + 2, foreground=color),
+        patheffects.Stroke(linewidth=linewidth, foreground=color),
         patheffects.Normal(),
     ]
     args_dict = {"path_effects": path_effects}
     tmp_vector_options = copy.deepcopy(vector_options)
     if not arrow:
         tmp_vector_options.update({"head_width": 0, "head_length": 0})
+    else:
+        width = tmp_vector_options["head_width"]
+        length = tmp_vector_options["head_length"]
+        new_width = percent_to_data(ax, width)
+        new_length = percent_to_data(ax, length)
+        tmp_vector_options.update({"head_width": new_width, "head_length": new_length})
     if quality:
         ax.arrow(*args, **tmp_vector_options, **args_dict, clip_on=False)
 

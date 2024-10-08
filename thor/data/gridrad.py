@@ -36,8 +36,9 @@ gridrad_names_dict = {
 
 
 def gridrad_data_options(
-    start="2010-01-203T18:00:00",
+    start="2010-01-20T18:00:00",
     end="2010-01-20T21:00:00",
+    event_start="2010-01-20",
     parent_remote="https://data.rda.ucar.edu",
     save_local=False,
     parent_local=str(get_outputs_directory() / "input_data/raw"),
@@ -69,7 +70,7 @@ def gridrad_data_options(
     )
 
     options.update({"fields": fields, "version": version, "dataset_id": dataset_id})
-    options.update({"obs_thresh": obs_thresh})
+    options.update({"obs_thresh": obs_thresh, "event_start": event_start})
 
     return options
 
@@ -335,12 +336,12 @@ def get_gridrad(time, input_record, track_options, dataset_options, grid_options
 def convert_gridrad(time, filepath, track_options, dataset_options, grid_options):
     """Convert gridrad data to the standard format."""
 
+    logger.debug(f"Converting GridRad dataset at time {time}.")
+
     # Open the dataset and perform preliminary filtering and decluttering
     ds = open_gridrad(filepath, dataset_options)
     ds = filter(ds, refl_thresh=-10)
     ds = remove_clutter(ds)
-
-    logger.debug("Restructuring GridRad dataset.")
 
     # Ensure the intended time is in the dataset
     if time not in ds.time.values:
@@ -351,6 +352,7 @@ def convert_gridrad(time, filepath, track_options, dataset_options, grid_options
     names_dict.update({"Altitude": "altitude", "Reflectivity": "reflectivity"})
     names_dict.update({"Nradobs": "number_of_observations"})
     names_dict.update({"Nradecho": "number_of_echoes"})
+
     ds = ds.rename(names_dict)
 
     for dim in ["latitude", "longitude", "altitude"]:
@@ -374,10 +376,7 @@ def convert_gridrad(time, filepath, track_options, dataset_options, grid_options
         grid_options["geographic_spacing"] = spacing
         grid_options["shape"] = [len(ds.latitude), len(ds.longitude)]
 
-    cell_areas = grid.get_cell_areas(grid_options)
-    ds["gridcell_area"] = (["latitude", "longitude"], cell_areas)
-    area_attrs = {"units": "km^2", "standard_name": "area", "valid_min": 0}
-    ds["gridcell_area"].attrs.update(area_attrs)
+    ds["longitude"] = ds["longitude"] % 360
 
     # Get the domain mask associated with the given object
     # Note the relevant domain mask is a function of how the object is detected, e.g.
@@ -390,6 +389,11 @@ def convert_gridrad(time, filepath, track_options, dataset_options, grid_options
     # Apply the domain mask to the current grid
     ds = ds.where(domain_mask)
 
+    # Don't mask the gridcell areas
+    cell_areas = grid.get_cell_areas(grid_options)
+    ds["gridcell_area"] = (["latitude", "longitude"], cell_areas)
+    area_attrs = {"units": "km^2", "standard_name": "area", "valid_min": 0}
+    ds["gridcell_area"].attrs.update(area_attrs)
     return ds, boundary_coords
 
 
@@ -410,11 +414,12 @@ def get_domain_mask(ds, track_options, dataset_options):
                 domain_masks.append(mask)
     # Combine the masks
     if len(domain_masks) == 0:
-        raise ValueError(
-            f"{dataset_name} not used for object detection. Check track_options."
-        )
+        message = f"{dataset_name} not used for object detection. Check track_options."
+        logger.debug(message)
+        raise ValueError(message)
     domain_mask = reduce(lambda x, y: x * y, domain_masks)
     domain_mask = utils.smooth_mask(domain_mask)
+    logger.debug(f"Got domain mask for {dataset_name}.")
     return domain_mask
 
 
@@ -506,19 +511,25 @@ def get_gridrad_filepaths(options):
 
     times = np.arange(start, end + np.timedelta64(10, "m"), np.timedelta64(10, "m"))
     times = pd.DatetimeIndex(times)
+    start, end = pd.Timestamp(start), pd.Timestamp(end)
 
-    for time in times:
-        filepath = (
-            f"{base_url}/{time.year}/{time.year}{time.month:02}{time.day:02}/"
-            f"nexrad_3d_{options['version']}_"
-            f"{time.year}{time.month:02}{time.day:02}T"
-            f"{time.hour:02}{time.minute:02}00Z.nc"
-        )
-        filepaths.append(filepath)
+    # Note gridrad severe directories are organized by the day the event "started"
+    if options["dataset_id"] == "ds841.6":
+        event_start = pd.Timestamp(options["event_start"])
+        base_filepath = f"{base_url}/{event_start.year}/"
+        base_filepath += f"{event_start.year}{event_start.month:02}{event_start.day:02}"
+        for time in times:
+            filepath = (
+                f"{base_filepath}/nexrad_3d_{options['version']}_"
+                f"{time.year}{time.month:02}{time.day:02}T"
+                f"{time.hour:02}{time.minute:02}00Z.nc"
+            )
+            filepaths.append(filepath)
     return sorted(filepaths)
 
 
 def gridrad_grid_from_dataset(dataset, variable, time):
     """Get a THOR grid from a GridRad dataset."""
     grid = dataset[variable].sel(time=time)
+    logger.debug(f"Got grid from dataset at time {time}.")
     return grid

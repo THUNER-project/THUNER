@@ -73,7 +73,7 @@ if __name__ == "__main__":
     start = "2005-11-13T14:00"
     end = "2005-11-13T18:00"
 
-    intervals = parallel.generate_time_intervals(start, end)
+    intervals = parallel.get_time_intervals(start, end)
     output_parent = base_local / "runs/cpol_demo_parallel"
     if output_parent.exists():
         shutil.rmtree(output_parent)

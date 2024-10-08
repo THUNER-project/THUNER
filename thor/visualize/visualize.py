@@ -25,14 +25,9 @@ pcolormesh_style = {
     },
 }
 
-mask_colors = [
-    "cyan",
-    "magenta",
-    "purple",
-    "teal",
-    "saddlebrown",
-    "hotpink",
-]
+mask_colors = ["cyan", "magenta", "purple", "teal", "saddlebrown"]
+mask_colors += ["hotpink", "darkslategrey", "rosybrown", "plum"]
+mask_colors += ["indigo", "darksalmon", "tan"]
 
 figure_colors = {
     "paper": {
@@ -91,6 +86,7 @@ def animate_object(
     save_directory=None,
     figure_directory=None,
     animation_name=None,
+    by_date=True,
 ):
     """
     Animate object figures.
@@ -105,11 +101,17 @@ def animate_object(
     logger.info(f"Animating {fig_type} figures for {obj} objects.")
 
     filepaths, dates = get_filepaths_dates(figure_directory)
-    for date in np.unique(dates):
-        filepaths_date = filepaths[dates == date]
-        output_filepath = save_directory / f"{animation_name}_{date}.gif"
+    if by_date:
+        for date in np.unique(dates):
+            filepaths_date = filepaths[dates == date]
+            output_filepath = save_directory / f"{animation_name}_{date}.gif"
+            logger.info(f"Saving animation to {output_filepath}.")
+            images = [Image.open(f) for f in filepaths_date]
+            imageio.mimsave(output_filepath, images, fps=5, loop=0)
+    else:
+        output_filepath = save_directory / f"{animation_name}.gif"
         logger.info(f"Saving animation to {output_filepath}.")
-        images = [Image.open(f) for f in filepaths_date]
+        images = [Image.open(f) for f in filepaths]
         imageio.mimsave(output_filepath, images, fps=5, loop=0)
 
 

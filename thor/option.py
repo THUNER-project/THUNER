@@ -65,7 +65,7 @@ def tint_options(
 
 
 def mint_options(
-    search_margin=25,  # km
+    search_margin=35,  # km
     local_flow_margin=35,  # km
     global_flow_margin=150,  # km
     unique_global_flow=True,
@@ -204,10 +204,10 @@ def detected_object(
 
     if attribute_options is None:
         attribute_options = {"core": attribute.core.default()}
-        attribute_options.update(
-            {"profile": attribute.profile.default([profile_dataset])}
-        )
-        attribute_options.update({"tag": attribute.tag.default([tag_dataset])})
+        # attribute_options.update(
+        #     {"profile": attribute.profile.default([profile_dataset])}
+        # )
+        # attribute_options.update({"tag": attribute.tag.default([tag_dataset])})
         attribute_options.update({"quality": attribute.quality.default()})
 
     options = {
@@ -295,7 +295,7 @@ def grouped_object(
             member_options[member_objects[i]] = {}
             member_options[member_objects[i]]["core"] = core_untracked
             member_options[member_objects[i]]["quality"] = attribute.quality.default()
-            member_options[member_objects[0]]["ellipse"] = attribute.ellipse.default()
+            # member_options[member_objects[0]]["ellipse"] = attribute.ellipse.default()
         # Define the attributes for the grouped object.
         attribute_options[name]["core"] = core_tracked
         attribute_options[name]["group"] = attribute.group.default()
@@ -529,8 +529,8 @@ def mcs(dataset, **kwargs):
 
     # Create the attribute dictionary for the unmatched/untracked middle_echo objects.
     # For the cell and anvil objects, attributes are obtained from matching.
-    middle_attr_options = {"core": attribute.core.default(tracked=False)}
-    middle_attr_options.update({"quality": attribute.quality.default(matched=False)})
+    untracked_attr_options = {"core": attribute.core.default(tracked=False)}
+    untracked_attr_options.update({"quality": attribute.quality.default(matched=False)})
 
     options = [
         {
@@ -539,7 +539,8 @@ def mcs(dataset, **kwargs):
                 dataset=dataset,
                 flatten_method="vertical_max",
                 threshold=40,
-                tracking_method="mint",
+                tracking_method=None,
+                attribute_options=untracked_attr_options,
                 **kwargs,
             ),
             "middle_echo": cell_object(
@@ -550,13 +551,14 @@ def mcs(dataset, **kwargs):
                 detection_method="threshold",
                 flatten_method="vertical_max",
                 altitudes=[3500, 7000],
-                attribute_options=middle_attr_options,
+                attribute_options=untracked_attr_options,
                 **kwargs,
             ),
             "anvil": anvil_object(
                 altitudes=[7500, 10000],
                 dataset=dataset,
-                tracking_method="mint",
+                tracking_method=None,
+                attribute_options=untracked_attr_options,
                 **kwargs,
             ),
         },

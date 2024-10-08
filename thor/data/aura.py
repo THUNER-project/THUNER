@@ -498,6 +498,8 @@ def convert_cpol(time, filepath, dataset_options, grid_options):
         grid_options["altitude"] = ds["altitude"].values
     else:
         ds = ds.interp(altitude=grid_options["altitude"], method="linear")
+    # THOR convention uses longitude in the range [0, 360]
+    ds["longitude"] = ds["longitude"] % 360
 
     # Get the domain mask and domain boundary. Note this is the region where data
     # exists, not the detected object masks from the detect module.

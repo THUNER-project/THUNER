@@ -16,8 +16,10 @@ from thor.log import setup_logger
 from thor.utils import format_time
 from thor.utils import haversine
 
-
 logger = setup_logger(__name__, level="DEBUG")
+# Set the number of cv2 threads to 0 to avoid crashes.
+# See https://github.com/opencv/opencv/issues/5150#issuecomment-675019390
+cv2.setNumThreads(0)
 
 
 def generate_times(options, attempt_download=True):
@@ -356,6 +358,7 @@ def call_ncks(input_filepath, output_filepath, start, end, lat_range, lon_range)
     else:
         time_var = "time"
 
+    lon_range = [(lon + 180) % 360 - 180 for lon in lon_range]
     command = (
         f"ncks -d {time_var},{start},{end} "
         f"-d latitude,{lat_range[0]},{lat_range[1]} "

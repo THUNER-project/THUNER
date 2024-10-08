@@ -24,3 +24,5 @@ xesmf
 opencv-python
 awscli
 tables
+memory_profiler
+psutil

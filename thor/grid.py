@@ -344,7 +344,6 @@ def get_geographic_cell_areas(lats, lons):
         areas = dx * dy
         areas = np.apply_along_axis(pad, axis=0, arr=areas)
         areas = np.apply_along_axis(pad, axis=1, arr=areas)
-
     return areas / 1e6  # Convert to km^2
 
 
