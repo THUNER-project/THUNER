@@ -2,7 +2,15 @@
 
 import string
 import numpy as np
+from PIL import Image
 import matplotlib.pyplot as plt
+
+
+def reduce_color_depth(filepath, num_colors=256):
+    """Reduce color depth of png image."""
+    image = Image.open(filepath)
+    image = image.convert("P", palette=Image.ADAPTIVE, colors=num_colors)
+    image.save(filepath)
 
 
 def get_extent(grid_options):

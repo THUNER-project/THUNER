@@ -7,6 +7,7 @@ import xarray as xr
 from thor.utils import format_time
 from thor.log import setup_logger
 import thor.write.utils as utils
+from thor.data.utils import get_encoding
 
 logger = setup_logger(__name__)
 
@@ -85,6 +86,7 @@ def aggregate(track_options, output_directory, clean_up=True):
             filepaths = glob.glob(f"{output_directory}/masks/{obj}/*.nc")
             masks = xr.open_mfdataset(filepaths)
             masks = masks.astype(np.uint32)
-            masks.to_netcdf(output_directory / f"masks/{obj}.nc")
+            encoding = get_encoding(masks)
+            masks.to_netcdf(output_directory / f"masks/{obj}.nc", encoding=encoding)
             if clean_up:
                 shutil.rmtree(output_directory / f"masks/{obj}")

@@ -7,8 +7,8 @@ import requests
 from tqdm import tqdm
 import cdsapi
 import cv2
+from urllib.request import build_opener
 import numpy as np
-import pandas as pd
 import xarray as xr
 from skimage.morphology import remove_small_objects, remove_small_holes
 from scipy.ndimage import binary_dilation, binary_erosion
@@ -22,17 +22,109 @@ logger = setup_logger(__name__, level="DEBUG")
 cv2.setNumThreads(0)
 
 
+def url_to_filepath(url, parent_remote, parent_local):
+    """Convert remote URL to local file path."""
+    if not isinstance(url, str):
+        raise TypeError("url must be a string")
+
+    parent_remote = parent_remote.rstrip("/")
+    parent_local = parent_local.rstrip("/")
+    return url.replace(parent_remote, parent_local)
+
+
+def download_with_requests(url, parent_remote, parent_local):
+    """
+    Downloads a file from the given URL and saves it to the specified directory.
+
+    Parameters
+    ----------
+    url : str
+        The URL of the file to download.
+    directory : str
+        The directory where the downloaded file will be saved.
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    None
+    """
+
+    filepath = Path(url_to_filepath(url, parent_remote, parent_local))
+    if not filepath.parent.exists():
+        filepath.parent.mkdir(parents=True)
+
+    partial_filepath = filepath.with_suffix(".part")
+
+    if filepath.exists():
+        logger.info("%s already exists.", filepath)
+        return str(filepath)
+    if partial_filepath.exists():
+        logger.info("Resuming download of %s...", url)
+        already_downloaded = partial_filepath.stat().st_size
+        resume_header = {"Range": f"bytes={partial_filepath.stat().st_size}-"}
+    else:
+        logger.info("Initiating download of %s...", url)
+        already_downloaded = 0
+        resume_header = {}
+
+    # Send a HTTP request to the URL
+    logger.info("Sending HTTP request to %s.", url)
+    response = requests.get(url, headers=resume_header, stream=True, timeout=10)
+    # Check if the request is successful
+    if response.status_code == 200 or response.status_code == 206:
+        total_size_in_bytes = (
+            int(response.headers.get("content-length", 0)) + already_downloaded
+        )
+        block_size = 1024  # 1 Kibibyte
+        progress_bar = tqdm(total=total_size_in_bytes, unit="iB", unit_scale=True)
+        progress_bar.update(already_downloaded)
+        # Open a .zip file in the temporary directory
+        with open(partial_filepath, "ab") as f:
+            for data in response.iter_content(block_size):
+                progress_bar.update(len(data))
+                f.write(data)
+        progress_bar.close()
+        partial_filepath.rename(filepath)
+    else:
+        message = f"Failed to download {url}. HTTP status code: {response.status_code}."
+        raise ValueError(message)
+
+    return str(filepath)
+
+
+def download_with_urllib(url, parent_remote, parent_local):
+    """Download a file from a URL using urllib."""
+    filepath = url_to_filepath(url, parent_remote, parent_local)
+    Path(filepath).parent.mkdir(parents=True, exist_ok=True)
+    logger.info(f"Downloading {url} using urllib.")
+    opener = build_opener()
+    input = opener.open(url)
+    with open(filepath, "wb") as f:
+        f.write(input.read())
+
+
+download_dispatcher = {
+    "cpol": download_with_requests,
+    "gridrad": download_with_requests,
+}
+
+
 def generate_times(options, attempt_download=True):
     """Get times from data_options."""
+    dataset_name = options["name"]
+    download_function = download_dispatcher.get(dataset_name)
+    if download_function is None:
+        raise ValueError(f"Dataset {dataset_name} download not yet implemented.")
     filepaths = options["filepaths"]
+    parent_local = options["parent_local"]
+    parent_remote = options["parent_remote"]
     for filepath in sorted(filepaths):
         if not Path(filepath).exists() and attempt_download:
-            remote_filepath = str(filepath).replace(
-                options["parent_local"], options["parent_remote"]
-            )
-            download_file(
-                remote_filepath, options["parent_remote"], options["parent_local"]
-            )
+            remote_filepath = str(filepath).replace(parent_local, parent_remote)
+            download_function(remote_filepath, parent_remote, parent_local)
         with xr.open_dataset(filepath, chunks={}) as ds:
             for time in ds.time.values:
                 yield time
@@ -91,77 +183,6 @@ def check_valid_url(url):
             return False
     except requests.RequestException:
         return False
-
-
-def download_file(url, parent_remote, parent_local):
-    """
-    Downloads a file from the given URL and saves it to the specified directory.
-
-    Parameters
-    ----------
-    url : str
-        The URL of the file to download.
-    directory : str
-        The directory where the downloaded file will be saved.
-
-    Returns
-    -------
-    None
-
-    Raises
-    ------
-    None
-    """
-
-    if not isinstance(url, str):
-        raise TypeError("url must be a string")
-
-    parent_remote = parent_remote.rstrip("/")
-    parent_local = parent_local.rstrip("/")
-
-    filepath = Path(url.replace(parent_remote, parent_local))
-    if not filepath.parent.exists():
-        filepath.parent.mkdir(parents=True)
-
-    partial_filepath = filepath.with_suffix(".part")
-
-    if filepath.exists():
-        logger.info("%s already exists.", filepath)
-        return str(filepath)
-    if partial_filepath.exists():
-        logger.info("Resuming download of %s...", url)
-        already_downloaded = partial_filepath.stat().st_size
-        resume_header = {"Range": f"bytes={partial_filepath.stat().st_size}-"}
-    else:
-        logger.info("Initiating download of %s...", url)
-        already_downloaded = 0
-        resume_header = {}
-
-    # Send a HTTP request to the URL
-    logger.info("Sending HTTP request to %s.", url)
-    response = requests.get(url, headers=resume_header, stream=True, timeout=10)
-    # Check if the request is successful
-    if response.status_code == 200 or response.status_code == 206:
-        total_size_in_bytes = (
-            int(response.headers.get("content-length", 0)) + already_downloaded
-        )
-        block_size = 1024  # 1 Kibibyte
-        progress_bar = tqdm(total=total_size_in_bytes, unit="iB", unit_scale=True)
-        progress_bar.update(already_downloaded)
-        # Open a .zip file in the temporary directory
-        with open(partial_filepath, "ab") as f:
-            for data in response.iter_content(block_size):
-                progress_bar.update(len(data))
-                f.write(data)
-        progress_bar.close()
-
-        partial_filepath.rename(filepath)
-    else:
-        raise ValueError(
-            f"Failed to download {url}. HTTP status code: {response.status_code}."
-        )
-
-    return str(filepath)
 
 
 def get_directory_size(directory):
@@ -499,6 +520,14 @@ def get_mask_boundary(mask, grid_options):
     return boundary_coords, boundary_mask
 
 
+def get_encoding(ds):
+    """Get encoding for writing masks to file."""
+    encoding = {}
+    for var in ds.variables:
+        encoding[var] = {"zlib": True, "complevel": 5}
+    return encoding
+
+
 def save_converted_dataset(dataset, dataset_options):
     """Save a converted dataset."""
     conv_options = dataset_options["converted_options"]
@@ -510,5 +539,6 @@ def save_converted_dataset(dataset, dataset_options):
         converted_filepath = filepath.replace(parent, parent_converted)
         if not Path(converted_filepath).parent.exists():
             Path(converted_filepath).parent.mkdir(parents=True)
+        encoding = get_encoding(dataset)
         dataset.to_netcdf(converted_filepath, mode="w")
     return dataset

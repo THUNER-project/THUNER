@@ -494,6 +494,8 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
 #             case_dates.append(f"{year:04}-{month:02}-{day:02}")
 #     return case_dates
 
+dataset_id_converter = {"ds841.6": "d841006"}
+
 
 def get_gridrad_filepaths(options):
     """
@@ -507,7 +509,7 @@ def get_gridrad_filepaths(options):
     filepaths = []
 
     base_url = utils.get_parent(options)
-    base_url += f"/{options['dataset_id']}"
+    base_url += f"/{dataset_id_converter[options['dataset_id']]}/volumes"
 
     times = np.arange(start, end + np.timedelta64(10, "m"), np.timedelta64(10, "m"))
     times = pd.DatetimeIndex(times)

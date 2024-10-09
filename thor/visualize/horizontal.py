@@ -312,7 +312,8 @@ def ellipse_axis(
     axis_color = colors["ellipse_axis"]
     shadow_color = colors["ellipse_axis_shadow"]
     args_dict = {"shadow_color": shadow_color, "alpha": 0.9}
-    args_dict.update({"offset": (ellipse_axis_linewidth, -ellipse_axis_linewidth)})
+    offset = (0.85 * ellipse_axis_linewidth / 2, -0.85 * ellipse_axis_linewidth)
+    args_dict.update({"offset": offset})
     path_effects = [patheffects.SimpleLineShadow(**args_dict), patheffects.Normal()]
     args_dict = {"color": axis_color, "linewidth": ellipse_axis_linewidth}
     args_dict.update({"zorder": 3, "path_effects": path_effects, "transform": proj})
@@ -332,6 +333,8 @@ def ellipse_legend_artist(label, style):
     axis_color = colors["ellipse_axis"]
     shadow_color = colors["ellipse_axis_shadow"]
     args_dict = {"shadow_color": shadow_color, "alpha": 0.9}
+    offset = (0.85 * ellipse_axis_linewidth, -0.85 * ellipse_axis_linewidth)
+    args_dict.update({"offset": offset})
     path_effects = [patheffects.SimpleLineShadow(**args_dict), patheffects.Normal()]
     args_dict = {"color": axis_color, "linewidth": ellipse_axis_linewidth}
     args_dict.update({"zorder": 3, "path_effects": path_effects, "linestyle": "--"})

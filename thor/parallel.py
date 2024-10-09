@@ -41,6 +41,11 @@ def track_interval(
 ):
     output_directory = output_parent / f"interval_{i}"
     options_directory = output_directory / "options"
+    data_options = data_options.copy()
+    grid_options = grid_options.copy()
+    track_options = track_options.copy()
+    if visualize_options is not None:
+        visualize_options = visualize_options.copy()
     interval_data_options = get_interval_data_options(data_options, time_interval)
     data.option.save_data_options(interval_data_options, options_directory)
     grid.save_grid_options(grid_options, options_directory)
@@ -195,10 +200,10 @@ def get_match_dicts(intervals, mask_file_dict, tracked_objects):
         interval_time_dicts = {}
 
         for j, obj in enumerate(objects_1):
-            ds_2 = xr.open_mfdataset(filepaths_2[j], chunks={"time": 1})
+            ds_2 = xr.open_mfdataset(filepaths_2[j], chunks={})
             ds_2 = ds_2.isel(time=0).load()
             time = ds_2["time"].values
-            ds_1 = xr.open_mfdataset(filepaths_1[j], chunks={"time": 1})
+            ds_1 = xr.open_mfdataset(filepaths_1[j], chunks={})
             ds_1 = ds_1.sel(time=time).load()
             time = ds_1["time"].values
             if obj not in tracked_objects:

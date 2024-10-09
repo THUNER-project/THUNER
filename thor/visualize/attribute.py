@@ -1,6 +1,5 @@
 """Functions for visualizing object attributes and classifications."""
 
-import multiprocessing
 import concurrent.futures
 import numpy as np
 import pandas as pd
@@ -17,6 +16,7 @@ import thor.data.dispatch as dispatch
 import thor.detect.detect as detect
 from thor.utils import format_time
 import thor.parallel as parallel
+import thor.visualize.utils as utils
 
 logger = setup_logger(__name__)
 proj = ccrs.PlateCarree()
@@ -156,6 +156,7 @@ def visualize_mcs(
         filepath.parent.mkdir(parents=True, exist_ok=True)
         logger.debug(f"Saving {figure_name} figure for {time}.")
         fig.savefig(filepath, bbox_inches="tight")
+        utils.reduce_color_depth(filepath)
         plt.close(fig)
 
 

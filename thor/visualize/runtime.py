@@ -17,6 +17,7 @@ from thor.visualize.utils import make_subplot_labels, get_extent
 from thor.visualize.visualize import mask_colors
 from thor.object.box import get_box_center_coords
 import thor.grid as thor_grid
+import thor.visualize.utils as utils
 
 
 logger = setup_logger(__name__)
@@ -301,3 +302,5 @@ def visualize(
                 f"Saving {figure} figure for {object_visualize_options['name']}."
             )
             fig.savefig(filepath, bbox_inches="tight")
+            utils.reduce_color_depth(filepath)
+            plt.close(fig)

@@ -19,7 +19,7 @@ def tint_options(
     local_flow_margin=10,  # km
     global_flow_margin=150,  # km
     unique_global_flow=True,
-    max_cost=1e5,
+    max_cost=1e3,
     max_velocity_mag=60,  # m/s
     max_velocity_diff=60,  # m/s
     global_shift_altitude=1500,
@@ -65,7 +65,7 @@ def tint_options(
 
 
 def mint_options(
-    search_margin=35,  # km
+    search_margin=25,  # km
     local_flow_margin=35,  # km
     global_flow_margin=150,  # km
     unique_global_flow=True,
@@ -98,14 +98,15 @@ def mint_options(
     dict
         A dictionary of MINT options.
     """
+
     options = {
         **tint_options(
-            search_margin,
-            local_flow_margin,
-            global_flow_margin,
-            unique_global_flow,
-            max_velocity_mag,
-            max_velocity_diff,
+            search_margin=search_margin,
+            local_flow_margin=local_flow_margin,
+            global_flow_margin=global_flow_margin,
+            unique_global_flow=unique_global_flow,
+            max_velocity_mag=max_velocity_mag,
+            max_velocity_diff=max_velocity_diff,
         ),
         "max_velocity_diff_alt": max_velocity_diff_alt,
     }
