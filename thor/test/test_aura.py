@@ -61,21 +61,10 @@ def setup(start, end, options_directory, grid_type="geographic"):
     option.check_options(track_options)
     option.save_track_options(track_options, options_directory)
 
-    # Create the display_options dictionary
-    cell_vis_options = visualize.option.runtime_options(
-        "cell", save=True, style="presentation", figure_types=["mask", "match"]
-    )
-    anvil_vis_options = visualize.option.runtime_options(
-        "anvil", save=True, style="presentation", figure_types=["mask", "match"]
-    )
     mcs_vis_options = visualize.option.runtime_options(
         "mcs", save=True, style="presentation", figure_types=["mask", "match"]
     )
-    visualize_options = {
-        "cell": cell_vis_options,
-        "anvil": anvil_vis_options,
-        "mcs": mcs_vis_options,
-    }
+    visualize_options = {"mcs": mcs_vis_options}
     visualize.option.save_display_options(visualize_options, options_directory)
     return data_options, grid_options, track_options, visualize_options
 
@@ -220,7 +209,3 @@ def test_cpol_cartesian():
         "mcs_velocity_analysis", style="presentation"
     )
     visualize.attribute.mcs_series(output_directory, start, end, figure_options)
-
-
-if __name__ == "__main__":
-    test_cpol_geographic(parallel_figure=True)

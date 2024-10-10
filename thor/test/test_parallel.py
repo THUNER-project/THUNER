@@ -66,7 +66,7 @@ def setup(start, end, options_directory, grid_type="geographic"):
     return data_options, grid_options, track_options, visualize_options
 
 
-if __name__ == "__main__":
+def test_parallel():
 
     # Parent directory for saving outputs
     base_local = Path.home() / "THOR_output"
