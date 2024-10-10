@@ -1,13 +1,13 @@
 """Parallel processing utilities."""
 
 import shutil
+import multiprocessing
 import os
 import glob
 from pathlib import Path
 import pandas as pd
 import numpy as np
 import xarray as xr
-import concurrent.futures
 from thor.log import setup_logger
 import thor.attribute as attribute
 import thor.write as write
@@ -27,6 +27,15 @@ get_filepaths_dispatcher = {
     "era5_sl": data.era5.get_era5_filepaths,
     "gridrad": data.gridrad.get_gridrad_filepaths,
 }
+
+
+def initialize_process():
+    """
+    Use to set the initializer argument when creating a multiprocessing.Pool object.
+    This will ensure that all processes in the pool are non-daemonic, and avoid the
+    associated errors.
+    """
+    multiprocessing.current_process().daemon = False
 
 
 def track_interval(
@@ -75,15 +84,6 @@ def check_results(results):
             result.get()  # Wait for the result and handle exceptions
         except Exception as exc:
             print(f"Generated an exception: {exc}")
-
-
-def check_futures(futures):
-    """Check the status of the futures."""
-    for future in concurrent.futures.as_completed(futures):
-        try:
-            future.result()
-        except Exception as exc:
-            logger.error("Generated an exception: %s", exc)
 
 
 def get_period(start, end, minimum_period=pd.Timedelta(1, "h")):

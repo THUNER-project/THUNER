@@ -302,10 +302,10 @@ def grouped_object(
         attribute_options[name]["group"] = attribute.group.default()
         profile_dataset = kwargs.get("profile_dataset", "era5_pl")
         tag_dataset = kwargs.get("tag_dataset", "era5_sl")
-        attribute_options[name]["profile"] = attribute.profile.default(
-            [profile_dataset]
-        )
-        attribute_options[name]["tag"] = attribute.tag.default([tag_dataset])
+        # attribute_options[name]["profile"] = attribute.profile.default(
+        #     [profile_dataset]
+        # )
+        # attribute_options[name]["tag"] = attribute.tag.default([tag_dataset])
 
     options = {
         **boilerplate_object(
@@ -532,6 +532,7 @@ def mcs(dataset, **kwargs):
     # For the cell and anvil objects, attributes are obtained from matching.
     untracked_attr_options = {"core": attribute.core.default(tracked=False)}
     untracked_attr_options.update({"quality": attribute.quality.default(matched=False)})
+    filtered_kwargs = {k: v for k, v in kwargs.items() if k != "attribute_options"}
 
     options = [
         {
@@ -542,7 +543,7 @@ def mcs(dataset, **kwargs):
                 threshold=40,
                 tracking_method=None,
                 attribute_options=untracked_attr_options,
-                **kwargs,
+                **filtered_kwargs,
             ),
             "middle_echo": cell_object(
                 name="middle_echo",
@@ -553,14 +554,14 @@ def mcs(dataset, **kwargs):
                 flatten_method="vertical_max",
                 altitudes=[3500, 7000],
                 attribute_options=untracked_attr_options,
-                **kwargs,
+                **filtered_kwargs,
             ),
             "anvil": anvil_object(
                 altitudes=[7500, 10000],
                 dataset=dataset,
                 tracking_method=None,
                 attribute_options=untracked_attr_options,
-                **kwargs,
+                **filtered_kwargs,
             ),
         },
         {"mcs": mcs_object(dataset=dataset, **kwargs)},

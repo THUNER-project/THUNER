@@ -1,7 +1,5 @@
 """Track storm objects in a dataset."""
 
-import concurrent.futures
-import multiprocessing
 from collections import deque
 import copy
 import numpy as np

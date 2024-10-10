@@ -1,7 +1,14 @@
 """Set up logging."""
 
 import logging
+import logging.handlers
+import multiprocessing
+from contextlib import contextmanager
 from thor.config import get_outputs_directory
+
+
+log_queue = multiprocessing.Queue(-1)
+listener = None
 
 
 def setup_logger(name, level=logging.DEBUG):
@@ -41,9 +48,49 @@ def setup_logger(name, level=logging.DEBUG):
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
 
+    queue_handler = logging.handlers.QueueHandler(log_queue)
+    queue_handler.setFormatter(formatter)
+
     logger = logging.getLogger(name)
     logger.setLevel(level)
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)
 
     return logger
+
+
+def get_all_loggers():
+    """Get a list of all currently active loggers."""
+    logger_dict = logging.Logger.manager.loggerDict
+    active_loggers = [
+        logging.getLogger(name)
+        for name in logger_dict
+        if isinstance(logger_dict[name], logging.Logger)
+    ]
+    return active_loggers
+
+
+def start_listener():
+    """Start the logging listener process."""
+    global listener
+    root_logger = logging.getLogger()
+    listener = logging.handlers.QueueListener(log_queue, *root_logger.handlers)
+    listener.start()
+
+
+def stop_listener():
+    """Stop the logging listener process."""
+    global listener
+    if listener:
+        listener.stop()
+        listener = None
+
+
+@contextmanager
+def logging_listener():
+    """Context manager to start and stop the logging listener."""
+    start_listener()
+    try:
+        yield
+    finally:
+        stop_listener()

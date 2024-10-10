@@ -1,25 +1,114 @@
 """Data processing utilities."""
 
+import multiprocessing
 import subprocess
+import fcntl
 import zipfile
+import time
 from pathlib import Path
 import requests
 from tqdm import tqdm
+from tqdm.contrib.logging import logging_redirect_tqdm
 import cdsapi
 import cv2
-from urllib.request import build_opener
 import numpy as np
 import xarray as xr
 from skimage.morphology import remove_small_objects, remove_small_holes
 from scipy.ndimage import binary_dilation, binary_erosion
-from thor.log import setup_logger
+import thor.log as log
 from thor.utils import format_time
 from thor.utils import haversine
+from thor.config import get_outputs_directory
 
-logger = setup_logger(__name__, level="DEBUG")
+logger = log.setup_logger(__name__, level="DEBUG")
 # Set the number of cv2 threads to 0 to avoid crashes.
 # See https://github.com/opencv/opencv/issues/5150#issuecomment-675019390
 cv2.setNumThreads(0)
+
+
+class DownloadState:
+    """
+    Singleton class to manage download state across multiple processes. See for instance
+    the classic "Gang of Four" design pattern book for more information on the
+    "singleton" pattern. Only on instance of a "singleton" class can exist at one time.
+
+    Gamma et al. (1995), Design Patterns: Elements of Reusable Object-Oriented Software.
+    """
+
+    _instance = None
+
+    def __new__(cls):
+        # Check if an instance already exists. First argument to __new__ is the class
+        # itself, so we can access the class attribute _instance.
+        if cls._instance is None:
+            # If an instance does not exist, create one
+            cls._instance = super(DownloadState, cls).__new__(cls)
+            # Initialize the instance using the _initialize method defined below
+            cls._instance._initialize()
+        # Return the class instance, whether it was just created or already existed
+        return cls._instance
+
+    def _initialize(self):
+        # Initialize shared resources
+        self.manager = multiprocessing.Manager()
+        # Lock variable which can be used to prevent multiple simultaneous downloads
+        self.lock = self.manager.Lock()
+        # Value variable to store the time of the last download request
+        self.last_request_time = self.manager.Value("d", 0.0)
+        # Store the filepath to a lock file, useful if multiple instances of the program
+        # are running
+        self.lock_filepath = get_outputs_directory() / ".download_lock"
+        # Create the lock file if it does not exist
+        with self.lock:
+            if not Path(self.lock_filepath).exists():
+                Path(self.lock_filepath).touch()
+        # Specify the wait time between download requests
+        self.wait_time = 1
+        # Specify a variable to store the current number of download bars
+        self.download_bars = []
+
+    def wait_for_lockfile(self):
+        """Wait for turn to download using filelock."""
+        with open(self.lock_filepath, "r+") as lock_file:
+            fcntl.flock(lock_file, fcntl.LOCK_EX)
+            try:
+                if Path(self.lock_filepath).exists():
+                    self._handle_existing_lockfile(lock_file)
+                self._update_lockfile_timestamp(lock_file)
+            finally:
+                fcntl.flock(lock_file, fcntl.LOCK_UN)
+
+    def _handle_existing_lockfile(self, lock_file):
+        """Handle the case where the lock file already exists."""
+        lock_file.seek(0)
+        last_request_time = float(lock_file.read() or 0)
+        current_time = time.time()
+        elapsed_time = current_time - last_request_time
+        if elapsed_time < self.wait_time:
+            logger.info(f"Recent download Request. Waiting {self.wait_time} seconds.")
+            time.sleep(self.wait_time - elapsed_time)
+
+    def _update_lockfile_timestamp(self, lock_file):
+        """Update the lock file with the current timestamp."""
+        lock_file.seek(0)
+        lock_file.truncate()
+        lock_file.write(str(time.time()))
+
+    def create_download_bar(self, total_size, description):
+        """Create a tqdm download bar."""
+        with self.lock:
+            position = len(self.download_bars)
+            args_dict = {"total": total_size, "desc": description, "position": position}
+            args_dict.update({"unit": "iB", "unit_scale": True})
+            bar = tqdm(**args_dict)
+            self.download_bars.append(bar)
+            return bar
+
+    def remove_download_bar(self, bar):
+        """Remove a tqdm download bar."""
+        with self.lock:
+            bar.close()
+            self.download_bars.remove(bar)
 
 
 def url_to_filepath(url, parent_remote, parent_local):
@@ -32,99 +121,87 @@ def url_to_filepath(url, parent_remote, parent_local):
     return url.replace(parent_remote, parent_local)
 
 
-def download_with_requests(url, parent_remote, parent_local):
+def handle_response(response, already_downloaded, filepath):
+    """Handle the response from a HTTP request."""
+
+    if response.status_code != 200 and response.status_code != 206:
+        message = f"Failed to download {filepath}."
+        message += f"HTTP status code: {response.status_code}."
+        raise ValueError(message)
+
+    partial_filepath = filepath.with_suffix(".part")
+    download_state = DownloadState()
+    total_size_in_bytes = int(response.headers.get("content-length", 0))
+    total_size_in_bytes += already_downloaded
+    args_dict = {"total_size": total_size_in_bytes}
+    args_dict.update({"description": filepath.name})
+    with logging_redirect_tqdm(loggers=log.get_all_loggers()):
+        progress_bar = download_state.create_download_bar(**args_dict)
+        progress_bar.update(already_downloaded)
+        with open(partial_filepath, "ab") as f:
+            block_size = 1024  # 1 KB
+            for data in response.iter_content(block_size):
+                progress_bar.update(len(data))
+                f.write(data)
+        download_state.remove_download_bar(progress_bar)
+    partial_filepath.rename(filepath)
+
+
+def get_header(url, filepath):
+    """Get the header for a HTTP request."""
+    partial_filepath = filepath.with_suffix(".part")
+    if partial_filepath.exists():
+        logger.info("Resuming download of %s", url)
+        already_downloaded = partial_filepath.stat().st_size
+        resume_header = {"Range": f"bytes={partial_filepath.stat().st_size}-"}
+    else:
+        logger.info("Initiating download of %s", url)
+        already_downloaded = 0
+        resume_header = {}
+    return already_downloaded, resume_header
+
+
+def download(url, parent_remote, parent_local, max_retries=5, retry_delay=2):
     """
     Downloads a file from the given URL and saves it to the specified directory.
-
-    Parameters
-    ----------
-    url : str
-        The URL of the file to download.
-    directory : str
-        The directory where the downloaded file will be saved.
-
-    Returns
-    -------
-    None
-
-    Raises
-    ------
-    None
     """
 
     filepath = Path(url_to_filepath(url, parent_remote, parent_local))
     if not filepath.parent.exists():
         filepath.parent.mkdir(parents=True)
-
-    partial_filepath = filepath.with_suffix(".part")
+    download_state = DownloadState()
+    download_state.wait_for_lockfile()
 
     if filepath.exists():
         logger.info("%s already exists.", filepath)
         return str(filepath)
-    if partial_filepath.exists():
-        logger.info("Resuming download of %s...", url)
-        already_downloaded = partial_filepath.stat().st_size
-        resume_header = {"Range": f"bytes={partial_filepath.stat().st_size}-"}
-    else:
-        logger.info("Initiating download of %s...", url)
-        already_downloaded = 0
-        resume_header = {}
 
-    # Send a HTTP request to the URL
-    logger.info("Sending HTTP request to %s.", url)
-    response = requests.get(url, headers=resume_header, stream=True, timeout=10)
-    # Check if the request is successful
-    if response.status_code == 200 or response.status_code == 206:
-        total_size_in_bytes = (
-            int(response.headers.get("content-length", 0)) + already_downloaded
-        )
-        block_size = 1024  # 1 Kibibyte
-        progress_bar = tqdm(total=total_size_in_bytes, unit="iB", unit_scale=True)
-        progress_bar.update(already_downloaded)
-        # Open a .zip file in the temporary directory
-        with open(partial_filepath, "ab") as f:
-            for data in response.iter_content(block_size):
-                progress_bar.update(len(data))
-                f.write(data)
-        progress_bar.close()
-        partial_filepath.rename(filepath)
-    else:
-        message = f"Failed to download {url}. HTTP status code: {response.status_code}."
-        raise ValueError(message)
-
-    return str(filepath)
-
-
-def download_with_urllib(url, parent_remote, parent_local):
-    """Download a file from a URL using urllib."""
-    filepath = url_to_filepath(url, parent_remote, parent_local)
-    Path(filepath).parent.mkdir(parents=True, exist_ok=True)
-    logger.info(f"Downloading {url} using urllib.")
-    opener = build_opener()
-    input = opener.open(url)
-    with open(filepath, "wb") as f:
-        f.write(input.read())
-
-
-download_dispatcher = {
-    "cpol": download_with_requests,
-    "gridrad": download_with_requests,
-}
+    for attempt in range(1, max_retries + 1):
+        try:
+            already_downloaded, resume_header = get_header(url, filepath)
+            logger.info("Sending HTTP request to %s.", url)
+            response = requests.get(url, headers=resume_header, stream=True, timeout=10)
+            handle_response(response, already_downloaded, filepath)
+            return str(filepath)
+        except Exception as e:
+            logger.error(f"Download attempt {attempt} failed: {e}")
+            if attempt < max_retries:
+                logger.info(f"Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+            else:
+                message = "Max retries reached. Download failed."
+                raise requests.exceptions.RequestException(message)
 
 
 def generate_times(options, attempt_download=True):
     """Get times from data_options."""
-    dataset_name = options["name"]
-    download_function = download_dispatcher.get(dataset_name)
-    if download_function is None:
-        raise ValueError(f"Dataset {dataset_name} download not yet implemented.")
     filepaths = options["filepaths"]
     parent_local = options["parent_local"]
     parent_remote = options["parent_remote"]
     for filepath in sorted(filepaths):
         if not Path(filepath).exists() and attempt_download:
             remote_filepath = str(filepath).replace(parent_local, parent_remote)
-            download_function(remote_filepath, parent_remote, parent_local)
+            download(remote_filepath, parent_remote, parent_local)
         with xr.open_dataset(filepath, chunks={}) as ds:
             for time in ds.time.values:
                 yield time

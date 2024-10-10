@@ -1,6 +1,6 @@
 """Functions for visualizing object attributes and classifications."""
 
-import concurrent.futures
+import multiprocessing
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -88,13 +88,18 @@ def mcs_series(
         matplotlib.use(original_backend)
         return
     if parallel_figure:
-        with concurrent.futures.ProcessPoolExecutor() as executor:
-            futures = []
-            for time in times[1:]:
+        with multiprocessing.Pool(
+            initializer=parallel.initialize_process(queue)
+        ) as pool:
+            results = []
+            for time in enumerate(times[1:]):
                 args = [time, filepaths, masks, output_directory, figure_options]
                 args += [options, track_options, dataset_name, dt]
-                futures.append(executor.submit(visualize_mcs, *args))
-            parallel.check_futures(futures)
+                args = tuple(args)
+                results.append(pool.apply_async(visualize_mcs, args))
+            pool.close()
+            pool.join()
+            parallel.check_results(results)
     else:
         for time in times[1:]:
             args = [time, filepaths, masks, output_directory, figure_options]

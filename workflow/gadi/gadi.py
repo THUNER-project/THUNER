@@ -1,6 +1,6 @@
 """Test GridRad tracking."""
 
-import concurrent.futures
+import multiprocessing
 from pathlib import Path
 import shutil
 import numpy as np
@@ -33,7 +33,7 @@ def gridrad():
     options_directory = output_parent / "options"
 
     # Create the data_options dictionary
-    gridrad_parent = base_local / "input_data/raw"
+    gridrad_parent = str(base_local / "input_data/raw")
     converted_options = {"save": True, "load": False, "parent_converted": None}
     gridrad_options = data.gridrad.gridrad_data_options(
         start=start,
@@ -42,9 +42,7 @@ def gridrad():
         event_start=event_start,
         parent_local=gridrad_parent,
     )
-
     era5_parent = "/g/data/rt52"
-
     era5_pl_options = data.era5.data_options(
         start=start, end=end, parent_local=era5_parent
     )
@@ -57,7 +55,7 @@ def gridrad():
     )
 
     dispatch.check_data_options(data_options)
-    data.option.save_data_options(data_options, options_directory=options_directory)
+    # data.option.save_data_options(data_options, options_directory=options_directory)
 
     # Create the grid_options dictionary using the first file in the cpol dataset
     grid_options = grid.create_options(
@@ -79,14 +77,18 @@ def gridrad():
     # Create the display_options dictionary
     visualize_options = None
 
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        futures = []
+    with multiprocessing.Pool(initializer=parallel.initialize_process(queue)) as pool:
+        results = []
         for i, time_interval in enumerate(intervals):
             args = [i, time_interval, data_options.copy(), grid_options.copy()]
             args += [track_options.copy(), visualize_options]
             args += [output_parent, "gridrad"]
-            futures.append(executor.submit(parallel.track_interval, *args))
-        parallel.check_futures(futures)
+            args = tuple(args)
+            results.append(pool.apply_async(parallel.track_interval, args))
+        pool.close()
+        pool.join()
+        parallel.check_results(results)
+
     parallel.stitch_run(output_parent, intervals, cleanup=True)
 
     analysis_options = analyze.mcs.analysis_options()

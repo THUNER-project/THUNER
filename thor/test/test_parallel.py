@@ -4,12 +4,10 @@ import shutil
 from pathlib import Path
 import os
 import numpy as np
-import datetime
-import concurrent.futures
+import multiprocessing
 import thor.data as data
 import thor.data.dispatch as dispatch
 import thor.grid as grid
-import thor.track as track
 import thor.option as option
 import thor.visualize as visualize
 import thor.parallel as parallel
@@ -79,12 +77,18 @@ def test_parallel():
         shutil.rmtree(output_parent)
 
     all_options = setup(start, end, output_parent / "options")
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        futures = []
+    data_options, grid_options, track_options, visualize_options = all_options
+    with multiprocessing.Pool(initializer=parallel.initialize_process(queue)) as pool:
+        results = []
         for i, time_interval in enumerate(intervals):
-            args = [i, time_interval] + list(all_options) + [output_parent]
-            futures.append(executor.submit(parallel.track_interval, *args))
-        parallel.check_futures(futures)
+            args = [i, time_interval, data_options.copy(), grid_options.copy()]
+            args += [track_options.copy(), visualize_options]
+            args += [output_parent, "cpol"]
+            args = tuple(args)
+            results.append(pool.apply_async(parallel.track_interval, args))
+        pool.close()
+        pool.join()
+        parallel.check_results(results)
 
     parallel.stitch_run(output_parent, intervals)
     analysis_options = analyze.mcs.analysis_options()

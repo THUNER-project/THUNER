@@ -1,6 +1,5 @@
 """Process ERA5 data."""
 
-from concurrent.futures import TimeoutError
 import calendar
 import signal
 from pathlib import Path
@@ -222,11 +221,18 @@ def get_base_path(options, local=True):
     else:
         parent = options["parent_remote"]
 
+    latitude_range = options["latitude_range"]
+    longitude_range = options["longitude_range"]
+    if latitude_range == [-90, 90] and longitude_range == [-180, 180]:
+        return f"{parent}/era5/{options['data_format']}/{options['mode']}"
     area = get_area(options)
     area_str = get_area_string(area)
-    group = f"era5_{options['storage']}_{area_str}"
-    base_path = f"{parent}/{group}/era5/{options['data_format']}/{options['mode']}"
-    return base_path
+
+    if area_str is None:
+        group = f"era5_{options['storage']}"
+    else:
+        group = f"era5_{options['storage']}_{area_str}"
+    return f"{parent}/{group}/era5/{options['data_format']}/{options['mode']}"
 
 
 def get_file_datetimes(options, start, end):
@@ -396,11 +402,16 @@ def get_area(options):
         [min_lat, max_lat] = options["latitude_range"]
     [max_lat, max_lon] = [int(np.ceil(coord)) for coord in [max_lat, max_lon]]
     [min_lat, min_lon] = [int(np.floor(coord)) for coord in [min_lat, min_lon]]
-    return [max_lat, min_lon, min_lat, max_lon]
+    if min_lon == -180 and max_lon == 180 and min_lat == -90 and max_lat == 90:
+        return None
+    else:
+        return [max_lat, min_lon, min_lat, max_lon]
 
 
 def get_area_string(area):
     """Get the area string for the CDS API request."""
+    if area is None:
+        return None
 
     # Convert a signed latitude or longitude to a string, e.g. 150E
     def format_lat(lat):
