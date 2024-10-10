@@ -83,16 +83,6 @@ def test_gridrad():
     }
     visualize_options = None
 
-    times = data.utils.generate_times(data_options["gridrad"])
-    track.simultaneous_track(
-        times,
-        data_options,
-        grid_options,
-        track_options,
-        visualize_options,
-        output_directory=output_parent,
-    )
-
     with concurrent.futures.ProcessPoolExecutor() as executor:
         futures = []
         for i, time_interval in enumerate(intervals):

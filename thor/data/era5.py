@@ -28,7 +28,7 @@ era5_pressure_levels += ["70", "50", "30", "20", "10", "7", "5", "3", "2", "1"]
 def data_options(
     start="2005-11-13T00:00:00",
     end="2005-11-14T00:00:00",
-    parent_remote="/g/data/rt52/era5",
+    parent_remote="/g/data/rt52",
     save_local=False,
     parent_local=str(get_outputs_directory() / "input_data/raw/"),
     converted_options=None,
