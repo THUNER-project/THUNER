@@ -1,6 +1,5 @@
 """Module for detecting objects in a grid."""
 
-from memory_profiler import profile as memory_profile
 import copy
 import numbers
 from scipy import ndimage

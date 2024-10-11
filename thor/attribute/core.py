@@ -7,7 +7,6 @@ combinations (e.g. latitude and longitude) are handled. Again this could be impr
 future.
 """
 
-from memory_profiler import profile as memory_profile
 import numpy as np
 import xarray as xr
 from thor.log import setup_logger

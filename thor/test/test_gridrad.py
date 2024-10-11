@@ -1,6 +1,6 @@
 """Test GridRad tracking."""
 
-import multiprocessing
+from multiprocessing import Pool
 from pathlib import Path
 import shutil
 import numpy as np
@@ -11,7 +11,6 @@ import thor.option as option
 import thor.track as track
 import thor.analyze as analyze
 import thor.parallel as parallel
-from thor.parallel import initialize_process
 import thor.visualize as visualize
 from thor.log import setup_logger, logging_listener
 
@@ -84,9 +83,7 @@ def test_gridrad():
     }
     visualize_options = None
 
-    with logging_listener(), multiprocessing.Pool(
-        initializer=initialize_process
-    ) as pool:
+    with logging_listener(), Pool(initializer=parallel.initialize_process) as pool:
         results = []
         for i, time_interval in enumerate(intervals):
             args = [i, time_interval, data_options.copy(), grid_options.copy()]

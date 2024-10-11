@@ -1,6 +1,6 @@
 """Functions for visualizing object attributes and classifications."""
 
-import multiprocessing
+from multiprocessing import Pool
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -15,11 +15,10 @@ import thor.data.dispatch as dispatch
 import thor.detect.detect as detect
 from thor.utils import format_time
 import thor.parallel as parallel
-from thor.parallel import initialize_process
 import thor.visualize.utils as utils
-import thor.log as log
+from thor.log import setup_logger, logging_listener
 
-logger = log.setup_logger(__name__)
+logger = setup_logger(__name__)
 proj = ccrs.PlateCarree()
 
 
@@ -89,9 +88,7 @@ def mcs_series(
         matplotlib.use(original_backend)
         return
     if parallel_figure:
-        with log.logging_listener(), multiprocessing.Pool(
-            initializer=initialize_process
-        ) as pool:
+        with logging_listener(), Pool(initializer=parallel.initialize_process) as pool:
             results = []
             for time in times[1:]:
                 args = [time, filepaths, masks, output_directory, figure_options]

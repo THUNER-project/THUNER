@@ -1,6 +1,5 @@
 """Functions for getting object attributes."""
 
-from memory_profiler import profile as memory_profile
 from thor.attribute import core, group, profile, utils, quality, tag, ellipse
 from thor.log import setup_logger
 
