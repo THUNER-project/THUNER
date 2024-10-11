@@ -1,6 +1,6 @@
 """Test GridRad tracking."""
 
-import multiprocessing
+from multiprocessing import Pool
 from pathlib import Path
 import shutil
 import numpy as np
@@ -12,17 +12,17 @@ import thor.analyze as analyze
 import thor.parallel as parallel
 from thor.parallel import initialize_process
 import thor.visualize as visualize
-import thor.log as log
+from thor.log import setup_logger, logging_listener
 
-logger = log.setup_logger(__name__)
+logger = setup_logger(__name__)
 
 
 def gridrad():
     # Parent directory for saving outputs
     base_local = Path("/scratch/w40/esh563/THOR_output")
-    start = "2010-01-20T18:00:00"
-    end = "2010-01-21T03:30:00"
-    event_start = "2010-01-20"
+    start = "2010-01-21T18:00:00"
+    end = "2010-01-22T06:00:00"
+    event_start = "2010-01-21"
 
     period = parallel.get_period(start, end)
     intervals = parallel.get_time_intervals(start, end, period=period)
@@ -77,9 +77,7 @@ def gridrad():
     # Create the display_options dictionary
     visualize_options = None
 
-    with log.logging_listener(), multiprocessing.Pool(
-        initializer=initialize_process()
-    ) as pool:
+    with logging_listener(), Pool(initializer=initialize_process()) as pool:
         results = []
         for i, time_interval in enumerate(intervals):
             args = [i, time_interval, data_options.copy(), grid_options.copy()]
