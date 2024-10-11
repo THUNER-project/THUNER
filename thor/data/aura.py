@@ -508,12 +508,7 @@ def convert_cpol(time, filepath, dataset_options, grid_options):
     ds["domain_mask"] = domain_mask
     ds["boundary_mask"] = boundary_mask
 
-    for var in ds.data_vars.keys() - ["gridcell_area"]:
-        # Check if the variable has horizontal dimensions
-        if set(dims).issubset(set(ds[var].dims)):
-            broadcasted_mask = domain_mask.broadcast_like(ds[var])
-            # Apply the mask, setting unmasked values to NaN
-            ds[var] = ds[var].where(broadcasted_mask)
+    ds = utils.apply_mask(ds, grid_options)
 
     return ds, boundary_coords
 

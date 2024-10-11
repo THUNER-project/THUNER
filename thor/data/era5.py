@@ -425,11 +425,10 @@ def get_area_string(area):
 
 
 def issue_cdsapi_requests(
-    cds_name, requests, local_paths, enforce_timeout=False, timeout=2
+    cds_name, requests, local_paths, enforce_timeout=False, timeout=5
 ):
     """Issue cdsapi requests. Note the wait client functionality doesn't appear to work
-    yet. Will revisit after new release of cdsapi. For now allowing timeouts using the
-    thread pool executor."""
+    yet."""
 
     def download_data(cds_name, request, local_path):
         c = cdsapi.Client()

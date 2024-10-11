@@ -3,7 +3,6 @@
 import yaml
 import copy
 from pathlib import Path
-import numpy as np
 from thor.utils import now_str, check_component_options
 from thor.config import get_outputs_directory
 from thor.log import setup_logger
@@ -205,10 +204,10 @@ def detected_object(
 
     if attribute_options is None:
         attribute_options = {"core": attribute.core.default()}
-        # attribute_options.update(
-        #     {"profile": attribute.profile.default([profile_dataset])}
-        # )
-        # attribute_options.update({"tag": attribute.tag.default([tag_dataset])})
+        attribute_options.update(
+            {"profile": attribute.profile.default([profile_dataset])}
+        )
+        attribute_options.update({"tag": attribute.tag.default([tag_dataset])})
         attribute_options.update({"quality": attribute.quality.default()})
 
     options = {
@@ -302,10 +301,10 @@ def grouped_object(
         attribute_options[name]["group"] = attribute.group.default()
         profile_dataset = kwargs.get("profile_dataset", "era5_pl")
         tag_dataset = kwargs.get("tag_dataset", "era5_sl")
-        # attribute_options[name]["profile"] = attribute.profile.default(
-        #     [profile_dataset]
-        # )
-        # attribute_options[name]["tag"] = attribute.tag.default([tag_dataset])
+        attribute_options[name]["profile"] = attribute.profile.default(
+            [profile_dataset]
+        )
+        attribute_options[name]["tag"] = attribute.tag.default([tag_dataset])
 
     options = {
         **boilerplate_object(
@@ -534,6 +533,9 @@ def mcs(dataset, **kwargs):
     untracked_attr_options.update({"quality": attribute.quality.default(matched=False)})
     filtered_kwargs = {k: v for k, v in kwargs.items() if k != "attribute_options"}
 
+    # Test removal of attributes for component objects, instead get attributes for the
+    # "member objects" comprising the grouped object
+
     options = [
         {
             "cell": cell_object(
@@ -542,7 +544,7 @@ def mcs(dataset, **kwargs):
                 flatten_method="vertical_max",
                 threshold=40,
                 tracking_method=None,
-                attribute_options=untracked_attr_options,
+                attribute_options={},
                 **filtered_kwargs,
             ),
             "middle_echo": cell_object(
@@ -553,14 +555,14 @@ def mcs(dataset, **kwargs):
                 detection_method="threshold",
                 flatten_method="vertical_max",
                 altitudes=[3500, 7000],
-                attribute_options=untracked_attr_options,
+                attribute_options={},
                 **filtered_kwargs,
             ),
             "anvil": anvil_object(
                 altitudes=[7500, 10000],
                 dataset=dataset,
                 tracking_method=None,
-                attribute_options=untracked_attr_options,
+                attribute_options={},
                 **filtered_kwargs,
             ),
         },

@@ -17,7 +17,7 @@ from skimage.morphology import remove_small_objects, remove_small_holes
 from scipy.ndimage import binary_dilation, binary_erosion
 import thor.log as log
 from thor.utils import format_time
-from thor.utils import haversine
+from thor.utils import equirectangular
 from thor.config import get_outputs_directory
 
 logger = log.setup_logger(__name__, level="DEBUG")
@@ -125,7 +125,7 @@ def handle_response(response, already_downloaded, filepath):
     """Handle the response from a HTTP request."""
 
     if response.status_code != 200 and response.status_code != 206:
-        message = f"Failed to download {filepath}."
+        message = f"Failed to download {filepath}. "
         message += f"HTTP status code: {response.status_code}."
         raise ValueError(message)
 
@@ -490,6 +490,35 @@ def get_parent(dataset_options):
     return parent
 
 
+def apply_mask(ds, grid_options):
+    """Apply a domain mask to an xr dataset."""
+    domain_mask = ds["domain_mask"]
+    if grid_options["name"] == "cartesian":
+        dims = ["y", "x"]
+    elif grid_options["name"] == "geographic":
+        dims = ["latitude", "longitude"]
+    else:
+        raise ValueError("Grid name must be 'cartesian' or 'geographic'.")
+    for var in ds.data_vars.keys() - ["gridcell_area", "domain_mask", "boundary_mask"]:
+        # Check if the variable has horizontal dimensions
+        if not set(dims).issubset(set(ds[var].dims)):
+            continue
+        # Otherwise apply the mask
+        broadcasted_mask = domain_mask.broadcast_like(ds[var])
+        # Apply the mask, setting unmasked values to NaN or 0 as appropriate
+        dtype = ds[var].dtype
+        float_types = [np.floating, np.complexfloating]
+        int_types = [np.integer, np.bool_]
+        if any(np.issubdtype(dtype, parent_type) for parent_type in float_types):
+            ds[var] = ds[var].where(broadcasted_mask)
+        elif any(np.issubdtype(dtype, parent_type) for parent_type in int_types):
+            ds[var] = ds[var].where(broadcasted_mask, 0)
+        else:
+            message = f"Cannot apply domain mask to {var}. Unknown data type."
+            raise ValueError(message)
+    return ds
+
+
 def mask_from_input_record(
     track_input_records, dataset_options, object_options, grid_options
 ):
@@ -515,7 +544,7 @@ def mask_from_observations(dataset, dataset_options, object_options=None):
     num_obs = dataset["number_of_observations"].sel(altitude=slice(*altitudes))
     num_obs = num_obs.sum(dim="altitude")
     mask = num_obs > dataset_options["obs_thresh"]
-    return mask
+    return mask.astype(bool)
 
 
 def smooth_mask(mask):
@@ -548,7 +577,7 @@ def mask_from_range(dataset, dataset_options, grid_options):
         origin_longitude = float(dataset.attrs["origin_longitude"])
         origin_latitude = float(dataset.attrs["origin_latitude"])
         LON, LAT = np.meshgrid(lons, lats)
-        distances = haversine(LAT, LON, origin_latitude, origin_longitude)
+        distances = equirectangular(LAT, LON, origin_latitude, origin_longitude)
         coords = {"latitude": dataset.latitude, "longitude": dataset.longitude}
         dims = {"latitude": dataset.latitude, "longitude": dataset.longitude}
     else:
@@ -557,7 +586,7 @@ def mask_from_range(dataset, dataset_options, grid_options):
     units_dict = {"m": 1, "km": 1e3}
     range = dataset_options["range"] * units_dict[dataset_options["range_units"]]
     mask = distances <= range
-    mask = xr.DataArray(mask, coords=coords, dims=dims)
+    mask = xr.DataArray(mask.astype(bool), coords=coords, dims=dims)
 
     return mask
 

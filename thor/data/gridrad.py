@@ -116,11 +116,13 @@ def reshape_variable(ds, variable):
     Reshape a variable in a GridRad dataset to a 3D grid. Adapted from code provided by
     Stacey Hitchcock.
     """
+
     values = ds[variable].values
     attrs = ds[variable].attrs
     alt, lat, lon = ds["Altitude"], ds["Latitude"], ds["Longitude"]
     new_values = np.zeros(len(alt) * len(lat) * len(lon))
     new_values[ds.index.values] = values
+    new_values = new_values.astype(ds[variable].dtype)
     new_shape = (len(alt), len(lat), len(lon))
     new_dims = ["Altitude", "Latitude", "Longitude"]
     new_coords = {"Altitude": alt, "Latitude": lat, "Longitude": lon}
@@ -386,14 +388,15 @@ def convert_gridrad(time, filepath, track_options, dataset_options, grid_options
     ds["domain_mask"] = domain_mask
     ds["boundary_mask"] = boundary_mask
 
-    # Apply the domain mask to the current grid
-    ds = ds.where(domain_mask)
-
     # Don't mask the gridcell areas
     cell_areas = grid.get_cell_areas(grid_options)
     ds["gridcell_area"] = (["latitude", "longitude"], cell_areas)
     area_attrs = {"units": "km^2", "standard_name": "area", "valid_min": 0}
     ds["gridcell_area"].attrs.update(area_attrs)
+
+    # Apply the domain mask to the current grid
+    ds = utils.apply_mask(ds, grid_options)
+    ds = ds.drop_vars(["number_of_observations", "number_of_echoes"])
     return ds, boundary_coords
 
 

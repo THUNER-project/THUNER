@@ -12,6 +12,9 @@ from thor.attribute.utils import read_attribute_csv, get_attribute_dict
 import thor.analyze.utils as utils
 import thor.write as write
 import thor.attribute as attribute
+import thor.log as log
+
+logger = log.setup_logger(__name__)
 
 
 def process_velocities(
@@ -35,8 +38,10 @@ def process_velocities(
 
     convective_options = options["track"][0][convective_label]
     altitudes = convective_options["detection"]["altitudes"]
+
     filepath = output_directory / f"attributes/mcs/{profile_dataset}/profile.csv"
     winds = read_attribute_csv(filepath, columns=["u", "v"])
+
     filepath = output_directory / "attributes/mcs/core.csv"
     velocities = read_attribute_csv(filepath, columns=["u_flow", "v_flow"])
     velocities = utils.temporal_smooth(velocities, window_size=window_size)

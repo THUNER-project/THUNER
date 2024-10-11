@@ -189,21 +189,17 @@ def numba_boolean_assign(array, condition, value=np.nan):
 
 
 @conditional_jit(use_numba=use_numba)
-def haversine(lat1, lon1, lat2, lon2):
+def equirectangular(lat1_radians, lon1_radians, lat2_radians, lon2_radians):
     """
     Calculate the great circle distance in metres between two points
-    on the earth (specified in decimal degrees)
+    on the earth, where lat and lon are expressed in radians.
     """
-    # Convert decimal degrees to radians
-    lat1 = np.radians(lat1)
-    lon1 = np.radians(lon1)
-    lat2 = np.radians(lat2)
-    lon2 = np.radians(lon2)
 
-    # Haversine formula
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
-    a = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
-    c = 2 * np.arcsin(np.sqrt(a))
-    r = 6371e3  # Radius of earth in metres
-    return c * r
+    # Equirectangular approximation formula
+    dlat = lat2_radians - lat1_radians
+    dlon = lon2_radians - lon1_radians
+    avg_lat = (lat1_radians + lat2_radians) / 2
+    r = 6371e3  # Radius of Earth in metres
+    x = dlon * np.cos(avg_lat)
+    y = dlat
+    return np.sqrt(x**2 + y**2) * r

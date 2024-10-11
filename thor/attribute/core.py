@@ -7,6 +7,7 @@ combinations (e.g. latitude and longitude) are handled. Again this could be impr
 future.
 """
 
+from memory_profiler import profile as memory_profile
 import numpy as np
 import xarray as xr
 from thor.log import setup_logger
@@ -154,6 +155,7 @@ attribute_dispatcher = {
 
 
 # Functions for obtaining and recording core attributes
+# @memory_profile
 def coordinates_from_object_record(object_tracks, grid_options):
     """
     Get coordinate from object record created by the matching process to avoid
@@ -173,6 +175,7 @@ def coordinates_from_object_record(object_tracks, grid_options):
     return latitudes, longitudes
 
 
+# @memory_profile
 def areas_from_object_record(object_tracks, attribute_options):
     """
     Get area from object record created by the matching process to avoid redundant
@@ -211,6 +214,7 @@ def velocities_from_object_record(name, object_tracks, attribute_options, grid_o
     return v_list, u_list
 
 
+# @memory_profile
 def coordinates_from_mask(
     object_tracks, attribute_options, grid_options, member_object
 ):
@@ -237,6 +241,7 @@ def coordinates_from_mask(
     return lats, lons
 
 
+# @memory_profile
 def areas_from_mask(object_tracks, attribute_options, grid_options, member_object):
     """Get object area from mask."""
     mask = utils.get_previous_mask(attribute_options, object_tracks)
@@ -377,6 +382,7 @@ def get_ids(object_tracks, attribute_options, member_object):
 
 
 # Record core attributes
+# @memory_profile
 def record(
     attributes,
     object_tracks,

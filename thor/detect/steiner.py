@@ -7,11 +7,10 @@ Note these radii are at most 11 km, so Haversine is accurate enough.
 """
 
 import numpy as np
-from itertools import product
 from thor.log import setup_logger
 from numba import int32, float32, njit
 from numba.typed import List
-from thor.utils import meshgrid_numba, numba_boolean_assign, haversine
+from thor.utils import meshgrid_numba, numba_boolean_assign, equirectangular
 
 logger = setup_logger(__name__)
 
@@ -34,8 +33,8 @@ def conditional_jit(*jit_args, use_numba=True, **jit_kwargs):
             return njit(*jit_args, **jit_kwargs)(func)
         else:
             # Define type aliases for use without Numba
-            globals()["int32"] = int
-            globals()["float32"] = float
+            globals()["int32"] = np.int32
+            globals()["float32"] = np.float32
             globals()["List"] = list
             return func
 
@@ -57,6 +56,11 @@ def steiner_scheme(
     reflectivity = reflectivity.astype(float32)
     X = X.astype(float32)
     Y = Y.astype(float32)
+    X_rad = X
+    Y_rad = Y
+    if coordinates == "geographic":
+        X_rad = np.radians(X)
+        Y_rad = np.radians(Y)
 
     II, JJ = meshgrid_numba(
         np.arange(reflectivity.shape[1], dtype=float32),
@@ -67,50 +71,43 @@ def steiner_scheme(
 
     classification = np.zeros_like(reflectivity, dtype=int32)
 
-    for i in range(reflectivity.shape[1]):
-        for j in range(reflectivity.shape[0]):
-            if np.isnan(reflectivity[j, i]) or (classification[j, i] != 0):
-                continue
+    for j, i in np.ndindex(reflectivity.shape):
+        if np.isnan(reflectivity[j, i]) or (classification[j, i] != 0):
+            continue
 
-            reflectivity_background = values_within_radius(
-                reflectivity, X, Y, j, i, background_radius, coordinates
-            )
-            # if len(reflectivity_background) == 0:
-            #     mean_background_reflectivity = np.inf
-            # else:
-            reflectivity_background = reflectivity_background[
-                ~np.isnan(reflectivity_background)
-            ]
-            mean_background_reflectivity = 10 * np.log10(
-                np.nanmean(10.0 ** (reflectivity_background / 10))
-            )
-            convective_radius = get_convective_radius(
-                mean_background_reflectivity, radius_option
-            )
-            II_radius = values_within_radius(
-                II, X, Y, j, i, convective_radius, coordinates
-            )
-            JJ_radius = values_within_radius(
-                JJ, X, Y, j, i, convective_radius, coordinates
-            )
-            II_radius = II_radius.astype(int32)
-            JJ_radius = JJ_radius.astype(int32)
+        reflectivity_background = values_within_radius(
+            reflectivity, X, Y, j, i, background_radius, X_rad, Y_rad, coordinates
+        )
+        condition = ~np.isnan(reflectivity_background)
+        reflectivity_background = reflectivity_background[condition]
+        mean_background_reflectivity = 10 * np.log10(
+            np.nanmean(10.0 ** (reflectivity_background / 10))
+        )
+        convective_radius = get_convective_radius(
+            mean_background_reflectivity, radius_option
+        )
 
-            if use_dBZ_threshold and (reflectivity[j, i] >= dBZ_threshold):
+        II_radius = values_within_radius(
+            II, X, Y, j, i, convective_radius, X_rad, Y_rad, coordinates
+        )
+        JJ_radius = values_within_radius(
+            JJ, X, Y, j, i, convective_radius, X_rad, Y_rad, coordinates
+        )
+        II_radius = II_radius.astype(int32)
+        JJ_radius = JJ_radius.astype(int32)
+
+        if use_dBZ_threshold and (reflectivity[j, i] >= dBZ_threshold):
+            for ii, jj in zip(II_radius, JJ_radius):
+                classification[jj, ii] = 2
+        else:
+            delta_Z_threshold = get_delta_Z_threshold(
+                mean_background_reflectivity, delta_Z_option
+            )
+            if reflectivity[j, i] - mean_background_reflectivity >= delta_Z_threshold:
                 for ii, jj in zip(II_radius, JJ_radius):
                     classification[jj, ii] = 2
             else:
-                delta_Z_threshold = get_delta_Z_threshold(
-                    mean_background_reflectivity, delta_Z_option
-                )
-                if (
-                    reflectivity[j, i] - mean_background_reflectivity
-                    >= delta_Z_threshold
-                ):
-                    for ii, jj in zip(II_radius, JJ_radius):
-                        classification[jj, ii] = 2
-                else:
-                    classification[j, i] = 1
+                classification[j, i] = 1
     return classification
 
 
@@ -176,18 +173,24 @@ def get_delta_Z_threshold(background_reflectivity, delta_Z_option=0):
     return delta_Z_threshold
 
 
-@conditional_jit(
-    use_numba=use_numba,
-)
-def values_within_radius(array, X, Y, j, i, radius, coordinates="geographic"):
+@conditional_jit(use_numba=use_numba)
+def values_within_radius(
+    array, X, Y, j, i, radius, X_rad, Y_rad, coordinates="geographic"
+):
     """
     Efficiently find the values of an array at locations within a radius of a point.
     We mask values where the array is nan.
     """
 
     if coordinates == "geographic":
-        y_cond = haversine(Y[j, i], X[j, i], Y[:, i], X[j, i]) <= radius
-        x_cond = haversine(Y[j, i], X[j, i], Y[j, i], X[j, :]) <= radius
+        y_cond = (
+            equirectangular(Y_rad[j, i], X_rad[j, i], Y_rad[:, i], X_rad[j, i])
+            <= radius
+        )
+        x_cond = (
+            equirectangular(Y_rad[j, i], X_rad[j, i], Y_rad[j, i], X_rad[j, :])
+            <= radius
+        )
     elif coordinates == "cartesian":
         y_cond = (Y[:, i] - Y[j, i]) ** 2 <= radius**2
         x_cond = (X[j, :] - X[j, i]) ** 2 <= radius**2
@@ -202,7 +205,7 @@ def values_within_radius(array, X, Y, j, i, radius, coordinates="geographic"):
     [array_box, X_box, Y_box] = boxes
 
     if coordinates == "geographic":
-        radius_cond = haversine(Y_box, X_box, Y[j, i], X[j, i]) <= radius
+        radius_cond = equirectangular(Y_box, X_box, Y_rad[j, i], X_rad[j, i]) <= radius
     elif coordinates == "cartesian":
         radius_cond = np.sqrt((Y_box - Y[j, i]) ** 2 + (X_box - X[j, i]) ** 2) <= radius
     radius_cond = radius_cond.flatten() & ~np.isnan(array_box.flatten())

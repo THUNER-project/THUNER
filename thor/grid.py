@@ -284,7 +284,9 @@ def get_cell_areas(options):
 
     if options["name"] == "cartesian":
         area = np.prod(options["cartesian_spacing"]) / 1e6  # Convert to km^2
-        return np.ones((len(options["y"]), len(options["x"]))) * area
+        cell_areas = np.ones((len(options["y"]), len(options["x"]))) * area
+        cell_areas = cell_areas.astype(np.float32)
+        return cell_areas
     elif options["name"] == "geographic":
         return get_geographic_cell_areas(options["latitude"], options["longitude"])
     else:
@@ -344,7 +346,8 @@ def get_geographic_cell_areas(lats, lons):
         areas = dx * dy
         areas = np.apply_along_axis(pad, axis=0, arr=areas)
         areas = np.apply_along_axis(pad, axis=1, arr=areas)
-    return areas / 1e6  # Convert to km^2
+    areas = (areas / 1e6).astype(np.float32)  # Convert to km^2
+    return areas
 
 
 def get_horizontal_coordinates(options):

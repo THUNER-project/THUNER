@@ -1,5 +1,6 @@
 """Module for detecting objects in a grid."""
 
+from memory_profiler import profile as memory_profile
 import copy
 import numbers
 from scipy import ndimage
@@ -9,7 +10,7 @@ import thor.detect.preprocess as preprocess
 from thor.log import setup_logger
 from thor.detect.steiner import steiner_scheme
 from thor.utils import get_time_interval
-import thor.data as data
+
 
 logger = setup_logger(__name__)
 

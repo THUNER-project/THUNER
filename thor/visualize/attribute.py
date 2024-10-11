@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import thor.visualize.horizontal as horizontal
 from thor.visualize.visualize import figure_colors, styles, animate_object
-from thor.log import setup_logger
 from thor.attribute.utils import read_attribute_csv
 from thor.analyze.utils import read_options
 import thor.data.dispatch as dispatch
@@ -17,8 +16,9 @@ import thor.detect.detect as detect
 from thor.utils import format_time
 import thor.parallel as parallel
 import thor.visualize.utils as utils
+import thor.log as log
 
-logger = setup_logger(__name__)
+logger = log.setup_logger(__name__)
 proj = ccrs.PlateCarree()
 
 
@@ -88,18 +88,17 @@ def mcs_series(
         matplotlib.use(original_backend)
         return
     if parallel_figure:
-        with multiprocessing.Pool(
-            initializer=parallel.initialize_process(queue)
-        ) as pool:
-            results = []
-            for time in enumerate(times[1:]):
-                args = [time, filepaths, masks, output_directory, figure_options]
-                args += [options, track_options, dataset_name, dt]
-                args = tuple(args)
-                results.append(pool.apply_async(visualize_mcs, args))
-            pool.close()
-            pool.join()
-            parallel.check_results(results)
+        with log.logging_listener():
+            with multiprocessing.Pool(initializer=parallel.initialize_process) as pool:
+                results = []
+                for time in times[1:]:
+                    args = [time, filepaths, masks, output_directory, figure_options]
+                    args += [options, track_options, dataset_name, dt]
+                    args = tuple(args)
+                    results.append(pool.apply_async(visualize_mcs, args))
+                pool.close()
+                pool.join()
+                parallel.check_results(results)
     else:
         for time in times[1:]:
             args = [time, filepaths, masks, output_directory, figure_options]
