@@ -8,13 +8,13 @@ import thor.data as data
 import thor.data.dispatch as dispatch
 import thor.grid as grid
 import thor.option as option
-import thor.track as track
 import thor.analyze as analyze
 import thor.parallel as parallel
+from thor.parallel import initialize_process
 import thor.visualize as visualize
-from thor.log import setup_logger
+import thor.log as log
 
-logger = setup_logger(__name__)
+logger = log.setup_logger(__name__)
 
 
 def gridrad():
@@ -77,7 +77,9 @@ def gridrad():
     # Create the display_options dictionary
     visualize_options = None
 
-    with multiprocessing.Pool(initializer=parallel.initialize_process(queue)) as pool:
+    with log.logging_listener(), multiprocessing.Pool(
+        initializer=initialize_process()
+    ) as pool:
         results = []
         for i, time_interval in enumerate(intervals):
             args = [i, time_interval, data_options.copy(), grid_options.copy()]

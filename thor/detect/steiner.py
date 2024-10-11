@@ -14,7 +14,7 @@ from thor.utils import meshgrid_numba, numba_boolean_assign, equirectangular
 
 logger = setup_logger(__name__)
 
-use_numba = True
+use_numba = False
 
 
 def conditional_jit(*jit_args, use_numba=True, **jit_kwargs):
@@ -58,6 +58,7 @@ def steiner_scheme(
     Y = Y.astype(float32)
     X_rad = X
     Y_rad = Y
+
     if coordinates == "geographic":
         X_rad = np.radians(X)
         Y_rad = np.radians(Y)
@@ -194,11 +195,13 @@ def values_within_radius(
     elif coordinates == "cartesian":
         y_cond = (Y[:, i] - Y[j, i]) ** 2 <= radius**2
         x_cond = (X[j, :] - X[j, i]) ** 2 <= radius**2
-    else:
-        raise ValueError("Invalid coordinates. Must be 'geographic' or 'cartesian'.")
 
     boxes = List()
-    for arr in [array, X, Y]:
+    if coordinates == "geographic":
+        array_list = [array, X_rad, Y_rad]
+    elif coordinates == "cartesian":
+        array_list = [array, X, Y]
+    for arr in array_list:
         arr_box = arr[y_cond, :]
         arr_box = arr_box[:, x_cond]
         boxes.append(arr_box.flatten())

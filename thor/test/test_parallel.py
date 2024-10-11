@@ -4,14 +4,15 @@ import shutil
 from pathlib import Path
 import os
 import numpy as np
-import multiprocessing
+from multiprocessing import Pool
 import thor.data as data
 import thor.data.dispatch as dispatch
 import thor.grid as grid
 import thor.option as option
 import thor.visualize as visualize
 import thor.parallel as parallel
-from thor.log import setup_logger
+from thor.parallel import initialize_process
+from thor.log import setup_logger, logging_listener
 import thor.analyze as analyze
 
 logger = setup_logger(__name__)
@@ -65,7 +66,7 @@ def setup(start, end, options_directory, grid_type="geographic"):
 
 
 def test_parallel():
-
+    """Test parallel tracking."""
     # Parent directory for saving outputs
     base_local = Path.home() / "THOR_output"
     start = "2005-11-13T14:00"
@@ -78,7 +79,7 @@ def test_parallel():
 
     all_options = setup(start, end, output_parent / "options")
     data_options, grid_options, track_options, visualize_options = all_options
-    with multiprocessing.Pool(initializer=parallel.initialize_process(queue)) as pool:
+    with logging_listener(), Pool(initializer=initialize_process) as pool:
         results = []
         for i, time_interval in enumerate(intervals):
             args = [i, time_interval, data_options.copy(), grid_options.copy()]

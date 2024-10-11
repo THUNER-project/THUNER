@@ -11,8 +11,9 @@ import thor.option as option
 import thor.track as track
 import thor.analyze as analyze
 import thor.parallel as parallel
+from thor.parallel import initialize_process
 import thor.visualize as visualize
-from thor.log import setup_logger
+from thor.log import setup_logger, logging_listener
 
 notebook_name = "gridrad_demo.ipynb"
 
@@ -83,7 +84,9 @@ def test_gridrad():
     }
     visualize_options = None
 
-    with multiprocessing.Pool(initializer=parallel.initialize_process(queue)) as pool:
+    with logging_listener(), multiprocessing.Pool(
+        initializer=initialize_process
+    ) as pool:
         results = []
         for i, time_interval in enumerate(intervals):
             args = [i, time_interval, data_options.copy(), grid_options.copy()]
@@ -94,6 +97,7 @@ def test_gridrad():
         pool.close()
         pool.join()
         parallel.check_results(results)
+
     parallel.stitch_run(output_parent, intervals, cleanup=True)
 
     analysis_options = analyze.mcs.analysis_options()

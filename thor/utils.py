@@ -131,7 +131,7 @@ def get_time_interval(current_grid, previous_grid):
         return None
 
 
-use_numba = True
+use_numba = False
 
 
 def conditional_jit(use_numba=True, *jit_args, **jit_kwargs):
@@ -191,7 +191,7 @@ def numba_boolean_assign(array, condition, value=np.nan):
 @conditional_jit(use_numba=use_numba)
 def equirectangular(lat1_radians, lon1_radians, lat2_radians, lon2_radians):
     """
-    Calculate the great circle distance in metres between two points
+    Calculate the equirectangular distance between two points
     on the earth, where lat and lon are expressed in radians.
     """
 
@@ -203,3 +203,24 @@ def equirectangular(lat1_radians, lon1_radians, lat2_radians, lon2_radians):
     x = dlon * np.cos(avg_lat)
     y = dlat
     return np.sqrt(x**2 + y**2) * r
+
+
+@conditional_jit(use_numba=use_numba)
+def haversine(lat1, lon1, lat2, lon2):
+    """
+    Calculate the great circle distance in metres between two points
+    on the earth (specified in decimal degrees)
+    """
+    # Convert decimal degrees to radians
+    lat1 = np.radians(lat1)
+    lon1 = np.radians(lon1)
+    lat2 = np.radians(lat2)
+    lon2 = np.radians(lon2)
+
+    # Haversine formula
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
+    c = 2 * np.arcsin(np.sqrt(a))
+    r = 6371e3  # Radius of earth in metres
+    return c * r

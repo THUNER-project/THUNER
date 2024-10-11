@@ -15,6 +15,7 @@ import thor.data.dispatch as dispatch
 import thor.detect.detect as detect
 from thor.utils import format_time
 import thor.parallel as parallel
+from thor.parallel import initialize_process
 import thor.visualize.utils as utils
 import thor.log as log
 
@@ -88,17 +89,18 @@ def mcs_series(
         matplotlib.use(original_backend)
         return
     if parallel_figure:
-        with log.logging_listener():
-            with multiprocessing.Pool(initializer=parallel.initialize_process) as pool:
-                results = []
-                for time in times[1:]:
-                    args = [time, filepaths, masks, output_directory, figure_options]
-                    args += [options, track_options, dataset_name, dt]
-                    args = tuple(args)
-                    results.append(pool.apply_async(visualize_mcs, args))
-                pool.close()
-                pool.join()
-                parallel.check_results(results)
+        with log.logging_listener(), multiprocessing.Pool(
+            initializer=initialize_process
+        ) as pool:
+            results = []
+            for time in times[1:]:
+                args = [time, filepaths, masks, output_directory, figure_options]
+                args += [options, track_options, dataset_name, dt]
+                args = tuple(args)
+                results.append(pool.apply_async(visualize_mcs, args))
+            pool.close()
+            pool.join()
+            parallel.check_results(results)
     else:
         for time in times[1:]:
             args = [time, filepaths, masks, output_directory, figure_options]

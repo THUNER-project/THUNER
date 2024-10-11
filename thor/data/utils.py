@@ -17,7 +17,7 @@ from skimage.morphology import remove_small_objects, remove_small_holes
 from scipy.ndimage import binary_dilation, binary_erosion
 import thor.log as log
 from thor.utils import format_time
-from thor.utils import equirectangular
+from thor.utils import haversine
 from thor.config import get_outputs_directory
 
 logger = log.setup_logger(__name__, level="DEBUG")
@@ -577,7 +577,7 @@ def mask_from_range(dataset, dataset_options, grid_options):
         origin_longitude = float(dataset.attrs["origin_longitude"])
         origin_latitude = float(dataset.attrs["origin_latitude"])
         LON, LAT = np.meshgrid(lons, lats)
-        distances = equirectangular(LAT, LON, origin_latitude, origin_longitude)
+        distances = haversine(LAT, LON, origin_latitude, origin_longitude)
         coords = {"latitude": dataset.latitude, "longitude": dataset.longitude}
         dims = {"latitude": dataset.latitude, "longitude": dataset.longitude}
     else:
