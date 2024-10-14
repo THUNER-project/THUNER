@@ -26,3 +26,4 @@ awscli
 tables
 memory_profiler
 psutil
+pydantic

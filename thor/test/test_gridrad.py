@@ -8,22 +8,22 @@ import thor.data as data
 import thor.data.dispatch as dispatch
 import thor.grid as grid
 import thor.option as option
-import thor.track as track
 import thor.analyze as analyze
 import thor.parallel as parallel
 import thor.visualize as visualize
-from thor.log import setup_logger, logging_listener
+import thor.log as log
 
 notebook_name = "gridrad_demo.ipynb"
 
-logger = setup_logger(__name__)
+logger = log.setup_logger(__name__)
 
 
 def test_gridrad():
     # Parent directory for saving outputs
+    logger.info("Setting up GridRad test.")
     base_local = Path.home() / "THOR_output"
     start = "2010-01-20T18:00:00"
-    end = "2010-01-21T03:30:00"
+    end = "2010-01-21T03:00:00"
     event_start = "2010-01-20"
 
     period = parallel.get_period(start, end)
@@ -83,7 +83,9 @@ def test_gridrad():
     }
     visualize_options = None
 
-    with logging_listener(), Pool(initializer=parallel.initialize_process) as pool:
+    logger.info("Starting parallel GridRad tracking.")
+
+    with log.logging_listener(), Pool(initializer=parallel.initialize_process) as pool:
         results = []
         for i, time_interval in enumerate(intervals):
             args = [i, time_interval, data_options.copy(), grid_options.copy()]
@@ -112,4 +114,5 @@ def test_gridrad():
 
 
 if __name__ == "__main__":
+    logger.info("Running GridRad test.")
     test_gridrad()

@@ -3,6 +3,9 @@
 import yaml
 import copy
 from pathlib import Path
+import numpy as np
+from typing import Any, Dict, Optional
+import pydantic
 from thor.utils import now_str, check_component_options
 from thor.config import get_outputs_directory
 from thor.log import setup_logger
@@ -10,6 +13,86 @@ import thor.attribute as attribute
 
 
 logger = setup_logger(__name__)
+
+
+def convert_value(key: Optional[str], value: Any) -> Any:
+    """
+    Convenience function to convert options attributes to types serializable as yaml.
+    """
+    if isinstance(value, BaseOptions):
+        return pydantic.utils.to_dict(value)
+    if isinstance(value, np.datetime64):
+        return str(value)
+    if isinstance(value, dict):
+        return {k: convert_value(k, v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [convert_value(key, v) for v in value]
+    if key in ["start", "end"] and isinstance(value, str):
+        return np.datetime64(value)
+    return value
+
+
+class BaseOptions(pydantic.BaseModel):
+    """
+    The base class for all options classes. This class is built on the pydantic
+    BaseModel class, which is similar to python dataclasses but with type checking.
+    """
+
+    name: str
+
+    class Config:
+        arbitrary_types_allowed = True
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {k: convert_value(k, v) for k, v in pydantic.utils.to_dict(self).items()}
+
+    def from_dict(self, options_dict: Dict[str, Any]):
+        for key, value in options_dict.items():
+            setattr(self, key, convert_value(key, value))
+
+    def to_yaml(self, filepath: str):
+        with open(filepath, "w") as f:
+            args_dict = {"default_flow_style": False, "allow_unicode": True}
+            args_dict = {"sort_keys": False}
+            yaml.dump(self.to_dict(), f, **args_dict)
+
+    def from_yaml(self, filepath: str):
+        with open(filepath, "r") as file:
+            self.from_dict(yaml.safe_load(file))
+
+
+class TintOptions(BaseOptions):
+    """
+    Options for the TINT tracking algorithm. See the following publications
+    """
+
+    # Margin for object matching. Does not affect flow vectors.
+    search_margin: int = 10
+    # Margin around object for phase correlation.
+    local_flow_margin: int = 10
+    # Margin around object for global flow vectors.
+    global_flow_margin: int = 150
+    # If True, require unique global flow for each object.
+    unique_global_flow: bool = True
+    # Maximum allowable matching cost. Units of km.
+    max_cost: float = 1e3
+    # Maximum allowable shift magnitude.
+    max_velocity_mag: int = 60
+    # Maximum allowable shift difference.
+    max_velocity_diff: int = 60
+
+
+class MintOptions(TintOptions):
+    """
+    Options for the MINT tracking algorithm.
+    """
+
+    # Margin for object matching. Does not affect flow vectors.
+    search_margin: int = 25
+    # Margin around object for phase correlation.
+    local_flow_margin: int = 35
+    # Alternative maximum allowable shift difference.
+    max_velocity_diff_alt: int = 25
 
 
 # Tracking scheme configurations.
@@ -29,7 +112,6 @@ def tint_options(
     Parameters
     ----------
     search_margin : int, optional
-        Margin for object matching. Does not affect flow vectors.
     local_flow_margin : int, optional
         Margin around object for phase correlation.
     max_cost : int, optional

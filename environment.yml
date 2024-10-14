@@ -31,3 +31,4 @@ dependencies:
   - pytables
   - memory_profiler
   - psutil
+  - pydantic

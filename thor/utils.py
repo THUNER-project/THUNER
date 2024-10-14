@@ -7,10 +7,30 @@ import pandas as pd
 from numba import njit, int32, float32
 from numba.typed import List
 from scipy.interpolate import interp1d
+import os
+import platform
+from pathlib import Path
 from thor.log import setup_logger
 
 
 logger = setup_logger(__name__)
+
+
+def create_hidden_directory(path):
+    """Create a hidden directory."""
+    if not Path(path).name.startswith("."):
+        hidden_path = Path(path).parent / f".{Path(path).name}"
+    else:
+        hidden_path = Path(path)
+    if hidden_path.exists() and hidden_path.is_file():
+        message = f"{hidden_path} exists, but is a file, not a directory."
+        raise FileExistsError(message)
+    hidden_path.mkdir(parents=True, exist_ok=True)
+    if platform.system() == "Windows":
+        os.system(f'attrib +h "{hidden_path}"')
+    else:
+        os.makedirs(hidden_path, exist_ok=True)
+    return hidden_path
 
 
 def hash_dictionary(dictionary):
@@ -131,7 +151,7 @@ def get_time_interval(current_grid, previous_grid):
         return None
 
 
-use_numba = False
+use_numba = True
 
 
 def conditional_jit(use_numba=True, *jit_args, **jit_kwargs):

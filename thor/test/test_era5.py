@@ -22,3 +22,7 @@ def test_cdsapi():
     cds_name, requests, local_paths = era5.generate_cdsapi_requests(data_options)
     assert filepaths == local_paths
     era5.issue_cdsapi_requests(cds_name, requests, local_paths, enforce_timeout=True)
+
+
+if __name__ == "__main__":
+    test_cdsapi()

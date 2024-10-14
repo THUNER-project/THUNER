@@ -19,7 +19,7 @@ logger = setup_logger(__name__)
 def gridrad():
     # Parent directory for saving outputs
     base_local = Path("/scratch/w40/esh563/THOR_output")
-    start = "2010-01-21T18:00:00"
+    start = "2010-01-21T12:00:00"
     end = "2010-01-22T06:00:00"
     event_start = "2010-01-21"
 
@@ -76,7 +76,7 @@ def gridrad():
     # Create the display_options dictionary
     visualize_options = None
 
-    with logging_listener(), Pool(initializer=parallel.initialize_process()) as pool:
+    with logging_listener(), Pool(initializer=parallel.initialize_process) as pool:
         results = []
         for i, time_interval in enumerate(intervals):
             args = [i, time_interval, data_options.copy(), grid_options.copy()]

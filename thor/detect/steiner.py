@@ -14,7 +14,7 @@ from thor.utils import meshgrid_numba, numba_boolean_assign, equirectangular
 
 logger = setup_logger(__name__)
 
-use_numba = False
+use_numba = True
 
 
 def conditional_jit(*jit_args, use_numba=True, **jit_kwargs):

@@ -38,8 +38,8 @@ def data_options(
     pressure_levels=None,
     fields=None,
     storage="monthly",
-    latitude_range=None,
-    longitude_range=None,
+    latitude_range=[-90, 90],
+    longitude_range=[-180, 180],
     **kwargs,
 ):
     """
@@ -344,10 +344,18 @@ def generate_cdsapi_requests(options):
     # Add an hour to the end time to facilitate temporal interpolation
     end = pd.Timestamp(options["end"]) + pd.Timedelta(hours=1)
 
-    area = get_area(options)
-
     # Get the times corresponding to the filepaths
     times = get_file_datetimes(options, start, end)
+    if options["latitude_range"] is None:
+        latitude_range = [-90, 90]
+    else:
+        latitude_range = options["latitude_range"]
+    if options["longitude_range"] is None:
+        longitude_range = [-180, 180]
+    else:
+        longitude_range = options["longitude_range"]
+    area = [latitude_range[1], longitude_range[0]]
+    area += [latitude_range[0], longitude_range[1]]
 
     # Define a function to get the days for the API request for each time
     def get_days(time, options):
@@ -431,7 +439,7 @@ def issue_cdsapi_requests(
     yet."""
 
     def download_data(cds_name, request, local_path):
-        c = cdsapi.Client()
+        c = cdsapi.Client(sleep_max=5, retry_max=1)
         response = c.retrieve(cds_name, request, local_path)
         return response
 

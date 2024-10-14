@@ -1,6 +1,7 @@
 """Data processing utilities."""
 
 import multiprocessing
+import threading
 import subprocess
 import fcntl
 import zipfile
@@ -16,8 +17,7 @@ import xarray as xr
 from skimage.morphology import remove_small_objects, remove_small_holes
 from scipy.ndimage import binary_dilation, binary_erosion
 import thor.log as log
-from thor.utils import format_time
-from thor.utils import haversine
+import thor.utils as utils
 from thor.config import get_outputs_directory
 
 logger = log.setup_logger(__name__, level="DEBUG")
@@ -49,23 +49,21 @@ class DownloadState:
         return cls._instance
 
     def _initialize(self):
-        # Initialize shared resources
-        self.manager = multiprocessing.Manager()
-        # Lock variable which can be used to prevent multiple simultaneous downloads
-        self.lock = self.manager.Lock()
-        # Value variable to store the time of the last download request
-        self.last_request_time = self.manager.Value("d", 0.0)
-        # Store the filepath to a lock file, useful if multiple instances of the program
-        # are running
-        self.lock_filepath = get_outputs_directory() / ".download_lock"
-        # Create the lock file if it does not exist
-        with self.lock:
+        # Use both process and thread locks to prevent excess simultaneous downloads
+        self.process_lock = multiprocessing.Lock()
+        self.thread_lock = threading.Lock()
+        # Also use a lock file to store time since last download request, to prevent
+        # excess requests from all instances of thor running on a given machine
+        with self.process_lock, self.thread_lock:
+            lock_directory = get_outputs_directory() / ".locks"
+            utils.create_hidden_directory(lock_directory)
+            self.lock_filepath = lock_directory / "download_lock"
             if not Path(self.lock_filepath).exists():
                 Path(self.lock_filepath).touch()
-        # Specify the wait time between download requests
+        # Time of the last download request
+        self.last_request_time = 0.0
+        # Impose a 1 second wait time between download requests
         self.wait_time = 1
-        # Specify a variable to store the current number of download bars
-        self.download_bars = []
 
     def wait_for_lockfile(self):
         """Wait for turn to download using filelock."""
@@ -94,22 +92,6 @@ class DownloadState:
         lock_file.truncate()
         lock_file.write(str(time.time()))
 
-    def create_download_bar(self, total_size, description):
-        """Create a tqdm download bar."""
-        with self.lock:
-            position = len(self.download_bars)
-            args_dict = {"total": total_size, "desc": description, "position": position}
-            args_dict.update({"unit": "iB", "unit_scale": True})
-            bar = tqdm(**args_dict)
-            self.download_bars.append(bar)
-            return bar
-
-    def remove_download_bar(self, bar):
-        """Remove a tqdm download bar."""
-        with self.lock:
-            bar.close()
-            self.download_bars.remove(bar)
-
 
 def url_to_filepath(url, parent_remote, parent_local):
     """Convert remote URL to local file path."""
@@ -125,26 +107,25 @@ def handle_response(response, already_downloaded, filepath):
     """Handle the response from a HTTP request."""
 
     if response.status_code != 200 and response.status_code != 206:
-        message = f"Failed to download {filepath}. "
+        message = f"Failed to download file to {filepath}. "
         message += f"HTTP status code: {response.status_code}."
         raise ValueError(message)
-
     partial_filepath = filepath.with_suffix(".part")
-    download_state = DownloadState()
-    total_size_in_bytes = int(response.headers.get("content-length", 0))
-    total_size_in_bytes += already_downloaded
-    args_dict = {"total_size": total_size_in_bytes}
-    args_dict.update({"description": filepath.name})
-    with logging_redirect_tqdm(loggers=log.get_all_loggers()):
-        progress_bar = download_state.create_download_bar(**args_dict)
-        progress_bar.update(already_downloaded)
-        with open(partial_filepath, "ab") as f:
-            block_size = 1024  # 1 KB
-            for data in response.iter_content(block_size):
-                progress_bar.update(len(data))
-                f.write(data)
-        download_state.remove_download_bar(progress_bar)
+    checkpoint_size = 10 * 1024**2  # 10 MB
+    mb_downloaded = already_downloaded / 1024**2
+    logger.info(f"Downloaded {mb_downloaded:.1f} MB of {filepath.name}.")
+    last_checkpoint = already_downloaded
+    with open(partial_filepath, "ab") as f:
+        block_size = 1024  # 1 KB
+        for data in response.iter_content(block_size):
+            f.write(data)
+            already_downloaded += block_size
+            if already_downloaded - last_checkpoint > checkpoint_size:
+                mb_downloaded = already_downloaded / 1024**2
+                logger.info(f"Downloaded {mb_downloaded:.1f} MB of {filepath.name}.")
+                last_checkpoint = already_downloaded
     partial_filepath.rename(filepath)
+    logger.info(f"Completed download of {filepath.name}.")
 
 
 def get_header(url, filepath):
@@ -161,20 +142,21 @@ def get_header(url, filepath):
     return already_downloaded, resume_header
 
 
-def download(url, parent_remote, parent_local, max_retries=5, retry_delay=2):
+def download(url, parent_remote, parent_local, max_retries=10, retry_delay=2):
     """
-    Downloads a file from the given URL and saves it to the specified directory.
+    Downloads a file from the given URL and saves it to the specified directory,
+    preserving the subdirectory structure of the remote filesystem.
     """
 
     filepath = Path(url_to_filepath(url, parent_remote, parent_local))
     if not filepath.parent.exists():
         filepath.parent.mkdir(parents=True)
-    download_state = DownloadState()
-    download_state.wait_for_lockfile()
-
     if filepath.exists():
         logger.info("%s already exists.", filepath)
         return str(filepath)
+
+    download_state = DownloadState()
+    download_state.wait_for_lockfile()
 
     for attempt in range(1, max_retries + 1):
         try:
@@ -436,9 +418,8 @@ def cdsapi_retrieval(cds_name, request, local_path):
 
 
 def log_dataset_update(local_logger, name, time):
-    local_logger.info(
-        f"Updating {name} dataset for {format_time(time, filename_safe=False)}."
-    )
+    time_str = utils.format_time(time, filename_safe=False)
+    local_logger.info(f"Updating {name} dataset for {time_str}.")
 
 
 def log_convert(local_logger, name, filepath):
@@ -577,7 +558,7 @@ def mask_from_range(dataset, dataset_options, grid_options):
         origin_longitude = float(dataset.attrs["origin_longitude"])
         origin_latitude = float(dataset.attrs["origin_latitude"])
         LON, LAT = np.meshgrid(lons, lats)
-        distances = haversine(LAT, LON, origin_latitude, origin_longitude)
+        distances = utils.haversine(LAT, LON, origin_latitude, origin_longitude)
         coords = {"latitude": dataset.latitude, "longitude": dataset.longitude}
         dims = {"latitude": dataset.latitude, "longitude": dataset.longitude}
     else:
