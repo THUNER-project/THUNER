@@ -8,8 +8,6 @@ import zipfile
 import time
 from pathlib import Path
 import requests
-from tqdm import tqdm
-from tqdm.contrib.logging import logging_redirect_tqdm
 import cdsapi
 import cv2
 import numpy as np
