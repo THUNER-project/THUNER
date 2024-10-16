@@ -1,9 +1,9 @@
-**.pyc
-**__pycache__
-**.pytest_cache
+.pyc
+__pycache__
+.pytest_cache
 build
-**.ipynb_checkpoints
-**.egg-info
+.ipynb_checkpoints
+.egg-info
 log
 .flake8
 .vscode
@@ -11,5 +11,5 @@ thor/test/data
 thor/test/runtime_visualization
 thor/options
 kitchen_sink
-**.coverage
-**htmlcov
+.coverage
+htmlcov
