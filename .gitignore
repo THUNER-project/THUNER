@@ -1,8 +1,8 @@
-.pyc
+*.pyc
 __pycache__
 .pytest_cache
 build
-.ipynb_checkpoints
+*.ipynb_checkpoints
 *.egg-info
 log
 .flake8

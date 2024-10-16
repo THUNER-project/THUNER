@@ -12,6 +12,7 @@ import thor.analyze as analyze
 import thor.parallel as parallel
 import thor.visualize as visualize
 import thor.log as log
+import thor.track as track
 
 notebook_name = "gridrad_demo.ipynb"
 
@@ -23,11 +24,10 @@ def test_gridrad():
     logger.info("Setting up GridRad test.")
     base_local = Path.home() / "THOR_output"
     start = "2010-01-20T21:00:00"
-    end = "2010-01-21T03:00:00"
+    end = "2010-01-20T23:00:00"
     event_start = "2010-01-20"
 
     period = parallel.get_period(start, end)
-    intervals = parallel.get_time_intervals(start, end, period=period)
 
     output_parent = base_local / "runs/gridrad_demo"
     if output_parent.exists():
@@ -81,23 +81,15 @@ def test_gridrad():
     }
     visualize_options = None
 
-    logger.info("Starting parallel GridRad tracking.")
-
-    with log.logging_listener(), Pool(
-        initializer=parallel.initialize_process, processes=6
-    ) as pool:
-        results = []
-        for i, time_interval in enumerate(intervals):
-            args = [i, time_interval, data_options.copy(), grid_options.copy()]
-            args += [track_options.model_copy(deep=True), visualize_options]
-            args += [output_parent, "gridrad"]
-            args = tuple(args)
-            results.append(pool.apply_async(parallel.track_interval, args))
-        pool.close()
-        pool.join()
-        parallel.check_results(results)
-
-    parallel.stitch_run(output_parent, intervals, cleanup=True)
+    times = data.utils.generate_times(data_options["gridrad"])
+    track.simultaneous_track(
+        times,
+        data_options,
+        grid_options,
+        track_options,
+        visualize_options,
+        output_directory=output_parent,
+    )
 
     analysis_options = analyze.mcs.analysis_options()
     analyze.mcs.process_velocities(output_parent)

@@ -122,10 +122,8 @@ class MintOptions(TintOptions):
 class MaskOptions(BaseOptions):
     """Options for saving and loading masks."""
 
-    _description: ClassVar = "If True, save masks as .nc files."
-    save: bool = Field(True, description=_description)
-    _description = "If True, load masks from .nc files."
-    load: bool = Field(False, description=_description)
+    save: bool = Field(True, description="If True, save masks as .nc files.")
+    load: bool = Field(False, description="If True, load masks from .nc files.")
 
 
 class BaseObjectOptions(BaseOptions):
@@ -170,14 +168,12 @@ class AttributeTypeOptions(BaseOptions):
 class DetectionOptions(BaseOptions):
     """Options for object detection."""
 
-    _description: ClassVar = "Method used to detect the object."
-    method: str = Field(..., description=_description)
-    _description = "Altitudes over which to detect objects."
+    method: str = Field(..., description="Method used to detect the object.")
+    _description: ClassVar = "Altitudes over which to detect objects."
     altitudes: List[int] = Field([], description=_description)
     _description = "Method used to flatten the object."
     flatten_method: str = Field("vertical_max", description=_description)
-    _description = "Minimum area of object in km squared."
-    min_area: int = Field(10, description=_description)
+    min_area: int = Field(10, description="Minimum area of object in km squared.")
     _description = "Threshold used for detection if required."
     threshold: Optional[int] = Field(None, description=_description)
 
