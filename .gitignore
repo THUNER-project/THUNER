@@ -3,7 +3,7 @@ __pycache__
 .pytest_cache
 build
 .ipynb_checkpoints
-.egg-info
+*.egg-info
 log
 .flake8
 .vscode
