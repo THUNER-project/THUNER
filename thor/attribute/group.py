@@ -27,7 +27,7 @@ def offset(name, method=None, description=None):
         method = {"function": "offset_from_centers"}
         # List objects to calculate offset between, with the offset vector pointing
         # from the first object in the list to the second object
-        method["args"] = {"objects": ["cell", "anvil"]}
+        method["args"] = {"objects": ["convective", "anvil"]}
     if description is None:
         description = f"{name} of one member object center from another."
     args = [name, method, data_type, precision, description, units]

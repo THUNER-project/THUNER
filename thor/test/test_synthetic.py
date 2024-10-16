@@ -71,13 +71,8 @@ def test_synthetic():
     data.option.save_data_options(data_options, options_directory)
 
     # Create the track_options dictionary
-    track_options = option.cell(
-        dataset="synthetic",
-        tracking_method="mint",
-        global_flow_margin=70,
-        unique_global_flow=False,
-    )
-    option.save_track_options(track_options, options_directory)
+    track_options = option.synthetic_track_options()
+    track_options.to_yaml(options_directory / "track.yml")
 
     # Create the display_options dictionary
     visualize_options = {
@@ -122,7 +117,8 @@ def test_synthetic():
     )
     grid.check_options(grid_options)
     grid.save_grid_options(grid_options, options_directory)
-    option.save_track_options(track_options, options_directory)
+    track_options = option.synthetic_track_options()
+    track_options.to_yaml(options_directory / "track.yml")
     data.option.save_data_options(data_options, options_directory)
 
     times = np.arange(
@@ -138,3 +134,7 @@ def test_synthetic():
         visualize_options,
         output_directory=output_directory,
     )
+
+
+if __name__ == "__main__":
+    test_synthetic()

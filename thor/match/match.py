@@ -12,7 +12,7 @@ logger = setup_logger(__name__)
 
 def initialise_match_records(object_tracks, object_options):
     object_tracks["current_matched_mask"] = None
-    deque_length = object_options["deque_length"]
+    deque_length = object_options.deque_length
     object_tracks["previous_matched_masks"] = deque(
         [None] * deque_length, maxlen=deque_length
     )
@@ -24,10 +24,10 @@ def initialise_match_records(object_tracks, object_options):
 
 def match(object_tracks, object_options, grid_options):
     """Match objects between previous and current masks."""
-    if object_options["tracking"]["method"] is None:
+    if object_options.tracking is None:
         return
     current_mask, previous_mask = get_masks(object_tracks, object_options)
-    logger.info(f"Matching {object_options['name']} objects.")
+    logger.info(f"Matching {object_options.name} objects.")
     current_ids = np.unique(current_mask)
     current_ids = current_ids[current_ids != 0]
     if previous_mask is None or np.max(previous_mask) == 0:

@@ -14,10 +14,10 @@ logger = setup_logger(__name__)
 
 def update(object_tracks, object_options):
     """Update masks lists, and if necessary write to file."""
-    if not object_options["mask_options"]["save"]:
+    if not object_options.mask_options.save:
         return
 
-    if object_options["tracking"]["method"] is None:
+    if object_options.tracking is None:
         mask_type = "current_mask"
     else:
         mask_type = "current_matched_mask"
@@ -29,9 +29,9 @@ def update(object_tracks, object_options):
 def write(object_tracks, object_options, output_directory):
     """Write masks to file."""
     mask_list = object_tracks["mask_list"]
-    object_name = object_options["name"]
+    object_name = object_options.name
     last_write_time = object_tracks["last_write_time"]
-    write_interval = np.timedelta64(object_options["write_interval"], "h")
+    write_interval = np.timedelta64(object_options.write_interval, "h")
 
     last_write_str = format_time(last_write_time, filename_safe=False, day_only=False)
     current_str = format_time(
@@ -68,25 +68,27 @@ def write(object_tracks, object_options, output_directory):
 def write_final(tracks, track_options, output_directory):
     """Write final masks to file."""
 
-    for index, level_options in enumerate(track_options):
-        for obj in level_options.keys():
-            if not level_options[obj]["mask_options"]["save"]:
+    for index, level_options in enumerate(track_options.levels):
+        for object_options in level_options.objects:
+            if not object_options.mask_options.save:
                 continue
-            write(tracks[index][obj], level_options[obj], output_directory)
+            obj_name = object_options.name
+            write(tracks[index][obj_name], object_options, output_directory)
 
 
 def aggregate(track_options, output_directory, clean_up=True):
     """Aggregate masks into single file."""
 
     logger.info("Aggregating mask files.")
-    for level_options in track_options:
-        for obj in level_options.keys():
-            if not level_options[obj]["mask_options"]["save"]:
+    for level_options in track_options.levels:
+        for object_options in level_options.objects:
+            name = object_options.name
+            if not object_options.mask_options.save:
                 continue
-            filepaths = glob.glob(f"{output_directory}/masks/{obj}/*.nc")
+            filepaths = glob.glob(f"{output_directory}/masks/{name}/*.nc")
             masks = xr.open_mfdataset(filepaths)
             masks = masks.astype(np.uint32)
             encoding = get_encoding(masks)
-            masks.to_netcdf(output_directory / f"masks/{obj}.nc", encoding=encoding)
+            masks.to_netcdf(output_directory / f"masks/{name}.nc", encoding=encoding)
             if clean_up:
-                shutil.rmtree(output_directory / f"masks/{obj}")
+                shutil.rmtree(output_directory / f"masks/{name}")

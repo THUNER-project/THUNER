@@ -20,11 +20,11 @@ def group(
 ):
     """Group objects into new objects."""
 
-    dataset = track_input_records[object_options["dataset"]]["dataset"]
+    dataset = track_input_records[object_options.dataset]["dataset"]
     if "gridcell_area" not in tracks[level_index][obj].keys():
         tracks[level_index][obj]["gridcell_area"] = dataset["gridcell_area"]
-    member_objects = object_options["grouping"]["member_objects"]
-    member_levels = object_options["grouping"]["member_levels"]
+    member_objects = object_options.grouping.member_objects
+    member_levels = object_options.grouping.member_levels
 
     grid_dict = {}
     for member_obj, member_level in zip(member_objects, member_levels):
@@ -54,8 +54,8 @@ def group(
 def get_connected_components(tracks, object_options):
     """Calculate connected components from a dictionary of masks."""
 
-    member_objects = object_options["grouping"]["member_objects"]
-    member_levels = object_options["grouping"]["member_levels"]
+    member_objects = object_options.grouping.member_objects
+    member_levels = object_options.grouping.member_levels
 
     # Relabel objects in mask so that object numbers are unique
     current_max = 0
@@ -116,9 +116,9 @@ def check_areas(masks, tracks, object_options, objs):
     """
     Check if the areas of the member objects after grouping are above the threshold.
     """
-    member_objects = object_options["grouping"]["member_objects"]
-    member_levels = object_options["grouping"]["member_levels"]
-    member_min_areas = object_options["grouping"]["member_min_areas"]
+    member_objects = object_options.grouping.member_objects
+    member_levels = object_options.grouping.member_levels
+    member_min_areas = object_options.grouping.member_min_areas
     for j in range(len(masks)):
         gridcell_area = tracks[member_levels[j]][member_objects[j]]["gridcell_area"]
         mask_j = np.isin(masks[j], objs)

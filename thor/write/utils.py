@@ -14,6 +14,10 @@ def write_interval_reached(time, object_tracks, object_options):
     # Check if write interval reached; if so, write masks to file
     last_write_time = object_tracks["last_write_time"]
     time_diff = time - last_write_time
-    write_interval = np.timedelta64(object_options["write_interval"], "h")
+    try:
+        write_interval = object_options.write_interval
+    except AttributeError:
+        write_interval = object_options["write_interval"]
+    write_interval = np.timedelta64(write_interval, "h")
 
     return time_diff >= write_interval

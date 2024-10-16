@@ -407,12 +407,11 @@ def get_domain_mask(ds, track_options, dataset_options):
 
     domain_masks = []
     dataset_name = dataset_options["name"]
-    for level in range(len(track_options)):
-        for obj in track_options[level].keys():
-            detected = "detection" in track_options[level][obj]
-            uses_dataset = dataset_name == track_options[level][obj]["dataset"]
+    for level_options in track_options.levels:
+        for object_options in level_options.objects:
+            detected = "detection" in object_options.model_fields
+            uses_dataset = dataset_name == object_options.dataset
             if detected and uses_dataset:
-                object_options = track_options[level][obj]
                 mask = utils.mask_from_observations(ds, dataset_options, object_options)
                 domain_masks.append(mask)
     # Combine the masks

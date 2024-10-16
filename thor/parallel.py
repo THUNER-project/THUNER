@@ -8,6 +8,7 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import xarray as xr
+import copy
 from thor.log import setup_logger
 import thor.attribute as attribute
 import thor.write as write
@@ -52,13 +53,13 @@ def track_interval(
     options_directory = output_directory / "options"
     data_options = data_options.copy()
     grid_options = grid_options.copy()
-    track_options = track_options.copy()
+    track_options = track_options.model_copy(deep=True)
     if visualize_options is not None:
         visualize_options = visualize_options.copy()
     interval_data_options = get_interval_data_options(data_options, time_interval)
     data.option.save_data_options(interval_data_options, options_directory)
     grid.save_grid_options(grid_options, options_directory)
-    option.save_track_options(track_options, options_directory)
+    track_options.to_yaml(options_directory / "track.yml")
     times = data.utils.generate_times(interval_data_options[dataset_name])
     args = [times, interval_data_options, grid_options, track_options]
     args += [visualize_options, output_directory]
@@ -81,7 +82,7 @@ def check_results(results):
     """Check pool results for exceptions."""
     for result in results:
         try:
-            result.get()  # Wait for the result and handle exceptions
+            result.get(timeout=5 * 60)
         except Exception as exc:
             print(f"Generated an exception: {exc}")
 
@@ -176,11 +177,11 @@ def get_tracked_objects(track_options):
     """Get the names of objects which are tracked."""
     tracked_objects = []
     all_objects = []
-    for level_options in track_options:
-        for obj in level_options:
-            all_objects.append(obj)
-            if level_options[obj]["tracking"]["method"] is not None:
-                tracked_objects.append(obj)
+    for level_options in track_options.levels:
+        for object_options in level_options.objects:
+            all_objects.append(object_options.name)
+            if object_options.tracking is not None:
+                tracked_objects.append(object_options.name)
     return tracked_objects, all_objects
 
 

@@ -55,9 +55,8 @@ def setup(start, end, options_directory, grid_type="geographic"):
     grid.save_grid_options(grid_options, options_directory)
 
     # Create the track_options dictionary
-    track_options = option.mcs(dataset="cpol")
-    option.check_options(track_options)
-    option.save_track_options(track_options, options_directory)
+    track_options = option.default_track_options(dataset="cpol")
+    track_options.to_yaml(options_directory / "track.yml")
 
     mcs_vis_options = visualize.option.runtime_options(
         "mcs", save=True, style="presentation", figure_types=["mask", "match"]
@@ -127,7 +126,7 @@ def test_cpol_with_runtime_figures_cartesian():
     )
 
 
-def test_cpol_geographic(parallel_figure=False):
+def test_cpol_geographic():
     """
     Test cpol download and tracking.
     """
@@ -165,7 +164,7 @@ def test_cpol_geographic(parallel_figure=False):
         "mcs_velocity_analysis", style="presentation"
     )
     visualize.attribute.mcs_series(
-        output_directory, start, end, figure_options, parallel_figure=parallel_figure
+        output_directory, start, end, figure_options, parallel_figure=True
     )
 
 
@@ -206,4 +205,13 @@ def test_cpol_cartesian():
     figure_options = visualize.option.horizontal_attribute_options(
         "mcs_velocity_analysis", style="presentation"
     )
-    visualize.attribute.mcs_series(output_directory, start, end, figure_options)
+    visualize.attribute.mcs_series(
+        output_directory, start, end, figure_options, parallel_figure=True
+    )
+
+
+if __name__ == "__main__":
+    # test_cpol_geographic()
+    # test_cpol_cartesian()
+    test_cpol_with_runtime_figures_geographic()
+    test_cpol_with_runtime_figures_cartesian()

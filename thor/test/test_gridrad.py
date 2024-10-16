@@ -22,7 +22,7 @@ def test_gridrad():
     # Parent directory for saving outputs
     logger.info("Setting up GridRad test.")
     base_local = Path.home() / "THOR_output"
-    start = "2010-01-20T18:00:00"
+    start = "2010-01-20T21:00:00"
     end = "2010-01-21T03:00:00"
     event_start = "2010-01-20"
 
@@ -67,14 +67,12 @@ def test_gridrad():
     grid.save_grid_options(grid_options, options_directory=options_directory)
 
     # Create the track_options dictionary
-    track_options = option.mcs(
-        dataset="gridrad",
-        global_flow_margin=70,
-        unique_global_flow=False,
-    )
-
-    option.check_options(track_options)
-    option.save_track_options(track_options, options_directory=options_directory)
+    track_options = option.default_track_options(dataset="gridrad")
+    # Modify the default options for gridrad. Because grids so large we now use a distinct
+    # global flow box for each object.
+    track_options.levels[1].objects[0].tracking.global_flow_margin = 70
+    track_options.levels[1].objects[0].tracking.unique_global_flow = False
+    track_options.to_yaml(options_directory / "track.yml")
 
     # Create the display_options dictionary
     visualize_options = {
@@ -85,11 +83,13 @@ def test_gridrad():
 
     logger.info("Starting parallel GridRad tracking.")
 
-    with log.logging_listener(), Pool(initializer=parallel.initialize_process) as pool:
+    with log.logging_listener(), Pool(
+        initializer=parallel.initialize_process, processes=6
+    ) as pool:
         results = []
         for i, time_interval in enumerate(intervals):
             args = [i, time_interval, data_options.copy(), grid_options.copy()]
-            args += [track_options.copy(), visualize_options]
+            args += [track_options.model_copy(deep=True), visualize_options]
             args += [output_parent, "gridrad"]
             args = tuple(args)
             results.append(pool.apply_async(parallel.track_interval, args))
@@ -114,5 +114,4 @@ def test_gridrad():
 
 
 if __name__ == "__main__":
-    logger.info("Running GridRad test.")
     test_gridrad()

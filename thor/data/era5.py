@@ -9,14 +9,14 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import cdsapi
-from thor.log import setup_logger
+import thor.log as log
 from thor.utils import format_string_list, get_hour_interval
 import thor.data.utils as utils
 import thor.data.option as option
 from thor.config import get_outputs_directory
 
 
-logger = setup_logger(__name__)
+logger = log.setup_logger(__name__)
 
 era5_pressure_levels = ["1000", "975", "950", "925", "900", "875", "850", "825", "800"]
 era5_pressure_levels += ["775", "750", "700", "650", "600", "550", "500", "450", "400"]
@@ -510,10 +510,12 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
     with tempfile.TemporaryDirectory() as tmp:
         for field in dataset_options["fields"]:
             for filepath in filepaths[field]:
-                logger.info("Subsetting %s", Path(filepath).name)
+                logger.debug("Subsetting %s", Path(filepath).name)
                 utils.call_ncks(
                     filepath, f"{tmp}/{field}.nc", start, end, lat_range, lon_range
                 )
+        logger.debug("Merging files.")
         ds = xr.open_mfdataset(f"{tmp}/*.nc").load()
+        logger.debug("Converting")
         ds = convert_era5(ds)
         input_record["dataset"] = ds

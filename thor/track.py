@@ -92,12 +92,12 @@ def initialise_object_tracks(object_options):
 
     """
     object_tracks = {}
-    object_tracks["name"] = object_options["name"]
+    object_tracks["name"] = object_options.name
     object_tracks["object_count"] = 0
     object_tracks["tracks"] = []
     object_tracks["current_grid"] = None
     object_tracks["current_time_interval"] = None
-    deque_length = object_options["deque_length"]
+    deque_length = object_options.deque_length
     object_tracks["previous_time_interval"] = deque([None] * deque_length, deque_length)
     object_tracks["current_time"] = None
     object_tracks["previous_times"] = deque([None] * deque_length, deque_length)
@@ -105,13 +105,13 @@ def initialise_object_tracks(object_options):
     object_tracks["current_mask"] = None
     object_tracks["previous_masks"] = deque([None] * deque_length, deque_length)
 
-    if object_options["tracking"]["method"] is not None:
+    if object_options.tracking is not None:
         match.initialise_match_records(object_tracks, object_options)
-    if object_options["mask_options"]["save"]:
+    if object_options.mask_options.save:
         object_tracks["mask_list"] = []
 
     # Initialize attributes dictionaries
-    if object_options["attributes"] is not None:
+    if object_options.attributes is not None:
         # The current_attributes dict holds the attributes associated with matching the
         # "previous" grid to the "current" grid. It is reset at the start of each time
         # step.
@@ -142,13 +142,15 @@ def initialise_tracks(track_options, data_options):
     """
 
     tracks = []
-    for level_options in track_options:
-        level_tracks = {obj: {} for obj in level_options.keys()}
-        for obj in level_options.keys():
-            dataset = level_options[obj]["dataset"]
-            if dataset is not None and dataset not in data_options.keys():
-                raise ValueError(f"{dataset} dataset not in data_options.")
-            obj_tracks = initialise_object_tracks(level_options[obj])
+    for level_options in track_options.levels:
+        level_tracks = {obj.name: {} for obj in level_options.objects}
+        for obj in level_tracks.keys():
+            object_options = level_options.options_by_name(obj)
+            # dataset = object_options.dataset
+            # # This should become a model validator on options
+            # if dataset is not None and dataset not in data_options.keys():
+            #     raise ValueError(f"{dataset} dataset not in data_options.")
+            obj_tracks = initialise_object_tracks(object_options)
             level_tracks[obj] = obj_tracks
         tracks.append(level_tracks)
     return tracks
@@ -199,7 +201,7 @@ def simultaneous_track(
     """
     logger.info("Beginning thor run. Saving output to %s.", output_directory)
     logger.info("Beginning simultaneous tracking.")
-    option.check_options(track_options)
+    # option.check_options(track_options)
     dispatch.check_data_options(data_options)
     tracks = initialise_tracks(track_options, data_options)
     input_records = initialise_input_records(data_options)
@@ -226,7 +228,7 @@ def simultaneous_track(
         args += [grid_options]
         dispatch.update_tag_input_records(*args)
         # loop over levels
-        for level_index in range(len(track_options)):
+        for level_index in range(len(track_options.levels)):
             logger.info("Processing hierarchy level %s.", level_index)
             track_level_args = [time, level_index, tracks, input_records]
             track_level_args += [data_options, grid_options, track_options]
@@ -260,15 +262,15 @@ def track_level(
 ):
     """Track a hierarchy level."""
     level_tracks = tracks[level_index]
-    level_options = track_options[level_index]
+    level_options = track_options.levels[level_index]
 
     def get_track_object_args(obj, level_options):
         logger.info("Tracking %s.", obj)
-        dataset = level_options[obj]["dataset"]
-        if dataset is None:
+        object_options = level_options.options_by_name(obj)
+        if "dataset" not in object_options.__fields__:
             dataset_options = None
         else:
-            dataset_options = data_options[dataset]
+            dataset_options = data_options[object_options.dataset]
         track_object_args = [time, level_index, obj, tracks, input_records]
         track_object_args += [dataset_options, grid_options, track_options]
         track_object_args += [visualize_options, output_directory]
@@ -295,7 +297,7 @@ def track_object(
 ):
     """Track the given object."""
     # Get the object options
-    object_options = track_options[level_index][obj]
+    object_options = track_options.levels[level_index].options_by_name(obj)
     object_tracks = tracks[level_index][obj]
     track_input_records = input_records["track"]
 
@@ -311,7 +313,13 @@ def track_object(
         write.attribute.write(object_tracks, object_options, output_directory)
 
     # Detect objects at time
-    get_objects = get_objects_dispatcher.get(object_options["method"])
+    if "grouping" in object_options.__fields__:
+        get_objects = group.group
+    elif "detection" in object_options.__fields__:
+        get_objects = detect.detect
+    else:
+        raise ValueError("No known method for obtaining objects provided.")
+    # get_objects = get_objects_dispatcher.get(object_options["method"])
     get_objects_args = [track_input_records, tracks, level_index, obj, dataset_options]
     get_objects_args += [object_options, grid_options]
     get_objects(*get_objects_args)

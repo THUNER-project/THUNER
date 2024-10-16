@@ -16,16 +16,16 @@ logger = setup_logger(__name__)
 
 def threshold(grid, object_options):
     """Detect objects in the given grid using thresholding."""
-    if object_options["detection"]["method"] != "threshold":
+    if object_options.detection.method != "threshold":
         raise ValueError("Detection method not set to threshold.")
 
-    binary_grid = grid >= object_options["detection"]["threshold"]
+    binary_grid = grid >= object_options.detection.threshold
     return binary_grid
 
 
 def steiner(grid, object_options):
     """Detect objects in the given grid using the Steiner et al. method."""
-    if object_options["detection"]["method"] != "steiner":
+    if object_options.detection.method != "steiner":
         raise ValueError("Detection method not set to steiner.")
 
     if "latitude" in grid.dims:
@@ -81,12 +81,12 @@ flattener_dispatcher = {
 
 def rebuild_processed_grid(grid_data, track_options, obj, level):
     grid_dict = {}
-    object_options = track_options[level][obj]
-    if "detection" in object_options:
+    object_options = track_options.levels[level].options_by_name(obj)
+    if "detection" in object_options.model_fields:
         grid_dict[f"{obj}_grid"] = process_grid(grid_data, object_options)
-    elif "grouping" in object_options:
-        member_objects = object_options["grouping"]["member_objects"]
-        member_levels = object_options["grouping"]["member_levels"]
+    elif "grouping" in object_options.model_fields:
+        member_objects = object_options.grouping.member_objects
+        member_levels = object_options.grouping.member_levels
         for member_obj, member_level in zip(member_objects, member_levels):
             args = [grid_data, track_options, member_obj, member_level]
             grid_dict.update(rebuild_processed_grid(*args))
@@ -96,8 +96,8 @@ def rebuild_processed_grid(grid_data, track_options, obj, level):
 
 def process_grid(grid, object_options):
 
-    if object_options["detection"]["flatten_method"] is not None:
-        flatten_method = object_options["detection"]["flatten_method"]
+    if object_options.detection.flatten_method is not None:
+        flatten_method = object_options.detection.flatten_method
     else:
         logger.warning("No flattening method specified. Taking column max.")
         flatten_method = "vertical_max"
@@ -120,7 +120,7 @@ def detect(
     object_tracks = tracks[level_index][obj]
     previous_grid = copy.deepcopy(object_tracks["current_grid"])
     object_tracks["previous_grids"].append(previous_grid)
-    input_record = track_input_records[object_options["dataset"]]
+    input_record = track_input_records[object_options.dataset]
 
     grid = input_record["current_grid"]
     object_tracks["previous_time_interval"] = copy.deepcopy(
@@ -135,16 +135,16 @@ def detect(
 
     object_tracks["current_grid"] = processed_grid
 
-    detecter = detecter_dispatcher.get(object_options["detection"]["method"])
+    detecter = detecter_dispatcher.get(object_options.detection.method)
     if detecter is None:
         raise ValueError("Invalid detection method.")
     binary_grid = detecter(processed_grid, object_options)
     mask = xr.full_like(binary_grid, 0, dtype=int)
     mask.data = ndimage.label(binary_grid)[0]
-    mask.name = f"{object_options['name']}_mask"
+    mask.name = f"{object_options.name}_mask"
 
-    if object_options["detection"]["min_area"] is not None:
-        args = [mask, object_options["detection"]["min_area"], dataset["gridcell_area"]]
+    if object_options.detection.min_area is not None:
+        args = [mask, object_options.detection.min_area, dataset["gridcell_area"]]
         mask = clear_small_area_objects(*args)
 
     current_mask = copy.deepcopy(object_tracks["current_mask"])

@@ -4,9 +4,9 @@
 def vertical_max(grid, object_options):
     """Return the maximum over the specified altitude range."""
 
-    altitudes = object_options["detection"]["altitudes"]
+    altitudes = object_options.detection.altitudes
     if len(altitudes) == 2:
-        [start_alt, end_alt] = object_options["detection"]["altitudes"]
+        [start_alt, end_alt] = object_options.detection.altitudes
         flat_grid = grid.sel(altitude=slice(start_alt, end_alt)).max(
             dim="altitude", keep_attrs=True
         )
@@ -21,9 +21,9 @@ def vertical_max(grid, object_options):
 
 def cross_section(grid, object_options):
     """Return the cross section at the specified altitude."""
-    altitude = object_options["detection"]["altitudes"]
+    altitude = object_options.detection.altitudes
     if len(altitude) == 1:
-        altitude = object_options["detection"]["altitudes"][0]
+        altitude = object_options.detection.altitudes[0]
         flat_grid = grid.sel(altitude=altitude)
         flat_grid = flat_grid.reset_coords("altitude", drop=True)
         flat_grid.attrs["flatten_method"] = "cross_section"

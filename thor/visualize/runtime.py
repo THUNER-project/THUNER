@@ -39,10 +39,10 @@ def detected_mask(
     """Plot masks for a detected object."""
 
     object_tracks = tracks[level_index][obj]
-    object_options = track_options[level_index][obj]
+    object_options = track_options.levels[level_index].options_by_name(obj)
     grid = object_tracks["current_grid"]
 
-    if object_options["tracking"]["method"] is None:
+    if "tracking" not in object_options.model_fields:
         mask = object_tracks["current_mask"]
     else:
         mask = object_tracks["current_matched_mask"]
@@ -64,9 +64,9 @@ def grouped_mask(
     figure_options,
 ):
     """Plot masks for a grouped object."""
-    object_options = track_options[level_index][obj]
+    object_options = track_options.levels[level_index].options_by_name(obj)
     object_tracks = tracks[level_index][obj]
-    if object_options["tracking"]["method"] is None:
+    if "tracking" in object_options.model_fields:
         mask = object_tracks["current_mask"]
     else:
         mask = object_tracks["current_matched_mask"]
@@ -74,7 +74,7 @@ def grouped_mask(
     try:
         member_objects = figure_options["member_objects"]
     except KeyError:
-        member_objects = object_options["grouping"]["member_objects"]
+        member_objects = object_options.grouping.member_objects
 
     grid = object_tracks["current_grid"]
     extent = get_extent(grid_options)
@@ -190,7 +190,7 @@ def visualize_match(
 
     object_tracks = tracks[level_index][obj]
     object_record = object_tracks["object_record"]
-    object_options = track_options[level_index][obj]
+    object_options = track_options.levels[level_index].options_by_name(obj)
     grids = get_grids(object_tracks, object_options, num_previous=2)
     masks = get_masks(object_tracks, object_options, matched=True, num_previous=2)
     all_boundaries = get_boundaries(input_record, num_previous=2)
@@ -215,7 +215,7 @@ def visualize_match(
                 horizontal.show_mask(masks[j], axes[i], grid_options)
             if input_record["current_boundary_coordinates"] is not None:
                 horizontal.add_domain_boundary(axes[i], all_boundaries[j])
-    unique_global_flow = object_options["tracking"]["options"]["unique_global_flow"]
+    unique_global_flow = object_options.tracking.unique_global_flow
     match_features(grids[0], object_record, axes, grid_options, unique_global_flow)
     cbar_label = grids[0].attrs["long_name"].title() + f" [{grids[0].attrs['units']}]"
     fig.colorbar(pcm, cax=cbar_ax, label=cbar_label)
@@ -223,18 +223,24 @@ def visualize_match(
     return fig, axes
 
 
-create_mask_figure_dispatcher = {"detect": detected_mask, "group": grouped_mask}
+def create_mask_figure_dispatcher(object_options):
+    """Dispatch the mask figure creation based on the method."""
+    if "detection" in object_options.model_fields:
+        return detected_mask
+    elif "grouping" in object_options.model_fields:
+        return grouped_mask
+    else:
+        return None
 
 
 def visualize_mask(
     input_record, tracks, level_index, obj, track_options, grid_options, figure_options
 ):
     """Plot masks for an object."""
-    object_options = track_options[level_index][obj]
-    create_figure = create_mask_figure_dispatcher.get(object_options["method"])
+    object_options = track_options.levels[level_index].options_by_name(obj)
+    create_figure = create_mask_figure_dispatcher(object_options)
     if not create_figure:
-        message = "create_mask_figure function for object track option "
-        message += f"{object_options['method']} not found."
+        message = "create_mask_figure function for object detection option not found."
         raise KeyError(message)
 
     fig, ax = create_figure(
@@ -265,12 +271,12 @@ def visualize(
     # Close all current figures
     plt.close("all")
 
-    object_options = track_options[level_index][obj]
+    object_options = track_options.levels[level_index].options_by_name(obj)
 
-    if not visualize_options or not visualize_options.get(object_options["name"]):
+    if not visualize_options or not visualize_options.get(object_options.name):
         return
-    input_record = track_input_records[object_options["dataset"]]
-    object_visualize_options = visualize_options.get(object_options["name"])
+    input_record = track_input_records[object_options.dataset]
+    object_visualize_options = visualize_options.get(object_options.name)
     logger.info("Generating runtime visualizations.")
     for figure in object_visualize_options["figures"].keys():
         create_figure = create_figure_dispatcher.get(figure)

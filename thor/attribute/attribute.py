@@ -51,7 +51,7 @@ def get_record_arguments(
 # @memory_profile
 def record_detected(time, input_records, object_tracks, object_options, grid_options):
     """Get detected object attributes."""
-    all_attribute_options = object_options["attributes"]
+    all_attribute_options = object_options.attributes
     # Get the object attributes of each type, e.g. core, tag, profile
     for attributes_type in all_attribute_options.keys():
         attribute_options = all_attribute_options[attributes_type]
@@ -68,7 +68,7 @@ def record_detected(time, input_records, object_tracks, object_options, grid_opt
 def record_grouped(time, input_records, object_tracks, object_options, grid_options):
     """Get object attributes."""
     # First get the attributes of each member object
-    member_options = object_options["attributes"]["member_objects"]
+    member_options = object_options.attributes["member_objects"]
     member_attributes = object_tracks["current_attributes"]["member_objects"]
     for obj in member_attributes.keys():
         obj_attributes = member_attributes[obj]
@@ -81,10 +81,10 @@ def record_grouped(time, input_records, object_tracks, object_options, grid_opti
             args = get_record_arguments(attributes_type, *args)
             record_func(*args)
     # Now get attributes of the grouped object
-    obj = list(object_options["attributes"].keys() - {"member_objects"})[0]
+    obj = list(object_options.attributes.keys() - {"member_objects"})[0]
     obj_attributes = object_tracks["current_attributes"][obj]
     for attributes_type in obj_attributes.keys():
-        attribute_options = object_options["attributes"][obj][attributes_type]
+        attribute_options = object_options.attributes[obj][attributes_type]
         attributes = obj_attributes[attributes_type]
         record_func = record_dispatcher[attributes_type]
         args = [input_records, attributes, object_tracks, object_options]
@@ -141,7 +141,7 @@ def append_grouped(object_tracks):
 def record(time, input_records, object_tracks, object_options, grid_options):
     """Get object attributes."""
     logger.info("Recording object attributes.")
-    if object_options["attributes"] is None:
+    if object_options.attributes is None:
         return
 
     # Reset the "current" attributes dictionary, i.e. the attributes associated with the
@@ -152,10 +152,10 @@ def record(time, input_records, object_tracks, object_options, grid_options):
     # grid. The name "current_attributes" is thus perhaps misleading.
     object_tracks["current_attributes"] = utils.initialize_attributes(object_options)
 
-    if "detection" in object_options:
+    if "detection" in object_options.__fields__:
         record_func = record_detected
         append_func = append_detected
-    elif "grouping" in object_options:
+    elif "grouping" in object_options.__fields__:
         record_func = record_grouped
         append_func = append_grouped
     else:

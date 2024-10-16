@@ -32,6 +32,7 @@ import thor.object.object as thor_object
 import thor.object.box as box
 from thor.log import setup_logger
 import thor.grid as grid
+import thor.option as option
 
 logger = setup_logger(__name__)
 
@@ -41,10 +42,10 @@ def get_costs_data(object_tracks, object_options, grid_options):
     current_mask, previous_mask = get_masks(object_tracks, object_options)
     previous_total = np.max(previous_mask.values)
     current_total = np.max(current_mask.values)
-    local_flow_margin = object_options["tracking"]["options"]["local_flow_margin"]
-    global_flow_margin = object_options["tracking"]["options"]["global_flow_margin"]
+    local_flow_margin = object_options.tracking.local_flow_margin
+    global_flow_margin = object_options.tracking.global_flow_margin
 
-    if object_options["tracking"]["options"]["unique_global_flow"]:
+    if object_options.tracking.unique_global_flow:
         unique_global_flow_box = get_unique_global_flow_box(
             global_flow_margin, grid_options
         )
@@ -56,7 +57,7 @@ def get_costs_data(object_tracks, object_options, grid_options):
             global_flow_margin,
         )
 
-    max_cost = object_options["tracking"]["options"]["max_cost"]
+    max_cost = object_options.tracking.max_cost
     gridcell_area = object_tracks["gridcell_area"]
 
     matrix_shape = [previous_total, np.max([previous_total, current_total])]
@@ -89,7 +90,7 @@ def get_costs_data(object_tracks, object_options, grid_options):
     matched_previous_displacements = previous_object_record["current_displacements"]
     previous_ids = np.arange(1, previous_total + 1)
 
-    search_margin = object_options["tracking"]["options"]["search_margin"]
+    search_margin = object_options.tracking.search_margin
 
     for previous_id in previous_ids:
         # Get the object bounding box and local flow
@@ -101,7 +102,7 @@ def get_costs_data(object_tracks, object_options, grid_options):
         flows.append(flow)
         flow_boxes.append(flow_box)
         # Get the global flow
-        if object_options["tracking"]["options"]["unique_global_flow"]:
+        if object_options.tracking.unique_global_flow:
             global_flow = unique_global_flow
             global_flow_box = unique_global_flow_box
         else:
@@ -246,7 +247,7 @@ def get_matches(object_tracks, object_options, grid_options):
     bad matches. Bad matches have a cost greater than the maximum
     cost."""
 
-    max_cost = object_options["tracking"]["options"]["max_cost"]
+    max_cost = object_options.tracking.max_cost
     costs_data = get_costs_data(object_tracks, object_options, grid_options)
     costs_matrix = costs_data["costs_matrix"]
     current_rows_matrix = costs_data["current_rows_matrix"]
@@ -377,10 +378,9 @@ def determine_case(
     """Determine the case for the TINT/MINT flow correction. Note that geographic
     coordinates require that we convert flows (i.e. the displacements in "pixel"
     coordinates) to cartesian coordinates to compare vectors consistently."""
-    tracking_options = object_options["tracking"]["options"]
-    max_velocity_diff = tracking_options["max_velocity_diff"]
-    max_velocity_mag = tracking_options["max_velocity_mag"]
-    method = object_options["tracking"]["method"]
+    tracking_options = object_options.tracking
+    max_velocity_diff = tracking_options.max_velocity_diff
+    max_velocity_mag = tracking_options.max_velocity_mag
 
     # Check for bad velocities
     bad_local = np.sqrt((local_flow_velocity**2).sum()) > max_velocity_mag
@@ -448,12 +448,12 @@ def determine_case(
             case = 3
             corrected_flow = local_flow.astype(int)
     else:
-        if method == "mint":
+        if type(tracking_options) is option.MintOptions:
             # In the MINT method, we are typically matching large objects, and
             # center velocities (calculated from the displacement of object centers)
             # are often unreliable. We also want to use the local flow for object
             # velocity.
-            max_velocity_diff_alt = tracking_options["max_velocity_diff_alt"]
+            max_velocity_diff_alt = tracking_options.max_velocity_diff_alt
             if velocities_disagree(
                 local_flow_velocity, global_flow_velocity, max_velocity_diff_alt
             ):
@@ -466,7 +466,7 @@ def determine_case(
                 # Otherwise, trust the local flow.
                 case = 5
                 corrected_flow = local_flow.astype(int)
-        elif method == "tint":
+        elif type(tracking_options) is option.TintOptions:
             # In the TINT method, when the local flow velocity agrees with the center
             # velocity, average the local flow and displacement.
             case = 6

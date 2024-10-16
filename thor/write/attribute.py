@@ -24,11 +24,11 @@ class NoAliasDumper(yaml.SafeDumper):
 
 def write_setup(object_tracks, object_options, output_directory):
     """Setup to write for object attributes."""
-    object_name = object_options["name"]
+    object_name = object_options.name
     base_directory = output_directory / f"attributes/{object_name}/"
 
     last_write_time = object_tracks["last_write_time"]
-    write_interval = np.timedelta64(object_options["write_interval"], "h")
+    write_interval = np.timedelta64(object_options.write_interval, "h")
 
     last_write_str = format_time(last_write_time, filename_safe=False, day_only=False)
     next_write_time = last_write_time + write_interval
@@ -73,9 +73,9 @@ def write_detected(object_tracks, object_options, output_directory):
     args = [object_tracks, object_options, output_directory]
     base_directory, last_write_str = write_setup(*args)
 
-    for attribute_type in object_options["attributes"].keys():
+    for attribute_type in object_options.attributes.keys():
         attributes = object_tracks["attributes"][attribute_type]
-        options = object_options["attributes"][attribute_type]
+        options = object_options.attributes[attribute_type]
         write_attribute_type(
             base_directory, last_write_str, attribute_type, attributes, options
         )
@@ -88,7 +88,7 @@ def write_grouped(object_tracks, object_options, output_directory):
     write_args = [object_tracks, object_options, output_directory]
     base_directory, last_write_str = write_setup(*write_args)
     # Write member object attributes
-    member_options = object_options["attributes"]["member_objects"]
+    member_options = object_options.attributes["member_objects"]
     member_attributes = object_tracks["attributes"]["member_objects"]
     for obj in member_options.keys():
         for attribute_type in member_attributes[obj].keys():
@@ -98,8 +98,8 @@ def write_grouped(object_tracks, object_options, output_directory):
             args = [directory, last_write_str, attribute_type, attributes, options]
             write_attribute_type(*args)
     # Write grouped object attributes
-    obj_attr_options = object_options["attributes"][object_options["name"]]
-    obj_attr = object_tracks["attributes"][object_options["name"]]
+    obj_attr_options = object_options.attributes[object_options.name]
+    obj_attr = object_tracks["attributes"][object_options.name]
     for attribute_type in obj_attr.keys():
         attributes = obj_attr[attribute_type]
         options = obj_attr_options[attribute_type]
@@ -110,9 +110,9 @@ def write_grouped(object_tracks, object_options, output_directory):
 def write(object_tracks, object_options, output_directory):
     """Write attributes to file."""
 
-    if "detection" in object_options:
+    if "detection" in object_options.__fields__:
         write_func = write_detected
-    elif "grouping" in object_options:
+    elif "grouping" in object_options.__fields__:
         write_func = write_grouped
     else:
         message = "Object indentification method must be specified, i.e. "
@@ -127,9 +127,10 @@ def write(object_tracks, object_options, output_directory):
 def write_final(tracks, track_options, output_directory):
     """Write final attributes to file."""
 
-    for index, level_options in enumerate(track_options):
-        for obj in level_options.keys():
-            write(tracks[index][obj], level_options[obj], output_directory)
+    for index, level_options in enumerate(track_options.levels):
+        for object_options in level_options.objects:
+            obj_name = object_options.name
+            write(tracks[index][obj_name], object_options, output_directory)
 
 
 def write_metadata(filepath, attribute_options):
@@ -209,17 +210,17 @@ def aggregate_attribute_type(
 
 def aggregate_detected(base_directory, object_options, clean_up):
     """Aggregate attributes directory for detected objects."""
-    obj_name = object_options["name"]
-    for attribute_type in object_options["attributes"].keys():
+    obj_name = object_options.name
+    for attribute_type in object_options.attributes.keys():
         directory = base_directory / f"{obj_name}"
-        options = object_options["attributes"][attribute_type]
+        options = object_options.attributes[attribute_type]
         aggregate_attribute_type(directory, attribute_type, options, clean_up)
 
 
 def aggregate_grouped(base_directory, object_options, clean_up):
     """Aggregate attributes directory for grouped attributes."""
-    member_options = object_options["attributes"]["member_objects"]
-    obj_name = object_options["name"]
+    member_options = object_options.attributes["member_objects"]
+    obj_name = object_options.name
     # First aggregate attributes of member objects
     for member_obj in member_options.keys():
         for attribute_type in member_options[member_obj].keys():
@@ -227,9 +228,9 @@ def aggregate_grouped(base_directory, object_options, clean_up):
             options = member_options[member_obj][attribute_type]
             aggregate_attribute_type(directory, attribute_type, options, clean_up)
     # Now aggregate core attributes of grouped object
-    for attribute_type in object_options["attributes"][obj_name].keys():
+    for attribute_type in object_options.attributes[obj_name].keys():
         directory = base_directory / f"{obj_name}"
-        options = object_options["attributes"][obj_name][attribute_type]
+        options = object_options.attributes[obj_name][attribute_type]
         aggregate_attribute_type(directory, attribute_type, options, clean_up)
 
 
@@ -239,13 +240,12 @@ def aggregate(track_options, output_directory, clean_up=True):
     logger.info("Aggregating attribute files.")
     base_directory = Path(f"{output_directory}/attributes/")
 
-    for level_options in track_options:
-        for obj_name in level_options.keys():
-            object_options = level_options[obj_name]
+    for level_options in track_options.levels:
+        for object_options in level_options.objects:
 
-            if "detection" in object_options:
+            if "detection" in object_options.__fields__:
                 aggregate_func = aggregate_detected
-            elif "grouping" in object_options:
+            elif "grouping" in object_options.__fields__:
                 aggregate_func = aggregate_grouped
             else:
                 message = "Object indentification method must be specified, i.e. "

@@ -28,15 +28,17 @@ mcs_legend_options.update({"ncol": 3, "fancybox": True, "shadow": True})
 
 def get_altitude_labels(track_options, mcs_name="mcs", mcs_level=1):
     """Get altitude labels for convective and stratiform objects."""
-    mcs_options = track_options[mcs_level][mcs_name]
-    convective = mcs_options["grouping"]["member_objects"][0]
-    convective_level = mcs_options["grouping"]["member_levels"][0]
-    stratiform = mcs_options["grouping"]["member_objects"][-1]
-    stratiform_level = mcs_options["grouping"]["member_levels"][-1]
-    convective_options = track_options[convective_level][convective]
-    stratiform_options = track_options[stratiform_level][stratiform]
-    convective_altitudes = np.array(convective_options["detection"]["altitudes"])
-    stratiform_altitudes = np.array(stratiform_options["detection"]["altitudes"])
+    mcs_options = track_options.levels[mcs_level].options_by_name(mcs_name)
+    convective = mcs_options.grouping.member_objects[0]
+    convective_level = mcs_options.grouping.member_levels[0]
+    stratiform = mcs_options.grouping.member_objects[-1]
+    stratiform_level = mcs_options.grouping.member_levels[-1]
+    convective_options = track_options.levels[convective_level]
+    convective_options = convective_options.options_by_name(convective)
+    stratiform_options = track_options.levels[stratiform_level]
+    stratiform_options = stratiform_options.options_by_name(stratiform)
+    convective_altitudes = np.array(convective_options.detection.altitudes)
+    stratiform_altitudes = np.array(stratiform_options.detection.altitudes)
     convective_altitudes = np.round(convective_altitudes / 1e3, 1)
     stratiform_altitudes = np.round(stratiform_altitudes / 1e3, 1)
     convective_label = f"{convective_altitudes[0]:g} to {convective_altitudes[1]:g} km"
@@ -49,7 +51,7 @@ def mcs_series(
     start_time,
     end_time,
     figure_options,
-    convective_label="cell",
+    convective_label="convective",
     dataset_name=None,
     animate=True,
     parallel_figure=False,
@@ -68,7 +70,8 @@ def mcs_series(
     track_options = options["track"]
     if dataset_name is None:
         try:
-            dataset_name = track_options[0][convective_label]["dataset"]
+            object_options = track_options.levels[0].options_by_name(convective_label)
+            dataset_name = object_options.dataset
         except KeyError:
             message = "Could not infer dataset used for detection. Provide manually."
             raise KeyError(message)
@@ -170,7 +173,7 @@ def mcs_horizontal(
     boundary_coordinates,
     figure_options,
     grid_options,
-    convective_label="cell",
+    convective_label="convective",
     anvil_label="anvil",
     dt=3600,
 ):
@@ -194,7 +197,7 @@ def mcs_horizontal(
         velocities = read_attribute_csv(filepath, times=[time]).loc[time]
         filepath = output_directory / "analysis/classification.csv"
         classification = read_attribute_csv(filepath, times=[time]).loc[time]
-        filepath = output_directory / "attributes/mcs/cell/ellipse.csv"
+        filepath = output_directory / f"attributes/mcs/{convective_label}/ellipse.csv"
         ellipse = read_attribute_csv(filepath, times=[time]).loc[time]
         new_names = {"latitude": "ellipse_latitude", "longitude": "ellipse_longitude"}
         ellipse = ellipse.rename(columns=new_names)

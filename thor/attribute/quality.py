@@ -65,11 +65,11 @@ def record_boundary_overlaps(
         raise ValueError(message)
     ids = attributes[id_type]
 
-    if "dataset" not in object_options.keys():
+    if "dataset" not in object_options.__fields__:
         message = "Dataset must be specified in object_options for which domain "
         message += "boundary is defined."
         raise ValueError(message)
-    object_dataset = object_options["dataset"]
+    object_dataset = object_options.dataset
     input_record = input_records["track"][object_dataset]
     boundary_mask = input_record["previous_boundary_masks"][-1]
 
