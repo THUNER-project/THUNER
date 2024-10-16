@@ -58,7 +58,6 @@ def setup(start, end, options_directory, grid_type="geographic"):
 
     # Create the track_options dictionary
     track_options = option.default_track_options(dataset="cpol")
-    option.check_options(track_options)
     track_options.to_yaml(options_directory / "track.yml")
     visualize_options = None
 
