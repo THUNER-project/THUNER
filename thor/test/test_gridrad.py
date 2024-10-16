@@ -1,6 +1,5 @@
 """Test GridRad tracking."""
 
-from multiprocessing import Pool
 from pathlib import Path
 import shutil
 import numpy as np
