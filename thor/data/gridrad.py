@@ -499,14 +499,18 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
 dataset_id_converter = {"ds841.6": "d841006"}
 
 
-def get_gridrad_filepaths(options):
+def get_gridrad_filepaths(options, use_event_start=True):
     """
     Get the start and end dates for the cases in the GridRad-Severe dataset
     (doi.org/10.5065/2B46-1A97).
     """
 
-    start = np.datetime64(options["start"]).astype("datetime64[s]")
-    end = np.datetime64(options["end"]).astype("datetime64[s]")
+    if use_event_start:
+        start = np.datetime64(options["event_start"]).astype("datetime64[s]")
+        end = start + np.timedelta64(24, "h")
+    else:
+        start = np.datetime64(options["start"]).astype("datetime64[s]")
+        end = np.datetime64(options["end"]).astype("datetime64[s]")
 
     filepaths = []
 
