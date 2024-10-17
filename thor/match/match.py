@@ -43,7 +43,7 @@ def match(object_tracks, object_options: option.BaseObjectOptions, grid_options)
         logger.info("No previous mask, or no objects in previous mask.")
         reset_object_record()
         return
-    if object_tracks["current_time_interval"] <= object_options.allowed_gap * 60:
+    if object_tracks["current_time_interval"] > object_options.allowed_gap * 60:
         logger.info("Time gap too large. Resetting object record.")
         reset_object_record()
         return

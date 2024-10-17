@@ -68,8 +68,8 @@ def test_parallel():
     """Test parallel tracking."""
     # Parent directory for saving outputs
     base_local = Path.home() / "THOR_output"
-    start = "2005-11-13T14:00"
-    end = "2005-11-13T18:00"
+    start = "2005-11-13T18:00"
+    end = "2005-11-13T20:00"
 
     intervals = parallel.get_time_intervals(start, end)
     output_parent = base_local / "runs/cpol_demo_parallel"
@@ -99,8 +99,8 @@ def test_parallel():
     figure_options = visualize.option.horizontal_attribute_options(
         "mcs_velocity_analysis", style="presentation"
     )
-    start_time = np.datetime64("2005-11-13T14:00")
-    end_time = np.datetime64("2005-11-13T18:00")
+    start_time = np.datetime64("2005-11-13T18:00")
+    end_time = np.datetime64("2005-11-13T20:00")
     visualize.attribute.mcs_series(
         output_parent, start_time, end_time, figure_options, parallel_figure=True
     )
