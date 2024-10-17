@@ -1,7 +1,7 @@
 """Display options functions."""
 
 from thor.log import setup_logger
-from thor.option import save_options
+import thor.utils as utils
 from thor.config import get_outputs_directory
 
 logger = setup_logger(__name__)
@@ -131,4 +131,6 @@ def save_display_options(
 
     if options_directory is None:
         options_directory = get_outputs_directory() / "options/visualize"
-    save_options(display_options, filename, options_directory, append_time=append_time)
+    utils.save_options(
+        display_options, filename, options_directory, append_time=append_time
+    )

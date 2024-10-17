@@ -87,6 +87,15 @@ def check_results(results):
             print(f"Generated an exception: {exc}")
 
 
+def check_futures(futures):
+    """Check futures for exceptions."""
+    for future in futures:
+        try:
+            future.result(timeout=20 * 60)
+        except Exception as exc:
+            print(f"Generated an exception: {exc}")
+
+
 def get_period(start, end, minimum_period=pd.Timedelta(1, "h")):
     """
     Get a suitable interval period for parallel processing based on number of cpus.

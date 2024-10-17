@@ -4,7 +4,7 @@ import copy
 import numpy as np
 import xarray as xr
 from thor.log import setup_logger
-from thor.match.utils import get_masks
+import thor.match.utils as utils
 import thor.grid as thor_grid
 
 logger = setup_logger(__name__)
@@ -90,7 +90,7 @@ def empty_object_record():
 def initialize_object_record(match_data, object_tracks, object_options):
     """Initialize record of object properties in previous and current masks."""
 
-    previous_mask = get_masks(object_tracks, object_options)[1]
+    previous_mask = utils.get_masks(object_tracks, object_options)[1]
     total_previous_objects = np.max(previous_mask)
     previous_ids = np.arange(1, total_previous_objects + 1)
 
@@ -109,7 +109,7 @@ def update_object_record(match_data, object_tracks, object_options):
     """Update record of object properties in previous and current masks."""
 
     previous_object_record = copy.deepcopy(object_tracks["object_record"])
-    previous_mask = get_masks(object_tracks, object_options)[1]
+    previous_mask = utils.get_masks(object_tracks, object_options)[1]
 
     total_previous_objects = np.max(previous_mask.values)
     previous_ids = np.arange(1, total_previous_objects + 1)

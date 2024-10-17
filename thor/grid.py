@@ -7,7 +7,7 @@ from pyproj import Geod, Proj, Transformer
 from thor.utils import almost_equal, pad
 from thor.config import get_outputs_directory
 from thor.log import setup_logger
-import thor.option as option
+import thor.utils as utils
 
 
 logger = setup_logger(__name__)
@@ -185,7 +185,7 @@ def save_grid_options(
 ):
     if options_directory is None:
         options_directory = get_outputs_directory() / "options/grid"
-    option.save_options(
+    utils.save_options(
         grid_options, filename, options_directory, append_time=append_time
     )
 

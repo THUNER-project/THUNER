@@ -1,5 +1,8 @@
 "General utilities for the thor package."
 from datetime import datetime
+import yaml
+from pathlib import Path
+from thor.config import get_outputs_directory
 import json
 import hashlib
 import numpy as np
@@ -244,3 +247,29 @@ def haversine(lat1, lon1, lat2, lon2):
     c = 2 * np.arcsin(np.sqrt(a))
     r = 6371e3  # Radius of earth in metres
     return c * r
+
+
+def save_options(options, filename=None, options_directory=None, append_time=False):
+    """Save the options to a yml file."""
+    if filename is None:
+        filename = now_str()
+        append_time = False
+    else:
+        filename = Path(filename).stem
+    if append_time:
+        filename += f"_{now_str()}"
+    filename += ".yml"
+    if options_directory is None:
+        options_directory = get_outputs_directory() / "options"
+    if not options_directory.exists():
+        options_directory.mkdir(parents=True)
+    filepath = options_directory / filename
+    logger.debug("Saving options to %s", options_directory / filename)
+    with open(filepath, "w") as outfile:
+        yaml.dump(
+            options,
+            outfile,
+            default_flow_style=False,
+            allow_unicode=True,
+            sort_keys=False,
+        )

@@ -82,7 +82,7 @@ def test_parallel():
         results = []
         for i, time_interval in enumerate(intervals):
             args = [i, time_interval, data_options.copy(), grid_options.copy()]
-            args += [track_options.copy(), visualize_options]
+            args += [track_options, visualize_options]
             args += [output_parent, "cpol"]
             args = tuple(args)
             results.append(pool.apply_async(parallel.track_interval, args))
@@ -99,8 +99,8 @@ def test_parallel():
     figure_options = visualize.option.horizontal_attribute_options(
         "mcs_velocity_analysis", style="presentation"
     )
-    start_time = np.datetime64("2005-11-13T12:00")
-    end_time = np.datetime64("2005-11-13T22:00")
+    start_time = np.datetime64("2005-11-13T14:00")
+    end_time = np.datetime64("2005-11-13T18:00")
     visualize.attribute.mcs_series(
         output_parent, start_time, end_time, figure_options, parallel_figure=True
     )

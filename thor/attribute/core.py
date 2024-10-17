@@ -11,7 +11,7 @@ import numpy as np
 import xarray as xr
 from thor.log import setup_logger
 import thor.grid as grid
-from thor.object.object import get_object_center
+import thor.object.object as thor_object
 import thor.grid as grid
 import thor.attribute.utils as utils
 
@@ -213,7 +213,6 @@ def velocities_from_object_record(name, object_tracks, attribute_options, grid_o
     return v_list, u_list
 
 
-# @memory_profile
 def coordinates_from_mask(
     object_tracks, attribute_options, grid_options, member_object
 ):
@@ -227,7 +226,8 @@ def coordinates_from_mask(
 
     lats, lons = [], []
     for obj_id in ids:
-        row, col = get_object_center(obj_id, mask, grid_options, gridcell_area)[:2]
+        args = [obj_id, mask, grid_options, gridcell_area]
+        row, col = thor_object.get_object_center(*args)[:2]
         if grid_options["name"] == "geographic":
             lats.append(grid_options["latitude"][row])
             lons.append(grid_options["longitude"][col])
@@ -253,7 +253,8 @@ def areas_from_mask(object_tracks, attribute_options, grid_options, member_objec
 
     areas = []
     for obj_id in ids:
-        area = get_object_center(obj_id, mask, grid_options, gridcell_area)[2]
+        args = [obj_id, mask, grid_options, gridcell_area]
+        area = thor_object.get_object_center(*args)[2]
         areas.append(area)
 
     areas = np.array(areas).astype(attribute_options["area"]["data_type"])

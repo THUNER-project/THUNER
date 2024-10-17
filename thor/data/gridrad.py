@@ -505,12 +505,8 @@ def get_gridrad_filepaths(options, use_event_start=True):
     (doi.org/10.5065/2B46-1A97).
     """
 
-    if use_event_start:
-        start = np.datetime64(options["event_start"]).astype("datetime64[s]")
-        end = start + np.timedelta64(24, "h")
-    else:
-        start = np.datetime64(options["start"]).astype("datetime64[s]")
-        end = np.datetime64(options["end"]).astype("datetime64[s]")
+    start = np.datetime64(options["start"]).astype("datetime64[s]")
+    end = np.datetime64(options["end"]).astype("datetime64[s]")
 
     filepaths = []
 

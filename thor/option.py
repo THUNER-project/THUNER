@@ -144,6 +144,8 @@ class BaseObjectOptions(BaseOptions):
     mask_options: MaskOptions = Field(MaskOptions(), description=_description)
     _description = "Interval at which to write data to disk in hours."
     write_interval: int = Field(1, description=_description, gt=0, lt=24 * 60)
+    _description = "Allowed gap in minutes between consecutive times when tracking."
+    allowed_gap: int = Field(30, description=_description, gt=0, lt=6 * 60)
 
     # Check method is either detect or group.
     @field_validator("method")
@@ -276,30 +278,6 @@ class TrackOptions(BaseOptions):
     levels: List[LevelOptions] = Field([], description="Hierachy levels.")
 
 
-def save_options(options, filename=None, options_directory=None, append_time=False):
-    """Save the options to a yml file."""
-    if filename is None:
-        filename = now_str()
-        append_time = False
-    else:
-        filename = Path(filename).stem
-    if append_time:
-        filename += f"_{now_str()}"
-    filename += ".yml"
-    if options_directory is None:
-        options_directory = get_outputs_directory() / "options"
-    if not options_directory.exists():
-        options_directory.mkdir(parents=True)
-    filepath = options_directory / filename
-    logger.debug("Saving options to %s", options_directory / filename)
-    with open(filepath, "w") as outfile:
-        yaml.dump(
-            options,
-            outfile,
-            default_flow_style=False,
-            allow_unicode=True,
-            sort_keys=False,
-        )
 
 
 def consolidate_options(options_list):

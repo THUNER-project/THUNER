@@ -1,8 +1,7 @@
 """General data options functions."""
 
 from thor.log import setup_logger
-from thor.option import save_options
-from thor.utils import check_component_options
+import thor.utils as utils
 from thor.config import get_outputs_directory
 
 
@@ -61,7 +60,7 @@ def boilerplate_options(
     if converted_options is None:
         converted_options = {"save": False, "load": False, "parent_converted": None}
     else:
-        check_component_options(converted_options)
+        utils.check_component_options(converted_options)
 
     options = {
         "name": name,
@@ -87,7 +86,9 @@ def save_data_options(
 
     if options_directory is None:
         options_directory = get_outputs_directory() / "options/data"
-    save_options(data_options, filename, options_directory, append_time=append_time)
+    utils.save_options(
+        data_options, filename, options_directory, append_time=append_time
+    )
 
 
 def check_boilerplate_options(dataset_options):

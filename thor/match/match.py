@@ -6,6 +6,7 @@ from thor.log import setup_logger
 import thor.object.object as thor_object
 import thor.match.tint as tint
 from thor.match.utils import get_masks
+import thor.option as option
 
 logger = setup_logger(__name__)
 
@@ -22,7 +23,7 @@ def initialise_match_records(object_tracks, object_options):
     )
 
 
-def match(object_tracks, object_options, grid_options):
+def match(object_tracks, object_options: option.BaseObjectOptions, grid_options):
     """Match objects between previous and current masks."""
     if object_options.tracking is None:
         return
@@ -30,14 +31,21 @@ def match(object_tracks, object_options, grid_options):
     logger.info(f"Matching {object_options.name} objects.")
     current_ids = np.unique(current_mask)
     current_ids = current_ids[current_ids != 0]
-    if previous_mask is None or np.max(previous_mask) == 0:
-        logger.info("No previous mask, or no objects in previous mask.")
+
+    def reset_object_record():
         object_tracks["object_record"] = thor_object.empty_object_record()
         object_tracks["global_flow"] = None
-        # Create matched mask by relabelling current mask with universal ids.
         get_matched_mask(
             object_tracks, object_options, grid_options, current_ids=current_ids
         )
+
+    if previous_mask is None or np.max(previous_mask) == 0:
+        logger.info("No previous mask, or no objects in previous mask.")
+        reset_object_record()
+        return
+    if object_tracks["current_time_interval"] <= object_options.allowed_gap * 60:
+        logger.info("Time gap too large. Resetting object record.")
+        reset_object_record()
         return
 
     match_data = tint.get_matches(object_tracks, object_options, grid_options)
