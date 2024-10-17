@@ -18,22 +18,22 @@ from thor.log import setup_logger, logging_listener
 logger = setup_logger(__name__)
 
 
-def download_data():
+def download_data(parent_local="/scratch/w40/esh563/THOR_output/input_data/raw"):
+    # Load list of urls from file
+
+    parent_remote = "https://data.rda.ucar.edu"
+
     # Load list of urls from file
     urls = []
-    with open("extracted_urls.txt", "r") as f:
-        urls = f.readlines()
-
-    parent_local = "/scratch/w40/esh563/THOR_output/input_data/raw"
-    parent_remote = "https://data.rda.ucar.edu"
-    args_dict = parent_local, parent_remote
-
+    with open("./extracted_urls.txt", "r") as f:
+        urls = [line.strip() for line in f]
     # Download data
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
         futures = []
         for url in urls:
-            time.sleep(1)
-            futures.append(executor.submit(data.utils.download, url, **args_dict))
+            time.sleep(0.1)
+            data.utils.download(url, parent_remote, parent_local)
         parallel.check_futures(futures)
 
 

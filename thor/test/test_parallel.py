@@ -78,7 +78,9 @@ def test_parallel():
 
     all_options = setup(start, end, output_parent / "options")
     data_options, grid_options, track_options, visualize_options = all_options
-    with logging_listener(), Pool(initializer=initialize_process, processes=2) as pool:
+    # Note travis crashes at era5 subset step if processes > 1. But can still test
+    # parallel tracking with processes=1.
+    with logging_listener(), Pool(initializer=initialize_process, processes=1) as pool:
         results = []
         for i, time_interval in enumerate(intervals):
             args = [i, time_interval, data_options.copy(), grid_options.copy()]
