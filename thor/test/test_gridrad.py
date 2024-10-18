@@ -91,13 +91,15 @@ def test_gridrad():
         results = []
         for i, time_interval in enumerate(intervals):
             args = [i, time_interval, data_options.copy(), grid_options.copy()]
-            args += [track_options.model_copy(deep=True), visualize_options]
+            args += [track_options, visualize_options]
             args += [output_parent, "gridrad"]
             args = tuple(args)
             results.append(pool.apply_async(parallel.track_interval, args))
         pool.close()
         pool.join()
         parallel.check_results(results)
+
+    parallel.stitch_run(output_parent, intervals, cleanup=True)
 
     analysis_options = analyze.mcs.analysis_options()
     analyze.mcs.process_velocities(output_parent)

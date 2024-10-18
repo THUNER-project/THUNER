@@ -92,8 +92,7 @@ def gridrad():
     # Create the display_options dictionary
     visualize_options = None
 
-    num_processes = int(os.cpu_count() * 0.5)
-
+    num_processes = int(os.cpu_count() * 0.8)
     with logging_listener(), get_context("spawn").Pool(
         initializer=parallel.initialize_process, processes=num_processes
     ) as pool:

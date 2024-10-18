@@ -94,7 +94,7 @@ def mcs_series(
         matplotlib.use(original_backend)
         return
     if parallel_figure:
-        num_processes = int(0.75 * os.get_cpu_count())
+        num_processes = int(0.75 * os.cpu_count())
         with logging_listener(), get_context("spawn").Pool(
             initializer=parallel.initialize_process, processes=num_processes
         ) as pool:
