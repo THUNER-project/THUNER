@@ -1,7 +1,8 @@
 """Test GridRad tracking."""
 
-from multiprocessing import Pool
+from multiprocessing import get_context
 import time
+import os
 import concurrent.futures
 from pathlib import Path
 import shutil
@@ -85,19 +86,17 @@ def gridrad():
     grid.save_grid_options(grid_options, options_directory=options_directory)
 
     # Create the track_options dictionary
-    track_options = option.mcs(
-        dataset="gridrad",
-        global_flow_margin=70,
-        unique_global_flow=False,
-    )
-
-    option.check_options(track_options)
-    option.save_track_options(track_options, options_directory=options_directory)
+    track_options = option.default_track_options(dataset="gridrad")
+    track_options.to_yaml(options_directory / "track.yml")
 
     # Create the display_options dictionary
     visualize_options = None
 
-    with logging_listener(), Pool(initializer=parallel.initialize_process) as pool:
+    num_processes = int(os.cpu_count() * 0.5)
+
+    with logging_listener(), get_context("spawn").Pool(
+        initializer=parallel.initialize_process, processes=num_processes
+    ) as pool:
         results = []
         for i, time_interval in enumerate(intervals):
             args = [i, time_interval, data_options.copy(), grid_options.copy()]

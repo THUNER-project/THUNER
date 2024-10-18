@@ -1,6 +1,7 @@
 """Parallel processing utilities."""
 
 import shutil
+import gc
 import multiprocessing
 import os
 import glob
@@ -64,6 +65,7 @@ def track_interval(
     args = [times, interval_data_options, grid_options, track_options]
     args += [visualize_options, output_directory]
     track.simultaneous_track(*args)
+    gc.collect()
 
 
 def get_interval_data_options(data_options, interval):

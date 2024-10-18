@@ -1,6 +1,7 @@
 """Functions for visualizing object attributes and classifications."""
 
-from multiprocessing import Pool
+import gc
+from multiprocessing import get_context
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -91,7 +92,9 @@ def mcs_series(
         matplotlib.use(original_backend)
         return
     if parallel_figure:
-        with logging_listener(), Pool(initializer=parallel.initialize_process) as pool:
+        with logging_listener(), get_context("spawn").Pool(
+            initializer=parallel.initialize_process
+        ) as pool:
             results = []
             for time in times[1:]:
                 args = [time, filepaths, masks, output_directory, figure_options]
@@ -164,6 +167,7 @@ def visualize_mcs(
         fig.savefig(filepath, bbox_inches="tight")
         utils.reduce_color_depth(filepath)
         plt.close(fig)
+    gc.collect()
 
 
 def mcs_horizontal(

@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 import os
 import numpy as np
-from multiprocessing import Pool
+from multiprocessing import get_context
 import thor.data as data
 import thor.data.dispatch as dispatch
 import thor.grid as grid
@@ -80,7 +80,9 @@ def test_parallel():
     data_options, grid_options, track_options, visualize_options = all_options
     # Note travis crashes at era5 subset step if processes > 1. But can still test
     # parallel tracking with processes=1.
-    with logging_listener(), Pool(initializer=initialize_process, processes=1) as pool:
+    with logging_listener(), get_context("spawn").Pool(
+        initializer=initialize_process, processes=4
+    ) as pool:
         results = []
         for i, time_interval in enumerate(intervals):
             args = [i, time_interval, data_options.copy(), grid_options.copy()]
