@@ -43,7 +43,7 @@ def calculate_flow(grid1, grid2, global_flow=False):
     """Calculate optical flow vector using cross covariance."""
     cross_covariance = get_cross_covariance(grid1, grid2)
     sigma = (1 / 8) * min(cross_covariance.shape)
-    smoothed_covariance = ndimage.filters.gaussian_filter(cross_covariance, sigma)
+    smoothed_covariance = ndimage.gaussian_filter(cross_covariance, sigma)
     dims = np.array(grid1.shape)
     flow = np.argwhere(smoothed_covariance == np.max(smoothed_covariance))[0]
 

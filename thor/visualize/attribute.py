@@ -1,6 +1,7 @@
 """Functions for visualizing object attributes and classifications."""
 
 import gc
+import os
 from multiprocessing import get_context
 import numpy as np
 import pandas as pd
@@ -89,11 +90,13 @@ def mcs_series(
     visualize_mcs(*args)
     if len(times) == 1:
         # Switch back to original backend
+        plt.close("all")
         matplotlib.use(original_backend)
         return
     if parallel_figure:
+        num_processes = int(0.75 * os.get_cpu_count())
         with logging_listener(), get_context("spawn").Pool(
-            initializer=parallel.initialize_process
+            initializer=parallel.initialize_process, processes=num_processes
         ) as pool:
             results = []
             for time in times[1:]:
@@ -117,6 +120,7 @@ def mcs_series(
         args += [figure_directory, figure_name]
         animate_object(*args, by_date=by_date)
     # Switch back to original backend
+    plt.close("all")
     matplotlib.use(original_backend)
 
 

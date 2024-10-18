@@ -110,9 +110,9 @@ def write_grouped(object_tracks, object_options, output_directory):
 def write(object_tracks, object_options, output_directory):
     """Write attributes to file."""
 
-    if "detection" in object_options.__fields__:
+    if "detection" in object_options.model_fields:
         write_func = write_detected
-    elif "grouping" in object_options.__fields__:
+    elif "grouping" in object_options.model_fields:
         write_func = write_grouped
     else:
         message = "Object indentification method must be specified, i.e. "
@@ -243,9 +243,9 @@ def aggregate(track_options, output_directory, clean_up=True):
     for level_options in track_options.levels:
         for object_options in level_options.objects:
 
-            if "detection" in object_options.__fields__:
+            if "detection" in object_options.model_fields:
                 aggregate_func = aggregate_detected
-            elif "grouping" in object_options.__fields__:
+            elif "grouping" in object_options.model_fields:
                 aggregate_func = aggregate_grouped
             else:
                 message = "Object indentification method must be specified, i.e. "

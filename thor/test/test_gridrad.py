@@ -1,5 +1,7 @@
 """Test GridRad tracking."""
 
+import os
+from multiprocessing import get_context
 from pathlib import Path
 import shutil
 import numpy as np
@@ -27,6 +29,7 @@ def test_gridrad():
     event_start = "2010-01-20"
 
     period = parallel.get_period(start, end)
+    intervals = parallel.get_time_intervals(start, end, period=period)
 
     output_parent = base_local / "runs/gridrad_demo"
     if output_parent.exists():
@@ -80,15 +83,21 @@ def test_gridrad():
     }
     visualize_options = None
 
-    times = data.utils.generate_times(data_options["gridrad"])
-    track.simultaneous_track(
-        times,
-        data_options,
-        grid_options,
-        track_options,
-        visualize_options,
-        output_directory=output_parent,
-    )
+    num_processes = int(0.75 * os.cpu_count())
+    logger.info(f"Using {num_processes} processes for tracking.")
+    with get_context("spawn").Pool(
+        initializer=parallel.initialize_process, processes=num_processes
+    ) as pool:
+        results = []
+        for i, time_interval in enumerate(intervals):
+            args = [i, time_interval, data_options.copy(), grid_options.copy()]
+            args += [track_options.model_copy(deep=True), visualize_options]
+            args += [output_parent, "gridrad"]
+            args = tuple(args)
+            results.append(pool.apply_async(parallel.track_interval, args))
+        pool.close()
+        pool.join()
+        parallel.check_results(results)
 
     analysis_options = analyze.mcs.analysis_options()
     analyze.mcs.process_velocities(output_parent)

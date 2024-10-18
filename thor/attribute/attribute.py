@@ -152,10 +152,10 @@ def record(time, input_records, object_tracks, object_options, grid_options):
     # grid. The name "current_attributes" is thus perhaps misleading.
     object_tracks["current_attributes"] = utils.initialize_attributes(object_options)
 
-    if "detection" in object_options.__fields__:
+    if "detection" in object_options.model_fields:
         record_func = record_detected
         append_func = append_detected
-    elif "grouping" in object_options.__fields__:
+    elif "grouping" in object_options.model_fields:
         record_func = record_grouped
         append_func = append_grouped
     else:

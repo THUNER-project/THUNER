@@ -65,7 +65,7 @@ def record_boundary_overlaps(
         raise ValueError(message)
     ids = attributes[id_type]
 
-    if "dataset" not in object_options.__fields__:
+    if "dataset" not in object_options.model_fields:
         message = "Dataset must be specified in object_options for which domain "
         message += "boundary is defined."
         raise ValueError(message)

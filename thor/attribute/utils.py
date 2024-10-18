@@ -142,9 +142,9 @@ def initialize_attributes_grouped(object_options):
 
 def initialize_attributes(object_options):
     """Initialize attributes lists for object tracks."""
-    if "detection" in object_options.__fields__:
+    if "detection" in object_options.model_fields:
         init_func = initialize_attributes_detected
-    elif "grouping" in object_options.__fields__:
+    elif "grouping" in object_options.model_fields:
         init_func = initialize_attributes_grouped
     else:
         message = "Object indentification method must be specified, i.e. "
