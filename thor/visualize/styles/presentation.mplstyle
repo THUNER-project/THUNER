@@ -1,5 +1,5 @@
 font.family: "sans-serif"
-font.sans-serif: "Liberation Sans", "DejaVu Sans"
+font.sans-serif: "Liberation Sans"
 font.size: 12
 
 mathtext.fontset: "dejavusans"

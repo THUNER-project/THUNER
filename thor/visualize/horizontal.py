@@ -160,9 +160,12 @@ def add_cartographic_features(
         facecolor="none",
         edgecolor="gray",
     )
+    national_borders = cfeature.BORDERS.with_scale(scale)
+
     ax.add_feature(land, zorder=0)
     ax.add_feature(ocean, zorder=0)
     ax.add_feature(states_provinces, zorder=0)
+    ax.add_feature(national_borders, zorder=0, edgecolor=colors["coast"])
     ax.coastlines(resolution=scale, zorder=1, color=colors["coast"])
     gridlines = initialize_gridlines(
         ax, extent=extent, left_labels=left_labels, bottom_labels=bottom_labels
@@ -215,7 +218,6 @@ def initialize_gridlines(ax, extent, left_labels=True, bottom_labels=True):
         spacing = 1
     gridlines.xlocator = mticker.FixedLocator(np.arange(-180, 180 + spacing, spacing))
     gridlines.ylocator = mticker.FixedLocator(np.arange(-90, 90 + spacing, spacing))
-    ax.set_extent(extent)
 
     return gridlines
 
@@ -481,6 +483,7 @@ def detected_mask(grid, mask, grid_options, figure_options, boundary_coordinates
     cbar_label = grid.name.title() + f" [{grid.units}]"
     fig.colorbar(pcm, label=cbar_label)
     ax.set_title(f"{grid.time.values.astype('datetime64[s]')} UTC")
+    ax.set_extent(extent, crs=proj)
 
     return fig, ax
 
@@ -501,6 +504,7 @@ def grouped_mask_template(grid, figure_options, extent, figsize, member_objects)
         args_dict.update({"left_labels": (i == 0)})
         ax = add_cartographic_features(ax, **args_dict)[0]
         ax.set_title(member_objects[i].replace("_", " ").title())
+        ax.set_extent(extent, crs=proj)
         if grid is None:
             continue
         grid_i = grid[f"{member_objects[i]}_grid"]
@@ -552,9 +556,15 @@ def grouped_mask(
         grid_i = grid[f"{member_objects[i]}_grid"]
         if grid_i is not None:
             pcm = show_grid(grid_i, ax, grid_options, add_colorbar=False)
+        ax.set_extent(extent, crs=proj)
     if pcm is not None and grid is not None:
         cbar_label = grid_i.attrs["long_name"].title() + f" [{grid_i.attrs['units']}]"
         fig.colorbar(pcm, cax=cbar_ax, label=cbar_label)
     fig.suptitle(f"{mask.time.values.astype('datetime64[s]')} UTC", y=1.05)
+
+    # min_lat, max_lat = grid_options["latitude"].min(), grid_options["latitude"].max()
+    # min_lon, max_lon = grid_options["longitude"].min(), grid_options["longitude"].max()
+
+    # ax.set_extent([min_lon, max_lon, min_lat, max_lat], crs=proj)
 
     return fig, axes
