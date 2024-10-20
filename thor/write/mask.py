@@ -4,6 +4,7 @@ import glob
 import shutil
 import numpy as np
 import xarray as xr
+import multiprocessing
 from thor.utils import format_time
 from thor.log import setup_logger
 import thor.write.utils as utils
@@ -58,7 +59,9 @@ def write(object_tracks, object_options, output_directory):
     filepath = filepath / f"{format_time(last_write_str)}.nc"
     filepath.parent.mkdir(parents=True, exist_ok=True)
     masks = masks.astype(np.uint32)
-    masks.to_netcdf(filepath)
+    lock = multiprocessing.Lock()
+    with lock:
+        masks.to_netcdf(filepath)
     # Update last_write_time after writing
     object_tracks["last_write_time"] = last_write_time + write_interval
     # Empty mask_list after writing
@@ -89,6 +92,8 @@ def aggregate(track_options, output_directory, clean_up=True):
             masks = xr.open_mfdataset(filepaths)
             masks = masks.astype(np.uint32)
             encoding = get_encoding(masks)
-            masks.to_netcdf(output_directory / f"masks/{name}.nc", encoding=encoding)
+            lock = multiprocessing.Lock()
+            with lock:
+                masks.to_netcdf(output_directory / f"masks/{name}.nc", encoding=encoding)
             if clean_up:
                 shutil.rmtree(output_directory / f"masks/{name}")

@@ -1,0 +1,13 @@
+no change     /g/data/hh5/public/apps/miniconda3/envs/analysis3-22.04/condabin/conda
+no change     /g/data/hh5/public/apps/miniconda3/envs/analysis3-22.04/bin/conda
+no change     /g/data/hh5/public/apps/miniconda3/envs/analysis3-22.04/bin/conda-env
+no change     /g/data/hh5/public/apps/miniconda3/envs/analysis3-22.04/bin/activate
+no change     /g/data/hh5/public/apps/miniconda3/envs/analysis3-22.04/bin/deactivate
+no change     /g/data/hh5/public/apps/miniconda3/envs/analysis3-22.04/etc/profile.d/conda.sh
+no change     /g/data/hh5/public/apps/miniconda3/envs/analysis3-22.04/etc/fish/conf.d/conda.fish
+no change     /g/data/hh5/public/apps/miniconda3/envs/analysis3-22.04/shell/condabin/Conda.psm1
+no change     /g/data/hh5/public/apps/miniconda3/envs/analysis3-22.04/shell/condabin/conda-hook.ps1
+no change     /g/data/hh5/public/apps/miniconda3/envs/analysis3-22.04/lib/python3.9/site-packages/xontrib/conda.xsh
+no change     /g/data/hh5/public/apps/miniconda3/envs/analysis3-22.04/etc/profile.d/conda.csh
+no change     /home/563/esh563/.bashrc
+No action taken.
