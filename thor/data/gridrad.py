@@ -1,8 +1,10 @@
 import copy
+from memory_profiler import profile
 from functools import reduce
 import numpy as np
 import pandas as pd
 import xarray as xr
+import multiprocessing
 from skimage.morphology import remove_small_objects
 import thor.data.option as option
 from thor.config import get_outputs_directory
@@ -94,23 +96,25 @@ def check_data_options(options):
         raise ValueError(f"Invalid dataset ID. Must be one of {valid_dataset_ids}.")
 
 
+@profile
 def open_gridrad(path, dataset_options):
     """
     Open a GridRad netcdf file, converting variables with an "Index" dimension back to 3D
     """
-    ds = xr.open_dataset(path)
+
     kept_variables = [gridrad_names_dict[f] for f in dataset_options["fields"]]
     kept_variables += ["Nradobs", "Nradecho", "wReflectivity", "CorrelationCoefficient"]
+    ds = xr.open_dataset(path, chunks={})
     kept_variables = [v for v in kept_variables if v in ds.data_vars]
     dropped_variables = [v for v in ds.data_vars if v not in kept_variables]
     for var in kept_variables:
         if var != "index" and "Index" in ds[var].dims:
             ds = reshape_variable(ds, var)
-    # ds = ds.drop_vars("index")
     ds = ds.drop_vars(dropped_variables + ["index"])
     return ds
 
 
+@profile
 def reshape_variable(ds, variable):
     """
     Reshape a variable in a GridRad dataset to a 3D grid. Adapted from code provided by
@@ -133,6 +137,7 @@ def reshape_variable(ds, variable):
     return ds
 
 
+@profile
 def filter(
     ds,
     weight_thresh=1.5,
@@ -194,6 +199,7 @@ def filter(
     return ds
 
 
+@profile
 def remove_speckles(ds, window_size=5, coverage_thresh=0.32, variables=None):
     """
     Remove speckles in GridRad data. Based on code from the GridRad website
@@ -215,6 +221,7 @@ def remove_speckles(ds, window_size=5, coverage_thresh=0.32, variables=None):
     return ds
 
 
+@profile
 def remove_low_level_clutter(ds, variables=None):
     """
     Remove low level clutter from GridRad data. Based on code from the GridRad website
@@ -246,6 +253,7 @@ def remove_low_level_clutter(ds, variables=None):
     return ds
 
 
+@profile
 def remove_clutter_below_anvils(ds, variables=None):
     """
     Remove clutter below anvils in GridRad data. Based on code from the GridRad website
@@ -267,6 +275,7 @@ def remove_clutter_below_anvils(ds, variables=None):
     return ds
 
 
+@profile
 def remove_clutter(ds, variables=None, low_level=True, below_anvil=False):
     """
     Remove clutter from GridRad data. Based on code from the GridRad website
@@ -335,13 +344,16 @@ def get_gridrad(time, input_record, track_options, dataset_options, grid_options
     return ds
 
 
+@profile
 def convert_gridrad(time, filepath, track_options, dataset_options, grid_options):
     """Convert gridrad data to the standard format."""
 
     logger.debug(f"Converting GridRad dataset at time {time}.")
 
     # Open the dataset and perform preliminary filtering and decluttering
-    ds = open_gridrad(filepath, dataset_options)
+    lock = multiprocessing.Lock()
+    with lock:
+        ds = open_gridrad(filepath, dataset_options)
     ds = filter(ds, refl_thresh=-10)
     ds = remove_clutter(ds)
 

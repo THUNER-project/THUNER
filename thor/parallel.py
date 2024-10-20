@@ -132,7 +132,7 @@ def get_filepath_dicts(output_parent, intervals):
     for i in range(len(intervals)):
         csv_filepath = output_parent / f"interval_{i}/attributes/**/*.csv"
         csv_file_dict[i] = sorted(glob.glob(str(csv_filepath), recursive=True))
-        mask_filepath = output_parent / f"interval_{i}/**/*.nc"
+        mask_filepath = output_parent / f"interval_{i}/**/*.zarr"
         mask_file_dict[i] = sorted(glob.glob(str(mask_filepath), recursive=True))
         record_filepath = output_parent / f"interval_{i}/records/**/*.csv"
         record_file_dict[i] = sorted(glob.glob(str(record_filepath), recursive=True))
@@ -212,10 +212,10 @@ def get_match_dicts(intervals, mask_file_dict, tracked_objects):
         interval_time_dicts = {}
 
         for j, obj in enumerate(objects_1):
-            ds_2 = xr.open_mfdataset(filepaths_2[j], chunks={})
+            ds_2 = xr.open_mfdataset(filepaths_2[j], chunks={}, engine="zarr")
             ds_2 = ds_2.isel(time=0).load()
             time = ds_2["time"].values
-            ds_1 = xr.open_mfdataset(filepaths_1[j], chunks={})
+            ds_1 = xr.open_mfdataset(filepaths_1[j], chunks={}, engine="zarr")
             ds_1 = ds_1.sel(time=time).load()
             time = ds_1["time"].values
             if obj not in tracked_objects:
@@ -323,10 +323,14 @@ def stitch_mask(intervals, masks, id_dicts, filepaths, obj):
         new_masks.append(new_mask)
     mask = xr.concat(new_masks, dim="time")
     mask = mask.astype(np.uint32)
+    coords = [c for c in mask.coords if c in ["x", "y", "latitude", "longitude"]]
+    for coord in coords:
+        mask.coords[coord] = mask.coords[coord].astype(np.float32)
+    mask = mask.chunk()
     filepath = Path(filepaths[0])
     filepath = Path(*[part for part in filepath.parts if part != "interval_0"])
     filepath.parent.mkdir(parents=True, exist_ok=True)
-    mask.to_netcdf(filepath)
+    mask.to_zarr(filepath, mode="w")
 
 
 def stitch_masks(mask_file_dict, intervals, id_dicts):
@@ -336,7 +340,7 @@ def stitch_masks(mask_file_dict, intervals, id_dicts):
     for k in range(len(mask_file_dict[0])):
         filepaths = [mask_file_dict[j][k] for j in range(len(intervals))]
         example_filepath = filepaths[0]
-        masks = [xr.open_dataset(filepath) for filepath in filepaths]
+        masks = [xr.open_dataset(filepath, engine="zarr") for filepath in filepaths]
         obj = Path(example_filepath).stem
         # Stitch together masks for that object
         stitch_mask(intervals, masks, id_dicts, filepaths, obj)

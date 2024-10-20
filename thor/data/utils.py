@@ -31,6 +31,9 @@ class DownloadState:
     "singleton" pattern. Only on instance of a "singleton" class can exist at one time.
 
     Gamma et al. (1995), Design Patterns: Elements of Reusable Object-Oriented Software.
+
+    Note that if processes are created with spawn, different processes will now have
+    different instances of this singleton.
     """
 
     _instance = None

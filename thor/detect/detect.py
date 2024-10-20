@@ -139,7 +139,7 @@ def detect(
     if detecter is None:
         raise ValueError("Invalid detection method.")
     binary_grid = detecter(processed_grid, object_options)
-    mask = xr.full_like(binary_grid, 0, dtype=int)
+    mask = xr.full_like(binary_grid, 0, dtype=np.uint32)
     mask.data = ndimage.label(binary_grid)[0]
     mask.name = f"{object_options.name}_mask"
 

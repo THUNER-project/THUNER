@@ -122,8 +122,8 @@ class MintOptions(TintOptions):
 class MaskOptions(BaseOptions):
     """Options for saving and loading masks."""
 
-    save: bool = Field(True, description="If True, save masks as .nc files.")
-    load: bool = Field(False, description="If True, load masks from .nc files.")
+    save: bool = Field(True, description="If True, save masks as .zarr files.")
+    load: bool = Field(False, description="If True, load masks from .zarr files.")
 
 
 class BaseObjectOptions(BaseOptions):
@@ -278,8 +278,6 @@ class TrackOptions(BaseOptions):
     levels: List[LevelOptions] = Field([], description="Hierachy levels.")
 
 
-
-
 def consolidate_options(options_list):
     """Consolidate the options into a dictionary."""
     consolidated_options = {}
@@ -386,6 +384,8 @@ def default_mcs(dataset="cpol"):
 
 
 def default_track_options(dataset="cpol"):
+    """Build default options for tracking MCS."""
+
     convective_options = default_convective(dataset)
     middle_options = default_middle(dataset)
     anvil_options = default_anvil(dataset)

@@ -1,5 +1,6 @@
 """Track storm objects in a dataset."""
 
+from memory_profiler import profile
 from collections import deque
 import copy
 import numpy as np
@@ -169,6 +170,7 @@ def consolidate_options(data_options, grid_options, track_options, visualize_opt
     return consolidated_options
 
 
+@profile
 def simultaneous_track(
     times,
     data_options,
@@ -249,6 +251,7 @@ def simultaneous_track(
     visualize.visualize.animate_all(visualize_options, output_directory)
 
 
+@profile
 def track_level(
     time,
     level_index,
@@ -283,6 +286,7 @@ def track_level(
     return level_tracks
 
 
+@profile
 def track_object(
     time,
     level_index,

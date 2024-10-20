@@ -78,8 +78,8 @@ def mcs_series(
             message = "Could not infer dataset used for detection. Provide manually."
             raise KeyError(message)
 
-    masks_filepath = output_directory / "masks/mcs.nc"
-    masks = xr.open_dataset(masks_filepath)
+    masks_filepath = output_directory / "masks/mcs.zarr"
+    masks = xr.open_dataset(masks_filepath, engine="zarr")
     times = masks.time.values
     times = times[(times >= start_time) & (times <= end_time)]
     record_filepath = output_directory / f"records/filepaths/{dataset_name}.csv"
@@ -94,8 +94,7 @@ def mcs_series(
         matplotlib.use(original_backend)
         return
     if parallel_figure:
-        num_processes = int(0.75 * os.cpu_count())
-        num_processes = 4
+        num_processes = 8
         with logging_listener(), multiprocessing.get_context("spawn").Pool(
             initializer=parallel.initialize_process, processes=num_processes
         ) as pool:
@@ -241,20 +240,28 @@ def mcs_horizontal(
     axes[1].set_title(stratiform_label)
 
     # Get legend proxy artists
-    legend_handles = []
+    handles = []
+    labels = []
     handle = horizontal.domain_boundary_legend_artist()
-    legend_handles += [handle]
+    handles += [handle]
+    labels += ["Domain Boundary"]
     handle = horizontal.ellipse_legend_artist("Major Axis", figure_options["style"])
-    legend_handles += [handle]
+    handles += [handle]
+    labels += ["Major Axis"]
     attribute_names = figure_options["attributes"]
     for name in attribute_names:
         color = colors_dispatcher[name]
         label = label_dispatcher[name]
         handle = horizontal.displacement_legend_artist(color, label)
-        legend_handles.append(handle)
+        handles.append(handle)
+        labels.append(label)
 
+    handle, handler = horizontal.mask_legend_artist()
+    handles += [handle]
+    labels += ["MCS Object Masks"]
     legend_color = figure_colors[figure_options["style"]]["legend"]
-    legend = axes[0].legend(handles=legend_handles[::-1], **mcs_legend_options)
+    handles, labels = handles[::-1], labels[::-1]
+    legend = axes[0].legend(handles, labels, **mcs_legend_options, handler_map=handler)
     legend.get_frame().set_alpha(None)
     legend.get_frame().set_facecolor(legend_color)
 

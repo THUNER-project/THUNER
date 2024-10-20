@@ -11,6 +11,12 @@ import matplotlib.lines as mlines
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.patches import FancyArrowPatch
 from matplotlib.colors import BoundaryNorm
+import matplotlib.patches as mpatches
+from matplotlib.collections import PatchCollection
+from matplotlib.colors import LinearSegmentedColormap
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+from matplotlib.legend_handler import HandlerTuple
 import cartopy.feature as cfeature
 from cartopy import crs as ccrs
 import thor.visualize.visualize as visualize
@@ -88,6 +94,25 @@ def show_mask(mask, ax, grid_options, single_color=False):
     return colors
 
 
+def mask_legend_artist(single_color=False):
+    """Create a legend artist for masks."""
+    colors = visualize.mask_colors
+    single_color = False
+    if single_color:
+        colors = [colors[0]] * len(colors)
+
+    patches = []
+    for i in range(3):
+        edge_color = mcolors.to_rgb(colors[i])
+        fill_color = list(edge_color) + [0.4]  # Add alpha of .4
+        args_dict = {"edgecolor": edge_color, "facecolor": fill_color}
+        patch = mpatches.Rectangle((0, 0), 1, 1, **args_dict)
+        patches.append(patch)
+
+    handler_map = {tuple: HandlerTuple(ndivide=None)}
+    return tuple(patches), handler_map
+
+
 def add_radar_features(ax, radar_lon, radar_lat, extent):
     """Add radar features to an ax."""
     ax.plot([radar_lon, radar_lon], [extent[2], extent[3]], **domain_plot_style)
@@ -110,6 +135,22 @@ def domain_boundary_legend_artist():
     legend_artist = mlines.Line2D([], [], **domain_plot_style)
     legend_artist.set_label("Domain Boundary")
     return legend_artist
+
+
+US_states_dict = {
+    "alabama": "AL",
+    "alaska": "AK",
+    "arizona": "AZ",
+    "arkansas": "AR",
+    "california": "CA",
+    "Colorado": "CO",
+    "Connecticut": "CT",
+    "Delaware": "DE",
+    "Florida": "FL",
+    "Georgia": "GA",
+    "Hawaii": "HI",
+    "Idaho": "ID",
+}
 
 
 def add_cartographic_features(
@@ -160,6 +201,7 @@ def add_cartographic_features(
         facecolor="none",
         edgecolor="gray",
     )
+
     national_borders = cfeature.BORDERS.with_scale(scale)
 
     ax.add_feature(land, zorder=0)
@@ -561,10 +603,5 @@ def grouped_mask(
         cbar_label = grid_i.attrs["long_name"].title() + f" [{grid_i.attrs['units']}]"
         fig.colorbar(pcm, cax=cbar_ax, label=cbar_label)
     fig.suptitle(f"{mask.time.values.astype('datetime64[s]')} UTC", y=1.05)
-
-    # min_lat, max_lat = grid_options["latitude"].min(), grid_options["latitude"].max()
-    # min_lon, max_lon = grid_options["longitude"].min(), grid_options["longitude"].max()
-
-    # ax.set_extent([min_lon, max_lon, min_lat, max_lat], crs=proj)
 
     return fig, axes

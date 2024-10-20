@@ -56,12 +56,16 @@ def write(object_tracks, object_options, output_directory):
                 raise ValueError(message)
 
     filepath = output_directory / f"masks/{object_name}/"
-    filepath = filepath / f"{format_time(last_write_str)}.nc"
+    filepath = filepath / f"{format_time(last_write_str)}.zarr"
     filepath.parent.mkdir(parents=True, exist_ok=True)
     masks = masks.astype(np.uint32)
+    coords = [c for c in masks.coords if c in ["x", "y", "latitude", "longitude"]]
+    for coord in coords:
+        masks.coords[coord] = masks.coords[coord].astype(np.float32)
+    masks = masks.chunk({"time": 1})
     lock = multiprocessing.Lock()
     with lock:
-        masks.to_netcdf(filepath)
+        masks.to_zarr(filepath, mode="w")
     # Update last_write_time after writing
     object_tracks["last_write_time"] = last_write_time + write_interval
     # Empty mask_list after writing
@@ -85,15 +89,17 @@ def aggregate(track_options, output_directory, clean_up=True):
     logger.info("Aggregating mask files.")
     for level_options in track_options.levels:
         for object_options in level_options.objects:
-            name = object_options.name
-            if not object_options.mask_options.save:
-                continue
-            filepaths = glob.glob(f"{output_directory}/masks/{name}/*.nc")
-            masks = xr.open_mfdataset(filepaths)
-            masks = masks.astype(np.uint32)
-            encoding = get_encoding(masks)
             lock = multiprocessing.Lock()
+            # Mask aggregation potentially memory intensive, so lock.
             with lock:
-                masks.to_netcdf(output_directory / f"masks/{name}.nc", encoding=encoding)
-            if clean_up:
-                shutil.rmtree(output_directory / f"masks/{name}")
+                name = object_options.name
+                if not object_options.mask_options.save:
+                    continue
+                filepaths = glob.glob(f"{output_directory}/masks/{name}/*.zarr")
+                filepaths = sorted(filepaths)
+                masks = xr.open_mfdataset(filepaths, engine="zarr")
+                masks = masks.astype(np.uint32)
+                masks = masks.chunk({"time": 1})
+                masks.to_zarr(output_directory / f"masks/{name}.zarr", mode="w")
+                if clean_up:
+                    shutil.rmtree(output_directory / f"masks/{name}")

@@ -51,7 +51,11 @@ figure_colors = {
 }
 figure_colors["gadi"] = figure_colors["presentation"]
 
-base_styles = {"paper": "default", "presentation": "dark_background", "gadi": "dark_background"}
+base_styles = {
+    "paper": "default",
+    "presentation": "dark_background",
+    "gadi": "dark_background",
+}
 custom_styles_dir = Path(__file__).parent / "styles"
 
 styles = {
