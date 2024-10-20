@@ -2,7 +2,7 @@
 
 import gc
 import os
-from multiprocessing import get_context
+import multiprocessing
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -95,7 +95,8 @@ def mcs_series(
         return
     if parallel_figure:
         num_processes = int(0.75 * os.cpu_count())
-        with logging_listener(), get_context("spawn").Pool(
+        num_processes = 4
+        with logging_listener(), multiprocessing.get_context("spawn").Pool(
             initializer=parallel.initialize_process, processes=num_processes
         ) as pool:
             results = []
@@ -166,11 +167,13 @@ def visualize_mcs(
         fig, ax = mcs_horizontal(*args, dt=dt)
         filename = f"{format_time(time)}.png"
         filepath = output_directory / f"visualize/{figure_name}/{filename}"
-        filepath.parent.mkdir(parents=True, exist_ok=True)
-        logger.debug(f"Saving {figure_name} figure for {time}.")
-        fig.savefig(filepath, bbox_inches="tight")
-        utils.reduce_color_depth(filepath)
-        plt.close(fig)
+        lock = multiprocessing.Lock()
+        with lock:
+            filepath.parent.mkdir(parents=True, exist_ok=True)
+            logger.debug(f"Saving {figure_name} figure for {time}.")
+            fig.savefig(filepath, bbox_inches="tight")
+            utils.reduce_color_depth(filepath)
+            plt.close(fig)
     gc.collect()
 
 

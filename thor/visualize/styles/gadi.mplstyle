@@ -1,0 +1,6 @@
+font.size: 12
+
+mathtext.fontset: "dejavuserif"
+
+savefig.facecolor : "black"
+savefig.dpi : 200

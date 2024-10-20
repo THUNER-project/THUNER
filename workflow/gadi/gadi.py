@@ -42,15 +42,15 @@ def gridrad():
     # Parent directory for saving outputs
     base_local = Path("/scratch/w40/esh563/THOR_output")
     start = "2010-01-21T12:00:00"
-    end = "2010-01-22T06:00:00"
+    end = "2010-01-21T16:00:00"
     event_start = "2010-01-21"
 
     period = parallel.get_period(start, end)
     intervals = parallel.get_time_intervals(start, end, period=period)
 
     output_parent = base_local / "runs/gridrad_demo"
-    if output_parent.exists():
-        shutil.rmtree(output_parent)
+    # if output_parent.exists():
+    #     shutil.rmtree(output_parent)
     options_directory = output_parent / "options"
 
     # Create the data_options dictionary
@@ -76,7 +76,7 @@ def gridrad():
     )
 
     dispatch.check_data_options(data_options)
-    # data.option.save_data_options(data_options, options_directory=options_directory)
+    data.option.save_data_options(data_options, options_directory=options_directory)
 
     # Create the grid_options dictionary using the first file in the cpol dataset
     grid_options = grid.create_options(
@@ -87,37 +87,49 @@ def gridrad():
 
     # Create the track_options dictionary
     track_options = option.default_track_options(dataset="gridrad")
+    track_options.levels[1].objects[0].tracking.global_flow_margin = 70
+    track_options.levels[1].objects[0].tracking.unique_global_flow = False
     track_options.to_yaml(options_directory / "track.yml")
 
     # Create the display_options dictionary
     visualize_options = None
 
-    num_processes = int(os.cpu_count() * 0.8)
-    with logging_listener(), get_context("spawn").Pool(
-        initializer=parallel.initialize_process, processes=num_processes
-    ) as pool:
-        results = []
-        for i, time_interval in enumerate(intervals):
-            args = [i, time_interval, data_options.copy(), grid_options.copy()]
-            args += [track_options.copy(), visualize_options]
-            args += [output_parent, "gridrad"]
-            args = tuple(args)
-            results.append(pool.apply_async(parallel.track_interval, args))
-        pool.close()
-        pool.join()
-        parallel.check_results(results)
+    # num_processes = 4
+    # with logging_listener(), get_context("spawn").Pool(
+    #     initializer=parallel.initialize_process, processes=num_processes
+    # ) as pool:
+    #     results = []
+    #     for i, time_interval in enumerate(intervals):
+    #         args = [i, time_interval, data_options.copy(), grid_options.copy()]
+    #         args += [track_options.copy(), visualize_options]
+    #         args += [output_parent, "gridrad"]
+    #         args = tuple(args)
+    #         time.sleep(1)
+    #         results.append(pool.apply_async(parallel.track_interval, args))
+    #     pool.close()
+    #     pool.join()
+    #     parallel.check_results(results)
 
-    parallel.stitch_run(output_parent, intervals, cleanup=True)
+    # parallel.stitch_run(output_parent, intervals, cleanup=True)
 
+def plot(output_parent):
+    
     analysis_options = analyze.mcs.analysis_options()
     analyze.mcs.process_velocities(output_parent)
     analyze.mcs.quality_control(output_parent, analysis_options)
     analyze.mcs.classify_all(output_parent)
     figure_options = visualize.option.horizontal_attribute_options(
-        "mcs_velocity_analysis", style="presentation", attributes=["velocity", "offset"]
+        "mcs_velocity_analysis", style="gadi", attributes=["velocity", "offset"]
     )
-    start_time = np.datetime64("2010-01-20T18:00")
-    end_time = np.datetime64(np.datetime64("2010-01-21T03:30"))
+    start_time = np.datetime64("2010-01-21T15:50")
+    end_time = np.datetime64(np.datetime64("2010-01-21T16:00"))
     args = [output_parent, start_time, end_time, figure_options]
     args_dict = {"parallel_figure": True, "dt": 5400, "by_date": False}
     visualize.attribute.mcs_series(*args, **args_dict)
+
+
+if __name__ == "__main__":
+    # gridrad()
+    plot(Path("/scratch/w40/esh563/THOR_output/runs/gridrad_demo"))
+
+
