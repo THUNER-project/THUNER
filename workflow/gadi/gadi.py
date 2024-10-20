@@ -112,8 +112,9 @@ def gridrad():
 
     # parallel.stitch_run(output_parent, intervals, cleanup=True)
 
+
 def plot(output_parent):
-    
+
     analysis_options = analyze.mcs.analysis_options()
     analyze.mcs.process_velocities(output_parent)
     analyze.mcs.quality_control(output_parent, analysis_options)
@@ -131,5 +132,3 @@ def plot(output_parent):
 if __name__ == "__main__":
     # gridrad()
     plot(Path("/scratch/w40/esh563/THOR_output/runs/gridrad_demo"))
-
-
