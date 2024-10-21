@@ -1,5 +1,6 @@
 """Parallel processing utilities."""
 
+from memory_profiler import profile
 import shutil
 import gc
 import multiprocessing
@@ -9,14 +10,12 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import xarray as xr
-import copy
 from thor.log import setup_logger
 import thor.attribute as attribute
 import thor.write as write
 import thor.analyze as analyze
 import thor.data as data
 import thor.grid as grid
-import thor.option as option
 import thor.track as track
 
 
@@ -196,6 +195,7 @@ def get_tracked_objects(track_options):
     return tracked_objects, all_objects
 
 
+# @profile
 def get_match_dicts(intervals, mask_file_dict, tracked_objects):
     """Get the match dictionaries for each interval."""
     match_dicts = {}
@@ -213,10 +213,12 @@ def get_match_dicts(intervals, mask_file_dict, tracked_objects):
 
         for j, obj in enumerate(objects_1):
             ds_2 = xr.open_mfdataset(filepaths_2[j], chunks={}, engine="zarr")
-            ds_2 = ds_2.isel(time=0).load()
+            ds_2 = ds_2.isel(time=0)
+            ds_2 = ds_2.load()
             time = ds_2["time"].values
             ds_1 = xr.open_mfdataset(filepaths_1[j], chunks={}, engine="zarr")
-            ds_1 = ds_1.sel(time=time).load()
+            ds_1 = ds_1.sel(time=time)
+            ds_1 = ds_1.load()
             time = ds_1["time"].values
             if obj not in tracked_objects:
                 interval_match_dicts[obj] = None
@@ -287,7 +289,7 @@ def apply_mapping(mapping, mask):
     new_mask = mask.copy()
     for key in mapping.keys():
         for var in mask.data_vars:
-            new_mask[var].values[mask[var].values == key] = mapping[key]
+            new_mask[var] = xr.where(mask[var] == key, mapping[key], new_mask[var])
     return new_mask
 
 
@@ -302,6 +304,7 @@ def get_mapping(id_dicts, obj, interval):
     return mapping
 
 
+# @profile
 def stitch_mask(intervals, masks, id_dicts, filepaths, obj):
     """Stitch together mask files for a given object."""
     new_masks = []
@@ -326,13 +329,14 @@ def stitch_mask(intervals, masks, id_dicts, filepaths, obj):
     coords = [c for c in mask.coords if c in ["x", "y", "latitude", "longitude"]]
     for coord in coords:
         mask.coords[coord] = mask.coords[coord].astype(np.float32)
-    mask = mask.chunk()
+    # mask = mask.chunk()
     filepath = Path(filepaths[0])
     filepath = Path(*[part for part in filepath.parts if part != "interval_0"])
     filepath.parent.mkdir(parents=True, exist_ok=True)
     mask.to_zarr(filepath, mode="w")
 
 
+# @profile
 def stitch_masks(mask_file_dict, intervals, id_dicts):
     """Stitch together all mask files."""
     logger.info("Stitching mask files.")
@@ -340,12 +344,14 @@ def stitch_masks(mask_file_dict, intervals, id_dicts):
     for k in range(len(mask_file_dict[0])):
         filepaths = [mask_file_dict[j][k] for j in range(len(intervals))]
         example_filepath = filepaths[0]
-        masks = [xr.open_dataset(filepath, engine="zarr") for filepath in filepaths]
+        kwargs = {"chunks": {"time": 1}, "engine": "zarr"}
+        masks = [xr.open_dataset(filepath, **kwargs) for filepath in filepaths]
         obj = Path(example_filepath).stem
         # Stitch together masks for that object
         stitch_mask(intervals, masks, id_dicts, filepaths, obj)
 
 
+# @profile
 def stitch_attribute(
     dfs,
     obj,

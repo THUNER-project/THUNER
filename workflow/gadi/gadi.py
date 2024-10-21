@@ -67,9 +67,9 @@ def gridrad():
     era5_pl_options = data.era5.data_options(
         start=start, end=end, parent_local=era5_parent
     )
-    args_dict = {"start": start, "end": end, "data_format": "single-levels"}
-    args_dict.update({"parent_local": era5_parent})
-    era5_sl_options = data.era5.data_options(**args_dict)
+    kwargs = {"start": start, "end": end, "data_format": "single-levels"}
+    kwargs.update({"parent_local": era5_parent})
+    era5_sl_options = data.era5.data_options(**kwargs)
 
     data_options = option.consolidate_options(
         [gridrad_options, era5_pl_options, era5_sl_options]
@@ -125,8 +125,8 @@ def plot(output_parent):
     start_time = np.datetime64("2010-01-21T15:50")
     end_time = np.datetime64(np.datetime64("2010-01-21T16:00"))
     args = [output_parent, start_time, end_time, figure_options]
-    args_dict = {"parallel_figure": True, "dt": 5400, "by_date": False}
-    visualize.attribute.mcs_series(*args, **args_dict)
+    kwargs = {"parallel_figure": True, "dt": 5400, "by_date": False}
+    visualize.attribute.mcs_series(*args, **kwargs)
 
 
 if __name__ == "__main__":

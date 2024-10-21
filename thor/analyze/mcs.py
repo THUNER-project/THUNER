@@ -40,42 +40,44 @@ def process_velocities(
     convective_options = options["track"].levels[0].options_by_name(convective_label)
     altitudes = convective_options.detection.altitudes
 
-    filepath = output_directory / f"attributes/mcs/{profile_dataset}/profile.csv"
-    winds = read_attribute_csv(filepath, columns=["u", "v"])
-
     filepath = output_directory / "attributes/mcs/core.csv"
     velocities = read_attribute_csv(filepath, columns=["u_flow", "v_flow"])
     velocities = utils.temporal_smooth(velocities, window_size=window_size)
     velocities = velocities.rename(columns={"u_flow": "u", "v_flow": "v"})
 
-    # Take mean of ambient winds over altitudes used to detect convective echoes
-    indexer = pd.IndexSlice[:, :, altitudes[0] : altitudes[1]]
-    mean_winds = winds.loc[indexer].groupby(["time", "universal_id"]).mean()
-    new_names = {"u": "u_ambient", "v": "v_ambient"}
-    mean_winds = mean_winds.rename(columns=new_names)
+    if profile_dataset is not None:
+        filepath = output_directory / f"attributes/mcs/{profile_dataset}/profile.csv"
+        winds = read_attribute_csv(filepath, columns=["u", "v"])
+
+        indexer = pd.IndexSlice[:, :, altitudes[0] : altitudes[1]]
+        mean_winds = winds.loc[indexer].groupby(["time", "universal_id"]).mean()
+        new_names = {"u": "u_ambient", "v": "v_ambient"}
+        mean_winds = mean_winds.rename(columns=new_names)
+
+        # Calculate a shear vector as the difference between the winds at the top and
+        # bottom of layer used to detect convective echoes
+        top = winds.xs(altitudes[1], level="altitude")
+        bottom = winds.xs(altitudes[0], level="altitude")
+        shear = top - bottom
+        new_names = {"u": "u_shear", "v": "v_shear"}
+        shear = shear.rename(columns=new_names)
+
+        # Calculate system wind-relative velocities
+        new_names_vel = {"u": "u_relative", "v": "v_relative"}
+        renamed_velocities = velocities.rename(columns=new_names_vel)
+        new_names_mean = {"u_ambient": "u_relative", "v_ambient": "v_relative"}
+        renamed_mean_winds = mean_winds.rename(columns=new_names_mean)
+        relative_velocities = renamed_velocities - renamed_mean_winds
+
+        velocities_list = [velocities, mean_winds, shear, relative_velocities]
+    else:
+        velocities_list = [velocities]
 
     # Check if dataframes aligned
-    if not velocities.index.equals(mean_winds.index):
+    if profile_dataset is not None and not velocities.index.equals(mean_winds.index):
         raise ValueError("Dataframes are not aligned. Perhaps enforce alignment first?")
 
-    # Calculate a shear vector as the difference between the winds at the top and
-    # bottom of layer used to detect convective echoes
-    top = winds.xs(altitudes[1], level="altitude")
-    bottom = winds.xs(altitudes[0], level="altitude")
-    shear = top - bottom
-    new_names = {"u": "u_shear", "v": "v_shear"}
-    shear = shear.rename(columns=new_names)
-
-    # Calculate system wind-relative velocities
-    new_names_vel = {"u": "u_relative", "v": "v_relative"}
-    new_names_mean = {"u_ambient": "u_relative", "v_ambient": "v_relative"}
-    renamed_velocities = velocities.rename(columns=new_names_vel)
-    renamed_mean_winds = mean_winds.rename(columns=new_names_mean)
-    relative_velocities = renamed_velocities - renamed_mean_winds
-
-    all_velocities = pd.concat(
-        [velocities, mean_winds, shear, relative_velocities], axis=1
-    )
+    all_velocities = pd.concat(velocities_list, axis=1)
 
     # Create metadata for the attributes
     names = ["u", "v", "u_shear", "v_shear", "u_ambient", "v_ambient"]
@@ -90,6 +92,9 @@ def process_velocities(
         "System wind relative zonal velocity.",
         "System wind relative meridional velocity.",
     ]
+    if "u_shear" not in velocities.columns:
+        names = names[:2]
+        descriptions = descriptions[:2]
 
     data_type, precision, units, method = float, 1, "m/s", None
     attributes = {}
@@ -213,14 +218,15 @@ def quality_control(output_directory, analysis_options, analysis_directory=None)
     velocity_magnitude = velocities[["u", "v"]].pow(2).sum(axis=1).pow(0.5)
     velocity_check = velocity_magnitude >= analysis_options["min_velocity"]
     velocity_check.name = "velocity"
-    shear_magnitude = velocities[["u_shear", "v_shear"]].pow(2).sum(axis=1).pow(0.5)
-    shear_check = shear_magnitude >= analysis_options["min_shear"]
-    shear_check.name = "shear"
-    relative_velocity = velocities[["u_relative", "v_relative"]]
-    relative_velocity_magnitude = relative_velocity.pow(2).sum(axis=1).pow(0.5)
-    min_relative_velocity = analysis_options["min_relative_velocity"]
-    relative_velocity_check = relative_velocity_magnitude >= min_relative_velocity
-    relative_velocity_check.name = "relative_velocity"
+    if "u_shear" in velocities.columns:
+        shear_magnitude = velocities[["u_shear", "v_shear"]].pow(2).sum(axis=1).pow(0.5)
+        shear_check = shear_magnitude >= analysis_options["min_shear"]
+        shear_check.name = "shear"
+        relative_velocity = velocities[["u_relative", "v_relative"]]
+        relative_velocity_magnitude = relative_velocity.pow(2).sum(axis=1).pow(0.5)
+        min_relative_velocity = analysis_options["min_relative_velocity"]
+        relative_velocity_check = relative_velocity_magnitude >= min_relative_velocity
+        relative_velocity_check.name = "relative_velocity"
 
     # Check system area is of appropriate size, treating the system area as the maximum
     # area of the member objects
@@ -278,6 +284,11 @@ def quality_control(output_directory, analysis_options, analysis_directory=None)
         "Is the system axis ratio sufficiently large?",
         "Is the system duration sufficiently long?",
     ]
+    if "u_shear" not in velocities.columns:
+        names.remove("shear")
+        names.remove("relative_velocity")
+        descriptions.remove("Is the system shear sufficiently large?")
+        descriptions.remove("Is the system relative velocity sufficiently large?")
 
     data_type, precision, units, method = bool, None, None, None
     attributes = {}
@@ -287,9 +298,13 @@ def quality_control(output_directory, analysis_options, analysis_directory=None)
     attributes["time"] = attribute.core.time()
     attributes["universal_id"] = attribute.core.identity("universal_id")
     filepath = analysis_directory / "quality.csv"
-    quality = [convective_check, anvil_check, velocity_check, shear_check]
-    quality += [relative_velocity_check, area_check, offset_check, major_check]
-    quality += [axis_ratio_check, duration_check]
+    if "u_shear" not in velocities.columns:
+        quality = [convective_check, anvil_check, velocity_check, area_check]
+        quality += [offset_check, major_check, axis_ratio_check, duration_check]
+    else:
+        quality = [convective_check, anvil_check, velocity_check, shear_check]
+        quality += [relative_velocity_check, area_check, offset_check, major_check]
+        quality += [axis_ratio_check, duration_check]
     quality = pd.concat(quality, axis=1)
     quality = write.attribute.write_csv(filepath, quality, attributes)
     return quality
@@ -320,6 +335,7 @@ def classify_all(output_directory, analysis_directory=None):
     offset = read_attribute_csv(filepath, columns=["x_offset", "y_offset"])
 
     u, v = velocities["u"], velocities["v"]
+
     u_shear, v_shear = velocities["u_shear"], velocities["v_shear"]
     u_relative, v_relative = velocities["u_relative"], velocities["v_relative"]
     x_offset, y_offset = offset["x_offset"], offset["y_offset"]

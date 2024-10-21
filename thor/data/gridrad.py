@@ -96,7 +96,7 @@ def check_data_options(options):
         raise ValueError(f"Invalid dataset ID. Must be one of {valid_dataset_ids}.")
 
 
-@profile
+# @profile
 def open_gridrad(path, dataset_options):
     """
     Open a GridRad netcdf file, converting variables with an "Index" dimension back to 3D
@@ -104,7 +104,7 @@ def open_gridrad(path, dataset_options):
 
     kept_variables = [gridrad_names_dict[f] for f in dataset_options["fields"]]
     kept_variables += ["Nradobs", "Nradecho", "wReflectivity", "CorrelationCoefficient"]
-    ds = xr.open_dataset(path, chunks={})
+    ds = xr.open_dataset(path)
     kept_variables = [v for v in kept_variables if v in ds.data_vars]
     dropped_variables = [v for v in ds.data_vars if v not in kept_variables]
     for var in kept_variables:
@@ -114,7 +114,7 @@ def open_gridrad(path, dataset_options):
     return ds
 
 
-@profile
+# @profile
 def reshape_variable(ds, variable):
     """
     Reshape a variable in a GridRad dataset to a 3D grid. Adapted from code provided by
@@ -137,7 +137,7 @@ def reshape_variable(ds, variable):
     return ds
 
 
-@profile
+# @profile
 def filter(
     ds,
     weight_thresh=1.5,
@@ -174,32 +174,34 @@ def filter(
     if variables is None:
         variables = [v for v in gridrad_variables if v in ds.variables]
 
-    echo_fraction = xr.zeros_like(ds["Nradecho"]).astype(float)
-    ob_inds = np.where(ds.Nradobs > 0)
-    echo_fraction.values[ob_inds] = (
-        ds["Nradecho"].values[ob_inds] / ds["Nradobs"].values[ob_inds]
+    # echo_fraction = xr.zeros_like(ds["Nradecho"]).astype(np.float32)
+    # Calcualate echo fraction efficiently using lazy loading and where
+    kwargs = {"keep_attrs": True}
+    echo_fraction = xr.where(
+        ds["Nradobs"] > 0, ds["Nradecho"] / ds["Nradobs"], 0.0, **kwargs
     )
+    echo_fraction = echo_fraction.astype(np.float32)
 
     # Get indices to filter
-    weight_cond = ds["wReflectivity"].values < weight_thresh
-    refl_cond = ds["Reflectivity"].values <= refl_thresh
-    frac_cond = echo_fraction.values < echo_frac_thresh
-    obs_cond = ds["Nradobs"].values <= obs_thresh
+    weight_cond = xr.where(ds["wReflectivity"] < weight_thresh, True, False, **kwargs)
+    refl_cond = xr.where(ds["Reflectivity"] <= refl_thresh, True, False, **kwargs)
+    frac_cond = xr.where(echo_fraction < echo_frac_thresh, True, False, **kwargs)
+    obs_cond = xr.where(ds["Nradobs"] <= obs_thresh, True, False, **kwargs)
     # Filter cells below weight and reflectivity thresholds
-    cond_refl = weight_cond & refl_cond
+    cond_refl = xr.where(weight_cond & refl_cond, True, False, **kwargs)
     # Filter cells containing at < obs_thresh observations. If at least obs_thresh
     # observations, filter cells with echoes in less than echo_fraction_thresh of the
     # total observations
-    cond_frac = (obs_cond) | frac_cond
+    cond_frac = xr.where(obs_cond | frac_cond, True, False, **kwargs)
     # Retain values not filtered
-    preserved = ~cond_refl & ~cond_frac
+    preserved = xr.where(~cond_refl & ~cond_frac, True, False, **kwargs)
     for var in variables:
         ds[var] = ds[var].where(preserved)
 
     return ds
 
 
-@profile
+# @profile
 def remove_speckles(ds, window_size=5, coverage_thresh=0.32, variables=None):
     """
     Remove speckles in GridRad data. Based on code from the GridRad website
@@ -212,7 +214,8 @@ def remove_speckles(ds, window_size=5, coverage_thresh=0.32, variables=None):
     if variables is None:
         variables = [v for v in gridrad_variables if v in ds.variables]
 
-    refl_exists = np.isfinite(ds["Reflectivity"]).astype(float)
+    # refl_exists = np.isfinite(ds["Reflectivity"]).astype(float)
+    refl_exists = xr.where(ds["Reflectivity"] != np.nan, True, False)
     min_size = window_size**3 * coverage_thresh
     speckle_mask = remove_small_objects(refl_exists.values > 0, min_size=min_size)
     for var in variables:
@@ -221,7 +224,7 @@ def remove_speckles(ds, window_size=5, coverage_thresh=0.32, variables=None):
     return ds
 
 
-@profile
+# @profile
 def remove_low_level_clutter(ds, variables=None):
     """
     Remove low level clutter from GridRad data. Based on code from the GridRad website
@@ -253,7 +256,7 @@ def remove_low_level_clutter(ds, variables=None):
     return ds
 
 
-@profile
+# @profile
 def remove_clutter_below_anvils(ds, variables=None):
     """
     Remove clutter below anvils in GridRad data. Based on code from the GridRad website
@@ -275,7 +278,7 @@ def remove_clutter_below_anvils(ds, variables=None):
     return ds
 
 
-@profile
+# @profile
 def remove_clutter(ds, variables=None, low_level=True, below_anvil=False):
     """
     Remove clutter from GridRad data. Based on code from the GridRad website
@@ -344,7 +347,7 @@ def get_gridrad(time, input_record, track_options, dataset_options, grid_options
     return ds
 
 
-@profile
+# @profile
 def convert_gridrad(time, filepath, track_options, dataset_options, grid_options):
     """Convert gridrad data to the standard format."""
 

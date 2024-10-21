@@ -1,6 +1,7 @@
 """Track storm objects in a dataset."""
 
 from memory_profiler import profile
+import shutil
 from collections import deque
 import copy
 import numpy as np
@@ -108,8 +109,6 @@ def initialise_object_tracks(object_options):
 
     if object_options.tracking is not None:
         match.initialise_match_records(object_tracks, object_options)
-    if object_options.mask_options.save:
-        object_tracks["mask_list"] = []
 
     # Initialize attributes dictionaries
     if object_options.attributes is not None:
@@ -170,7 +169,6 @@ def consolidate_options(data_options, grid_options, track_options, visualize_opt
     return consolidated_options
 
 
-@profile
 def simultaneous_track(
     times,
     data_options,
@@ -212,6 +210,12 @@ def simultaneous_track(
         track_options, data_options, grid_options, visualize_options
     )
 
+    # Clear masks directory to prevent overwriting
+    if (output_directory / "masks").exists():
+        shutil.rmtree(output_directory / "masks")
+    if (output_directory / "attributes").exists():
+        shutil.rmtree(output_directory / "attributes")
+
     previous_time = None
     for time in times:
 
@@ -240,18 +244,17 @@ def simultaneous_track(
         previous_time = time
 
     # Write final data to file
-    write.mask.write_final(tracks, track_options, output_directory)
+    # write.mask.write_final(tracks, track_options, output_directory)
     write.attribute.write_final(tracks, track_options, output_directory)
     write.filepath.write_final(input_records["track"], output_directory)
     # Aggregate files previously written to file
-    write.mask.aggregate(track_options, output_directory)
+    # write.mask.aggregate(track_options, output_directory)
     write.attribute.aggregate(track_options, output_directory)
     write.filepath.aggregate(input_records["track"], output_directory)
     # Animate the relevant figures
     visualize.visualize.animate_all(visualize_options, output_directory)
 
 
-@profile
 def track_level(
     time,
     level_index,
@@ -286,7 +289,6 @@ def track_level(
     return level_tracks
 
 
-@profile
 def track_object(
     time,
     level_index,
@@ -311,10 +313,13 @@ def track_object(
         object_tracks["previous_times"].append(current_time)
     object_tracks["current_time"] = time
 
+    if object_options.mask_options.save:
+        # Write masks to zarr file
+        write.mask.write(object_tracks, object_options, output_directory)
     # Write existing data to file if necessary
     if write.utils.write_interval_reached(time, object_tracks, object_options):
-        write.mask.write(object_tracks, object_options, output_directory)
         write.attribute.write(object_tracks, object_options, output_directory)
+        object_tracks["last_write_time"] = time
 
     # Detect objects at time
     if "grouping" in object_options.model_fields:
@@ -338,7 +343,6 @@ def track_object(
     if object_tracks["previous_times"][-1] is not None:
         args = [time, input_records, object_tracks, object_options, grid_options]
         attribute.attribute.record(*args)
-    write.mask.update(object_tracks, object_options)
 
 
 get_objects_dispatcher = {

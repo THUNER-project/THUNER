@@ -71,9 +71,9 @@ class BaseOptions(BaseModel):
 
     def to_yaml(self, filepath: str):
         with open(filepath, "w") as f:
-            args_dict = {"default_flow_style": False, "allow_unicode": True}
-            args_dict = {"sort_keys": False}
-            yaml.dump(self.to_dict(), f, **args_dict)
+            kwargs = {"default_flow_style": False, "allow_unicode": True}
+            kwargs = {"sort_keys": False}
+            yaml.dump(self.to_dict(), f, **kwargs)
 
 
 class TintOptions(BaseOptions):
@@ -198,9 +198,9 @@ class DetectedObjectOptions(BaseObjectOptions):
     _description: ClassVar = "Variable to use for detection."
     variable: str = Field("reflectivity", description=_description)
     _description = "Method used to detect the object."
-    _args_dict: ClassVar = {"description": _description}
+    _kwargs: ClassVar = {"description": _description}
     _args: ClassVar = [DetectionOptions(method="steiner")]
-    detection: DetectionOptions = Field(*_args, **_args_dict)
+    detection: DetectionOptions = Field(*_args, **_kwargs)
     tracking: BaseOptions | None = Field(TintOptions(), description="Tracking options.")
     attributes: Dict = Field({}, description="Options for object attributes.")
 
@@ -215,14 +215,14 @@ class GroupingOptions(BaseOptions):
 
     method: str = Field("graph", description="Method used to group objects.")
     _description: ClassVar = "Names of objects to group."
-    _args_dict: ClassVar = {"description": _description}
-    member_objects: List[str] = Field([], **_args_dict)
+    _kwargs: ClassVar = {"description": _description}
+    member_objects: List[str] = Field([], **_kwargs)
     _description = "Hierachy levels of objects to group"
-    _args_dict = {"description": _description}
-    member_levels: List[NonNegativeInt] = Field([], **_args_dict)
+    _kwargs = {"description": _description}
+    member_levels: List[NonNegativeInt] = Field([], **_kwargs)
     _description = "Minimum area of each member object in km squared."
-    _args_dict = {"description": _description}
-    member_min_areas: List[PositiveFloat] = Field([], **_args_dict)
+    _kwargs = {"description": _description}
+    member_min_areas: List[PositiveFloat] = Field([], **_kwargs)
 
     # Check lists are the same length.
     @model_validator(mode="after")
@@ -386,9 +386,13 @@ def default_mcs(dataset="cpol"):
 def default_track_options(dataset="cpol"):
     """Build default options for tracking MCS."""
 
+    mask_options = MaskOptions(save=False, load=False)
     convective_options = default_convective(dataset)
+    convective_options.mask_options = mask_options
     middle_options = default_middle(dataset)
+    middle_options.mask_options = mask_options
     anvil_options = default_anvil(dataset)
+    anvil_options.mask_options = mask_options
     mcs_options = default_mcs(dataset)
     level_0 = LevelOptions(objects=[convective_options, middle_options, anvil_options])
     level_1 = LevelOptions(objects=[mcs_options])

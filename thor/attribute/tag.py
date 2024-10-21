@@ -74,10 +74,10 @@ def from_centers(names, input_records, attributes, object_tracks, method):
     tags = ds[names]
     lats_da = xr.DataArray(lats, dims="points")
     lons_da = xr.DataArray(lons, dims="points")
-    args_dict = {"latitude": lats_da, "longitude": lons_da}
-    args_dict.update({"time": previous_time.astype("datetime64[ns]")})
-    args_dict.update({"method": "linear"})
-    tags = tags.interp(**args_dict)
+    kwargs = {"latitude": lats_da, "longitude": lons_da}
+    kwargs.update({"time": previous_time.astype("datetime64[ns]")})
+    kwargs.update({"method": "linear"})
+    tags = tags.interp(**kwargs)
 
     tag_dict = {name: [] for name in names}
     for name in names:

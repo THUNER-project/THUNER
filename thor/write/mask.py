@@ -1,5 +1,6 @@
 """Functions for writing object masks."""
 
+from memory_profiler import profile
 import glob
 import shutil
 import numpy as np
@@ -7,69 +8,40 @@ import xarray as xr
 import multiprocessing
 from thor.utils import format_time
 from thor.log import setup_logger
-import thor.write.utils as utils
-from thor.data.utils import get_encoding
+
 
 logger = setup_logger(__name__)
 
 
-def update(object_tracks, object_options):
-    """Update masks lists, and if necessary write to file."""
-    if not object_options.mask_options.save:
-        return
+def write(object_tracks, object_options, output_directory):
+    """Write masks to file."""
 
     if object_options.tracking is None:
         mask_type = "current_mask"
     else:
         mask_type = "current_matched_mask"
+    mask = object_tracks[mask_type]
+    if mask is None:
+        return
+    else:
+        mask = mask.copy()
+    mask = mask.expand_dims("time")
 
-    # Append mask to mask_list
-    object_tracks["mask_list"].append(object_tracks[mask_type])
-
-
-def write(object_tracks, object_options, output_directory):
-    """Write masks to file."""
-    mask_list = object_tracks["mask_list"]
     object_name = object_options.name
-    last_write_time = object_tracks["last_write_time"]
-    write_interval = np.timedelta64(object_options.write_interval, "h")
 
-    last_write_str = format_time(last_write_time, filename_safe=False, day_only=False)
-    current_str = format_time(
-        last_write_time + write_interval, filename_safe=False, day_only=False
-    )
-    message = f"Writing {object_name} masks from {last_write_str} to {current_str}, "
-    message += "inclusive and non-inclusive, respectively."
-    logger.info(message)
-    combine_attrs_options = ["identical", "drop_conflicts"]
-    for option in combine_attrs_options:
-        try:
-            masks = xr.concat(mask_list, dim="time", combine_attrs=option)
-        except ValueError:
-            message = f"Mask concatenation failed for {object_name} between "
-            message += f"{last_write_str} and {current_str} with "
-            message += f"combine_attrs='{option}'."
-            logger.warning(message)
-            if option == combine_attrs_options[-1]:
-                message = "All mask concatenation attempts failed. "
-                message += "Were masks created consistently?"
-                raise ValueError(message)
-
-    filepath = output_directory / f"masks/{object_name}/"
-    filepath = filepath / f"{format_time(last_write_str)}.zarr"
+    filepath = output_directory / f"masks/{object_name}.zarr"
     filepath.parent.mkdir(parents=True, exist_ok=True)
-    masks = masks.astype(np.uint32)
-    coords = [c for c in masks.coords if c in ["x", "y", "latitude", "longitude"]]
+    mask = mask.astype(np.uint32)
+    coords = [c for c in mask.coords if c in ["x", "y", "latitude", "longitude"]]
     for coord in coords:
-        masks.coords[coord] = masks.coords[coord].astype(np.float32)
-    masks = masks.chunk({"time": 1})
-    lock = multiprocessing.Lock()
-    with lock:
-        masks.to_zarr(filepath, mode="w")
-    # Update last_write_time after writing
-    object_tracks["last_write_time"] = last_write_time + write_interval
-    # Empty mask_list after writing
-    object_tracks["mask_list"] = []
+        mask.coords[coord] = mask.coords[coord].astype(np.float32)
+
+    message = f"Writing {object_name} masks to {filepath}."
+    logger.info(message)
+    if not filepath.exists():
+        mask.to_zarr(filepath, mode="w")
+    else:
+        mask.to_zarr(filepath, mode="a", append_dim="time")
 
 
 def write_final(tracks, track_options, output_directory):
@@ -81,25 +53,3 @@ def write_final(tracks, track_options, output_directory):
                 continue
             obj_name = object_options.name
             write(tracks[index][obj_name], object_options, output_directory)
-
-
-def aggregate(track_options, output_directory, clean_up=True):
-    """Aggregate masks into single file."""
-
-    logger.info("Aggregating mask files.")
-    for level_options in track_options.levels:
-        for object_options in level_options.objects:
-            lock = multiprocessing.Lock()
-            # Mask aggregation potentially memory intensive, so lock.
-            with lock:
-                name = object_options.name
-                if not object_options.mask_options.save:
-                    continue
-                filepaths = glob.glob(f"{output_directory}/masks/{name}/*.zarr")
-                filepaths = sorted(filepaths)
-                masks = xr.open_mfdataset(filepaths, engine="zarr")
-                masks = masks.astype(np.uint32)
-                masks = masks.chunk({"time": 1})
-                masks.to_zarr(output_directory / f"masks/{name}.zarr", mode="w")
-                if clean_up:
-                    shutil.rmtree(output_directory / f"masks/{name}")

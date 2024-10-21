@@ -21,22 +21,24 @@ def get_extent(grid_options):
     lon_range = (lon.max() - lon.min()) * 1.1
     lat_range = (lat.max() - lat.min()) * 1.1
 
-    # Quick fix for plotting big grids
-    # Rescale to ensure equal ranges
-    if lon_range > lat_range:
-        lat_range = lon_range
-    else:
-        lon_range = lat_range
-
     lon_center = lon.mean()
     lat_center = lat.mean()
 
-    lon_min = lon_center - lon_range / 2
-    lon_max = lon_center + lon_range / 2
-    lat_min = np.max([-90, lat_center - lat_range / 2])
-    lat_max = np.min([90, lat_center + lat_range / 2])
+    scale = int(2 ** np.round(np.log2(lon_range / lat_range)))
+    if scale == 2:
+        nice_range = np.max([lon_range, 2 * lat_range])
+        lon_min = lon_center - nice_range / 2
+        lon_max = lon_center + nice_range / 2
+        lat_min = lat_center - nice_range / 4
+        lat_max = lat_center + nice_range / 4
+    else:
+        nice_range = np.max([lat_range, lon_range])
+        lon_min = lon_center - nice_range / 2
+        lon_max = lon_center + nice_range / 2
+        lat_min = np.max([-90, lat_center - nice_range / 2])
+        lat_max = np.min([90, lat_center + nice_range / 2])
 
-    return (lon_min, lon_max, lat_min, lat_max)
+    return (lon_min, lon_max, lat_min, lat_max), scale
 
 
 def make_subplot_labels(axes, x_shift=-0.15, y_shift=0, fontsize=12):

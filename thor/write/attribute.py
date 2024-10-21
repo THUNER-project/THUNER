@@ -187,9 +187,9 @@ def aggregate_directory(directory, attribute_type, attribute_options, clean_up):
     data_types.pop("time", None)
 
     for filepath in filepaths:
-        args_dict = {"index_col": index_cols, "na_values": ["", "NA"]}
-        args_dict.update({"keep_default_na": True, "dtype": data_types})
-        df_list.append(pd.read_csv(filepath, **args_dict))
+        kwargs = {"index_col": index_cols, "na_values": ["", "NA"]}
+        kwargs.update({"keep_default_na": True, "dtype": data_types})
+        df_list.append(pd.read_csv(filepath, **kwargs))
     df = pd.concat(df_list, sort=False)
     aggregated_filepath = directory.parent / f"{attribute_type}.csv"
     write_csv(aggregated_filepath, df, attribute_options)

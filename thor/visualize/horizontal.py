@@ -65,7 +65,7 @@ def show_mask(mask, ax, grid_options, single_color=False):
         colors = [colors[0]] * len(colors)
     cmap = LinearSegmentedColormap.from_list("custom", colors, N=len(colors))
     object_labels = np.unique(mask.where(mask > 0).values)
-    object_labels = object_labels[~np.isnan(object_labels)]
+    object_labels = object_labels[~np.isnan(object_labels)].astype(np.int32)
 
     if grid_options["name"] == "geographic":
         LON, LAT = np.meshgrid(grid_options["longitude"], grid_options["latitude"])
@@ -78,7 +78,7 @@ def show_mask(mask, ax, grid_options, single_color=False):
     mesh_style.update({"zorder": 2, "norm": norm})
     for i in object_labels:
         binary_mask = mask.where(mask == i, 0).astype(bool)
-        color_index = (i - 1) % len(colors)
+        color_index = np.uint8((i - 1) % len(colors))
         pcm_mask = (color_index * binary_mask).where(binary_mask)
         ax.pcolormesh(LON, LAT, pcm_mask, **mesh_style)
         binary_array = binary_mask.values.astype(np.uint8)
@@ -105,8 +105,8 @@ def mask_legend_artist(single_color=False):
     for i in range(3):
         edge_color = mcolors.to_rgb(colors[i])
         fill_color = list(edge_color) + [0.4]  # Add alpha of .4
-        args_dict = {"edgecolor": edge_color, "facecolor": fill_color}
-        patch = mpatches.Rectangle((0, 0), 1, 1, **args_dict)
+        kwargs = {"edgecolor": edge_color, "facecolor": fill_color}
+        patch = mpatches.Rectangle((0, 0), 1, 1, **kwargs)
         patches.append(patch)
 
     handler_map = {tuple: HandlerTuple(ndivide=None)}
@@ -258,6 +258,8 @@ def initialize_gridlines(ax, extent, left_labels=True, bottom_labels=True):
     spacing = (10 ** np.floor(np.log10(delta_grid))) / 2
     if spacing < 1:
         spacing = 1
+    elif delta_grid / spacing > 10:
+        spacing *= 2
     gridlines.xlocator = mticker.FixedLocator(np.arange(-180, 180 + spacing, spacing))
     gridlines.ylocator = mticker.FixedLocator(np.arange(-90, 90 + spacing, spacing))
 
@@ -321,23 +323,28 @@ def displacement_legend_artist(color, label):
         patheffects.Stroke(linewidth=linewidth, foreground=color),
         patheffects.Normal(),
     ]
-    args_dict = {"color": "w", "linewidth": linewidth / 3, "linestyle": "-"}
-    args_dict.update({"zorder": 4, "transform": proj, "path_effects": path_effects})
-    legend_artist = mlines.Line2D([], [], **args_dict)
+    kwargs = {"color": "w", "linewidth": linewidth / 3, "linestyle": "-"}
+    kwargs.update({"zorder": 4, "transform": proj, "path_effects": path_effects})
+    legend_artist = mlines.Line2D([], [], **kwargs)
     legend_artist.set_label(label)
     legend_artist.set_path_effects(path_effects)
     return legend_artist
 
 
-def vector_key(ax, u=-10, v=0, color="k", dt=3600):
+def vector_key(ax, u=-10, v=0, color="k", dt=3600, scale=1):
     """Add a vector key to the plot."""
     fig = ax.get_figure()
-    start_point = fig.transFigure.transform((0.875, 1))
+    if scale == 1:
+        y_position = 1
+    elif scale == 2:
+        y_position = 0.95
+    start_point = fig.transFigure.transform((0.875, y_position))
     [longitude, latitude] = ax.transData.inverted().transform(start_point)
     longitude = longitude % 360
     args = [ax, latitude, longitude, u, v, color, None]
     cartesian_velocity(*args, quality=True, dt=dt)
-    start_point = fig.transFigure.transform((0.89, 1))
+
+    start_point = fig.transFigure.transform((0.89, y_position))
     [longitude, latitude] = ax.transData.inverted().transform(start_point)
     ax.text(longitude, latitude, f"{np.abs(u)} m/s", ha="left", va="center")
 
@@ -355,19 +362,19 @@ def ellipse_axis(
     colors = visualize.figure_colors[style]
     axis_color = colors["ellipse_axis"]
     shadow_color = colors["ellipse_axis_shadow"]
-    args_dict = {"shadow_color": shadow_color, "alpha": 0.9}
+    kwargs = {"shadow_color": shadow_color, "alpha": 0.9}
     offset = (0.85 * ellipse_axis_linewidth / 2, -0.85 * ellipse_axis_linewidth)
-    args_dict.update({"offset": offset})
-    path_effects = [patheffects.SimpleLineShadow(**args_dict), patheffects.Normal()]
-    args_dict = {"color": axis_color, "linewidth": ellipse_axis_linewidth}
-    args_dict.update({"zorder": 3, "path_effects": path_effects, "transform": proj})
-    args_dict.update({"linestyle": "--"})
+    kwargs.update({"offset": offset})
+    path_effects = [patheffects.SimpleLineShadow(**kwargs), patheffects.Normal()]
+    kwargs = {"color": axis_color, "linewidth": ellipse_axis_linewidth}
+    kwargs.update({"zorder": 3, "path_effects": path_effects, "transform": proj})
+    kwargs.update({"linestyle": "--"})
     if quality:
-        ax.plot([lon_1, lon_2], [lat_1, lat_2], **args_dict)
-    args_dict = {"color": axis_color, "linewidth": ellipse_axis_linewidth}
-    args_dict.update({"zorder": 5, "path_effects": path_effects, "linestyle": "--"})
-    args_dict.update({"label": label})
-    legend_handle = mlines.Line2D([], [], **args_dict)
+        ax.plot([lon_1, lon_2], [lat_1, lat_2], **kwargs)
+    kwargs = {"color": axis_color, "linewidth": ellipse_axis_linewidth}
+    kwargs.update({"zorder": 5, "path_effects": path_effects, "linestyle": "--"})
+    kwargs.update({"label": label})
+    legend_handle = mlines.Line2D([], [], **kwargs)
     return legend_handle
 
 
@@ -376,14 +383,14 @@ def ellipse_legend_artist(label, style):
     colors = visualize.figure_colors[style]
     axis_color = colors["ellipse_axis"]
     shadow_color = colors["ellipse_axis_shadow"]
-    args_dict = {"shadow_color": shadow_color, "alpha": 0.9}
+    kwargs = {"shadow_color": shadow_color, "alpha": 0.9}
     offset = (0.85 * ellipse_axis_linewidth, -0.85 * ellipse_axis_linewidth)
-    args_dict.update({"offset": offset})
-    path_effects = [patheffects.SimpleLineShadow(**args_dict), patheffects.Normal()]
-    args_dict = {"color": axis_color, "linewidth": ellipse_axis_linewidth}
-    args_dict.update({"zorder": 3, "path_effects": path_effects, "linestyle": "--"})
-    args_dict.update({"label": label})
-    legend_handle = mlines.Line2D([], [], **args_dict)
+    kwargs.update({"offset": offset})
+    path_effects = [patheffects.SimpleLineShadow(**kwargs), patheffects.Normal()]
+    kwargs = {"color": axis_color, "linewidth": ellipse_axis_linewidth}
+    kwargs.update({"zorder": 3, "path_effects": path_effects, "linestyle": "--"})
+    kwargs.update({"label": label})
+    legend_handle = mlines.Line2D([], [], **kwargs)
     return legend_handle
 
 
@@ -408,7 +415,7 @@ def cartesian_displacement(
         patheffects.Stroke(linewidth=linewidth, foreground=color),
         patheffects.Normal(),
     ]
-    args_dict = {"path_effects": path_effects}
+    kwargs = {"path_effects": path_effects}
     tmp_vector_options = copy.deepcopy(vector_options)
     if not arrow:
         tmp_vector_options.update({"head_width": 0, "head_length": 0})
@@ -419,7 +426,7 @@ def cartesian_displacement(
         new_length = percent_to_data(ax, length)
         tmp_vector_options.update({"head_width": new_width, "head_length": new_length})
     if quality:
-        ax.arrow(*args, **tmp_vector_options, **args_dict, clip_on=False)
+        ax.arrow(*args, **tmp_vector_options, **kwargs, clip_on=False)
 
     return ax
 
@@ -509,7 +516,7 @@ def detected_mask_template(grid, figure_options, extent):
 def detected_mask(grid, mask, grid_options, figure_options, boundary_coordinates):
     """Plot masks for a detected object."""
 
-    extent = get_extent(grid_options)
+    extent, scale = get_extent(grid_options)
     single_color = figure_options["single_color"]
     if figure_options["template"] is None:
         fig, ax = detected_mask_template(grid, figure_options, extent)
@@ -530,21 +537,36 @@ def detected_mask(grid, mask, grid_options, figure_options, boundary_coordinates
     return fig, ax
 
 
-def grouped_mask_template(grid, figure_options, extent, figsize, member_objects):
+def grouped_mask_template(
+    grid, figure_options, extent, figsize, member_objects, scale=1
+):
     """Create a template figure for grouped masks."""
     fig = plt.figure(figsize=figsize)
     style = figure_options["style"]
-    nrows = 1
-    ncols = len(member_objects) + 1
-    width_ratios = [1] * len(member_objects) + [0.05]
+    if scale == 1:
+        nrows = 1
+        ncols = len(member_objects) + 1
+        width_ratios = [1] * len(member_objects) + [0.05]
+    elif scale == 2:
+        nrows = len(member_objects)
+        ncols = 2
+        width_ratios = [1, 0.035]
     gs = gridspec.GridSpec(nrows, ncols, width_ratios=width_ratios)
     axes = []
+    cbar_axes = []
     for i in range(len(member_objects)):
-        ax = fig.add_subplot(gs[0, i], projection=proj)
+        if scale == 1:
+            position = gs[0, i]
+        elif scale == 2:
+            position = gs[i, 0]
+        ax = fig.add_subplot(position, projection=proj)
         axes.append(ax)
-        args_dict = {"extent": extent, "style": style, "scale": "10m"}
-        args_dict.update({"left_labels": (i == 0)})
-        ax = add_cartographic_features(ax, **args_dict)[0]
+        kwargs = {"extent": extent, "style": style, "scale": "10m"}
+        if scale == 1:
+            kwargs.update({"left_labels": (i == 0)})
+        elif scale == 2:
+            kwargs.update({"bottom_labels": (i == len(member_objects) - 1)})
+        ax = add_cartographic_features(ax, **kwargs)[0]
         ax.set_title(member_objects[i].replace("_", " ").title())
         ax.set_extent(extent, crs=proj)
         if grid is None:
@@ -557,9 +579,14 @@ def grouped_mask_template(grid, figure_options, extent, figsize, member_objects)
             radar_longitude = float(grid_i.attrs["origin_longitude"])
             radar_latitude = float(grid_i.attrs["origin_latitude"])
             add_radar_features(ax, radar_longitude, radar_latitude, extent)
-    cbar_ax = fig.add_subplot(gs[0, -1])
+        if scale == 2:
+            cbar_ax = fig.add_subplot(gs[i, 1])
+            cbar_axes.append(cbar_ax)
+    if scale == 1:
+        cbar_ax = fig.add_subplot(gs[0, -1])
+        cbar_axes.append(cbar_ax)
     make_subplot_labels(axes, x_shift=-0.12, y_shift=0.06)
-    return fig, axes, cbar_ax
+    return fig, axes, cbar_axes
 
 
 def grouped_mask(
@@ -567,27 +594,36 @@ def grouped_mask(
 ):
     """Plot masks for a grouped object."""
 
-    extent = get_extent(grid_options)
+    extent, scale = get_extent(grid_options)
     single_color = figure_options["single_color"]
 
     try:
         figsize = figure_options["figsize"]
     except KeyError:
         logger.info("No figsize provided. Using default.")
-        figsize = (len(member_objects) * 4, 3.5)
+        if scale == 2:
+            figsize = (8, 4 * len(member_objects))
+        else:
+            figsize = (len(member_objects) * 4, 3.5)
 
     if figure_options["template"] is None:
         args = [grid, figure_options, extent, figsize, member_objects]
-        fig, axes, cbar_ax = grouped_mask_template(*args)
+        fig, axes, cbar_ax = grouped_mask_template(*args, scale=scale)
         figure_options["template"] = fig
 
     fig = copy.deepcopy(figure_options["template"])
-    axes = fig.axes[:-1]
-    cbar_ax = fig.axes[-1]
+    if scale == 1:
+        axes = fig.axes[:-1]
+        cbar_ax = fig.axes[-1]
+    elif scale == 2:
+        axes = fig.axes[::2]
+        cbar_axes = fig.axes[1::2]
 
     pcm = None
     for i in range(len(member_objects)):
         ax = axes[i]
+        if scale == 2:
+            cbar_ax = cbar_axes[i]
         mask_i = mask[f"{member_objects[i]}_mask"]
         if mask_i is not None:
             show_mask(mask_i, ax, grid_options, single_color)
@@ -599,9 +635,17 @@ def grouped_mask(
         if grid_i is not None:
             pcm = show_grid(grid_i, ax, grid_options, add_colorbar=False)
         ax.set_extent(extent, crs=proj)
-    if pcm is not None and grid is not None:
+        if pcm is not None and grid is not None and scale == 2:
+            cbar_label = grid_i.attrs["long_name"].title()
+            cbar_label += f" [{grid_i.attrs['units']}]"
+            fig.colorbar(pcm, cax=cbar_ax, label=cbar_label)
+    if pcm is not None and grid is not None and scale == 1:
         cbar_label = grid_i.attrs["long_name"].title() + f" [{grid_i.attrs['units']}]"
         fig.colorbar(pcm, cax=cbar_ax, label=cbar_label)
-    fig.suptitle(f"{mask.time.values.astype('datetime64[s]')} UTC", y=1.05)
+    if scale == 1:
+        y_position = 1.05
+    elif scale == 2:
+        y_position = 0.95
+    fig.suptitle(f"{mask.time.values.astype('datetime64[s]')} UTC", y=y_position)
 
     return fig, axes

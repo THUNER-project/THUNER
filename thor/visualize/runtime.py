@@ -77,7 +77,7 @@ def grouped_mask(
         member_objects = object_options.grouping.member_objects
 
     grid = object_tracks["current_grid"]
-    extent = get_extent(grid_options)
+    extent, scale = get_extent(grid_options)
 
     boundary_coordinates = input_record["current_boundary_coordinates"]
     args = [grid, mask, grid_options, figure_options, member_objects]
@@ -95,9 +95,9 @@ def match_template(reference_grid, figure_options, extent):
     for i in range(3):
         ax = fig.add_subplot(gs[0, i], projection=proj)
         axes.append(ax)
-        args_dict = {"extent": extent, "style": figure_options["style"], "scale": "10m"}
-        args_dict.update({"left_labels": (i == 0)})
-        ax = horizontal.add_cartographic_features(ax, **args_dict)[0]
+        kwargs = {"extent": extent, "style": figure_options["style"], "scale": "10m"}
+        kwargs.update({"left_labels": (i == 0)})
+        ax = horizontal.add_cartographic_features(ax, **kwargs)[0]
         if (
             "instrument" in reference_grid.attrs.keys()
             and "radar" in reference_grid.attrs["instrument"]
@@ -195,7 +195,7 @@ def visualize_match(
     masks = get_masks(object_tracks, object_options, matched=True, num_previous=2)
     all_boundaries = get_boundaries(input_record, num_previous=2)
 
-    extent = get_extent(grid_options)
+    extent, scale = get_extent(grid_options)
 
     if figure_options["template"] is None:
         fig, ax, cbar_ax = match_template(grids[0], figure_options, extent)

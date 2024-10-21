@@ -1,7 +1,9 @@
 """Functions for visualizing object attributes and classifications."""
 
+from memory_profiler import profile
 import gc
 import os
+from time import sleep
 import multiprocessing
 import numpy as np
 import pandas as pd
@@ -59,12 +61,14 @@ def mcs_series(
     parallel_figure=False,
     dt=3600,
     by_date=True,
+    num_processes=2,
 ):
     """Visualize mcs attributes at specified times."""
     plt.close("all")
     # Switch to non-interactive backend
     original_backend = matplotlib.get_backend()
     matplotlib.use("Agg")
+    # matplotlib.use("inline")
 
     start_time = np.datetime64(start_time)
     end_time = np.datetime64(end_time)
@@ -94,12 +98,12 @@ def mcs_series(
         matplotlib.use(original_backend)
         return
     if parallel_figure:
-        num_processes = 8
         with logging_listener(), multiprocessing.get_context("spawn").Pool(
             initializer=parallel.initialize_process, processes=num_processes
         ) as pool:
             results = []
             for time in times[1:]:
+                sleep(1)
                 args = [time, filepaths, masks, output_directory, figure_options]
                 args += [options, track_options, dataset_name, dt]
                 args = tuple(args)
@@ -124,6 +128,7 @@ def mcs_series(
     matplotlib.use(original_backend)
 
 
+# # @profile
 def visualize_mcs(
     time,
     filepaths,
@@ -136,6 +141,7 @@ def visualize_mcs(
     dt,
 ):
     """Wrapper for mcs_horizontal."""
+    logger.info(f"Visualizing MCS at time {time}.")
     filepath = filepaths[dataset_name].loc[time]
     dataset_options = options["data"][dataset_name]
     convert = dispatch.convert_dataset_dispatcher.get(dataset_name)
@@ -158,7 +164,7 @@ def visualize_mcs(
     grid = get_grid(ds, "reflectivity", time)
     logger.debug(f"Rebuilding processed grid for time {time}.")
     processed_grid = detect.rebuild_processed_grid(grid, track_options, "mcs", 1)
-    mask = masks.sel(time=time)
+    mask = masks.sel(time=time).load()
     args = [output_directory, processed_grid, mask, boundary_coords]
     args += [figure_options, options["grid"]]
     figure_name = figure_options["name"]
@@ -166,13 +172,11 @@ def visualize_mcs(
         fig, ax = mcs_horizontal(*args, dt=dt)
         filename = f"{format_time(time)}.png"
         filepath = output_directory / f"visualize/{figure_name}/{filename}"
-        lock = multiprocessing.Lock()
-        with lock:
-            filepath.parent.mkdir(parents=True, exist_ok=True)
-            logger.debug(f"Saving {figure_name} figure for {time}.")
-            fig.savefig(filepath, bbox_inches="tight")
-            utils.reduce_color_depth(filepath)
-            plt.close(fig)
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Saving {figure_name} figure for {time}.")
+        fig.savefig(filepath, bbox_inches="tight")
+        utils.reduce_color_depth(filepath)
+        plt.close(fig)
     gc.collect()
 
 
@@ -198,28 +202,23 @@ def mcs_horizontal(
     logger.debug(f"Creating grouped mask figure at time {time}.")
     fig, axes = horizontal.grouped_mask(*args)
 
-    time = grid.time.values
-
     try:
         filepath = output_directory / "attributes/mcs/group.csv"
         group = read_attribute_csv(filepath, times=[time]).loc[time]
         filepath = output_directory / "analysis/velocities.csv"
         velocities = read_attribute_csv(filepath, times=[time]).loc[time]
-        filepath = output_directory / "analysis/classification.csv"
-        classification = read_attribute_csv(filepath, times=[time]).loc[time]
+        # filepath = output_directory / "analysis/classification.csv"
+        # classification = read_attribute_csv(filepath, times=[time]).loc[time]
         filepath = output_directory / f"attributes/mcs/{convective_label}/ellipse.csv"
         ellipse = read_attribute_csv(filepath, times=[time]).loc[time]
         new_names = {"latitude": "ellipse_latitude", "longitude": "ellipse_longitude"}
         ellipse = ellipse.rename(columns=new_names)
         filepath = output_directory / "analysis/quality.csv"
         quality = read_attribute_csv(filepath, times=[time]).loc[time]
-        attributes = pd.concat(
-            [ellipse, group, velocities, classification, quality], axis=1
-        )
+        attributes = pd.concat([ellipse, group, velocities, quality], axis=1)
         objs = group.reset_index()["universal_id"].values
-
     except KeyError:
-        # If no attributes, return early
+        # If no attributes, set objs=[]
         objs = []
 
     # Display velocity attributes
@@ -231,10 +230,12 @@ def mcs_horizontal(
         ellipse_attributes(*args)
 
     style = figure_options["style"]
+    scale = utils.get_extent(grid_options)[1]
+
     key_color = figure_colors[style]["key"]
-    horizontal.vector_key(axes[0], color=key_color, dt=dt)
-    args_dict = {"mcs_name": "mcs", "mcs_level": 1}
-    convective_label, stratiform_label = get_altitude_labels(track_options, **args_dict)
+    horizontal.vector_key(axes[0], color=key_color, dt=dt, scale=scale)
+    kwargs = {"mcs_name": "mcs", "mcs_level": 1}
+    convective_label, stratiform_label = get_altitude_labels(track_options, **kwargs)
 
     axes[0].set_title(convective_label)
     axes[1].set_title(stratiform_label)
@@ -261,7 +262,14 @@ def mcs_horizontal(
     labels += ["MCS Object Masks"]
     legend_color = figure_colors[figure_options["style"]]["legend"]
     handles, labels = handles[::-1], labels[::-1]
-    legend = axes[0].legend(handles, labels, **mcs_legend_options, handler_map=handler)
+
+    args = [handles, labels]
+    if scale == 1:
+        legend = axes[0].legend(*args, **mcs_legend_options, handler_map=handler)
+    elif scale == 2:
+        mcs_legend_options["loc"] = "lower left"
+        mcs_legend_options["bbox_to_anchor"] = (-0.0, -0.425)
+        legend = axes[-1].legend(*args, **mcs_legend_options, handler_map=handler)
     legend.get_frame().set_alpha(None)
     legend.get_frame().set_facecolor(legend_color)
 
@@ -291,13 +299,13 @@ label_dispatcher = {
 }
 system_contained = ["convective_contained", "anvil_contained"]
 quality_dispatcher = {
-    "ambient": system_contained,
-    "velocity": system_contained + ["velocity"],
-    "shear": system_contained + ["shear"],
-    "relative_velocity": system_contained + ["relative_velocity"],
-    "offset": system_contained + ["offset"],
-    "major": ["convective_contained", "axis_ratio"],
-    "minor": ["convective_contained", "axis_ratio"],
+    "ambient": system_contained + ["duration"],
+    "velocity": system_contained + ["velocity", "duration"],
+    "shear": system_contained + ["shear", "duration"],
+    "relative_velocity": system_contained + ["relative_velocity", "duration"],
+    "offset": system_contained + ["offset", "duration"],
+    "major": ["convective_contained", "axis_ratio", "duration"],
+    "minor": ["convective_contained", "axis_ratio", "duration"],
 }
 
 
@@ -376,10 +384,10 @@ def displacement_attributes_horizontal(axes, figure_options, object_attributes):
             quality_names = quality_dispatcher.get(attribute)
             quality = get_quality(quality_names, object_attributes)
             args = [axes[0], latitude, longitude, dx, dy, color, label]
-            args_dict = {"quality": quality}
-            axes[0] = horizontal.cartesian_displacement(*args, **args_dict, arrow=False)
+            kwargs = {"quality": quality}
+            axes[0] = horizontal.cartesian_displacement(*args, **kwargs, arrow=False)
             args[0] = axes[1]
-            axes[1] = horizontal.cartesian_displacement(*args, **args_dict, arrow=False)
+            axes[1] = horizontal.cartesian_displacement(*args, **kwargs, arrow=False)
         legend_artist = horizontal.displacement_legend_artist(color, label)
         legend_handles.append(legend_artist)
 

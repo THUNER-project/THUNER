@@ -11,7 +11,7 @@ log_queue = multiprocessing.Queue(-1)
 listener = None
 
 
-def setup_logger(name, level=logging.DEBUG):
+def setup_logger(name, level=logging.INFO):
     """
     Function to set up a logger with the specified name, log file, and log level.
 

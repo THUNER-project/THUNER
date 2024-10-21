@@ -515,7 +515,7 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
                     filepath, f"{tmp}/{field}.nc", start, end, lat_range, lon_range
                 )
         logger.debug("Merging files.")
-        ds = xr.open_mfdataset(f"{tmp}/*.nc").load()
+        ds = xr.open_mfdataset(f"{tmp}/*.nc")
         logger.debug("Converting")
         ds = convert_era5(ds)
-        input_record["dataset"] = ds
+        input_record["dataset"] = ds.load()

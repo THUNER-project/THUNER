@@ -232,18 +232,18 @@ def read_attribute_csv(filepath, attribute_options=None, columns=None, times=Non
     # Remove time column as pd handles this separately
     data_types.pop("time", None)
     if times is not None:
-        args_dict = {"usecols": ["time"], "parse_dates": ["time"]}
-        args_dict.update({"na_values": ["", "NA"], "keep_default_na": True})
-        index_df = pd.read_csv(filepath, **args_dict)
+        kwargs = {"usecols": ["time"], "parse_dates": ["time"]}
+        kwargs.update({"na_values": ["", "NA"], "keep_default_na": True})
+        index_df = pd.read_csv(filepath, **kwargs)
         row_numbers = index_df[~index_df["time"].isin(times)].index.tolist()
         # Increment row numbers by 1 to account for header
         row_numbers = [i + 1 for i in row_numbers]
     else:
         row_numbers = None
-    args_dict = {"usecols": all_columns, "dtype": data_types, "parse_dates": ["time"]}
-    args_dict.update({"skiprows": row_numbers})
-    args_dict.update({"na_values": ["", "NA"], "keep_default_na": True})
-    df = pd.read_csv(filepath, **args_dict)
+    kwargs = {"usecols": all_columns, "dtype": data_types, "parse_dates": ["time"]}
+    kwargs.update({"skiprows": row_numbers})
+    kwargs.update({"na_values": ["", "NA"], "keep_default_na": True})
+    df = pd.read_csv(filepath, **kwargs)
     df = df.set_index(indexes)
     return df
 

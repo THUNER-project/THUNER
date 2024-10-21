@@ -124,10 +124,10 @@ def from_pressure_levels(names, previous_time, lats, lons, ds, grid_options):
     lats_da = xr.DataArray(lats, dims="points")
     lons_da = xr.DataArray(lons, dims="points")
     lons_da = lons_da % 360
-    args_dict = {"latitude": lats_da, "longitude": lons_da}
-    args_dict.update({"time": previous_time.astype("datetime64[ns]")})
-    args_dict.update({"method": "linear"})
-    profiles = profiles.interp(**args_dict)
+    kwargs = {"latitude": lats_da, "longitude": lons_da}
+    kwargs.update({"time": previous_time.astype("datetime64[ns]")})
+    kwargs.update({"method": "linear"})
+    profiles = profiles.interp(**kwargs)
 
     profiles["altitude"] = profiles["geopotential"] / 9.80665
     new_altitudes = np.array(grid_options["altitude"])
