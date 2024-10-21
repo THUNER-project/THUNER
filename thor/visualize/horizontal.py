@@ -652,8 +652,8 @@ def grouped_mask(
     return fig, axes
 
 
-class BaseLayout:
-    """Base class for layout objects."""
+# class BaseLayout:
+#     """Base class for layout objects."""
 
-    def __init__(self, title: Str, width=12, number_rows=1, number_columns=1):
-        self.title = title
+#     def __init__(self, title: Str, width=12, number_rows=1, number_columns=1):
+#         self.title = title
