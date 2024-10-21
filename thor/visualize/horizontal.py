@@ -1,7 +1,6 @@
 """Horizontal cross-section features."""
 
 import copy
-from datetime import Str
 import numpy as np
 import cv2
 import matplotlib.gridspec as gridspec
