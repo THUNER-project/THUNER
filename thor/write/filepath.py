@@ -1,10 +1,7 @@
 """Functions for writing filepaths for each dataset to file."""
 
-from pathlib import Path
-import glob
 import pandas as pd
 import numpy as np
-import multiprocessing
 import thor.attribute.utils as utils
 import thor.write.attribute as attribute
 from thor.utils import format_time
@@ -30,35 +27,32 @@ def write(input_record, output_directory):
     last_write_str = format_time(last_write_time, filename_safe=True, day_only=False)
     csv_filepath = output_directory / "records/filepaths"
     csv_filepath = csv_filepath / f"{name}/{last_write_str}.csv"
-    lock = multiprocessing.Lock()
-    with lock:
-        csv_filepath.parent.mkdir(parents=True, exist_ok=True)
+    csv_filepath.parent.mkdir(parents=True, exist_ok=True)
 
-        method = None
-        data_type = str
-        precision = None
-        units = None
-    
-        attribute_options = {}
-    
-        filepaths = input_record["filepath_list"]
-        times = input_record["time_list"]
-    
-        description = f"Filepath to {name} data containing the given time."
-        filepaths_df = pd.DataFrame({"time": times, name: filepaths})
-        args = [name, method, data_type, precision, description, units]
-        attribute_options[name] = utils.get_attribute_dict(*args)
-        args = ["time", None, np.datetime64, None, "Time.", "UTC"]
-        attribute_options["time"] = utils.get_attribute_dict(*args)
-        precision_dict = utils.get_precision_dict(attribute_options)
-        filepaths_df = filepaths_df.round(precision_dict)
-        filepaths_df = filepaths_df.sort_index()
-        # Make filepath parent directory if it doesn't exist
-        csv_filepath.parent.mkdir(parents=True, exist_ok=True)
-        logger.debug("Writing attribute dataframe to %s", csv_filepath)
-        filepaths_df.set_index("time", inplace=True)
-        filepaths_df.sort_index(inplace=True)
-        filepaths_df.to_csv(csv_filepath, na_rep="NA")
+    method = None
+    data_type = str
+    precision = None
+    units = None
+
+    attribute_options = {}
+    filepaths = input_record["filepath_list"]
+    times = input_record["time_list"]
+
+    description = f"Filepath to {name} data containing the given time."
+    filepaths_df = pd.DataFrame({"time": times, name: filepaths})
+    args = [name, method, data_type, precision, description, units]
+    attribute_options[name] = utils.get_attribute_dict(*args)
+    args = ["time", None, np.datetime64, None, "Time.", "UTC"]
+    attribute_options["time"] = utils.get_attribute_dict(*args)
+    precision_dict = utils.get_precision_dict(attribute_options)
+    filepaths_df = filepaths_df.round(precision_dict)
+    filepaths_df = filepaths_df.sort_index()
+    # Make filepath parent directory if it doesn't exist
+    csv_filepath.parent.mkdir(parents=True, exist_ok=True)
+    logger.debug("Writing attribute dataframe to %s", csv_filepath)
+    filepaths_df.set_index("time", inplace=True)
+    filepaths_df.sort_index(inplace=True)
+    filepaths_df.to_csv(csv_filepath, na_rep="NA")
     input_record["last_write_time"] = last_write_time + write_interval
     # Empty mask_list after writing
     input_record["time_list"] = []

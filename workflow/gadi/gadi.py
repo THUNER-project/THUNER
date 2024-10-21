@@ -2,7 +2,6 @@
 
 from multiprocessing import get_context
 import time
-import os
 import concurrent.futures
 from pathlib import Path
 import shutil
@@ -42,15 +41,15 @@ def gridrad():
     # Parent directory for saving outputs
     base_local = Path("/scratch/w40/esh563/THOR_output")
     start = "2010-01-21T12:00:00"
-    end = "2010-01-21T16:00:00"
+    end = "2010-01-22T06:00:00"
     event_start = "2010-01-21"
 
     period = parallel.get_period(start, end)
     intervals = parallel.get_time_intervals(start, end, period=period)
 
     output_parent = base_local / "runs/gridrad_demo"
-    # if output_parent.exists():
-    #     shutil.rmtree(output_parent)
+    if output_parent.exists():
+        shutil.rmtree(output_parent)
     options_directory = output_parent / "options"
 
     # Create the data_options dictionary
@@ -94,23 +93,23 @@ def gridrad():
     # Create the display_options dictionary
     visualize_options = None
 
-    # num_processes = 4
-    # with logging_listener(), get_context("spawn").Pool(
-    #     initializer=parallel.initialize_process, processes=num_processes
-    # ) as pool:
-    #     results = []
-    #     for i, time_interval in enumerate(intervals):
-    #         args = [i, time_interval, data_options.copy(), grid_options.copy()]
-    #         args += [track_options.copy(), visualize_options]
-    #         args += [output_parent, "gridrad"]
-    #         args = tuple(args)
-    #         time.sleep(1)
-    #         results.append(pool.apply_async(parallel.track_interval, args))
-    #     pool.close()
-    #     pool.join()
-    #     parallel.check_results(results)
+    num_processes = 10
+    with logging_listener(), get_context("spawn").Pool(
+        initializer=parallel.initialize_process, processes=num_processes
+    ) as pool:
+        results = []
+        for i, time_interval in enumerate(intervals):
+            args = [i, time_interval, data_options.copy(), grid_options.copy()]
+            args += [track_options.copy(), visualize_options]
+            args += [output_parent, "gridrad"]
+            args = tuple(args)
+            time.sleep(1)
+            results.append(pool.apply_async(parallel.track_interval, args))
+        pool.close()
+        pool.join()
+        parallel.check_results(results)
 
-    # parallel.stitch_run(output_parent, intervals, cleanup=True)
+    parallel.stitch_run(output_parent, intervals, cleanup=True)
 
 
 def plot(output_parent):
@@ -122,13 +121,18 @@ def plot(output_parent):
     figure_options = visualize.option.horizontal_attribute_options(
         "mcs_velocity_analysis", style="gadi", attributes=["velocity", "offset"]
     )
-    start_time = np.datetime64("2010-01-21T15:50")
-    end_time = np.datetime64(np.datetime64("2010-01-21T16:00"))
+    start_time = np.datetime64("2010-01-21T12:00")
+    end_time = np.datetime64(np.datetime64("2010-01-22T06:00"))
     args = [output_parent, start_time, end_time, figure_options]
-    kwargs = {"parallel_figure": True, "dt": 5400, "by_date": False}
+    kwargs = {
+        "parallel_figure": True,
+        "dt": 5400,
+        "by_date": False,
+        "num_processes": 10,
+    }
     visualize.attribute.mcs_series(*args, **kwargs)
 
 
 if __name__ == "__main__":
-    # gridrad()
-    plot(Path("/scratch/w40/esh563/THOR_output/runs/gridrad_demo"))
+    gridrad()
+    plot(Path("/scratch/w40/esh563/THOR_output/runs/gridrad_demo_20100121"))

@@ -48,9 +48,7 @@ def write_attributes(directory, last_write_str, attributes, attribute_options):
     df = utils.attributes_dataframe(attributes, attribute_options)
     precicion_dict = utils.get_precision_dict(attribute_options)
     df = df.round(precicion_dict)
-    lock = multiprocessing.Lock()
-    with lock:
-        df.to_csv(filepath, na_rep="NA")
+    df.to_csv(filepath, na_rep="NA")
 
 
 def write_attribute_type(
@@ -147,17 +145,13 @@ def write_metadata(filepath, attribute_options):
     with open(filepath, "w") as outfile:
         args = {"default_flow_style": False, "allow_unicode": True, "sort_keys": False}
         args.update({"Dumper": NoAliasDumper})
-        lock = multiprocessing.Lock()
-        with lock:
-            yaml.dump(formatted_options, outfile, **args)
+        yaml.dump(formatted_options, outfile, **args)
 
 
 def write_csv(filepath, df, attribute_options=None):
     """Write attribute dataframe to csv."""
     if attribute_options is None:
-        lock = multiprocessing.Lock()
-        with lock:
-            df.to_csv(filepath, na_rep="NA")
+        df.to_csv(filepath, na_rep="NA")
         logger.warning("No attributes metadata provided. Writing csv without metadata.")
         return
     precision_dict = utils.get_precision_dict(attribute_options)
@@ -166,9 +160,7 @@ def write_csv(filepath, df, attribute_options=None):
     # Make filepath parent directory if it doesn't exist
     filepath.parent.mkdir(parents=True, exist_ok=True)
     logger.debug("Writing attribute dataframe to %s", filepath)
-    lock = multiprocessing.Lock()
-    with lock:
-        df.to_csv(filepath, na_rep="NA")
+    df.to_csv(filepath, na_rep="NA")
     write_metadata(Path(filepath).with_suffix(".yml"), attribute_options)
     return df
 

@@ -1,6 +1,7 @@
 """Horizontal cross-section features."""
 
 import copy
+from datetime import Str
 import numpy as np
 import cv2
 import matplotlib.gridspec as gridspec
@@ -649,3 +650,10 @@ def grouped_mask(
     fig.suptitle(f"{mask.time.values.astype('datetime64[s]')} UTC", y=y_position)
 
     return fig, axes
+
+
+class BaseLayout:
+    """Base class for layout objects."""
+
+    def __init__(self, title: Str, width=12, number_rows=1, number_columns=1):
+        self.title = title
