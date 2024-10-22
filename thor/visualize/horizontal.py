@@ -343,7 +343,7 @@ def vector_key(ax, u=-10, v=0, color="k", dt=3600, scale=1):
     [longitude, latitude] = ax.transData.inverted().transform(start_point)
     longitude = longitude % 360
     args = [ax, latitude, longitude, u, v, color, None]
-    cartesian_velocity(*args, quality=True, dt=dt)
+    cartesian_velocity(*args, quality=True, dt=dt, clip=False)
 
     start_point = fig.transFigure.transform((0.89, y_position))
     [longitude, latitude] = ax.transData.inverted().transform(start_point)
@@ -396,7 +396,16 @@ def ellipse_legend_artist(label, style):
 
 
 def cartesian_displacement(
-    ax, start_latitude, start_longitude, dx, dy, color, label, quality=True, arrow=True
+    ax,
+    start_latitude,
+    start_longitude,
+    dx,
+    dy,
+    color,
+    label,
+    quality=True,
+    arrow=True,
+    clip=True,
 ):
     """Plot a displacement provided in cartesian coordinates."""
     linewidth = displacement_linewidth
@@ -416,7 +425,6 @@ def cartesian_displacement(
         patheffects.Stroke(linewidth=linewidth, foreground=color),
         patheffects.Normal(),
     ]
-    kwargs = {"path_effects": path_effects}
     tmp_vector_options = copy.deepcopy(vector_options)
     if not arrow:
         tmp_vector_options.update({"head_width": 0, "head_length": 0})
@@ -426,20 +434,32 @@ def cartesian_displacement(
         new_width = percent_to_data(ax, width)
         new_length = percent_to_data(ax, length)
         tmp_vector_options.update({"head_width": new_width, "head_length": new_length})
+    kwargs = {"path_effects": path_effects}
+    if clip:
+        kwargs.update({"clip_on": True, "clip_box": ax.bbox})
     if quality:
-        ax.arrow(*args, **tmp_vector_options, **kwargs, clip_on=True, clip_box=ax.bbox)
+        ax.arrow(*args, **tmp_vector_options, **kwargs)
 
     return ax
 
 
 def cartesian_velocity(
-    ax, start_latitude, start_longitude, u, v, color, label, dt=3600, quality=True
+    ax,
+    start_latitude,
+    start_longitude,
+    u,
+    v,
+    color,
+    label,
+    dt=3600,
+    quality=True,
+    clip=True,
 ):
     """Plot a velocity provided in cartesian coordinates."""
 
     # Scale velocities so they represent the displacement after dt seconds
     dx, dy = u * dt, v * dt
-    args = [ax, start_latitude, start_longitude, dx, dy, color, label, quality]
+    args = [ax, start_latitude, start_longitude, dx, dy, color, label, quality, clip]
     return cartesian_displacement(*args)
 
 
@@ -659,35 +679,104 @@ class BaseLayout:
     def __init__(
         self,
         title: str = "",  # Title of the figure
-        width: float = 8.0,  # Width of the subplots in inches
-        height: float = 8.0,  # Height of the subplots in inches
+        subplot_width: float = 8.0,  # Width of the subplots in inches
+        subplot_height: float = 8.0,  # Height of the subplots in inches
         rows: int = 1,  # Number of rows in the figure
         columns: int = 1,  # Number of columns in the figure
         # Spacing between subplots as fraction of subplot width
-        spacing: float = 0.2,
+        spacing: float = 1,  # Estimated spacing between subplots in inches
     ):
         self.title = title
-        self.width = width
-        self.height = height
+        self.subplot_width = subplot_width
+        self.subplot_height = subplot_height
         self.rows = rows
         self.columns = columns
         self.spacing = spacing
 
 
-class UniformPanel(BaseLayout):
+class UniformMapPanel(BaseLayout):
+    """Class to handle panels of cartopy map axes with uniform extent."""
 
     def __init__(
         self,
         title: str = "",  # Title of the figure
-        width: float = 12.0,  # Width of the subplots in inches
+        subplot_width: float = 6.0,  # Width of the subplots in inches
+        subplot_height: float = 6.0,  # Height of the subplots in inches
         rows: int = 1,  # Number of rows in the figure
         columns: int = 1,  # Number of columns in the figure
         # Spacing between subplots as fraction of subplot width
-        spacing: float = 0.2,
+        spacing: float = 1,  # Spacing between subplots in inches
         colorbar: bool = True,  # Add a colorbar to the figure
         legend_rows: Optional[int] = 1,  # Number of rows in the legend
     ):
-        super().__init__(title, width, rows, columns)
+        super().__init__(title, subplot_width, subplot_height, rows, columns, spacing)
         self.colorbar = colorbar
         self.legend_rows = legend_rows
         self.legend_rows = legend_rows
+
+    def initialize_figure(self):
+        """Initialize the figure."""
+        width = self.subplot_width * self.columns + self.spacing * (self.columns - 1)
+        legend_height = plt.rcParams["font.size"] / 72 * (self.legend_rows + 1)
+        height = self.subplot_height * self.rows + self.spacing * (self.rows - 1)
+        height += legend_height
+        hspace = self.spacing / self.subplot_height
+        wspace = self.spacing / self.subplot_width
+
+        if self.legend_rows is not None:
+            legend_height = plt.rcParams["font.size"] / 72 * (self.legend_rows + 1)
+            height += legend_height
+
+        fig = plt.figure(figsize=(width, height))
+
+        gs = gridspec.GridSpec(self.rows, self.cols, width_ratios=width_ratios)
+
+        return fig
+
+    # fig = plt.figure(figsize=figsize)
+    # style = figure_options["style"]
+    # if scale == 1:
+    #     nrows = 1
+    #     ncols = len(member_objects) + 1
+    #     width_ratios = [1] * len(member_objects) + [0.05]
+    # elif scale == 2:
+    #     nrows = len(member_objects)
+    #     ncols = 2
+    #     width_ratios = [1, 0.035]
+    # gs = gridspec.GridSpec(nrows, ncols, width_ratios=width_ratios)
+    # axes = []
+    # cbar_axes = []
+    # for i in range(len(member_objects)):
+    #     if scale == 1:
+    #         position = gs[0, i]
+    #     elif scale == 2:
+    #         position = gs[i, 0]
+    #     ax = fig.add_subplot(position, projection=proj)
+    #     ax.set_rasterized(True)
+    #     axes.append(ax)
+    #     kwargs = {"extent": extent, "style": style, "scale": "10m"}
+    #     if scale == 1:
+    #         kwargs.update({"left_labels": (i == 0)})
+    #     elif scale == 2:
+    #         kwargs.update({"bottom_labels": (i == len(member_objects) - 1)})
+    #     ax = add_cartographic_features(ax, **kwargs)[0]
+    #     ax.set_title(member_objects[i].replace("_", " ").title())
+    #     ax.set_extent(extent, crs=proj)
+    #     if grid is None:
+    #         continue
+    #     grid_i = grid[f"{member_objects[i]}_grid"]
+    #     if (
+    #         "instrument" in grid_i.attrs.keys()
+    #         and "radar" in grid_i.attrs["instrument"]
+    #     ):
+    #         radar_longitude = float(grid_i.attrs["origin_longitude"])
+    #         radar_latitude = float(grid_i.attrs["origin_latitude"])
+    #         add_radar_features(ax, radar_longitude, radar_latitude, extent)
+    #     if scale == 2:
+    #         cbar_ax = fig.add_subplot(gs[i, 1])
+    #         cbar_axes.append(cbar_ax)
+    # if scale == 1:
+    #     cbar_ax = fig.add_subplot(gs[0, -1])
+    #     cbar_axes.append(cbar_ax)
+    # make_subplot_labels(axes, x_shift=-0.12, y_shift=0.06)
+    # return fig, axes, cbar_axes
