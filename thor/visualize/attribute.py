@@ -173,6 +173,8 @@ def visualize_mcs(
     figure_name = figure_options["name"]
     with plt.style.context(styles[figure_options["style"]]):
         fig, ax = mcs_horizontal(*args, dt=dt)
+        # Remove mask and processed_grid from memory after generating the figure
+        del mask, processed_grid
         filename = f"{format_time(time)}.png"
         filepath = output_directory / f"visualize/{figure_name}/{filename}"
         filepath.parent.mkdir(parents=True, exist_ok=True)
@@ -180,7 +182,6 @@ def visualize_mcs(
         fig.savefig(filepath, bbox_inches="tight")
         utils.reduce_color_depth(filepath)
         plt.close(fig)
-    del mask, processed_grid, ds
     gc.collect()
 
 

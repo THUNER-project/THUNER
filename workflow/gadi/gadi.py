@@ -126,7 +126,7 @@ def plot(output_parent):
     args = [output_parent, start_time, end_time, figure_options]
     kwargs = {
         "parallel_figure": True,
-        "dt": 5400,
+        "dt": 7200,
         "by_date": False,
         "num_processes": 6,
     }
