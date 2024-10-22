@@ -61,7 +61,7 @@ def mcs_series(
     parallel_figure=False,
     dt=3600,
     by_date=True,
-    num_processes=2,
+    num_processes=6,
 ):
     """Visualize mcs attributes at specified times."""
     plt.close("all")
@@ -162,9 +162,12 @@ def visualize_mcs(
         message += "dispatcher."
         raise KeyError(message)
     grid = get_grid(ds, "reflectivity", time)
+    del ds
     logger.debug(f"Rebuilding processed grid for time {time}.")
     processed_grid = detect.rebuild_processed_grid(grid, track_options, "mcs", 1)
-    mask = masks.sel(time=time).load()
+    del grid
+    mask = masks.sel(time=time)
+    mask = mask.load()
     args = [output_directory, processed_grid, mask, boundary_coords]
     args += [figure_options, options["grid"]]
     figure_name = figure_options["name"]
@@ -177,6 +180,7 @@ def visualize_mcs(
         fig.savefig(filepath, bbox_inches="tight")
         utils.reduce_color_depth(filepath)
         plt.close(fig)
+    del mask, processed_grid, ds
     gc.collect()
 
 

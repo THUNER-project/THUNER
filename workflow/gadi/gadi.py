@@ -93,7 +93,7 @@ def gridrad():
     # Create the display_options dictionary
     visualize_options = None
 
-    num_processes = 10
+    num_processes = 6
     with logging_listener(), get_context("spawn").Pool(
         initializer=parallel.initialize_process, processes=num_processes
     ) as pool:
@@ -128,11 +128,11 @@ def plot(output_parent):
         "parallel_figure": True,
         "dt": 5400,
         "by_date": False,
-        "num_processes": 10,
+        "num_processes": 6,
     }
     visualize.attribute.mcs_series(*args, **kwargs)
 
 
 if __name__ == "__main__":
-    gridrad()
-    plot(Path("/scratch/w40/esh563/THOR_output/runs/gridrad_demo_20100121"))
+    # gridrad()
+    plot(Path("/scratch/w40/esh563/THOR_output/runs/gridrad_demo"))

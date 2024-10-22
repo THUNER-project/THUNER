@@ -1,5 +1,6 @@
 """Horizontal cross-section features."""
 
+from typing import Optional
 import copy
 import numpy as np
 import cv2
@@ -651,8 +652,41 @@ def grouped_mask(
     return fig, axes
 
 
-# class BaseLayout:
-#     """Base class for layout objects."""
+class BaseLayout:
+    """Base class for layout objects."""
 
-#     def __init__(self, title: Str, width=12, number_rows=1, number_columns=1):
-#         self.title = title
+    def __init__(
+        self,
+        title: str = "",  # Title of the figure
+        width: float = 8.0,  # Width of the subplots in inches
+        height: float = 8.0,  # Height of the subplots in inches
+        rows: int = 1,  # Number of rows in the figure
+        columns: int = 1,  # Number of columns in the figure
+        # Spacing between subplots as fraction of subplot width
+        spacing: float = 0.2,
+    ):
+        self.title = title
+        self.width = width
+        self.height = height
+        self.rows = rows
+        self.columns = columns
+        self.spacing = spacing
+
+
+class UniformPanel(BaseLayout):
+
+    def __init__(
+        self,
+        title: str = "",  # Title of the figure
+        width: float = 12.0,  # Width of the subplots in inches
+        rows: int = 1,  # Number of rows in the figure
+        columns: int = 1,  # Number of columns in the figure
+        # Spacing between subplots as fraction of subplot width
+        spacing: float = 0.2,
+        colorbar: bool = True,  # Add a colorbar to the figure
+        legend_rows: Optional[int] = 1,  # Number of rows in the legend
+    ):
+        super().__init__(title, width, rows, columns)
+        self.colorbar = colorbar
+        self.legend_rows = legend_rows
+        self.legend_rows = legend_rows
