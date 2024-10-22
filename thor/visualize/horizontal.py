@@ -437,6 +437,8 @@ def cartesian_displacement(
     kwargs = {"path_effects": path_effects}
     if clip:
         kwargs.update({"clip_on": True, "clip_box": ax.bbox})
+    else:
+        kwargs.update({"clip_on": False})
     if quality:
         ax.arrow(*args, **tmp_vector_options, **kwargs)
 
@@ -459,8 +461,8 @@ def cartesian_velocity(
 
     # Scale velocities so they represent the displacement after dt seconds
     dx, dy = u * dt, v * dt
-    args = [ax, start_latitude, start_longitude, dx, dy, color, label, quality, clip]
-    return cartesian_displacement(*args)
+    args = [ax, start_latitude, start_longitude, dx, dy, color, label, quality]
+    return cartesian_displacement(*args, clip=clip)
 
 
 def pixel_vector(
