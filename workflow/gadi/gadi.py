@@ -100,7 +100,7 @@ def gridrad():
         results = []
         for i, time_interval in enumerate(intervals):
             args = [i, time_interval, data_options.copy(), grid_options.copy()]
-            args += [track_options.copy(), visualize_options]
+            args += [track_options.model_copy(), visualize_options]
             args += [output_parent, "gridrad"]
             args = tuple(args)
             time.sleep(1)
@@ -128,7 +128,7 @@ def plot(output_parent):
         "parallel_figure": True,
         "dt": 7200,
         "by_date": False,
-        "num_processes": 6,
+        "num_processes": 5,
     }
     visualize.attribute.mcs_series(*args, **kwargs)
 

@@ -561,6 +561,7 @@ def grouped_mask_template(
         elif scale == 2:
             position = gs[i, 0]
         ax = fig.add_subplot(position, projection=proj)
+        ax.set_rasterized(True)
         axes.append(ax)
         kwargs = {"extent": extent, "style": style, "scale": "10m"}
         if scale == 1:

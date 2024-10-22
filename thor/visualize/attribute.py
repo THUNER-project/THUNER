@@ -181,10 +181,12 @@ def visualize_mcs(
         logger.info(f"Saving {figure_name} figure for {time}.")
         fig.savefig(filepath, bbox_inches="tight")
         utils.reduce_color_depth(filepath)
-        plt.close(fig)
-    gc.collect()
+        plt.clf()
+        plt.close()
+        gc.collect()
 
 
+@profile
 def mcs_horizontal(
     output_directory,
     grid,
