@@ -92,7 +92,7 @@ def process_velocities(
         "System wind relative zonal velocity.",
         "System wind relative meridional velocity.",
     ]
-    if "u_shear" not in velocities.columns:
+    if "u_shear" not in all_velocities.columns:
         names = names[:2]
         descriptions = descriptions[:2]
 

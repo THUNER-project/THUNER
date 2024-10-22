@@ -308,8 +308,8 @@ quality_dispatcher = {
     "shear": system_contained + ["shear", "duration"],
     "relative_velocity": system_contained + ["relative_velocity", "duration"],
     "offset": system_contained + ["offset", "duration"],
-    "major": ["convective_contained", "axis_ratio", "duration"],
-    "minor": ["convective_contained", "axis_ratio", "duration"],
+    "major": ["convective_contained", "anvil_contained", "axis_ratio", "duration"],
+    "minor": ["convective_contained", "anvil_contained", "axis_ratio", "duration"],
 }
 
 
