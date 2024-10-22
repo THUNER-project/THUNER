@@ -186,7 +186,6 @@ def visualize_mcs(
         gc.collect()
 
 
-@profile
 def mcs_horizontal(
     output_directory,
     grid,
