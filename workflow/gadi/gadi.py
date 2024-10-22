@@ -93,7 +93,7 @@ def gridrad():
     # Create the display_options dictionary
     visualize_options = None
 
-    num_processes = 6
+    num_processes = 8
     with logging_listener(), get_context("spawn").Pool(
         initializer=parallel.initialize_process, processes=num_processes
     ) as pool:
@@ -103,7 +103,7 @@ def gridrad():
             args += [track_options.model_copy(), visualize_options]
             args += [output_parent, "gridrad"]
             args = tuple(args)
-            time.sleep(1)
+            time.sleep(2)
             results.append(pool.apply_async(parallel.track_interval, args))
         pool.close()
         pool.join()
@@ -128,7 +128,7 @@ def plot(output_parent):
         "parallel_figure": True,
         "dt": 7200,
         "by_date": False,
-        "num_processes": 5,
+        "num_processes": 8,
     }
     visualize.attribute.mcs_series(*args, **kwargs)
 

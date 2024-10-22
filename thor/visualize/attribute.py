@@ -103,7 +103,7 @@ def mcs_series(
         ) as pool:
             results = []
             for time in times[1:]:
-                sleep(1)
+                sleep(2)
                 args = [time, filepaths, masks, output_directory, figure_options]
                 args += [options, track_options, dataset_name, dt]
                 args = tuple(args)

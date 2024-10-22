@@ -427,7 +427,7 @@ def cartesian_displacement(
         new_length = percent_to_data(ax, length)
         tmp_vector_options.update({"head_width": new_width, "head_length": new_length})
     if quality:
-        ax.arrow(*args, **tmp_vector_options, **kwargs, clip_on=False)
+        ax.arrow(*args, **tmp_vector_options, **kwargs, clip_on=True, clip_box=ax.bbox)
 
     return ax
 
@@ -490,7 +490,7 @@ def pixel_vector(
     ax.plot(start_lon, start_lat, color=color, alpha=alpha, **arrow_origin_options)
     vector_style = {"color": color, "alpha": alpha, "linestyle": linestyle}
     arrow = FancyArrowPatch(start_coords, end_coords, **vector_style, **arrow_options)
-    ax.add_patch(arrow)
+    ax.add_patch(arrow, clip_on=True, clip_box=ax.bbox)
 
 
 def plot_box(ax, box, grid_options, linestyle="--", alpha=1, color="tab:red"):
