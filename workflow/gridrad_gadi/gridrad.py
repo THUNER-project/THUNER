@@ -108,6 +108,6 @@ def gridrad(start, end, event_start, base_local=None):
 if __name__ == "__main__":
     year = 2010
     event_directories = data.gridrad.get_event_directories(year)
-    for event_directory in event_directories[7:15]:
+    for event_directory in event_directories[:50]:
         start, end, event_start = data.gridrad.get_event_times(event_directory)
         gridrad(start, end, event_start)
