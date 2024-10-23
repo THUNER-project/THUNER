@@ -7,8 +7,8 @@
 #PBS -l walltime=6:00:00
 #PBS -l wd
 #PBS -l storage=gdata/rt52+gdata/w40+gdata/rq0+scratch/w40
-#PBS -e /home/563/esh563/THOR/workflow/gridrad_gadi/PBS_jobs/${PBS_JOBID}.e
-#PBS -o /home/563/esh563/THOR/workflow/gridrad_gadi/PBS_jobs/${PBS_JOBID}.o
+#PBS -e /home/563/esh563/THOR/workflow/gridrad_gadi/PBS_jobs/gridrad_job_$(date +"%Y%m%d_%H%M%S").e
+#PBS -o /home/563/esh563/THOR/workflow/gridrad_gadi/PBS_jobs/gridrad_job_$(date +"%Y%m%d_%H%M%S").o
 
-/g/w40/esh563/miniconda/bin/conda activate THOR
+/g/data/w40/esh563/miniconda/bin/conda activate THOR
 python3 /home/563/esh563/THOR/workflow/gridrad_gadi/gridrad.py
