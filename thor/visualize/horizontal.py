@@ -5,19 +5,14 @@ from typing import Optional, List
 import copy
 import numpy as np
 import cv2
-import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 import matplotlib.ticker as mticker
 import matplotlib.patheffects as patheffects
 import matplotlib.lines as mlines
-from matplotlib.colors import LinearSegmentedColormap
-from matplotlib.patches import FancyArrowPatch
-from matplotlib.colors import BoundaryNorm
 import matplotlib.patches as mpatches
-from matplotlib.collections import PatchCollection
-from matplotlib.colors import LinearSegmentedColormap
-import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+from matplotlib.colors import BoundaryNorm
 from matplotlib.legend_handler import HandlerTuple
 import cartopy.feature as cfeature
 from cartopy import crs as ccrs
@@ -65,7 +60,7 @@ def show_mask(mask, ax, grid_options, single_color=False):
     colors = visualize.mask_colors
     if single_color:
         colors = [colors[0]] * len(colors)
-    cmap = LinearSegmentedColormap.from_list("custom", colors, N=len(colors))
+    cmap = mcolors.LinearSegmentedColormap.from_list("custom", colors, N=len(colors))
     object_labels = np.unique(mask.where(mask > 0).values)
     object_labels = object_labels[~np.isnan(object_labels)].astype(np.int32)
 
@@ -156,7 +151,7 @@ US_states_dict = {
 
 
 def add_cartographic_features(
-    ax, scale="110m", extent=(-180, 180, -90, 90), left_labels=True, bottom_labels=True
+    ax, scale="50m", extent=(-180, 180, -90, 90), left_labels=True, bottom_labels=True
 ):
     """
     Initialize a figure.
@@ -184,31 +179,23 @@ def add_cartographic_features(
         Axes object.
     """
 
-    colors = visualize.figure_colors[plt.rcParams["style"]]
-    ocean = cfeature.NaturalEarthFeature(
-        "physical", "ocean", scale, edgecolor="face", facecolor=colors["sea"]
-    )
-    land = cfeature.NaturalEarthFeature(
-        "physical", "land", scale, edgecolor="face", facecolor=colors["land"]
-    )
-    states_provinces = cfeature.NaturalEarthFeature(
-        category="cultural",
-        name="admin_1_states_provinces_lines",
-        scale=scale,
-        facecolor="none",
-        edgecolor="gray",
-    )
-
+    colors = visualize.figure_colors[visualize.style]
+    kwargs = {"edgecolor": "face", "facecolor": colors["sea"]}
+    ocean = cfeature.NaturalEarthFeature("physical", "ocean", scale, **kwargs)
+    kwargs["facecolor"] = colors["land"]
+    land = cfeature.NaturalEarthFeature("physical", "land", scale, **kwargs)
+    kwargs = {"category": "cultural", "name": "admin_1_states_provinces_lines"}
+    kwargs.update({"scale": scale, "facecolor": "none", "edgecolor": "gray"})
+    states_provinces = cfeature.NaturalEarthFeature(**kwargs)
     national_borders = cfeature.BORDERS.with_scale(scale)
 
     ax.add_feature(land, zorder=0)
     ax.add_feature(ocean, zorder=0)
-    ax.add_feature(states_provinces, zorder=0)
+    ax.add_feature(states_provinces, zorder=0, alpha=0.75)
     ax.add_feature(national_borders, zorder=0, edgecolor=colors["coast"])
     ax.coastlines(resolution=scale, zorder=1, color=colors["coast"])
-    gridlines = initialize_gridlines(
-        ax, extent=extent, left_labels=left_labels, bottom_labels=bottom_labels
-    )
+    kwargs = {"left_labels": left_labels, "bottom_labels": bottom_labels}
+    gridlines = initialize_gridlines(ax, extent=extent, **kwargs)
 
     return ax, colors, gridlines
 
@@ -239,6 +226,7 @@ def initialize_gridlines(ax, extent, left_labels=True, bottom_labels=True):
 
     grid_style = {"draw_labels": True, "linewidth": 1, "color": "gray", "alpha": 0.4}
     grid_style.update({"linestyle": "--", "x_inline": False, "y_inline": False})
+    grid_style.update({"zorder": 1})
     gridlines = ax.gridlines(**grid_style)
 
     gridlines.right_labels = False
@@ -335,6 +323,7 @@ def vector_key(ax, u=-10, v=0, color="k", dt=3600, scale=1):
         y_position = 1
     elif scale == 2:
         y_position = 0.95
+    y_position = 0.925
     start_point = fig.transFigure.transform((0.875, y_position))
     [longitude, latitude] = ax.transData.inverted().transform(start_point)
     longitude = longitude % 360
@@ -398,7 +387,6 @@ def cartesian_displacement(
     dx,
     dy,
     color,
-    label,
     quality=True,
     arrow=True,
     clip=True,
@@ -457,7 +445,7 @@ def cartesian_velocity(
 
     # Scale velocities so they represent the displacement after dt seconds
     dx, dy = u * dt, v * dt
-    args = [ax, start_latitude, start_longitude, dx, dy, color, label, quality]
+    args = [ax, start_latitude, start_longitude, dx, dy, color, quality]
     return cartesian_displacement(*args, clip=clip)
 
 
@@ -507,8 +495,9 @@ def pixel_vector(
     end_coords = np.array(start_coords) + geographic_vector[::-1]
     ax.plot(start_lon, start_lat, color=color, alpha=alpha, **arrow_origin_options)
     vector_style = {"color": color, "alpha": alpha, "linestyle": linestyle}
-    arrow = FancyArrowPatch(start_coords, end_coords, **vector_style, **arrow_options)
-    ax.add_patch(arrow, clip_on=True, clip_box=ax.bbox)
+    kwargs = {**vector_style, **arrow_options}
+    arrow = mpatches.FancyArrowPatch(start_coords, end_coords, **kwargs)
+    ax.add_patch(arrow)
 
 
 def plot_box(ax, box, grid_options, linestyle="--", alpha=1, color="tab:red"):
@@ -554,56 +543,39 @@ def detected_mask(grid, mask, grid_options, figure_options, boundary_coordinates
     return fig, ax
 
 
-def grouped_mask_template(
-    grid, figure_options, extent, figsize, member_objects, scale=1
-):
+def grouped_mask_template(grid, extent, member_objects, scale):
     """Create a template figure for grouped masks."""
-    fig = plt.figure(figsize=figsize)
     if scale == 1:
-        nrows = 1
-        ncols = len(member_objects) + 1
-        width_ratios = [1] * len(member_objects) + [0.05]
+        rows = 1
+        columns = len(member_objects)
+        subplot_width = 4  # Default subplot width in inches
     elif scale == 2:
-        nrows = len(member_objects)
-        ncols = 2
-        width_ratios = [1, 0.035]
-    gs = gridspec.GridSpec(nrows, ncols, width_ratios=width_ratios)
-    axes = []
-    cbar_axes = []
+        rows = len(member_objects)
+        columns = 1
+        subplot_width = 8
+    else:
+        raise ValueError("Only scales of 1 or 2 implemented so far.")
+    kwargs = {
+        "extent": extent,
+        "subplot_width": subplot_width,
+        "rows": rows,
+        "columns": columns,
+    }
+    kwargs.update({"colorbar": True, "legend_rows": 2})
+    layout = PanelledUniformMaps(**kwargs)
+    fig, subplot_axes, colorbar_axes, legend_ax = layout.initialize_layout()
     for i in range(len(member_objects)):
-        if scale == 1:
-            position = gs[0, i]
-        elif scale == 2:
-            position = gs[i, 0]
-        ax = fig.add_subplot(position, projection=proj)
-        ax.set_rasterized(True)
-        axes.append(ax)
-        kwargs = {"extent": extent, "scale": "10m"}
-        if scale == 1:
-            kwargs.update({"left_labels": (i == 0)})
-        elif scale == 2:
-            kwargs.update({"bottom_labels": (i == len(member_objects) - 1)})
-        ax = add_cartographic_features(ax, **kwargs)[0]
-        ax.set_title(member_objects[i].replace("_", " ").title())
-        ax.set_extent(extent, crs=proj)
+        ax = subplot_axes[i]
+        ax.set_title(member_objects[i].replace("_", " ").title(), y=1)
         if grid is None:
             continue
         grid_i = grid[f"{member_objects[i]}_grid"]
-        if (
-            "instrument" in grid_i.attrs.keys()
-            and "radar" in grid_i.attrs["instrument"]
-        ):
+        keys = grid_i.attrs.keys()
+        if "instrument" in keys and "radar" in grid_i.attrs["instrument"]:
             radar_longitude = float(grid_i.attrs["origin_longitude"])
             radar_latitude = float(grid_i.attrs["origin_latitude"])
             add_radar_features(ax, radar_longitude, radar_latitude, extent)
-        if scale == 2:
-            cbar_ax = fig.add_subplot(gs[i, 1])
-            cbar_axes.append(cbar_ax)
-    if scale == 1:
-        cbar_ax = fig.add_subplot(gs[0, -1])
-        cbar_axes.append(cbar_ax)
-    make_subplot_labels(axes, x_shift=-0.12, y_shift=0.06)
-    return fig, axes, cbar_axes
+    return fig, subplot_axes, colorbar_axes, legend_ax, layout
 
 
 def grouped_mask(
@@ -614,33 +586,16 @@ def grouped_mask(
     extent, scale = get_extent(grid_options)
     single_color = figure_options["single_color"]
 
-    try:
-        figsize = figure_options["figsize"]
-    except KeyError:
-        logger.info("No figsize provided. Using default.")
-        if scale == 2:
-            figsize = (8, 4 * len(member_objects))
-        else:
-            figsize = (len(member_objects) * 4, 3.5)
-
     if figure_options["template"] is None:
-        args = [grid, figure_options, extent, figsize, member_objects]
-        fig, axes, cbar_ax = grouped_mask_template(*args, scale=scale)
-        figure_options["template"] = fig
+        args = [grid, extent, member_objects, scale]
+        figure_options["template"] = grouped_mask_template(*args)
 
-    fig = copy.deepcopy(figure_options["template"])
-    if scale == 1:
-        axes = fig.axes[:-1]
-        cbar_ax = fig.axes[-1]
-    elif scale == 2:
-        axes = fig.axes[::2]
-        cbar_axes = fig.axes[1::2]
-
+    template = copy.deepcopy(figure_options["template"])
+    [fig, subplot_axes, colorbar_axes, legend_ax, layout] = template
     pcm = None
+    colorbar_label = None
     for i in range(len(member_objects)):
-        ax = axes[i]
-        if scale == 2:
-            cbar_ax = cbar_axes[i]
+        ax = subplot_axes[i]
         mask_i = mask[f"{member_objects[i]}_mask"]
         if mask_i is not None:
             show_mask(mask_i, ax, grid_options, single_color)
@@ -651,21 +606,16 @@ def grouped_mask(
         grid_i = grid[f"{member_objects[i]}_grid"]
         if grid_i is not None:
             pcm = show_grid(grid_i, ax, grid_options, add_colorbar=False)
+            colorbar_label = grid_i.attrs["long_name"].title()
+            colorbar_label += f" [{grid_i.attrs['units']}]"
         ax.set_extent(extent, crs=proj)
-        if pcm is not None and grid is not None and scale == 2:
-            cbar_label = grid_i.attrs["long_name"].title()
-            cbar_label += f" [{grid_i.attrs['units']}]"
-            fig.colorbar(pcm, cax=cbar_ax, label=cbar_label)
-    if pcm is not None and grid is not None and scale == 1:
-        cbar_label = grid_i.attrs["long_name"].title() + f" [{grid_i.attrs['units']}]"
-        fig.colorbar(pcm, cax=cbar_ax, label=cbar_label)
-    if scale == 1:
-        y_position = 1.05
-    elif scale == 2:
-        y_position = 0.95
-    fig.suptitle(f"{mask.time.values.astype('datetime64[s]')} UTC", y=y_position)
+    if pcm is not None and colorbar_label is not None:
+        for ax in colorbar_axes:
+            fig.colorbar(pcm, cax=ax, label=colorbar_label)
+    title = f"{mask.time.values.astype('datetime64[s]')} UTC"
+    fig.suptitle(title, y=layout.suptitle_height)
 
-    return fig, axes
+    return fig, subplot_axes, colorbar_axes, legend_ax
 
 
 class BaseLayout:
@@ -673,75 +623,89 @@ class BaseLayout:
 
     def __init__(
         self,
-        title: str = "",  # Title of the figure
-        subplot_width: float = 8.0,  # Width of the subplots in inches
-        subplot_height: float = 8.0,  # Height of the subplots in inches
+        subplot_width: float = 4.0,  # Width of the subplots in inches
+        subplot_height: float = 4.0,  # Height of the subplots in inches
         rows: int = 1,  # Number of rows in the figure
         columns: int = 1,  # Number of columns in the figure
         # Spacing between subplots as fraction of subplot width
-        spacing: float = 1,  # Estimated spacing between subplots in inches
+        horizontal_spacing: float = 0.5,  # Estimated spacing between subplots in inches
+        vertical_spacing: float = 0,  # Estimated spacing between subplots in inches
     ):
-        self.title = title
         self.subplot_width = subplot_width
         self.subplot_height = subplot_height
         self.rows = rows
         self.columns = columns
-        self.spacing = spacing
+        self.horizontal_spacing = horizontal_spacing
+        self.vertical_spacing = vertical_spacing
+        self.figure_width = None
+        self.figure_height = None
 
 
-class UniformMapPanel(BaseLayout):
+class PanelledUniformMaps(BaseLayout):
     """Class to handle layout of cartopy maps with uniform extent."""
 
     def __init__(
         self,
         # Extent of the figure [lon_min, lon_max, lat_min, lat_max]
         extent: List[float],
-        title: str = "",  # Title of the figure
-        subplot_width: float = 6.0,  # Width of the subplots in inches
+        subplot_width: float = 5.75,  # Width of the subplots in inches
         rows: int = 1,  # Number of rows in the figure
         columns: int = 1,  # Number of columns in the figure
         # Spacing between subplots as fraction of subplot width
-        spacing: float = 1,  # Spacing between subplots in inches
+        horizontal_spacing: float = 0.3,  # Spacing between subplots in inches
+        vertical_spacing: float = 0.6,  # Spacing between subplots in inches
         colorbar: bool = True,  # Add a colorbar to the figure
-        legend_rows: Optional[int] = 1,  # Number of rows in the legend
+        legend_rows: Optional[int] = 2,  # Number of rows in the legend
     ):
         lat_range = extent[3] - extent[2]
         lon_range = extent[1] - extent[0]
         subplot_height = (lat_range / lon_range) * subplot_width
-        super().__init__(title, subplot_width, subplot_height, rows, columns, spacing)
+        args = [subplot_width, subplot_height, rows, columns]
+        args += [horizontal_spacing, vertical_spacing]
+        super().__init__(*args)
         self.extent = extent
         self.colorbar = colorbar
         self.legend_rows = legend_rows
         self.legend_rows = legend_rows
+        self.suptitle_height = 1
 
     def initialize_layout(self):
         """Initialize the figure."""
-        width = self.subplot_width * self.columns + self.spacing * (self.columns - 1)
-        legend_height = plt.rcParams["font.size"] / 72 * (self.legend_rows + 1)
-        height = self.subplot_height * self.rows + self.spacing * (self.rows - 1)
-        hspace = self.spacing / self.subplot_height
-        wspace = self.spacing / self.subplot_width
+        width = self.subplot_width * self.columns
+        width += self.horizontal_spacing * (self.columns - 1)
+        height = self.subplot_height * self.rows
+        height += self.vertical_spacing * (self.rows - 1)
+        self.figure_width = width
+        self.figure_height = height
 
         columns = self.columns
         width_ratios = [self.subplot_width] * self.columns
         if self.colorbar:
             # For now assume colorbars are oriented vertically at the right of each row
             columns = columns + 1
-            # Assume colorbar width is 10% of subplot width
-            colorbar_width = self.subplot_width * 0.1
-            width = width + [colorbar_width]
+            # Assume colorbar axis width is 1 inch
+            colorbar_width = 0.25
+            width += colorbar_width
+            width_ratios = width_ratios + [colorbar_width]
 
         rows = self.rows
         height_ratios = [self.subplot_height] * self.rows
         if self.legend_rows is not None:
-            legend_height = plt.rcParams["font.size"] / 72 * (self.legend_rows + 1)
+            # Assume 1.5 spaced legend and add an .75 inch padding
+            font_inches = plt.rcParams["font.size"] / 72
+            legend_height = font_inches * (self.legend_rows + 0.5) * 1.5
+            if self.rows == 1:
+                legend_height += font_inches * 1 * 1.5
             height += legend_height
             rows = rows + 1
             height_ratios = height_ratios + [legend_height]
 
+        wspace = self.horizontal_spacing / (sum(width_ratios) / len(width_ratios))
+        hspace = self.vertical_spacing / (sum(height_ratios) / len(height_ratios))
+
         fig = plt.figure(figsize=(width, height))
         kwargs = {"width_ratios": width_ratios, "height_ratios": height_ratios}
-        kwargs.update({"hspace": hspace, "wspace": wspace})
+        kwargs.update({"wspace": wspace, "hspace": hspace})
         grid_spec = gridspec.GridSpec(rows, columns, **kwargs)
 
         colorbar_axes = []
@@ -754,12 +718,30 @@ class UniformMapPanel(BaseLayout):
             ax.set_rasterized(True)
             kwargs = {"extent": self.extent, "left_labels": (j == 0)}
             kwargs.update({"bottom_labels": (i == self.rows - 1)})
-            ax = add_cartographic_features(ax, kwargs)[0]
+            ax = add_cartographic_features(ax, **kwargs)[0]
             ax.set_extent(self.extent, crs=proj)
+            subplot_axes.append(ax)
+        make_subplot_labels(subplot_axes, x_shift=-0.12, y_shift=0.06)
         if self.colorbar:
             for i in range(self.rows):
-                colorbar_axes.append(fig.add_subplot(grid_spec[i, -1]))
+                ax = fig.add_subplot(grid_spec[i, -1])
+                colorbar_axes.append(ax)
         if self.legend_rows is not None:
             legend_ax = fig.add_subplot(grid_spec[-1, :])
-
+            legend_ax.axis("off")
+        if self.rows == 1:
+            self.suptitle_height = 1
+        else:
+            self.suptitle_height = 0.935
         return fig, subplot_axes, colorbar_axes, legend_ax
+
+    def rescale_figure(self, fig, new_width):
+        """Rescale the figure. Currently rought; could be improved."""
+        if self.figure_width is None:
+            raise ValueError("Layout not yet initialized.")
+        aspect_ratio = self.figure_height / self.figure_width
+        new_height = new_width * aspect_ratio
+        fig.set_size_inches(new_width, new_height)
+        fig.canvas.draw()
+        self.figure_height = new_height
+        self.figure_width = new_width

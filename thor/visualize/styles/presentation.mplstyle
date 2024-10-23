@@ -6,3 +6,7 @@ mathtext.fontset: "dejavusans"
 
 savefig.facecolor : "black"
 savefig.dpi : 200
+
+legend.loc: "lower center"
+legend.fancybox: True
+legend.shadow: True

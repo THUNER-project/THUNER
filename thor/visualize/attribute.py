@@ -20,14 +20,14 @@ import thor.detect.detect as detect
 from thor.utils import format_time
 import thor.parallel as parallel
 import thor.visualize.utils as utils
+import thor.visualize.visualize as visualize
 from thor.log import setup_logger, logging_listener
 
 logger = setup_logger(__name__)
 proj = ccrs.PlateCarree()
 
 
-mcs_legend_options = {"loc": "lower center", "bbox_to_anchor": (1.15, -0.375)}
-mcs_legend_options.update({"ncol": 3, "fancybox": True, "shadow": True})
+mcs_legend_options = {"ncol": 3, "loc": "lower center"}
 
 
 def get_altitude_labels(track_options, mcs_name="mcs", mcs_level=1):
@@ -67,8 +67,8 @@ def mcs_series(
     plt.close("all")
     # Switch to non-interactive backend
     original_backend = matplotlib.get_backend()
-    matplotlib.use("Agg")
-    # matplotlib.use("inline")
+    # matplotlib.use("Agg")
+    # matplotlib.use("module://matplotlib_inline.backend_inline")
 
     start_time = np.datetime64(start_time)
     end_time = np.datetime64(end_time)
@@ -171,7 +171,8 @@ def visualize_mcs(
     args = [output_directory, processed_grid, mask, boundary_coords]
     args += [figure_options, options["grid"]]
     figure_name = figure_options["name"]
-    with plt.style.context(styles[figure_options["style"]]):
+    style = figure_options["style"]
+    with plt.style.context(styles[style]), visualize.set_style(style):
         fig, ax = mcs_horizontal(*args, dt=dt)
         # Remove mask and processed_grid from memory after generating the figure
         del mask, processed_grid
@@ -206,7 +207,7 @@ def mcs_horizontal(
     args += [boundary_coordinates]
     time = grid.time.values
     logger.debug(f"Creating grouped mask figure at time {time}.")
-    fig, axes = horizontal.grouped_mask(*args)
+    fig, axes, colorbar_axes, legend_ax = horizontal.grouped_mask(*args)
 
     try:
         filepath = output_directory / "attributes/mcs/group.csv"
@@ -265,17 +266,17 @@ def mcs_horizontal(
 
     handle, handler = horizontal.mask_legend_artist()
     handles += [handle]
-    labels += ["MCS Object Masks"]
+    labels += ["Object Masks"]
     legend_color = figure_colors[figure_options["style"]]["legend"]
     handles, labels = handles[::-1], labels[::-1]
 
     args = [handles, labels]
     if scale == 1:
-        legend = axes[0].legend(*args, **mcs_legend_options, handler_map=handler)
+        legend = legend_ax.legend(*args, **mcs_legend_options, handler_map=handler)
     elif scale == 2:
         mcs_legend_options["loc"] = "lower left"
         mcs_legend_options["bbox_to_anchor"] = (-0.0, -0.425)
-        legend = axes[-1].legend(*args, **mcs_legend_options, handler_map=handler)
+        legend = legend_ax.legend(*args, **mcs_legend_options, handler_map=handler)
     legend.get_frame().set_alpha(None)
     legend.get_frame().set_facecolor(legend_color)
 
@@ -389,7 +390,7 @@ def displacement_attributes_horizontal(axes, figure_options, object_attributes):
             label = label_dispatcher[attribute]
             quality_names = quality_dispatcher.get(attribute)
             quality = get_quality(quality_names, object_attributes)
-            args = [axes[0], latitude, longitude, dx, dy, color, label]
+            args = [axes[0], latitude, longitude, dx, dy, color]
             kwargs = {"quality": quality}
             axes[0] = horizontal.cartesian_displacement(*args, **kwargs, arrow=False)
             args[0] = axes[1]

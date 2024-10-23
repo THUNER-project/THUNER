@@ -4,5 +4,9 @@ font.size: 12
 
 mathtext.fontset: "dejavuserif"
 
-savefig.facecolor : "white"
-savefig.dpi : 200
+savefig.facecolor: "white"
+savefig.dpi: 200
+
+legend.loc: "lower center"
+legend.fancybox: True
+legend.shadow: True

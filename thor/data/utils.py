@@ -531,18 +531,30 @@ def mask_from_observations(dataset, dataset_options, object_options=None):
 
 
 def smooth_mask(mask):
-    mask_values = remove_small_holes(mask.values, area_threshold=50)
-    mask_values = remove_small_objects(mask_values, min_size=50)
+    """Smooth a binary mask using morphological operations."""
+    # Remove objects smaller than a 150 km radius region.
+    # 0.02 lat/lon per pixel and ~100 km per lat/lon gives min area of np.pi*750**2
+    # or ~1.8e4 pixels.
+    mask_values = remove_small_objects(mask.values, min_size=1.8e4)
+    # Fill holes smaller 100 pixels
+    mask_values = remove_small_holes(mask_values, area_threshold=2e2)
     # Pad the mask before dilation/erosion to avoid edge effects
     pad_width = 3
     mask_values = np.pad(mask_values, pad_width, mode="edge")
-    dilation_element = np.ones((3, 3))
-    erosion_element = np.ones((4, 4))
-    mask_values = binary_dilation(mask_values, structure=dilation_element)
-    mask_values = binary_erosion(mask_values, structure=erosion_element)
+    large_element = np.ones((20, 20))
+    small_element = np.ones((5, 5))
+    # Erode and dilate with large element to remove small objects and fill holes
+    mask_values = binary_erosion(mask_values, structure=np.ones((20, 20)))
+    mask_values = binary_dilation(mask_values, structure=np.ones((20, 20)))
+    # Repeat but with a smaller element, and applying dilation first to close lines
+    mask_values = binary_dilation(mask_values, structure=np.ones((5, 5)))
+    # Erode one more pixel than dilated to ensure objects don't artificially avoid
+    # touching the boundary
+    mask_values = binary_erosion(mask_values, structure=np.ones((6, 6)))
     mask_values = mask_values[pad_width:-pad_width, pad_width:-pad_width]
-    mask_values = remove_small_holes(mask_values, area_threshold=50)
-    mask_values = remove_small_objects(mask_values, min_size=50)
+    # Another pass at hole filling
+    mask_values = remove_small_objects(mask_values, min_size=1.8e4)
+    mask_values = remove_small_holes(mask_values, area_threshold=2e2)
     mask.values = mask_values
     return mask
 

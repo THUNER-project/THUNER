@@ -14,7 +14,7 @@ from thor.utils import format_time
 from thor.match.utils import get_grids, get_masks
 from thor.log import setup_logger
 from thor.visualize.utils import make_subplot_labels, get_extent
-from thor.visualize.visualize import mask_colors
+from thor.visualize.visualize import mask_colors, set_style
 from thor.object.box import get_box_center_coords
 import thor.grid as thor_grid
 import thor.visualize.utils as utils
@@ -82,9 +82,9 @@ def grouped_mask(
     boundary_coordinates = input_record["current_boundary_coordinates"]
     args = [grid, mask, grid_options, figure_options, member_objects]
     args += [boundary_coordinates]
-    fig, ax = horizontal.grouped_mask(*args)
+    fig, subplot_axes = horizontal.grouped_mask(*args)[:2]
 
-    return fig, ax
+    return fig, subplot_axes
 
 
 def match_template(reference_grid, figure_options, extent):
@@ -94,8 +94,8 @@ def match_template(reference_grid, figure_options, extent):
     axes = []
     for i in range(3):
         ax = fig.add_subplot(gs[0, i], projection=proj)
-        axes.append(ax)
-        kwargs = {"extent": extent, "style": figure_options["style"], "scale": "10m"}
+        ax.set_rasterized(True)
+        kwargs = {"extent": extent, "scale": "10m"}
         kwargs.update({"left_labels": (i == 0)})
         ax = horizontal.add_cartographic_features(ax, **kwargs)[0]
         if (
@@ -105,6 +105,7 @@ def match_template(reference_grid, figure_options, extent):
             radar_longitude = float(reference_grid.attrs["origin_longitude"])
             radar_latitude = float(reference_grid.attrs["origin_latitude"])
             horizontal.add_radar_features(ax, radar_longitude, radar_latitude, extent)
+        axes.append(ax)
     cbar_ax = fig.add_subplot(gs[0, -1])
     make_subplot_labels(axes, x_shift=-0.12, y_shift=0.06)
     return fig, axes, cbar_ax
@@ -140,7 +141,7 @@ def match_features(grid, object_record, axes, grid_options, unique_global_flow=T
             # If global flow not unique, plot for current object
             global_flow = object_record["global_flows"][i]
             global_flow_box = object_record["global_flow_boxes"][i]
-            horizontal.plot_box(axes[1], global_flow_box, grid_options, alpha=0.8)
+            # horizontal.plot_box(axes[1], global_flow_box, grid_options, alpha=0.8)
             horizontal.pixel_vector(
                 axes[1], row, col, global_flow, grid_options, color="tab:red"
             )
@@ -215,6 +216,7 @@ def visualize_match(
                 horizontal.show_mask(masks[j], axes[i], grid_options)
             if input_record["current_boundary_coordinates"] is not None:
                 horizontal.add_domain_boundary(axes[i], all_boundaries[j])
+        axes[i].set_extent(extent)
     unique_global_flow = object_options.tracking.unique_global_flow
     match_features(grids[0], object_record, axes, grid_options, unique_global_flow)
     cbar_label = grids[0].attrs["long_name"].title() + f" [{grids[0].attrs['units']}]"
@@ -286,8 +288,8 @@ def visualize(
             raise KeyError(message)
 
         figure_options = object_visualize_options["figures"][figure]
-        with plt.style.context(styles[figure_options["style"]]):
-
+        style = figure_options["style"]
+        with plt.style.context(styles[style]), set_style(style):
             fig, ax = create_figure(
                 input_record,
                 tracks,

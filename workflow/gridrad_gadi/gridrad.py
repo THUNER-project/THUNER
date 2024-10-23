@@ -2,7 +2,6 @@
 
 from multiprocessing import get_context
 import time
-import concurrent.futures
 from pathlib import Path
 import shutil
 import numpy as np
@@ -18,36 +17,16 @@ from thor.log import setup_logger, logging_listener
 logger = setup_logger(__name__)
 
 
-def download_data(parent_local="/scratch/w40/esh563/THOR_output/input_data/raw"):
-    # Load list of urls from file
-
-    parent_remote = "https://data.rda.ucar.edu"
-
-    # Load list of urls from file
-    urls = []
-    with open("./extracted_urls.txt", "r") as f:
-        urls = [line.strip() for line in f]
-    # Download data
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-        futures = []
-        for url in urls:
-            time.sleep(0.1)
-            data.utils.download(url, parent_remote, parent_local)
-        parallel.check_futures(futures)
-
-
-def gridrad():
+def gridrad(start, end, event_start, base_local=None):
     # Parent directory for saving outputs
-    base_local = Path("/scratch/w40/esh563/THOR_output")
-    start = "2010-01-21T12:00:00"
-    end = "2010-01-22T06:00:00"
-    event_start = "2010-01-21"
+    if base_local is None:
+        base_local = Path("/scratch/w40/esh563/THOR_output")
 
     period = parallel.get_period(start, end)
     intervals = parallel.get_time_intervals(start, end, period=period)
 
-    output_parent = base_local / "runs/gridrad_demo"
+    output_parent = base_local / f"runs/dev/gridrad_{event_start.replace('-', '')}"
+
     if output_parent.exists():
         shutil.rmtree(output_parent)
     options_directory = output_parent / "options"
@@ -93,26 +72,25 @@ def gridrad():
     # Create the display_options dictionary
     visualize_options = None
 
+    # 8 processes a good choice for a GADI job with 32 GB of memory, 7 cores
+    # Each process can use up to 4 GB of memory - mainly in storing gridrad files
     num_processes = 8
-    with logging_listener(), get_context("spawn").Pool(
-        initializer=parallel.initialize_process, processes=num_processes
-    ) as pool:
+    kwargs = {"initializer": parallel.initialize_process, "processes": num_processes}
+    with logging_listener(), get_context("spawn").Pool(**kwargs) as pool:
         results = []
         for i, time_interval in enumerate(intervals):
             args = [i, time_interval, data_options.copy(), grid_options.copy()]
             args += [track_options.model_copy(), visualize_options]
             args += [output_parent, "gridrad"]
             args = tuple(args)
-            time.sleep(2)
+            # Stagger job for smoother execution
+            time.sleep(1)
             results.append(pool.apply_async(parallel.track_interval, args))
         pool.close()
         pool.join()
         parallel.check_results(results)
 
     parallel.stitch_run(output_parent, intervals, cleanup=True)
-
-
-def plot(output_parent):
 
     analysis_options = analyze.mcs.analysis_options()
     analyze.mcs.process_velocities(output_parent)
@@ -121,18 +99,15 @@ def plot(output_parent):
     figure_options = visualize.option.horizontal_attribute_options(
         "mcs_velocity_analysis", style="gadi", attributes=["velocity", "offset"]
     )
-    start_time = np.datetime64("2010-01-21T12:00")
-    end_time = np.datetime64(np.datetime64("2010-01-22T06:00"))
-    args = [output_parent, start_time, end_time, figure_options]
-    kwargs = {
-        "parallel_figure": True,
-        "dt": 7200,
-        "by_date": False,
-        "num_processes": 8,
-    }
+    args = [output_parent, start, end, figure_options]
+    kwargs = {"parallel_figure": True, "dt": 7200, "by_date": False}
+    kwargs.update({"num_processes": num_processes})
     visualize.attribute.mcs_series(*args, **kwargs)
 
 
 if __name__ == "__main__":
-    # gridrad()
-    plot(Path("/scratch/w40/esh563/THOR_output/runs/gridrad_demo"))
+    year = 2010
+    event_directories = data.gridrad.get_event_directories(year)
+    for event_directory in event_directories[7:15]:
+        start, end, event_start = data.gridrad.get_event_times(event_directory)
+        gridrad(start, end, event_start)

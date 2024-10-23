@@ -1,4 +1,5 @@
 import copy
+from pathlib import Path
 from memory_profiler import profile
 from functools import reduce
 import numpy as np
@@ -35,6 +36,29 @@ gridrad_names_dict = {
     "differential_phase": "DifferentialPhase",
     "correlation_coefficient": "CorrelationCoefficient",
 }
+
+
+def get_event_directories(year, base_local=None):
+    if base_local is None:
+        base_local = Path("/scratch/w40/esh563/THOR_output")
+    year_directory = base_local / f"input_data/raw/d841006/volumes/{year}"
+    event_directories = sorted([p for p in year_directory.iterdir() if p.is_dir()])
+    return event_directories
+
+
+def get_event_times(event_directory):
+    event_start = f"{event_directory.name[:4]}-{event_directory.name[4:6]}"
+    event_start += f"-{event_directory.name[6:]}"
+    files = sorted(event_directory.iterdir())
+    times = []
+    for file in files:
+        time = str(file.name).split("_")[-1].split(".")[0]
+        formatted_time = f"{time[:4]}-{time[4:6]}-{time[6:8]}"
+        formatted_time += f"T{time[9:11]}:{time[11:13]}:{time[13:15]}"
+        times.append(np.datetime64(formatted_time))
+    start = str(times[0])
+    end = str(times[-1])
+    return start, end, event_start
 
 
 def gridrad_data_options(
@@ -161,7 +185,7 @@ def filter(
     refl_thresh : float, optional
         The reflectivity threshold. Default is 0.
     obs_thresh : int, optional
-        The number of observations. Default is 2.
+        The number of observations. Default is 3.
 
     Returns
     -------
@@ -174,12 +198,10 @@ def filter(
     if variables is None:
         variables = [v for v in gridrad_variables if v in ds.variables]
 
-    # echo_fraction = xr.zeros_like(ds["Nradecho"]).astype(np.float32)
     # Calcualate echo fraction efficiently using lazy loading and where
+    args = [ds["Nradobs"] > 0, ds["Nradecho"] / ds["Nradobs"], 0.0]
     kwargs = {"keep_attrs": True}
-    echo_fraction = xr.where(
-        ds["Nradobs"] > 0, ds["Nradecho"] / ds["Nradobs"], 0.0, **kwargs
-    )
+    echo_fraction = xr.where(*args, **kwargs)
     echo_fraction = echo_fraction.astype(np.float32)
 
     # Get indices to filter
@@ -220,7 +242,6 @@ def remove_speckles(ds, window_size=5, coverage_thresh=0.32, variables=None):
     speckle_mask = remove_small_objects(refl_exists.values > 0, min_size=min_size)
     for var in variables:
         ds[var] = ds[var].where(speckle_mask)
-
     return ds
 
 
@@ -322,15 +343,12 @@ def remove_clutter(ds, variables=None, low_level=True, below_anvil=False):
 
     # First pass at speckle removal
     ds = remove_speckles(ds, variables=variables)
-
     if low_level:
         # Remove low level clutter. Note this can remove some low level cloud/drizzle
         ds = remove_low_level_clutter(ds, variables=variables)
-
     if below_anvil:
         # Remove clutter below anvils
         ds = remove_clutter_below_anvils(ds, variables=variables)
-
     # Second pass at speckle removal
     ds = remove_speckles(ds, variables=variables)
 
@@ -354,9 +372,9 @@ def convert_gridrad(time, filepath, track_options, dataset_options, grid_options
     logger.debug(f"Converting GridRad dataset at time {time}.")
 
     # Open the dataset and perform preliminary filtering and decluttering
-    lock = multiprocessing.Lock()
-    with lock:
-        ds = open_gridrad(filepath, dataset_options)
+    # lock = multiprocessing.Lock()
+    # with lock:
+    ds = open_gridrad(filepath, dataset_options)
     ds = filter(ds, refl_thresh=-10)
     ds = remove_clutter(ds)
 
@@ -494,22 +512,6 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
         utils.save_converted_dataset(dataset, dataset_options)
     input_record["dataset"] = dataset
 
-
-# def get_severe_case_times():
-#     """
-#     Get the start and end dates for the cases in the GridRad-Severe dataset
-#     (doi.org/10.5065/2B46-1A97).
-#     """
-#     base_url = "https://data.rda.ucar.edu/ds841.6/volumes"
-#     years = np.arange(2010, 2011)
-#     months = np.arange(1, 2)
-#     days = np.arange(19, 22)
-#     case_dates = []
-#     for year, month, day in itertools.product(years, months, days):
-#         url = f"{base_url}/{year:04}/{year:04}{month:02}{day:02}"
-#         if utils.check_valid_url(url):
-#             case_dates.append(f"{year:04}-{month:02}-{day:02}")
-#     return case_dates
 
 dataset_id_converter = {"ds841.6": "d841006"}
 

@@ -94,7 +94,7 @@ class TintOptions(BaseOptions):
     _description = "If True, create unique global flow vectors for each object."
     unique_global_flow: bool = Field(True, description=_description)
     _description = "Maximum allowable matching cost. Units of km."
-    max_cost: float = Field(1e3, description=_description, gt=0)
+    max_cost: float = Field(2e2, description=_description, gt=0, lt=1e3)
     _description = "Maximum allowable shift magnitude."
     max_velocity_mag: float = Field(60, description=_description, gt=0)
     _description = "Maximum allowable shift difference."

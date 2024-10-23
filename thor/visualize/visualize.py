@@ -5,12 +5,29 @@ import imageio
 from pathlib import Path
 import glob
 import numpy as np
+import contextlib
 from matplotlib.colors import BoundaryNorm
 import pyart.graph.cm_colorblind as pcm
 import thor.visualize.utils as utils
 from thor.log import setup_logger
 
 logger = setup_logger(__name__)
+
+
+style = "presentation"
+
+
+@contextlib.contextmanager
+def set_style(new_style):
+    """Set the style for the visualization."""
+    global style
+    original_style = style
+    style = new_style
+    try:
+        yield
+    finally:
+        style = original_style
+
 
 reflectivity_levels = np.arange(-10, 60 + 5, 5)
 reflectivity_norm = BoundaryNorm(
@@ -28,6 +45,7 @@ pcolormesh_style = {
 mask_colors = ["cyan", "magenta", "purple", "teal", "saddlebrown"]
 mask_colors += ["hotpink", "darkslategrey", "rosybrown", "plum"]
 mask_colors += ["indigo", "darksalmon", "tan"]
+
 
 figure_colors = {
     "paper": {

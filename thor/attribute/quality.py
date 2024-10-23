@@ -16,7 +16,7 @@ def boundary_overlap():
     name = "boundary_overlap"
     method = None
     data_type = float
-    precision = 6
+    precision = 4
     units = None
     description = "Fraction of object area comprised on boundary pixels."
     args = [name, method, data_type, precision, description, units]
