@@ -110,4 +110,8 @@ if __name__ == "__main__":
     event_directories = data.gridrad.get_event_directories(year)
     for event_directory in event_directories[:50]:
         start, end, event_start = data.gridrad.get_event_times(event_directory)
-        gridrad(start, end, event_start)
+        try:
+            gridrad(start, end, event_start)
+        except Exception as e:
+            logger.error(f"Error tracking event {str(event_start)}: {e}")
+            continue

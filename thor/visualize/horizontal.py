@@ -29,7 +29,7 @@ cv2.setNumThreads(0)
 
 proj = ccrs.PlateCarree()
 domain_plot_style = {"color": "tab:red", "linewidth": 1, "alpha": 0.8}
-domain_plot_style.update({"zorder": 1, "transform": proj, "linestyle": "--"})
+domain_plot_style.update({"zorder": 1, "transform": proj, "linestyle": "-"})
 
 
 def show_grid(grid, ax, grid_options, add_colorbar=True):
