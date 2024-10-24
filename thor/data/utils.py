@@ -541,8 +541,6 @@ def smooth_mask(mask):
     # Pad the mask before dilation/erosion to avoid edge effects
     pad_width = 3
     mask_values = np.pad(mask_values, pad_width, mode="edge")
-    large_element = np.ones((20, 20))
-    small_element = np.ones((5, 5))
     # Erode and dilate with large element to remove small objects and fill holes
     mask_values = binary_erosion(mask_values, structure=np.ones((20, 20)))
     mask_values = binary_dilation(mask_values, structure=np.ones((20, 20)))

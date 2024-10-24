@@ -17,7 +17,7 @@ def boilerplate_options(
     parent_local=None,
     converted_options=None,
     filepaths=None,
-    attempt_download=True,
+    attempt_download=False,
     deque_length=2,
     use="track",
 ):

@@ -112,7 +112,7 @@ def get_period(start, end, minimum_period=pd.Timedelta(1, "h")):
 def get_time_intervals(
     start, end, period=pd.Timedelta(1, "h"), overlap=pd.Timedelta(10, "m")
 ):
-    start = pd.Timestamp(start).floor(pd.Timedelta(1, "h"))
+    start = pd.Timestamp(start)
     end = pd.Timestamp(end)
     intervals = []
     previous, next = start, start + period + overlap

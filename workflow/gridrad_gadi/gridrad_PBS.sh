@@ -7,7 +7,7 @@
 #PBS -l walltime=6:00:00
 #PBS -l wd
 #PBS -l storage=gdata/rt52+gdata/w40+gdata/rq0+scratch/w40
-#PBS -J 40-50
+#PBS -J 1-93
 #PBS -e /home/563/esh563/THOR/workflow/gridrad_gadi/PBS_jobs/gridrad_job.e
 #PBS -o /home/563/esh563/THOR/workflow/gridrad_gadi/PBS_jobs/gridrad_job.o
 
@@ -20,4 +20,4 @@ directories=($(cat "${filepath}"))
 /g/data/w40/esh563/miniconda/bin/conda init
 /g/data/w40/esh563/miniconda/bin/conda activate THOR
 script_path="/home/563/esh563/THOR/workflow/gridrad_gadi/gridrad.py"
-python3 /home/563/esh563/THOR/workflow/gridrad_gadi/gridrad.py ${directories[${PBS_ARRAY_INDEX}-1]}
+python3 /home/563/esh563/THOR/workflow/gridrad_gadi/gridrad.py ${directories[$PBS_ARRAY_INDEX-1]}

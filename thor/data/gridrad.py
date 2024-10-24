@@ -1,4 +1,5 @@
 import copy
+from typing import Union
 from pathlib import Path
 from memory_profiler import profile
 from functools import reduce
@@ -46,16 +47,26 @@ def get_event_directories(year, base_local=None):
     return event_directories
 
 
-def get_event_times(event_directory):
+def get_event_times(event_directory: Union[str, Path]):
+    """
+    Get start and end times, and event start date from a GridRad severe event directory.
+    """
+    if isinstance(event_directory, str):
+        event_directory = Path(event_directory)
     event_start = f"{event_directory.name[:4]}-{event_directory.name[4:6]}"
     event_start += f"-{event_directory.name[6:]}"
     files = sorted(event_directory.iterdir())
     times = []
     for file in files:
+        # Ignore files
+        if "500Z.nc" in str(file):
+            continue
         time = str(file.name).split("_")[-1].split(".")[0]
         formatted_time = f"{time[:4]}-{time[4:6]}-{time[6:8]}"
         formatted_time += f"T{time[9:11]}:{time[11:13]}:{time[13:15]}"
         times.append(np.datetime64(formatted_time))
+    # Suprisingly it appears we need to sort again to ensure the times are in order
+    times = sorted(times)
     start = str(times[0])
     end = str(times[-1])
     return start, end, event_start
@@ -169,7 +180,7 @@ def filter(
     ds,
     weight_thresh=1.5,
     echo_frac_thresh=0.6,
-    refl_thresh=0,
+    refl_thresh=-10,
     obs_thresh=2,
     variables=None,
 ):
@@ -222,7 +233,39 @@ def filter(
     preserved = xr.where(~cond_refl & ~cond_frac, True, False, **kwargs)
     for var in variables:
         ds[var] = ds[var].where(preserved)
+    return ds
 
+
+# @profile
+def simple_filter(
+    ds,
+    refl_thresh=-10,
+    obs_thresh=2,
+    variables=None,
+):
+    """
+    Filter a GridRad dataset using reflectivity threshold and observation count only.
+    This is a more appropriate filter for MCS classification following Short et al. (2023)
+    as its much more important the observations match the domain mask, then the precise
+    values of the reflectivity itself. Applying the more complex filter makes it
+    difficult to consistently define a domain boundary.
+    """
+
+    logger.debug("Filtering GridRad data")
+
+    if variables is None:
+        variables = [v for v in gridrad_variables if v in ds.variables]
+
+    kwargs = {"keep_attrs": True}
+    # Get indices to filter
+    refl_cond = xr.where(ds["Reflectivity"] <= refl_thresh, True, False, **kwargs)
+    obs_cond = xr.where(ds["Nradobs"] <= obs_thresh, True, False, **kwargs)
+    # Preserve values not filtered
+    preserved = xr.where(~refl_cond & ~obs_cond, True, False, **kwargs)
+    for var in variables:
+        da = ds[var].where(preserved)
+        da = da.astype(np.float32)
+        ds[var] = da
     return ds
 
 
@@ -240,7 +283,7 @@ def remove_speckles(ds, window_size=5, coverage_thresh=0.32, variables=None):
         variables = [v for v in gridrad_variables if v in ds.variables]
 
     # refl_exists = np.isfinite(ds["Reflectivity"]).astype(float)
-    refl_exists = xr.where(ds["Reflectivity"] != np.nan, True, False)
+    refl_exists = xr.where(~np.isnan(ds["Reflectivity"]), True, False)
     min_size = window_size**3 * coverage_thresh
     speckle_mask = remove_small_objects(refl_exists.values > 0, min_size=min_size)
     for var in variables:
@@ -375,10 +418,8 @@ def convert_gridrad(time, filepath, track_options, dataset_options, grid_options
     logger.debug(f"Converting GridRad dataset at time {time}.")
 
     # Open the dataset and perform preliminary filtering and decluttering
-    # lock = multiprocessing.Lock()
-    # with lock:
     ds = open_gridrad(filepath, dataset_options)
-    ds = filter(ds, refl_thresh=-10)
+    ds = simple_filter(ds)
     ds = remove_clutter(ds)
 
     # Ensure the intended time is in the dataset
