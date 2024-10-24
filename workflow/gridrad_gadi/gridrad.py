@@ -34,7 +34,7 @@ def gridrad(start, end, event_start, base_local=None):
 
     # Create the data_options dictionary
     gridrad_parent = str(base_local / "input_data/raw")
-    converted_options = {"save": True, "load": False, "parent_converted": None}
+    converted_options = {"save": False, "load": False, "parent_converted": None}
     gridrad_options = data.gridrad.gridrad_data_options(
         start=start,
         end=end,

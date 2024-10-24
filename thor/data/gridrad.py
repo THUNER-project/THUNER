@@ -83,6 +83,9 @@ def gridrad_data_options(
     if fields is None:
         fields = ["reflectivity"]
 
+    if converted_options is None:
+        converted_options = {"save": False, "load": False, "parent_converted": None}
+
     options = option.boilerplate_options(
         "gridrad",
         start,

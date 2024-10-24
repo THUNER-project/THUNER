@@ -8,7 +8,7 @@ datetime=$(date +"%Y%m%d_%H%M%S")
 directories=$(find ${DATA_DIR} -mindepth 1 -type d -print | sort)
 directory_count=$(echo "${directories}" | wc -l)
 
-filepath="${SCRIPT_DIR}/directories_${datetime}.txt"
+filepath="${SCRIPT_DIR}/directories.txt"
 echo ${directories} > ${filepath}
 
 qsub -v datetime=${datetime},filepath=${filepath},directory_count=${directory_count} ./gridrad_PBS.sh
