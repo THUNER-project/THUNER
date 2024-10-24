@@ -508,7 +508,7 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
     lon_range = (lon.min() - 0.25, lon.max() + 0.25)
 
     # Assume user has write privileges in the base_local directory
-    logger.warning(f"Creating temporary directory in {dataset_options["base_local"]}.")
+    logger.warning(f"Creating temporary directory in {dataset_options['base_local']}.")
     with tempfile.TemporaryDirectory(dir="/scratch/w40/esh563") as tmp:
         for field in dataset_options["fields"]:
             for filepath in filepaths[field]:
