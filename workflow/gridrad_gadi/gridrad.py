@@ -116,6 +116,6 @@ if __name__ == "__main__":
 
     start, end, event_start = data.gridrad.get_event_times(event_directory)
     try:
-        gridrad(start, end, event_start, base_local=Path("/home/ewan/THOR_output"))
+        gridrad(start, end, event_start)
     except Exception as e:
         logger.error(f"Error tracking event {str(event_start)}: {e}")
