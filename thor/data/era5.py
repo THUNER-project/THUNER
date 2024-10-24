@@ -507,7 +507,9 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
     lat_range = (lat.min() - 0.25, lat.max() + 0.25)
     lon_range = (lon.min() - 0.25, lon.max() + 0.25)
 
-    with tempfile.TemporaryDirectory() as tmp:
+    # Assume user has write privileges in the base_local directory
+    logger.warning(f"Creating temporary directory in {dataset_options["base_local"]}.")
+    with tempfile.TemporaryDirectory(dir=dataset_options["base_local"]) as tmp:
         for field in dataset_options["fields"]:
             for filepath in filepaths[field]:
                 logger.debug("Subsetting %s", Path(filepath).name)
