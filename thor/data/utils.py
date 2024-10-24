@@ -439,13 +439,21 @@ def call_ncks(input_filepath, output_filepath, start, end, lat_range, lon_range)
         time_var = "time"
 
     lon_range = [(lon + 180) % 360 - 180 for lon in lon_range]
+    logger.info("Running ncks data from %s to %s.", start, end)
     command = (
         f"ncks -d {time_var},{start},{end} "
         f"-d latitude,{lat_range[0]},{lat_range[1]} "
         f"-d longitude,{lon_range[0]},{lon_range[1]} "
         f"{input_filepath} {output_filepath}"
     )
-    subprocess.run(command, shell=True, check=True)
+    result = subprocess.run(command, shell=True, check=True)
+    if result.returncode == 0:
+        logger.info("ncks command completed successfully.")
+    else:
+        logger.error("ncks failed with return code %d.", result.returncode)
+        logger.error("Standard output: %s", result.stdout)
+        logger.error("Standard error: %s", result.stderr)
+        raise subprocess.CalledProcessError(result.returncode, command)
 
 
 def get_parent(dataset_options):
