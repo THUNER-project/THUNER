@@ -75,7 +75,7 @@ def gridrad(start, end, event_start, base_local=None):
 
     # 8 processes a good choice for a GADI job with 32 GB of memory, 7 cores
     # Each process can use up to 4 GB of memory - mainly in storing gridrad files
-    num_processes = 8
+    num_processes = 16
     kwargs = {"initializer": parallel.initialize_process, "processes": num_processes}
     with logging_listener(), get_context("spawn").Pool(**kwargs) as pool:
         results = []

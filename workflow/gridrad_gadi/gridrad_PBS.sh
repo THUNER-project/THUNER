@@ -1,13 +1,13 @@
 #!/bin/bash
 #PBS -q normalbw
 #PBS -P w40
-#PBS -l ncpus=8
-#PBS -l mem=32GB
-#PBS -l jobfs=10GB
-#PBS -l walltime=6:00:00
+#PBS -l ncpus=16
+#PBS -l mem=64GB
+#PBS -l jobfs=1GB
+#PBS -l walltime=12:00:00
 #PBS -l wd
 #PBS -r y
-#PBS -J 1-2
+#PBS -J 1-93
 #PBS -l storage=gdata/rt52+gdata/w40+gdata/rq0+scratch/w40
 #PBS -e /home/563/esh563/THOR/workflow/gridrad_gadi/PBS_jobs/gridrad_job.e
 #PBS -o /home/563/esh563/THOR/workflow/gridrad_gadi/PBS_jobs/gridrad_job.o

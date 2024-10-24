@@ -102,7 +102,7 @@ def get_period(start, end, minimum_period=pd.Timedelta(1, "h")):
     Get a suitable interval period for parallel processing based on number of cpus.
     """
     total_interval = pd.Timestamp(end) - pd.Timestamp(start)
-    period = total_interval / os.cpu_count()
+    period = total_interval / 16
     # Get the interval in units of minimum_period
     period = period.ceil(minimum_period)
     period = max(period, minimum_period)
