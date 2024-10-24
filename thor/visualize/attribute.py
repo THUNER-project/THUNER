@@ -65,6 +65,7 @@ def mcs_series(
 ):
     """Visualize mcs attributes at specified times."""
     plt.close("all")
+    original_backend = matplotlib.get_backend()
     matplotlib.use("Agg")
 
     start_time = np.datetime64(start_time)

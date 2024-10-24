@@ -1,5 +1,6 @@
 """Test GridRad tracking."""
 
+import argparse
 from multiprocessing import get_context
 import time
 from pathlib import Path
@@ -106,12 +107,15 @@ def gridrad(start, end, event_start, base_local=None):
 
 
 if __name__ == "__main__":
-    year = 2010
-    event_directories = data.gridrad.get_event_directories(year)
-    for event_directory in event_directories[:50]:
-        start, end, event_start = data.gridrad.get_event_times(event_directory)
-        try:
-            gridrad(start, end, event_start)
-        except Exception as e:
-            logger.error(f"Error tracking event {str(event_start)}: {e}")
-            continue
+
+    # Parse input arguments
+    parser = argparse.ArgumentParser(description="Track GridRad event on GADI")
+    parser.add_argument("event_directory", type=str, help="Directory of event files")
+    args = parser.parse_args()
+    event_directory = Path(args.event_directory)
+
+    start, end, event_start = data.gridrad.get_event_times(event_directory)
+    try:
+        gridrad(start, end, event_start)
+    except Exception as e:
+        logger.error(f"Error tracking event {str(event_start)}: {e}")
