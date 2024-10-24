@@ -509,7 +509,7 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
 
     # Assume user has write privileges in the base_local directory
     logger.warning(f"Creating temporary directory in {dataset_options["base_local"]}.")
-    with tempfile.TemporaryDirectory(dir=dataset_options["base_local"]) as tmp:
+    with tempfile.TemporaryDirectory(dir="/scratch/w40/esh563") as tmp:
         for field in dataset_options["fields"]:
             for filepath in filepaths[field]:
                 logger.debug("Subsetting %s", Path(filepath).name)
