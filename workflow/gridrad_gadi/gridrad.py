@@ -1,11 +1,11 @@
 """Test GridRad tracking."""
 
+import subprocess
 import argparse
 from multiprocessing import get_context
 import time
 from pathlib import Path
 import shutil
-import numpy as np
 import thor.data as data
 import thor.data.dispatch as dispatch
 import thor.grid as grid
@@ -115,6 +115,10 @@ def gridrad(start, end, event_start, base_local=None):
     # still consume nearly 6 GB during plt.savefig!
     kwargs.update({"num_processes": int(num_processes / 2)})
     visualize.attribute.mcs_series(*args, **kwargs)
+
+    # Tar and compress the output directory
+    command = f"tar -czvf {output_parent}.tar.gz {output_parent}"
+    subprocess.run(command, shell=True, text=True)
 
 
 if __name__ == "__main__":
