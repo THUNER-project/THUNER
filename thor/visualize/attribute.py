@@ -180,8 +180,6 @@ def visualize_mcs(
         logger.info(f"Saving {figure_name} figure for {time}.")
         fig.savefig(filepath, bbox_inches="tight")
         utils.reduce_color_depth(filepath)
-        ax.cla()
-        fig.clf()
         plt.clf()
         plt.close()
         gc.collect()
