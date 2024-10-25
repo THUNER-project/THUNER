@@ -82,7 +82,7 @@ def gridrad(start, end, event_start, base_local=None):
     visualize_options = None
 
     # 8 processes a good choice for a GADI job with 32 GB of memory, 7 cores
-    # Each process can use up to 4 GB of memory - mainly in storing gridrad files
+    # Each tracking process can use up to 4 GB of memory - mainly storing gridrad data
     num_processes = 8
     kwargs = {"initializer": parallel.initialize_process, "processes": num_processes}
     with logging_listener(), get_context("spawn").Pool(**kwargs) as pool:
@@ -110,7 +110,10 @@ def gridrad(start, end, event_start, base_local=None):
     )
     args = [output_parent, start, end, figure_options]
     kwargs = {"parallel_figure": True, "dt": 7200, "by_date": False}
-    kwargs.update({"num_processes": num_processes})
+    # Halving the number of processes used for figure creation appears to be a good
+    # rule of thumb. Even with rasterization etc, the largest, most complex figures can
+    # still consume nearly 6 GB during plt.savefig!
+    kwargs.update({"num_processes": int(num_processes / 2)})
     visualize.attribute.mcs_series(*args, **kwargs)
 
 
