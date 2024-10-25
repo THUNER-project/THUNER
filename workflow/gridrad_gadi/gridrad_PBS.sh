@@ -18,10 +18,5 @@ conda activate THOR
 
 # Read the directories from the file created by the gridrad_job.sh script
 directories=($(cat "${filepath}"))
-
-echo ${directories[$PBS_ARRAY_INDEX-1]}
-
-# Activate the conda environment
-/g/data/w40/esh563/miniconda/bin/conda init
-/g/data/w40/esh563/miniconda/bin/conda activate THOR
+# Run the gridrad.py script with the directory corresponding to the current PBS_ARRAY_INDEX
 python3 /home/563/esh563/THOR/workflow/gridrad_gadi/gridrad.py ${directories[$PBS_ARRAY_INDEX-1]}
