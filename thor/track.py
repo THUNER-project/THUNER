@@ -13,7 +13,7 @@ import thor.group.group as group
 import thor.visualize as visualize
 import thor.match.match as match
 from thor.config import get_outputs_directory
-from thor.utils import now_str, hash_dictionary, format_time
+from thor.utils import now_str, hash_dictionary, format_time, SingletonBase
 import thor.write as write
 import thor.attribute as attribute
 

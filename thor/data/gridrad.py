@@ -6,7 +6,6 @@ from functools import reduce
 import numpy as np
 import pandas as pd
 import xarray as xr
-import multiprocessing
 from skimage.morphology import remove_small_objects
 import thor.data.option as option
 from thor.config import get_outputs_directory
@@ -212,7 +211,7 @@ def filter(
     if variables is None:
         variables = [v for v in gridrad_variables if v in ds.variables]
 
-    # Calcualate echo fraction efficiently using lazy loading and where
+    # Calcualate echo fraction efficiently using where
     args = [ds["Nradobs"] > 0, ds["Nradecho"] / ds["Nradobs"], 0.0]
     kwargs = {"keep_attrs": True}
     echo_fraction = xr.where(*args, **kwargs)
@@ -419,7 +418,7 @@ def convert_gridrad(time, filepath, track_options, dataset_options, grid_options
 
     # Open the dataset and perform preliminary filtering and decluttering
     ds = open_gridrad(filepath, dataset_options)
-    ds = simple_filter(ds)
+    ds = filter(ds)
     ds = remove_clutter(ds)
 
     # Ensure the intended time is in the dataset

@@ -499,7 +499,6 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
         logger.warning("One or more filepaths do not exist; attempting download.")
         cds_name, requests, local_paths = generate_cdsapi_requests(dataset_options)
         issue_cdsapi_requests(cds_name, requests, local_paths)
-        pass
 
     lat = np.array(grid_options["latitude"])
     lon = np.array(grid_options["longitude"])
@@ -508,14 +507,15 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
     lon_range = (lon.min() - 0.25, lon.max() + 0.25)
 
     # Assume user has write privileges in the base_local directory
-    logger.warning(f"Creating temporary directory in /scratch/w40/esh563")
-    with tempfile.TemporaryDirectory(dir="/scratch/w40/esh563") as tmp:
+    with tempfile.TemporaryDirectory(dir=str(get_outputs_directory())) as tmp:
+        logger.info(f"Directory {tmp} created.")
         for field in dataset_options["fields"]:
             for filepath in filepaths[field]:
-                logger.debug("Subsetting %s", Path(filepath).name)
-                utils.call_ncks(
-                    filepath, f"{tmp}/{field}.nc", start, end, lat_range, lon_range
-                )
+                output_filename = Path(filepath).name
+                logger.debug("Subsetting %s", output_filename)
+                args = [filepath, f"{tmp}/{output_filename}.nc", start, end]
+                args += [lat_range, lon_range]
+                utils.call_ncks(*args)
         logger.debug("Merging files.")
         ds = xr.open_mfdataset(f"{tmp}/*.nc")
         logger.debug("Converting")

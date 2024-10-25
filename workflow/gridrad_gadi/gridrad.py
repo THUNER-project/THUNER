@@ -14,14 +14,22 @@ import thor.analyze as analyze
 import thor.parallel as parallel
 import thor.visualize as visualize
 from thor.log import setup_logger, logging_listener
+import thor.config as config
+import os
 
 logger = setup_logger(__name__)
 
 
 def gridrad(start, end, event_start, base_local=None):
-    # Parent directory for saving outputs
+
     if base_local is None:
-        base_local = Path("/scratch/w40/esh563/THOR_output")
+        # Set the output directory to scratch if not already set
+        username = os.environ["USER"]
+        project = os.environ["PROJECT"]
+        outputs_directory = f"/scratch/{project}/{username}/THOR_output"
+        # Also set this in the thor config file
+        config.set_outputs_directory(outputs_directory)
+        base_local = Path(outputs_directory)
 
     period = parallel.get_period(start, end)
     intervals = parallel.get_time_intervals(start, end, period=period)
@@ -75,7 +83,7 @@ def gridrad(start, end, event_start, base_local=None):
 
     # 8 processes a good choice for a GADI job with 32 GB of memory, 7 cores
     # Each process can use up to 4 GB of memory - mainly in storing gridrad files
-    num_processes = 16
+    num_processes = 8
     kwargs = {"initializer": parallel.initialize_process, "processes": num_processes}
     with logging_listener(), get_context("spawn").Pool(**kwargs) as pool:
         results = []

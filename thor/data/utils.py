@@ -24,30 +24,10 @@ logger = log.setup_logger(__name__, level="DEBUG")
 cv2.setNumThreads(0)
 
 
-class DownloadState:
+class DownloadState(utils.SingletonBase):
     """
-    Singleton class to manage download state across multiple processes. See for instance
-    the classic "Gang of Four" design pattern book for more information on the
-    "singleton" pattern. Only on instance of a "singleton" class can exist at one time.
-
-    Gamma et al. (1995), Design Patterns: Elements of Reusable Object-Oriented Software.
-
-    Note that if processes are created with spawn, different processes will now have
-    different instances of this singleton.
+    Singleton class to manage download state across multiple processes.
     """
-
-    _instance = None
-
-    def __new__(cls):
-        # Check if an instance already exists. First argument to __new__ is the class
-        # itself, so we can access the class attribute _instance.
-        if cls._instance is None:
-            # If an instance does not exist, create one
-            cls._instance = super(DownloadState, cls).__new__(cls)
-            # Initialize the instance using the _initialize method defined below
-            cls._instance._initialize()
-        # Return the class instance, whether it was just created or already existed
-        return cls._instance
 
     def _initialize(self):
         # Use both process and thread locks to prevent excess simultaneous downloads
@@ -439,7 +419,6 @@ def call_ncks(input_filepath, output_filepath, start, end, lat_range, lon_range)
         time_var = "time"
 
     lon_range = [(lon + 180) % 360 - 180 for lon in lon_range]
-    logger.info("Running ncks data from %s to %s.", start, end)
     command = (
         f"ncks -d {time_var},{start},{end} "
         f"-d latitude,{lat_range[0]},{lat_range[1]} "
@@ -447,9 +426,7 @@ def call_ncks(input_filepath, output_filepath, start, end, lat_range, lon_range)
         f"{input_filepath} {output_filepath}"
     )
     result = subprocess.run(command, shell=True, check=True)
-    if result.returncode == 0:
-        logger.info("ncks command completed successfully.")
-    else:
+    if result.returncode != 0:
         logger.error("ncks failed with return code %d.", result.returncode)
         logger.error("Standard output: %s", result.stdout)
         logger.error("Standard error: %s", result.stderr)
@@ -533,8 +510,8 @@ def mask_from_observations(dataset, dataset_options, object_options=None):
     else:
         altitudes = object_options.detection.altitudes
     num_obs = dataset["number_of_observations"].sel(altitude=slice(*altitudes))
-    num_obs = num_obs.sum(dim="altitude")
     mask = num_obs > dataset_options["obs_thresh"]
+    mask = mask.any(dim="altitude")
     return mask.astype(bool)
 
 

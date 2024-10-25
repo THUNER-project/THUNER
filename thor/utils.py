@@ -19,6 +19,37 @@ from thor.log import setup_logger
 logger = setup_logger(__name__)
 
 
+class SingletonBase:
+    """
+    Base class for implementing singletons in python. See for instance the classic
+    "Gang of Four" design pattern book for more information on the "singleton" pattern.
+    The idea is that only one instance of a "singleton" class can exist at one time,
+    making these useful for storing program state.
+
+    Gamma et al. (1995), Design Patterns: Elements of Reusable Object-Oriented Software.
+
+    Note however that if processes are created with, e.g., the multiprocessing module
+    different processes will have different instances of the singleton. We can avoid
+    this by explicitly passing the singleton instance to the processes.
+    """
+
+    # The base class now keeps track of all instances of singleton classes
+    _instances = {}
+
+    def __new__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            instance = super(SingletonBase, cls).__new__(cls)
+            instance._initialize(*args, **kwargs)
+            cls._instances[cls] = instance
+        return cls._instances[cls]
+
+    def _initialize(self, *args, **kwargs):
+        """
+        Initialize the singleton instance. This method should be overridden by subclasses.
+        """
+        pass
+
+
 def create_hidden_directory(path):
     """Create a hidden directory."""
     if not Path(path).name.startswith("."):
