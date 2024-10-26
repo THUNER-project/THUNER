@@ -7,6 +7,8 @@
 #PBS -l walltime=3:00:00
 #PBS -l wd
 #PBS -l storage=gdata/rt52+gdata/w40+gdata/rq0+scratch/w40
+#PBS -o /scratch/w40/esh563/THOR_output/PBS_log/gridrad_PBS.o
+#PBS -e /scratch/w40/esh563/THOR_output/PBS_log/gridrad_PBS.e
 
 # Load gnu-parallel
 module load parallel
@@ -19,8 +21,12 @@ conda activate THOR
 directories=($(cat "${filepath}"))
 script="/home/563/esh563/THOR/workflow/gridrad_gadi/gridrad.py"
 
-# For testing: Use only the first 5 entries of directories
+# In bash, the a:b syntax says slice 15 elements of the array starting from 10th element
 test_directories=("${directories[@]:10:15}")
 
-# Run the gridrad.py script with the directory corresponding to the current PBS_ARRAY_INDEX
-parallel -j 2 python3 $script ::: "${test_directories[@]}"
+LOG_DIR="/scratch/w40/esh563/THOR_output/PBS_log"
+parallel_log="${LOG_DIR}/${year}_parallel.log"
+
+# Run multiple days concurrently with gnu-parallel
+parallel -j 2 --joblog ${parallel_log} \
+    "python3 ${script} > ${LOG_DIR}/thor_{#}.out 2> ${LOG_DIR}/thor_{#}.err" ::: "${test_directories[@]}"

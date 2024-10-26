@@ -575,7 +575,7 @@ def get_mask_boundary(mask, grid_options):
     lons = np.array(grid_options["longitude"])
     lats = np.array(grid_options["latitude"])
     mask_array = mask.fillna(0).values.astype(np.uint8)
-    contours = cv2.findContours(mask_array, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)[0]
+    contours = cv2.findContours(mask_array, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)[0]
     boundary_coords = []
     for contour in contours:
         # Append the first point to the end to close the contour

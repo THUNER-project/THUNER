@@ -97,14 +97,14 @@ def match_template(reference_grid, figure_options, extent):
         ax.set_rasterized(True)
         kwargs = {"extent": extent, "scale": "10m"}
         kwargs.update({"left_labels": (i == 0)})
-        ax = horizontal.add_cartographic_features(ax, **kwargs)[0]
+        ax = horizontal.cartographic_features(ax, **kwargs)[0]
         if (
             "instrument" in reference_grid.attrs.keys()
             and "radar" in reference_grid.attrs["instrument"]
         ):
             radar_longitude = float(reference_grid.attrs["origin_longitude"])
             radar_latitude = float(reference_grid.attrs["origin_latitude"])
-            horizontal.add_radar_features(ax, radar_longitude, radar_latitude, extent)
+            horizontal.radar_features(ax, radar_longitude, radar_latitude, extent)
         axes.append(ax)
     cbar_ax = fig.add_subplot(gs[0, -1])
     make_subplot_labels(axes, x_shift=-0.12, y_shift=0.06)
@@ -215,7 +215,7 @@ def visualize_match(
             if masks[j] is not None:
                 horizontal.show_mask(masks[j], axes[i], grid_options)
             if input_record["current_boundary_coordinates"] is not None:
-                horizontal.add_domain_boundary(axes[i], all_boundaries[j])
+                horizontal.domain_boundary(axes[i], all_boundaries[j], grid_options)
         axes[i].set_extent(extent)
     unique_global_flow = object_options.tracking.unique_global_flow
     match_features(grids[0], object_record, axes, grid_options, unique_global_flow)

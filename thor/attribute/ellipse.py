@@ -134,7 +134,7 @@ def geographic_pixel_to_distance(latitude, longitude, spacing, axis, orientation
 def cv2_ellipse(mask, id, grid_options):
     lats, lons = grid_options["latitude"], grid_options["longitude"]
     hull = convex_hull_image(mask == id).astype(np.uint8)
-    contours = cv2.findContours(hull, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)[0]
+    contours = cv2.findContours(hull, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
 
     # Check if small object, and pad if necessary
     if len(contours[0]) > 6:

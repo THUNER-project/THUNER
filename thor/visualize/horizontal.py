@@ -73,6 +73,7 @@ def show_mask(mask, ax, grid_options, single_color=False):
     norm = BoundaryNorm(levels, ncolors=len(colors), clip=True)
     mesh_style = {"shading": "nearest", "transform": proj, "cmap": cmap, "alpha": 0.4}
     mesh_style.update({"zorder": 2, "norm": norm})
+
     for i in object_labels:
         binary_mask = mask.where(mask == i, 0).astype(bool)
         color_index = np.uint8((i - 1) % len(colors))
@@ -86,7 +87,9 @@ def show_mask(mask, ax, grid_options, single_color=False):
             rows = contour[:, :, 1].flatten()
             lats, lons = thor_grid.get_pixels_geographic(rows, cols, grid_options)
             color = colors[int(color_index)]
-            ax.plot(lons, lats, color=color, linewidth=1, zorder=3, transform=proj)
+            args = [lons, lats]
+            kwargs = {"color": color, "linewidth": 1, "zorder": 3, "transform": proj}
+            ax.plot(*args, **kwargs)
     ax.set_title(title)
     return colors
 
@@ -110,14 +113,24 @@ def mask_legend_artist(single_color=False):
     return tuple(patches), handler_map
 
 
-def add_radar_features(ax, radar_lon, radar_lat, extent):
+def radar_features(ax, radar_lon, radar_lat, extent):
     """Add radar features to an ax."""
     ax.plot([radar_lon, radar_lon], [extent[2], extent[3]], **domain_plot_style)
     ax.plot([extent[0], extent[1]], [radar_lat, radar_lat], **domain_plot_style)
     return ax
 
 
-def add_domain_boundary(ax, boundaries):
+def embossed_text(ax, text, longitude, latitude):
+    """Add embossed text to an ax."""
+    args = [longitude, latitude, text]
+    path_effects = [patheffects.Stroke(linewidth=3, foreground="k")]
+    path_effects += [patheffects.Normal()]
+    kwargs = {"transform": proj, "zorder": 5, "fontweight": "bold", "color": "w"}
+    kwargs.update({"path_effects": path_effects})
+    ax.text(*args, **kwargs)
+
+
+def domain_boundary(ax, boundaries, grid_options):
     """Add domain boundary to an ax."""
     logger.debug("Plotting boundary.")
     for boundary in boundaries:
@@ -150,8 +163,8 @@ US_states_dict = {
 }
 
 
-def add_cartographic_features(
-    ax, scale="50m", extent=(-180, 180, -90, 90), left_labels=True, bottom_labels=True
+def cartographic_features(
+    ax, scale="110m", extent=(-180, 180, -90, 90), left_labels=True, bottom_labels=True
 ):
     """
     Initialize a figure.
@@ -185,8 +198,8 @@ def add_cartographic_features(
     kwargs["facecolor"] = colors["land"]
     land = cfeature.NaturalEarthFeature("physical", "land", scale, **kwargs)
     kwargs = {"category": "cultural", "name": "admin_1_states_provinces_lines"}
-    kwargs.update({"scale": scale, "facecolor": "none", "edgecolor": "gray"})
-    states_provinces = cfeature.NaturalEarthFeature(**kwargs)
+    kwargs.update({"facecolor": "none", "edgecolor": "gray"})
+    states_provinces = cfeature.NaturalEarthFeature(scale="50m", **kwargs)
     national_borders = cfeature.BORDERS.with_scale(scale)
 
     ax.add_feature(land, zorder=0)
@@ -320,17 +333,18 @@ def vector_key(ax, u=-10, v=0, color="k", dt=3600, scale=1):
     """Add a vector key to the plot."""
     fig = ax.get_figure()
     if scale == 1:
-        y_position = 1
-    elif scale == 2:
         y_position = 0.95
-    y_position = 0.925
-    start_point = fig.transFigure.transform((0.875, y_position))
+        x_position = 0.92
+    elif scale == 2:
+        y_position = 0.925
+        x_position = 0.875
+    start_point = fig.transFigure.transform((x_position, y_position))
     [longitude, latitude] = ax.transData.inverted().transform(start_point)
     longitude = longitude % 360
     args = [ax, latitude, longitude, u, v, color, None]
     cartesian_velocity(*args, quality=True, dt=dt, clip=False)
 
-    start_point = fig.transFigure.transform((0.89, y_position))
+    start_point = fig.transFigure.transform((x_position + 0.015, y_position))
     [longitude, latitude] = ax.transData.inverted().transform(start_point)
     ax.text(longitude, latitude, f"{np.abs(u)} m/s", ha="left", va="center")
 
@@ -511,11 +525,11 @@ def detected_mask_template(grid, figure_options, extent):
     """Create a template figure for masks."""
     fig = plt.figure(figsize=(6, 3.5))
     ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
-    add_cartographic_features(ax, scale="10m", extent=extent)
+    cartographic_features(ax, scale="10m", extent=extent)
     if "instrument" in grid.attrs.keys() and "radar" in grid.attrs["instrument"]:
         radar_longitude = float(grid.attrs["origin_longitude"])
         radar_latitude = float(grid.attrs["origin_latitude"])
-        add_radar_features(ax, radar_longitude, radar_latitude, extent)
+        radar_features(ax, radar_longitude, radar_latitude, extent)
     return fig, ax
 
 
@@ -534,7 +548,7 @@ def detected_mask(grid, mask, grid_options, figure_options, boundary_coordinates
     if mask is not None:
         show_mask(mask, ax, grid_options, single_color)
     if boundary_coordinates is not None:
-        add_domain_boundary(ax, boundary_coordinates)
+        domain_boundary(ax, boundary_coordinates, grid_options)
     cbar_label = grid.name.title() + f" [{grid.units}]"
     fig.colorbar(pcm, label=cbar_label)
     ax.set_title(f"{grid.time.values.astype('datetime64[s]')} UTC")
@@ -574,7 +588,7 @@ def grouped_mask_template(grid, extent, member_objects, scale):
         if "instrument" in keys and "radar" in grid_i.attrs["instrument"]:
             radar_longitude = float(grid_i.attrs["origin_longitude"])
             radar_latitude = float(grid_i.attrs["origin_latitude"])
-            add_radar_features(ax, radar_longitude, radar_latitude, extent)
+            radar_features(ax, radar_longitude, radar_latitude, extent)
     return fig, subplot_axes, colorbar_axes, legend_ax, layout
 
 
@@ -600,7 +614,7 @@ def grouped_mask(
         if mask_i is not None:
             show_mask(mask_i, ax, grid_options, single_color)
         if boundary_coordinates is not None:
-            add_domain_boundary(ax, boundary_coordinates)
+            domain_boundary(ax, boundary_coordinates, grid_options)
         if grid is None:
             continue
         grid_i = grid[f"{member_objects[i]}_grid"]
@@ -718,7 +732,7 @@ class PanelledUniformMaps(BaseLayout):
             ax.set_rasterized(True)
             kwargs = {"extent": self.extent, "left_labels": (j == 0)}
             kwargs.update({"bottom_labels": (i == self.rows - 1)})
-            ax = add_cartographic_features(ax, **kwargs)[0]
+            ax = cartographic_features(ax, **kwargs)[0]
             ax.set_extent(self.extent, crs=proj)
             subplot_axes.append(ax)
         make_subplot_labels(subplot_axes, x_shift=-0.12, y_shift=0.06)

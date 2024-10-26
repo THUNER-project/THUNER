@@ -233,6 +233,7 @@ def mcs_horizontal(
         velocity_attributes_horizontal(*args, dt=dt)
         displacement_attributes_horizontal(*args)
         ellipse_attributes(*args)
+        text_attributes_horizontal(*args)
 
     style = figure_options["style"]
     scale = utils.get_extent(grid_options)[1]
@@ -255,7 +256,7 @@ def mcs_horizontal(
     handles += [handle]
     labels += ["Major Axis"]
     attribute_names = figure_options["attributes"]
-    for name in attribute_names:
+    for name in [attr for attr in attribute_names if attr != "id"]:
         color = colors_dispatcher[name]
         label = label_dispatcher[name]
         handle = horizontal.displacement_legend_artist(color, label)
@@ -338,6 +339,19 @@ def velocity_attributes_horizontal(axes, figure_options, object_attributes, dt=3
         axes[0] = horizontal.cartesian_velocity(*args, quality=quality, dt=dt)
 
     return legend_handles
+
+
+def text_attributes_horizontal(axes, figure_options, object_attributes):
+    """Add object ID attributes."""
+
+    if "id" in figure_options["attributes"]:
+        latitude = object_attributes["latitude"]
+        longitude = object_attributes["longitude"]
+        args = [axes[0], str(object_attributes.name), longitude, latitude]
+        horizontal.embossed_text(*args)
+        args[0] = axes[1]
+        horizontal.embossed_text(*args)
+    return
 
 
 def get_quality(quality_names, object_attributes):
