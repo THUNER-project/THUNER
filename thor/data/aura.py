@@ -15,8 +15,16 @@ import thor.data.option as option
 import thor.grid as grid
 from thor.config import get_outputs_directory
 
+# from thor.option import BaseOptions
+
 
 logger = setup_logger(__name__)
+
+
+# class CPOLDataOptions(BaseOptions):
+#     """Options for CPOL datasets."""
+
+#     pass
 
 
 def cpol_data_options(

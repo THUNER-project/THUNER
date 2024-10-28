@@ -341,7 +341,7 @@ def vector_key(ax, u=-10, v=0, color="k", dt=3600, scale=1):
     start_point = fig.transFigure.transform((x_position, y_position))
     [longitude, latitude] = ax.transData.inverted().transform(start_point)
     longitude = longitude % 360
-    args = [ax, latitude, longitude, u, v, color, None]
+    args = [ax, latitude, longitude, u, v, color]
     cartesian_velocity(*args, quality=True, dt=dt, clip=False)
 
     start_point = fig.transFigure.transform((x_position + 0.015, y_position))
@@ -444,16 +444,7 @@ def cartesian_displacement(
 
 
 def cartesian_velocity(
-    ax,
-    start_latitude,
-    start_longitude,
-    u,
-    v,
-    color,
-    label,
-    dt=3600,
-    quality=True,
-    clip=True,
+    ax, start_latitude, start_longitude, u, v, color, dt=3600, quality=True, clip=True
 ):
     """Plot a velocity provided in cartesian coordinates."""
 
@@ -490,9 +481,8 @@ def pixel_vector(
         spacing = np.array(grid_options["cartesian_spacing"])
         cartesian_vector = np.array(vector) * spacing
         distance = np.sqrt(np.sum(cartesian_vector**2))
-        end_lon, end_lat = thor_grid.geodesic_forward(
-            start_lon, start_lat, azimuth, distance
-        )[:2]
+        args = [start_lon, start_lat, azimuth, distance]
+        end_lon, end_lat = thor_grid.geodesic_forward(*args)[:2]
         geographic_vector = [end_lat - start_lat, end_lon - start_lon]
     elif grid_options["name"] == "geographic":
         if start_lat is None or start_lon is None:
@@ -669,7 +659,7 @@ class PanelledUniformMaps(BaseLayout):
         horizontal_spacing: float = 0.3,  # Spacing between subplots in inches
         vertical_spacing: float = 0.6,  # Spacing between subplots in inches
         colorbar: bool = True,  # Add a colorbar to the figure
-        legend_rows: Optional[int] = 2,  # Number of rows in the legend
+        legend_rows: int | None = 2,  # Number of rows in the legend
     ):
         lat_range = extent[3] - extent[2]
         lon_range = extent[1] - extent[0]

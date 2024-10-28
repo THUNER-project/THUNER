@@ -4,8 +4,80 @@ from thor.log import setup_logger
 import thor.utils as utils
 from thor.config import get_outputs_directory
 
+# from thor.option import BaseOptions
+# from pydantic import Field, model_validator
+
 
 logger = setup_logger(__name__)
+
+# Create convenience dictionary for options descriptions.
+_summary = {
+    "name": "Name of the dataset.",
+    "start": "Tracking start time.",
+    "end": "Tracking end time.",
+    "parent_remote": "Data parent directory on remote storage.",
+    "parent_local": "Data parent directory on local storage.",
+    "converted_options": "Options for converted data.",
+    "filepaths": "List of filepaths to used for tracking.",
+    "attempt_download": "Whether to attempt to download the data.",
+    "deque_length": """Number of previous grids from this dataset to keep in memory. 
+    Most tracking algorithms require at least two previous grids.""",
+    "use": "Whether this dataset will be used for tagging or tracking.",
+    "parent_converted": "Parent directory for converted data.",
+    "fields": """List of dataset fields, i.e. variables, to use. Fields should be given 
+    using their thor, i.e. CF-Conventions, names, e.g. 'reflectivity'.""",
+}
+
+
+# class ConvertedOptions(BaseOptions):
+#     """Converted options."""
+
+#     save: bool = Field(False, description="Whether to save the converted data.")
+#     load: bool = Field(False, description="Whether to load the converted data.")
+#     parent_converted: str | None = Field(None, description=_summary["parent_converted"])
+
+
+# class BaseDataOptions(BaseOptions):
+#     """Base class for data options."""
+
+#     name: str = Field(..., description=_summary["name"])
+#     start: str = Field(..., description=_summary["start"])
+#     end: str = Field(..., description=_summary["end"])
+#     fields: list[str] = Field(..., description=_summary["fields"])
+#     parent_remote: str | None = Field(None, description=_summary["parent_remote"])
+#     parent_local: str | None = Field(None, description=_summary["parent_local"])
+#     converted_options: ConvertedOptions = Field(
+#         ConvertedOptions(), description=_summary["converted_options"]
+#     )
+#     filepaths: list[str] | None = Field(None, description=_summary["filepaths"])
+#     attempt_download: bool = Field(False, description=_summary["attempt_download"])
+#     deque_length: int = Field(2, description=_summary["deque_length"])
+#     use: str = Field("track", description=_summary["use"])
+
+#     @model_validator(mode="after")
+#     def _check_parents(cls, values):
+#         if values.parent_remote is None and values.parent_local is None:
+#             message = "At least one of parent_remote and parent_local must be "
+#             message += "specified."
+#             raise ValueError(message)
+#         if values.converted_options.save or values.converted_options.load:
+#             if values.parent_converted is None:
+#                 message = "parent_converted must be specified if saving or loading."
+#                 raise ValueError(message)
+#         if values.attempt_download:
+#             if values.parent_remote is None | values.parent_local is None:
+#                 message = "parent_remote and parent_local must both be specified if "
+#                 message += "attempting to download."
+#                 raise ValueError(message)
+#         return values
+
+#     @model_validator(mode="after")
+#     def _check_fields(cls, values):
+#         if values.use == "track" and len(values.fields) != 1:
+#             message = "Only one field should be specified if the dataset is used for "
+#             message += "tracking. Instead, created grouped objects. See thor.option."
+#             raise ValueError(message)
+#         return values
 
 
 def boilerplate_options(

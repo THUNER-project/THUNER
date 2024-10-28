@@ -335,7 +335,7 @@ def velocity_attributes_horizontal(axes, figure_options, object_attributes, dt=3
         quality = get_quality(quality_names, object_attributes)
         color = colors_dispatcher[attribute]
         label = label_dispatcher[attribute]
-        args = [axes[0], latitude, longitude, u, v, color, label]
+        args = [axes[0], latitude, longitude, u, v, color]
         axes[0] = horizontal.cartesian_velocity(*args, quality=quality, dt=dt)
 
     return legend_handles
