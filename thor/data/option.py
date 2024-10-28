@@ -1,11 +1,11 @@
 """General data options functions."""
 
+import numpy as np
+from pydantic import Field, model_validator
 from thor.log import setup_logger
 import thor.utils as utils
 from thor.config import get_outputs_directory
-
 import thor.option as option
-from pydantic import Field, model_validator
 
 
 logger = setup_logger(__name__)
@@ -41,11 +41,13 @@ class BaseDataOptions(option.BaseOptions):
     """Base class for data options."""
 
     name: str = Field(..., description=_summary["name"])
-    start: str = Field(..., description=_summary["start"])
-    end: str = Field(..., description=_summary["end"])
+    start: str | np.datetime64 = Field(..., description=_summary["start"])
+    end: str | np.datetime64 = Field(..., description=_summary["end"])
     fields: list[str] = Field(..., description=_summary["fields"])
     parent_remote: str | None = Field(None, description=_summary["parent_remote"])
-    parent_local: str | None = Field(None, description=_summary["parent_local"])
+    parent_local: str | None = Field(
+        get_outputs_directory, description=_summary["parent_local"]
+    )
     converted_options: ConvertedOptions = Field(
         ConvertedOptions(), description=_summary["converted_options"]
     )

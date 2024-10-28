@@ -84,7 +84,7 @@ def gridrad_data_options(
     dataset_id="ds841.6",
     fields=None,
     version="v4_2",
-    obs_thresh=2,
+    obs_thresh=4,
 ):
     """
     Generate gridrad radar data options dictionary.
@@ -418,7 +418,7 @@ def convert_gridrad(time, filepath, track_options, dataset_options, grid_options
 
     # Open the dataset and perform preliminary filtering and decluttering
     ds = open_gridrad(filepath, dataset_options)
-    ds = filter(ds)
+    ds = filter(ds, obs_thresh=dataset_options["obs_thresh"])
     ds = remove_clutter(ds)
 
     # Ensure the intended time is in the dataset

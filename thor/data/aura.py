@@ -14,17 +14,28 @@ from thor.utils import format_string_list
 import thor.data.option as option
 import thor.grid as grid
 from thor.config import get_outputs_directory
-
-# from thor.option import BaseOptions
+from thor.data.option import BaseDataOptions
+from pydantic import Field
 
 
 logger = setup_logger(__name__)
 
 
-# class CPOLDataOptions(BaseOptions):
-#     """Options for CPOL datasets."""
+class CPOLDataOptions(BaseDataOptions):
+    """Options for CPOL datasets."""
 
-#     pass
+    # Overwrite the default values from the base class. Note these objects are still
+    # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
+    name: str = "cpol"
+    fields: list[str] = ["reflectivity"]
+    parent_remote: str = "https://dapds00.nci.org.au/thredds/fileServer/hj10"
+
+    # Define additional fields for CPOL
+    level: str = Field("1b", description="Processing level.")
+    data_format: str = Field("grid_150km_2500m", description="Data format.")
+    version: str = Field("v2020", description="Data version.")
+    range: float = Field(142.5, description="Range of the radar in km.")
+    range_units: str = Field("km", description="Units of the range.")
 
 
 def cpol_data_options(
@@ -111,6 +122,23 @@ def cpol_data_options(
     )
 
     return options
+
+
+class OperationalDataOptions(BaseDataOptions):
+    """Options for CPOL datasets."""
+
+    # Overwrite the default values from the base class. Note these objects are still
+    # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
+    name: str = "cpol"
+    fields: list[str] = ["reflectivity"]
+    parent_remote: str = "https://dapds00.nci.org.au/thredds/fileServer/hj10"
+
+    # Define additional fields for CPOL
+    level: str = Field("1b", description="Processing level.")
+    data_format: str = Field("grid_150km_2500m", description="Data format.")
+    version: str = Field("v2020", description="Data version.")
+    range: float = Field(142.5, description="Range of the radar in km.")
+    range_units: str = Field("km", description="Units of the range.")
 
 
 def operational_data_options(

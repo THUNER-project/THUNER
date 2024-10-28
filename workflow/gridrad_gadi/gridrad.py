@@ -118,7 +118,11 @@ def gridrad(start, end, event_start, base_local=None):
 
     # Tar and compress the output directory
     output_parent = Path(output_parent)
-    command = f"tar -czvf {output_parent}.tar.gz -C "
+    tar_file = f"{output_parent}.tar.gz"
+    # Remove the tar file if it already exists
+    if Path(tar_file).exists(missing_ok=True):
+        Path(tar_file).unlink()
+    command = f"tar -czvf  -C "
     command += f"{output_parent.parent} {output_parent.name}"
     subprocess.run(command, shell=True, text=True)
 
