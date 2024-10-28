@@ -6,7 +6,6 @@ from thor.log import setup_logger
 import thor.object.object as thor_object
 import thor.match.tint as tint
 from thor.match.utils import get_masks
-import thor.option as option
 
 logger = setup_logger(__name__)
 
@@ -23,7 +22,7 @@ def initialise_match_records(object_tracks, object_options):
     )
 
 
-def match(object_tracks, object_options: option.BaseObjectOptions, grid_options):
+def match(object_tracks, object_options, grid_options):
     """Match objects between previous and current masks."""
     if object_options.tracking is None:
         return

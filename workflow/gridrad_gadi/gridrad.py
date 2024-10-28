@@ -117,6 +117,7 @@ def gridrad(start, end, event_start, base_local=None):
     visualize.attribute.mcs_series(*args, **kwargs)
 
     # Tar and compress the output directory
+    output_parent = Path(output_parent)
     command = f"tar -czvf {output_parent}.tar.gz -C "
     command += f"{output_parent.parent} {output_parent.name}"
     subprocess.run(command, shell=True, text=True)

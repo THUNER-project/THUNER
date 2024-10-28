@@ -29,4 +29,4 @@ parallel_log="${LOG_DIR}/${year}_parallel.log"
 
 # Run multiple days concurrently with gnu-parallel
 parallel -j 2 --joblog ${parallel_log} \
-    "python3 ${script} > ${LOG_DIR}/thor_{#}.out 2> ${LOG_DIR}/thor_{#}.err" ::: "${test_directories[@]}"
+    "python3 ${script} {} > ${LOG_DIR}/thor_{#}.out 2> ${LOG_DIR}/thor_{#}.err" ::: "${test_directories[@]}"

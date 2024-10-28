@@ -11,4 +11,4 @@ directories=$(find ${DATA_DIR} -mindepth 1 -type d -print | sort)
 filepath="${SCRIPT_DIR}/${year}_directories.txt"
 echo ${directories} > ${filepath}
 
-qsub -v filepath=${filepath} ./gridrad_PBS.sh
+qsub -v filepath=${filepath},year=${year} ./gridrad_PBS.sh

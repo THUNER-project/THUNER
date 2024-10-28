@@ -4,8 +4,8 @@ from thor.log import setup_logger
 import thor.utils as utils
 from thor.config import get_outputs_directory
 
-# from thor.option import BaseOptions
-# from pydantic import Field, model_validator
+import thor.option as option
+from pydantic import Field, model_validator
 
 
 logger = setup_logger(__name__)
@@ -29,55 +29,55 @@ _summary = {
 }
 
 
-# class ConvertedOptions(BaseOptions):
-#     """Converted options."""
+class ConvertedOptions(option.BaseOptions):
+    """Converted options."""
 
-#     save: bool = Field(False, description="Whether to save the converted data.")
-#     load: bool = Field(False, description="Whether to load the converted data.")
-#     parent_converted: str | None = Field(None, description=_summary["parent_converted"])
+    save: bool = Field(False, description="Whether to save the converted data.")
+    load: bool = Field(False, description="Whether to load the converted data.")
+    parent_converted: str | None = Field(None, description=_summary["parent_converted"])
 
 
-# class BaseDataOptions(BaseOptions):
-#     """Base class for data options."""
+class BaseDataOptions(option.BaseOptions):
+    """Base class for data options."""
 
-#     name: str = Field(..., description=_summary["name"])
-#     start: str = Field(..., description=_summary["start"])
-#     end: str = Field(..., description=_summary["end"])
-#     fields: list[str] = Field(..., description=_summary["fields"])
-#     parent_remote: str | None = Field(None, description=_summary["parent_remote"])
-#     parent_local: str | None = Field(None, description=_summary["parent_local"])
-#     converted_options: ConvertedOptions = Field(
-#         ConvertedOptions(), description=_summary["converted_options"]
-#     )
-#     filepaths: list[str] | None = Field(None, description=_summary["filepaths"])
-#     attempt_download: bool = Field(False, description=_summary["attempt_download"])
-#     deque_length: int = Field(2, description=_summary["deque_length"])
-#     use: str = Field("track", description=_summary["use"])
+    name: str = Field(..., description=_summary["name"])
+    start: str = Field(..., description=_summary["start"])
+    end: str = Field(..., description=_summary["end"])
+    fields: list[str] = Field(..., description=_summary["fields"])
+    parent_remote: str | None = Field(None, description=_summary["parent_remote"])
+    parent_local: str | None = Field(None, description=_summary["parent_local"])
+    converted_options: ConvertedOptions = Field(
+        ConvertedOptions(), description=_summary["converted_options"]
+    )
+    filepaths: list[str] | None = Field(None, description=_summary["filepaths"])
+    attempt_download: bool = Field(False, description=_summary["attempt_download"])
+    deque_length: int = Field(2, description=_summary["deque_length"])
+    use: str = Field("track", description=_summary["use"])
 
-#     @model_validator(mode="after")
-#     def _check_parents(cls, values):
-#         if values.parent_remote is None and values.parent_local is None:
-#             message = "At least one of parent_remote and parent_local must be "
-#             message += "specified."
-#             raise ValueError(message)
-#         if values.converted_options.save or values.converted_options.load:
-#             if values.parent_converted is None:
-#                 message = "parent_converted must be specified if saving or loading."
-#                 raise ValueError(message)
-#         if values.attempt_download:
-#             if values.parent_remote is None | values.parent_local is None:
-#                 message = "parent_remote and parent_local must both be specified if "
-#                 message += "attempting to download."
-#                 raise ValueError(message)
-#         return values
+    @model_validator(mode="after")
+    def _check_parents(cls, values):
+        if values.parent_remote is None and values.parent_local is None:
+            message = "At least one of parent_remote and parent_local must be "
+            message += "specified."
+            raise ValueError(message)
+        if values.converted_options.save or values.converted_options.load:
+            if values.parent_converted is None:
+                message = "parent_converted must be specified if saving or loading."
+                raise ValueError(message)
+        if values.attempt_download:
+            if values.parent_remote is None | values.parent_local is None:
+                message = "parent_remote and parent_local must both be specified if "
+                message += "attempting to download."
+                raise ValueError(message)
+        return values
 
-#     @model_validator(mode="after")
-#     def _check_fields(cls, values):
-#         if values.use == "track" and len(values.fields) != 1:
-#             message = "Only one field should be specified if the dataset is used for "
-#             message += "tracking. Instead, created grouped objects. See thor.option."
-#             raise ValueError(message)
-#         return values
+    @model_validator(mode="after")
+    def _check_fields(cls, values):
+        if values.use == "track" and len(values.fields) != 1:
+            message = "Only one field should be specified if the dataset is used for "
+            message += "tracking. Instead, created grouped objects. See thor.option."
+            raise ValueError(message)
+        return values
 
 
 def boilerplate_options(
