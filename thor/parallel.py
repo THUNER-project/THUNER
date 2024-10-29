@@ -1,6 +1,5 @@
 """Parallel processing utilities."""
 
-from memory_profiler import profile
 import shutil
 import gc
 import multiprocessing
@@ -393,15 +392,32 @@ def stitch_attribute(
     if obj in tracked_objects:
         df = relabel_tracked(intervals, match_dicts, obj, df)
 
+    # if "parents" in df.columns:
+    # print("Fixing parents")
+
     unique_ids = df[id_type].unique()
     mapping = {old_id: new_id + 1 for new_id, old_id in enumerate(sorted(unique_ids))}
     df[id_type] = df[id_type].map(mapping)
+    # Fix parents...
+    if "parents" in df.columns:
+        for i in range(len(df)):
+            row = df.iloc[i]
+            if str(row["parents"]) == "nan":
+                continue
+            parents = row["parents"].split(" ")
+            new_parents = []
+            for p in parents:
+                p = int(p)
+                new_parent = mapping[p]
+                new_parents.append(str(new_parent))
+            new_parents = " ".join(new_parents)
+            df.at[i, "parents"] = new_parents
 
     id_dict = df[[id_type, "original_id", "interval"]].drop_duplicates()
     id_dict = id_dict.set_index(["interval", "original_id"]).sort_index()
 
-    if "parents" in df.columns:
-        df = relabel_parents(df, id_dict)
+    # if "parents" in df.columns:
+    #     df = relabel_parents(df, id_dict)
 
     df = df.set_index(index_columns).sort_index()
     df = df.drop(["original_id", "interval"], axis=1)
@@ -424,33 +440,73 @@ def relabel_tracked(intervals, match_dicts, obj, df):
         for next_key in reversed_match_dict.keys():
             current_key = reversed_match_dict[next_key]
             condition = current_interval & (df["original_id"] == current_key)
+            # Get the universal id of the object in the current interval with current_key
             universal_ids = df.loc[condition]["universal_id"].unique()
+            # Confirm that the universal id is unique
+            # Note we do nothing if universal_ids is empty, which can occur if the object
+            # was only detected in the very last scan of the current interval
             if len(universal_ids) > 1:
                 raise ValueError(f"Non unique universal id.")
             elif len(universal_ids) == 1:
                 universal_id = int(universal_ids[0])
+                # Relabel the universal id of the corresponding object in the next interval
                 condition = next_interval & (df["original_id"] == next_key)
                 df.loc[condition, "universal_id"] = universal_id
-            # Note we do nothing if universal_ids is empty, which can occur if the object
-            # was only detected in the very last scan of the current interval
+                # Relabel parents objects in the next interval
+        if "parents" in df.columns:
+            args = [df, next_interval, current_interval, reversed_match_dict]
+            df = relabel_parents(*args)
 
     return df
 
 
-def relabel_parents(df, id_dict):
-    """Relabel parents based on id_dict."""
-    for i in range(len(df)):
-        row = df.iloc[i]
-        if str(row["parents"]) == "nan":
+def relabel_parents(df, next_interval, current_interval, reversed_match_dict):
+    """Relabel parents based on reversed_match_dict. This is fiddly."""
+    parents = df.loc[next_interval, "parents"]
+    new_parents = []
+    for object_parents in parents:
+        if str(object_parents) == "nan":
+            new_parents.append("nan")
             continue
-        parents = row["parents"].split(" ")
-        new_parents = []
-        for p in parents:
+        new_object_parents = []
+        for p in object_parents.split(" "):
             p = int(p)
-            interval = row["interval"]
-            new_parent = id_dict.loc[interval, p].values[0]
-            new_parents.append(new_parent)
-        new_parents = [str(p) for p in new_parents]
-        new_parents = " ".join(new_parents)
-        df.at[i, "parents"] = new_parents
+            if p in reversed_match_dict:
+                # If parent p in the match dict, get the universal id of the parent
+                # from the current interval
+                current_key = reversed_match_dict[p]
+                condition = current_interval & (df["original_id"] == current_key)
+                # Get the universal id of the object in the current interval with current_key
+                universal_ids = df.loc[condition]["universal_id"].unique()
+                universal_id = int(universal_ids[0])
+                new_object_parents.append(str(universal_id))
+            else:
+                # If parent p is not in the match dict, use the universal id of the parent
+                # from the next interval
+                condition = next_interval & (df["original_id"] == p)
+                universal_ids = df.loc[condition, "universal_id"].unique()
+                universal_id = int(universal_ids[0])
+                new_object_parents.append(str(universal_id))
+
+        new_parents.append(" ".join(new_object_parents))
+    df.loc[next_interval, "parents"] = new_parents
     return df
+
+
+# def relabel_parents(df, id_dict):
+#     """Relabel parents based on id_dict."""
+#     for i in range(len(df)):
+#         row = df.iloc[i]
+#         if str(row["parents"]) == "nan":
+#             continue
+#         parents = row["parents"].split(" ")
+#         new_parents = []
+#         for p in parents:
+#             p = int(p)
+#             interval = row["interval"]
+#             new_parent = id_dict.loc[interval, p].values[0]
+#             new_parents.append(new_parent)
+#         new_parents = [str(p) for p in new_parents]
+#         new_parents = " ".join(new_parents)
+#         df.at[i, "parents"] = new_parents
+#     return df
