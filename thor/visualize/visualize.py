@@ -2,11 +2,12 @@
 
 from PIL import Image
 import imageio
+import colorsys
 from pathlib import Path
 import glob
 import numpy as np
 import contextlib
-from matplotlib.colors import BoundaryNorm
+import matplotlib.colors as mcolors
 import pyart.graph.cm_colorblind as pcm
 import thor.visualize.utils as utils
 from thor.log import setup_logger
@@ -15,6 +16,32 @@ logger = setup_logger(__name__)
 
 
 style = "presentation"
+
+
+def desaturate_colormap(cmap, factor=0.15):
+    """Desaturate a colormap by a given factor."""
+    colors = cmap(np.linspace(0, 1, cmap.N))
+    hls_colors = [colorsys.rgb_to_hls(*color[:3]) for color in colors]
+    desaturated_hls_colors = [(h, l, s * factor) for h, l, s in hls_colors]
+    desaturated_rgb_colors = [
+        colorsys.hls_to_rgb(h, l, s) for h, l, s in desaturated_hls_colors
+    ]
+    desaturated_cmap = mcolors.ListedColormap(
+        desaturated_rgb_colors, name=f"{cmap.name}_desaturated"
+    )
+    return desaturated_cmap
+
+
+def hls_colormap(N=1, lightness=0.9):
+    """Create a hls colormap."""
+    hls_colors = [(i / N, lightness, 1) for i in range(N)]
+    rgb_colors = [colorsys.hls_to_rgb(h, l, s) for h, l, s in hls_colors]
+    hls_colormap = mcolors.ListedColormap(rgb_colors, name=f"hls_{lightness}_{N}")
+    return hls_colormap
+
+
+# Desaturate the HomeyerRainbow colormap
+desaturated_homeyer_rainbow = desaturate_colormap(pcm.HomeyerRainbow, factor=0.35)
 
 
 @contextlib.contextmanager
@@ -30,13 +57,13 @@ def set_style(new_style):
 
 
 reflectivity_levels = np.arange(-10, 60 + 5, 5)
-reflectivity_norm = BoundaryNorm(
-    reflectivity_levels, ncolors=pcm.HomeyerRainbow.N, clip=True
+reflectivity_norm = mcolors.BoundaryNorm(
+    reflectivity_levels, ncolors=desaturated_homeyer_rainbow.N, clip=True
 )
 
 pcolormesh_style = {
     "reflectivity": {
-        "cmap": pcm.HomeyerRainbow,
+        "cmap": desaturated_homeyer_rainbow,
         "shading": "nearest",
         "norm": reflectivity_norm,
     },

@@ -259,7 +259,10 @@ def get_matches(object_tracks, object_options, grid_options):
         matches = optimize.linear_sum_assignment(costs_matrix)
     except ValueError:
         logger.debug("Could not solve matching problem.")
-    parents = []
+    # Initialize parents to be the same length as the number of current objects
+    current_mask = get_masks(object_tracks, object_options)[0]
+    current_total = np.max(current_mask.values)
+    parents = [[] for i in range(current_total)]
     costs = []
     distances = []
     area_differences = []
@@ -277,11 +280,17 @@ def get_matches(object_tracks, object_options, grid_options):
         area_differences.append(area_difference)
         overlap_area = overlap_areas_matrix[i, matches[1][i]]
         overlap_areas.append(overlap_area)
-        parents.append(None)
         if cost >= max_cost:
-            # Set to -1 if object has died (or merged)
             logger.debug(f"Cost {cost} exceeds max_cost {max_cost}.")
             matches[1][i] = -1
+        # Determine children of objects as unmatched objects possessing area overlap > 0
+        children = np.argwhere(overlap_areas_matrix[i] > 0).flatten()
+        # Remove the matched object from the list of children
+        if matches[1][i] in children:
+            children = children[children != matches[1][i]]
+        # Append object i to the list of parents of each child, recalling objects are 1 indexed
+        for child in children:
+            parents[child].append(i + 1)
     matches = matches[1] + 1  # Recall ids are 1 indexed. Dead objects now set to zero
     match_data = costs_data.copy()
     del match_data["costs_matrix"]
@@ -295,7 +304,8 @@ def get_matches(object_tracks, object_options, grid_options):
         match_data["matched_current_centers"] - match_data["previous_centers"]
     )
     match_data["matched_current_ids"] = matches
-    match_data["parents"] = np.array(parents)
+    # For each object in the current mask, we record the ids of "parent" objects from the previous mask
+    match_data["current_parents"] = parents
     match_data["costs"] = np.array(costs)
     match_data["distances"] = np.array(distances)
     match_data["area_differences"] = np.array(area_differences)

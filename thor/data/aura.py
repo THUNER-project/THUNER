@@ -15,13 +15,27 @@ import thor.data.option as option
 import thor.grid as grid
 from thor.config import get_outputs_directory
 from thor.data.option import BaseDataOptions
-from pydantic import Field
+from pydantic import Field, model_validator
 
 
 logger = setup_logger(__name__)
 
 
-class CPOLDataOptions(BaseDataOptions):
+class AURADataOptions(BaseDataOptions):
+    """Base options class for AURA datasets."""
+
+    # Overwrite the default values from the base class. Note these objects are still
+    # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
+    fields: list[str] = ["reflectivity"]
+
+    # Define additional fields for CPOL
+    level: str = Field(..., description="Processing level.")
+    data_format: str = Field(..., description="Data format.")
+    range: float = Field(142.5, description="Range of the radar in km.")
+    range_units: str = Field("km", description="Units of the range.")
+
+
+class CPOLDataOptions(AURADataOptions):
     """Options for CPOL datasets."""
 
     # Overwrite the default values from the base class. Note these objects are still
@@ -31,11 +45,33 @@ class CPOLDataOptions(BaseDataOptions):
     parent_remote: str = "https://dapds00.nci.org.au/thredds/fileServer/hj10"
 
     # Define additional fields for CPOL
-    level: str = Field("1b", description="Processing level.")
-    data_format: str = Field("grid_150km_2500m", description="Data format.")
+    level: str = "1b"
+    data_format: str = "grid_150km_2500m"
     version: str = Field("v2020", description="Data version.")
-    range: float = Field(142.5, description="Range of the radar in km.")
-    range_units: str = Field("km", description="Units of the range.")
+
+    @model_validator(mode="after")
+    def _check_times(cls, values):
+        if values["start"] < np.datetime64("1998-12-06T00:00:00"):
+            raise ValueError("start must be 1998-12-06 or later.")
+        if values["end"] > np.datetime64("2017-05-02T00:00:00"):
+            raise ValueError("end must be 2017-05-02 or earlier.")
+        return values
+
+    @model_validator(mode="after")
+    def _check_data_format(cls, values):
+        data_formats = ["grid_150km_2500m", "grid_70km_1000m"]
+        if values["data_format"] not in data_formats:
+            message = f"data_format must be one of {format_string_list(data_formats)}."
+            raise ValueError(message)
+        return values
+
+    @model_validator(mode="after")
+    def _check_level(cls, values):
+        levels = ["1", "1b", "2"]
+        if values["level"] not in levels:
+            message = f"level must be one of {format_string_list(levels)}."
+            raise ValueError(message)
+        return values
 
 
 def cpol_data_options(
@@ -124,21 +160,26 @@ def cpol_data_options(
     return options
 
 
-class OperationalDataOptions(BaseDataOptions):
+_summary = {}
+_summary["weighting_function"] = "Weighting function used by pyart to reconstruct the "
+_summary["weighting_function"] += "grid from ODIM."
+
+
+class OperationalDataOptions(AURADataOptions):
     """Options for CPOL datasets."""
 
     # Overwrite the default values from the base class. Note these objects are still
     # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
-    name: str = "cpol"
-    fields: list[str] = ["reflectivity"]
-    parent_remote: str = "https://dapds00.nci.org.au/thredds/fileServer/hj10"
+    name: str = "operational"
+    parent_remote: str = "https://dapds00.nci.org.au/thredds/fileServer/rq0"
 
-    # Define additional fields for CPOL
-    level: str = Field("1b", description="Processing level.")
-    data_format: str = Field("grid_150km_2500m", description="Data format.")
-    version: str = Field("v2020", description="Data version.")
-    range: float = Field(142.5, description="Range of the radar in km.")
-    range_units: str = Field("km", description="Units of the range.")
+    # Define additional fields for the operational radar
+    level: str = "1"
+    data_format: str = "ODIM"
+    radar: int = Field(63, description="Radar ID number.")
+    weighting_function: str = Field(
+        "Barnes2", description=_summary["weighting_function"]
+    )
 
 
 def operational_data_options(

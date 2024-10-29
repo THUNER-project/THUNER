@@ -100,9 +100,29 @@ def initialize_object_record(match_data, object_tracks, object_options):
     )
     object_tracks["object_count"] += total_previous_objects
     object_record = match_data.copy()
+
+    # Get the parents obtained during the previous step
+    current_parents = match_data["current_parents"]
+    parents = relabel_parents(previous_ids, current_parents, universal_ids)
+    # If object record new, initialize previous parents as empty list for each object
+    object_record["previous_parents"] = [[] for i in range(len(previous_ids))]
+    object_record["current_parents"] = parents
+
     object_record["previous_ids"] = previous_ids
     object_record["universal_ids"] = universal_ids
     object_tracks["object_record"] = object_record
+
+
+def relabel_parents(previous_ids, parents, universal_ids):
+    """Relabel parents with universal id."""
+    new_parents = []
+    for object_parents in parents:
+        new_object_parents = []
+        for obj_id in object_parents:
+            universal_obj_id = universal_ids[previous_ids == obj_id][0]
+            new_object_parents.append(universal_obj_id)
+        new_parents.append(new_object_parents)
+    return new_parents
 
 
 def update_object_record(match_data, object_tracks, object_options):
@@ -115,24 +135,33 @@ def update_object_record(match_data, object_tracks, object_options):
     previous_ids = np.arange(1, total_previous_objects + 1)
     universal_ids = np.array([], dtype=int)
 
-    for previous_id in np.arange(1, total_previous_objects + 1):
+    for previous_id in previous_ids:
         # Check if object was matched in previous iteration
         if previous_id in previous_object_record["matched_current_ids"]:
-            index = np.argwhere(
-                previous_object_record["matched_current_ids"] == previous_id
-            )
+            cond = previous_object_record["matched_current_ids"] == previous_id
+            index = np.argwhere(cond)
             index = index[0, 0]
             # Append the previously created universal id corresponding to previous_id
-            universal_ids = np.append(
-                universal_ids, previous_object_record["universal_ids"][index]
-            )
+            universal_id = previous_object_record["universal_ids"][index]
+            universal_ids = np.append(universal_ids, universal_id)
         else:
-            uid = object_tracks["object_count"] + 1
+            universal_id = object_tracks["object_count"] + 1
             object_tracks["object_count"] += 1
-            universal_ids = np.append(universal_ids, uid)
-            # Check if new object split from old?
+            universal_ids = np.append(universal_ids, universal_id)
+            # The object is new, so remove from parents of other objects
+            # current_parents = match_data["current_parents"]
+            # for object_parents in current_parents:
+            #     if previous_id in object_parents:
+            #         object_parents.remove(previous_id)
 
     object_record = match_data.copy()
     object_record["universal_ids"] = universal_ids
+    # Update parents
+    object_record["previous_parents"] = previous_object_record["current_parents"]
+    current_parents = object_record["current_parents"]
+    current_parents = relabel_parents(previous_ids, current_parents, universal_ids)
+    if len(object_record["previous_parents"]) != len(previous_ids):
+        print("asdf")
+    object_record["current_parents"] = current_parents
     object_record["previous_ids"] = previous_ids
     object_tracks["object_record"] = object_record

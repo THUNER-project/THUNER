@@ -34,7 +34,7 @@ def default(names=None, tracked=True, matched=None, grouped=False):
         else:
             names += ["id"]
         if tracked:
-            names += ["u_flow", "v_flow"]
+            names += ["parents", "u_flow", "v_flow"]
             names += ["u_displacement", "v_displacement"]
 
     attributes_dict = {}
@@ -59,6 +59,21 @@ def identity(name="id", method=None, description=None, tracked=True):
     if description is None:
         description = f"{name} taken from object record or object mask. "
         description += "Unlike uid, id is not necessarily unique across time steps."
+    args = [name, method, data_type, precision, description, units]
+    return utils.get_attribute_dict(*args)
+
+
+def parents(name="parents", method=None, description=None, tracked=True):
+    """
+    Options for parents attribute. Store a space separated list of parent ids as a str.
+    """
+    data_type = str
+    precision = None
+    units = None
+    if method is None:
+        method = {"function": "parents_from_object_record"}
+    if description is None:
+        description = f"{name} taken from object record."
     args = [name, method, data_type, precision, description, units]
     return utils.get_attribute_dict(*args)
 
@@ -142,6 +157,7 @@ def time(name="time", method=None, description=None, tracked=True):
 attribute_dispatcher = {
     "id": identity,
     "universal_id": identity,
+    "parents": parents,
     "latitude": coordinate,
     "longitude": coordinate,
     "u_flow": velocity,
@@ -183,6 +199,21 @@ def areas_from_object_record(object_tracks, attribute_options):
     areas = object_tracks["object_record"]["previous_areas"]
     data_type = attribute_options["area"]["data_type"]
     return areas.astype(data_type)
+
+
+def parents_from_object_record(object_tracks, attribute_options):
+    """Get parent ids from the object record to avoid recalculating."""
+    parents = object_tracks["object_record"]["previous_parents"]
+    parents_str = []
+    for obj_parents in parents:
+        if len(obj_parents) == 0:
+            parents_str.append("")
+        else:
+            obj_parents_str = " ".join([str(parent) for parent in obj_parents])
+            parents_str.append(obj_parents_str)
+    if len(parents_str) != len(parents):
+        print("asdf")
+    return parents_str
 
 
 def velocities_from_object_record(name, object_tracks, attribute_options, grid_options):
@@ -296,6 +327,7 @@ get_attributes_dispatcher = {
     "velocities_from_object_record": velocities_from_object_record,
     "ids_from_mask": ids_from_mask,
     "ids_from_object_record": ids_from_object_record,
+    "parents_from_object_record": parents_from_object_record,
 }
 
 
@@ -422,6 +454,7 @@ def record(
     areas_args = [object_tracks, attribute_options, grid_options, member_object]
     arguments_dispatcher = {
         "areas_from_object_record": [object_tracks, attribute_options],
+        "parents_from_object_record": [object_tracks, attribute_options],
         "areas_from_mask": areas_args,
     }
     processed_attributes = ["time", id_type, "latitude", "longitude"]

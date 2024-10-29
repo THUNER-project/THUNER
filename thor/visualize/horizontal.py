@@ -123,11 +123,13 @@ def radar_features(ax, radar_lon, radar_lat, extent):
 def embossed_text(ax, text, longitude, latitude):
     """Add embossed text to an ax."""
     args = [longitude, latitude, text]
-    path_effects = [patheffects.Stroke(linewidth=3, foreground="k")]
+    path_effects = [patheffects.Stroke(linewidth=2, foreground="k")]
     path_effects += [patheffects.Normal()]
     kwargs = {"transform": proj, "zorder": 5, "fontweight": "bold", "color": "w"}
-    kwargs.update({"path_effects": path_effects})
-    ax.text(*args, **kwargs)
+    kwargs.update({"path_effects": path_effects, "fontsize": "x-small"})
+    text = ax.text(*args, **kwargs)
+    text.set_clip_on(True)
+    text.set_clip_box(ax.bbox)
 
 
 def domain_boundary(ax, boundaries, grid_options):

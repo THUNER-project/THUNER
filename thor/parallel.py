@@ -304,7 +304,6 @@ def get_mapping(id_dicts, obj, interval):
     return mapping
 
 
-# @profile
 def stitch_mask(intervals, masks, id_dicts, filepaths, obj):
     """Stitch together mask files for a given object."""
     new_masks = []
@@ -329,7 +328,6 @@ def stitch_mask(intervals, masks, id_dicts, filepaths, obj):
     coords = [c for c in mask.coords if c in ["x", "y", "latitude", "longitude"]]
     for coord in coords:
         mask.coords[coord] = mask.coords[coord].astype(np.float32)
-    # mask = mask.chunk()
     filepath = Path(filepaths[0])
     filepath = Path(*[part for part in filepath.parts if part != "interval_0"])
     filepath.parent.mkdir(parents=True, exist_ok=True)
@@ -383,10 +381,9 @@ def stitch_attribute(
             max_id = 0
         df[id_type] = df[id_type] + current_max_id
         current_max_id += max_id
-        # df = df.set_index(index_columns)
-        if i < len(intervals) - 1:
-            end_time = time_dicts[i][obj]
-            df = df[df["time"] < end_time]
+        if i > 0:
+            start_time = time_dicts[i - 1][obj]
+            df = df[df["time"] > start_time]
         df = df.set_index(index_columns)
         new_dfs.append(df)
     df = pd.concat(new_dfs)
@@ -403,6 +400,9 @@ def stitch_attribute(
     id_dict = df[[id_type, "original_id", "interval"]].drop_duplicates()
     id_dict = id_dict.set_index(["interval", "original_id"]).sort_index()
 
+    if "parents" in df.columns:
+        df = relabel_parents(df, id_dict)
+
     df = df.set_index(index_columns).sort_index()
     df = df.drop(["original_id", "interval"], axis=1)
 
@@ -414,12 +414,13 @@ def stitch_attribute(
 
 
 def relabel_tracked(intervals, match_dicts, obj, df):
-    # Relabel universal ids based on match_dicts
+    # Relabel universal ids in interval i
     for i in range(len(intervals) - 1):
         match_dict = match_dicts[i][obj]
         reversed_match_dict = {v: k for k, v in match_dict.items()}
         current_interval = df["interval"] == i
         next_interval = df["interval"] == i + 1
+        # relabel universal ids based on match_dict
         for next_key in reversed_match_dict.keys():
             current_key = reversed_match_dict[next_key]
             condition = current_interval & (df["original_id"] == current_key)
@@ -432,4 +433,24 @@ def relabel_tracked(intervals, match_dicts, obj, df):
                 df.loc[condition, "universal_id"] = universal_id
             # Note we do nothing if universal_ids is empty, which can occur if the object
             # was only detected in the very last scan of the current interval
+
+    return df
+
+
+def relabel_parents(df, id_dict):
+    """Relabel parents based on id_dict."""
+    for i in range(len(df)):
+        row = df.iloc[i]
+        if str(row["parents"]) == "nan":
+            continue
+        parents = row["parents"].split(" ")
+        new_parents = []
+        for p in parents:
+            p = int(p)
+            interval = row["interval"]
+            new_parent = id_dict.loc[interval, p].values[0]
+            new_parents.append(new_parent)
+        new_parents = [str(p) for p in new_parents]
+        new_parents = " ".join(new_parents)
+        df.at[i, "parents"] = new_parents
     return df

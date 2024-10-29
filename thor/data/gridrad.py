@@ -1,7 +1,6 @@
 import copy
 from typing import Union
 from pathlib import Path
-from memory_profiler import profile
 from functools import reduce
 import numpy as np
 import pandas as pd
@@ -12,6 +11,8 @@ from thor.config import get_outputs_directory
 import thor.data.utils as utils
 from thor.log import setup_logger
 import thor.grid as grid
+from thor.data.option import BaseDataOptions
+from pydantic import Field, model_validator
 
 
 logger = setup_logger(__name__)
@@ -71,6 +72,28 @@ def get_event_times(event_directory: Union[str, Path]):
     return start, end, event_start
 
 
+class GridRadSevereDataOptions(BaseDataOptions):
+    """Options for GridRad Severe datasets."""
+
+    # Overwrite the default values from the base class. Note these objects are still
+    # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
+    name: str = "gridrad"
+    fields: list[str] = ["reflectivity"]
+    parent_remote: str = "https://data.rda.ucar.edu"
+
+    # Define additional fields for CPOL
+    dataset_id: str = Field("ds841.6", description="UCAR RDA dataset ID.")
+    version: str = Field("v4_2", description="GridRad version.")
+    obs_thresh: int = Field(2, description="Observation count threshold for filtering.")
+
+    @model_validator(mode="after")
+    def _check_times(cls, values):
+        start_time = np.datetime64("2010-12-20T18:00:00")
+        if values["start"] < start_time:
+            raise ValueError(f"start must be {str(start_time)} or later.")
+        return values
+
+
 def gridrad_data_options(
     start="2010-01-20T18:00:00",
     end="2010-01-20T21:00:00",
@@ -84,7 +107,7 @@ def gridrad_data_options(
     dataset_id="ds841.6",
     fields=None,
     version="v4_2",
-    obs_thresh=4,
+    obs_thresh=2,
 ):
     """
     Generate gridrad radar data options dictionary.
@@ -177,9 +200,9 @@ def reshape_variable(ds, variable):
 # @profile
 def filter(
     ds,
-    weight_thresh=1.5,
-    echo_frac_thresh=0.6,
-    refl_thresh=-10,
+    weight_thresh=1.2,
+    echo_frac_thresh=0.3,
+    refl_thresh=0,
     obs_thresh=2,
     variables=None,
 ):
@@ -419,6 +442,7 @@ def convert_gridrad(time, filepath, track_options, dataset_options, grid_options
     # Open the dataset and perform preliminary filtering and decluttering
     ds = open_gridrad(filepath, dataset_options)
     ds = filter(ds, obs_thresh=dataset_options["obs_thresh"])
+    # ds = simple_filter(ds)
     ds = remove_clutter(ds)
 
     # Ensure the intended time is in the dataset
@@ -559,7 +583,7 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
 dataset_id_converter = {"ds841.6": "d841006"}
 
 
-def get_gridrad_filepaths(options, use_event_start=True):
+def get_gridrad_filepaths(options):
     """
     Get the start and end dates for the cases in the GridRad-Severe dataset
     (doi.org/10.5065/2B46-1A97).
