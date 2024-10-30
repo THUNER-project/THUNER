@@ -22,7 +22,7 @@ directories=($(cat "${filepath}"))
 script="/home/563/esh563/THOR/workflow/gridrad_gadi/gridrad.py"
 
 # In bash, the a:b syntax says slice 15 elements of the array starting from 10th element
-test_directories=("${directories[@]:1:8}")
+test_directories=("${directories[@]:1:12}")
 
 LOG_DIR="/scratch/w40/esh563/THOR_output/PBS_log"
 parallel_log="${LOG_DIR}/${year}_parallel.log"

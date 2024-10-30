@@ -120,7 +120,7 @@ def gridrad(start, end, event_start, base_local=None):
     output_parent = Path(output_parent)
     tar_file = f"{output_parent}.tar.gz"
     # Remove the tar file if it already exists
-    if Path(tar_file).exists(missing_ok=True):
+    if Path(tar_file).exists():
         Path(tar_file).unlink()
     command = f"tar -czvf  -C "
     command += f"{output_parent.parent} {output_parent.name}"
