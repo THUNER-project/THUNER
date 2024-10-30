@@ -99,7 +99,7 @@ def gridrad(start, end, event_start, base_local=None):
     analyze.mcs.quality_control(output_parent, analysis_options)
     analyze.mcs.classify_all(output_parent)
     figure_options = visualize.option.horizontal_attribute_options(
-        "mcs_velocity_analysis", style="gadi", attributes=["velocity", "offset"]
+        "mcs_velocity_analysis", style="gadi", attributes=["velocity", "offset", "id"]
     )
     args = [output_parent, start, end, figure_options]
     kwargs = {"parallel_figure": True, "dt": 7200, "by_date": False}
@@ -115,8 +115,7 @@ def gridrad(start, end, event_start, base_local=None):
     # Remove the tar file if it already exists
     if Path(tar_file).exists():
         Path(tar_file).unlink()
-    command = f"tar -czvf  -C "
-    command += f"{output_parent.parent} {output_parent.name}"
+    command = f"tar -czvf {tar_file} -C {output_parent.parent} {output_parent.name}"
     subprocess.run(command, shell=True, text=True)
 
 
