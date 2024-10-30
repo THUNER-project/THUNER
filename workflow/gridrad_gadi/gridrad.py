@@ -22,7 +22,7 @@ logger = setup_logger(__name__)
 def gridrad(start, end, event_start, base_local=None):
 
     if base_local is None:
-        base_local = config.get_output_directory()
+        base_local = config.get_outputs_directory()
 
     period = parallel.get_period(start, end)
     intervals = parallel.get_time_intervals(start, end, period=period)
