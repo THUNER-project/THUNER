@@ -126,7 +126,10 @@ def radar_features(ax, radar_lon, radar_lat, extent):
 
 def embossed_text(ax, text, longitude, latitude):
     """Add embossed text to an ax."""
-    args = [longitude, latitude, text]
+    extent = ax.get_extent(crs=proj)
+    dlon = np.abs(extent[1] - extent[0])
+    offset = dlon / 50
+    args = [longitude - offset, latitude + offset, text]
     path_effects = [patheffects.Stroke(linewidth=1.5, foreground="k")]
     path_effects += [patheffects.Normal()]
     fontsize = int(plt.rcParams["font.size"] / 2)
