@@ -19,7 +19,10 @@ conda activate THOR
 
 # Read the directories from the file created by the gridrad_job.sh script
 directories=($(cat "${filepath}"))
-script="/home/563/esh563/THOR/workflow/gridrad_gadi/gridrad.py"
+SCRIPT_DIR="/home/563/esh563/THOR/workflow/gridrad_gadi"
+
+# Initialize output directory
+python3 ${SCRIPT_DIR}/initialize_output_directory.py
 
 # In bash, the a:b syntax says slice 15 elements of the array starting from 10th element
 test_directories=("${directories[@]:1:12}")
@@ -29,4 +32,4 @@ parallel_log="${LOG_DIR}/${year}_parallel.log"
 
 # Run multiple days concurrently with gnu-parallel
 parallel -j 4 --joblog ${parallel_log} \
-    "python3 ${script} {} > ${LOG_DIR}/thor_{#}.out 2> ${LOG_DIR}/thor_{#}.err" ::: "${test_directories[@]}"
+    "python3 ${SCRIPT_DIR}/gridrad.py {} > ${LOG_DIR}/thor_{#}.out 2> ${LOG_DIR}/thor_{#}.err" ::: "${test_directories[@]}"

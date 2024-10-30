@@ -15,7 +15,6 @@ import thor.parallel as parallel
 import thor.visualize as visualize
 from thor.log import setup_logger, logging_listener
 import thor.config as config
-import os
 
 logger = setup_logger(__name__)
 
@@ -23,13 +22,7 @@ logger = setup_logger(__name__)
 def gridrad(start, end, event_start, base_local=None):
 
     if base_local is None:
-        # Set the output directory to scratch if not already set
-        username = os.environ["USER"]
-        project = os.environ["PROJECT"]
-        outputs_directory = f"/scratch/{project}/{username}/THOR_output"
-        # Also set this in the thor config file
-        config.set_outputs_directory(outputs_directory)
-        base_local = Path(outputs_directory)
+        base_local = config.get_output_directory()
 
     period = parallel.get_period(start, end)
     intervals = parallel.get_time_intervals(start, end, period=period)
