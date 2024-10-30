@@ -27,3 +27,4 @@ tables
 memory_profiler
 psutil
 pydantic
+zarr

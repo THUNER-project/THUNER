@@ -310,16 +310,16 @@ def stitch_mask(intervals, masks, id_dicts, filepaths, obj):
         mask = masks[i]
         mapping = get_mapping(id_dicts, obj, i)
         new_mask = apply_mapping(mapping, mask)
-        if i < len(intervals) - 1:
-            time = masks[i + 1].time[0].values
+        if i > 0:
+            time = masks[i - 1].time[-1].values
             if time not in np.array(masks[i].time.values):
                 message = "Time intervals have produced non-overlapping time domains "
                 message += "for masks"
                 raise ValueError(message)
-            # Slice new mask, exluding times contained in the next interval
+            # Slice new mask, exluding times contained in the previous interval
             # Note the actual "slice" function doesn't work with high precision
             # datetime indexes! Use boolean indexing on time dimension instead
-            condition = new_mask.time.values < time
+            condition = new_mask.time.values > time
             new_mask = new_mask.sel(time=condition)
         new_masks.append(new_mask)
     mask = xr.concat(new_masks, dim="time")
@@ -391,9 +391,6 @@ def stitch_attribute(
 
     if obj in tracked_objects:
         df = relabel_tracked(intervals, match_dicts, obj, df)
-
-    # if "parents" in df.columns:
-    # print("Fixing parents")
 
     unique_ids = df[id_type].unique()
     mapping = {old_id: new_id + 1 for new_id, old_id in enumerate(sorted(unique_ids))}
@@ -491,22 +488,3 @@ def relabel_parents(df, next_interval, current_interval, reversed_match_dict):
         new_parents.append(" ".join(new_object_parents))
     df.loc[next_interval, "parents"] = new_parents
     return df
-
-
-# def relabel_parents(df, id_dict):
-#     """Relabel parents based on id_dict."""
-#     for i in range(len(df)):
-#         row = df.iloc[i]
-#         if str(row["parents"]) == "nan":
-#             continue
-#         parents = row["parents"].split(" ")
-#         new_parents = []
-#         for p in parents:
-#             p = int(p)
-#             interval = row["interval"]
-#             new_parent = id_dict.loc[interval, p].values[0]
-#             new_parents.append(new_parent)
-#         new_parents = [str(p) for p in new_parents]
-#         new_parents = " ".join(new_parents)
-#         df.at[i, "parents"] = new_parents
-#     return df

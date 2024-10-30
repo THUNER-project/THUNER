@@ -304,3 +304,57 @@ def save_options(options, filename=None, options_directory=None, append_time=Fal
             allow_unicode=True,
             sort_keys=False,
         )
+
+
+def new_angle(angles):
+    """
+    Get the angle between the two angles that are farthest apart. All angles are
+    provided/returned in radians.
+    """
+    if len(angles) == 0:
+        return 0
+    sorted_angles = np.sort(angles)
+    gaps = np.diff(sorted_angles)
+    circular_gap = 2 * np.pi - (sorted_angles[-1] - sorted_angles[0])
+    gaps = np.append(gaps, circular_gap)
+    max_gap_index = np.argmax(gaps)
+    if max_gap_index == len(gaps) - 1:
+        # Circular gap case
+        angle1 = sorted_angles[-1]
+        angle2 = sorted_angles[0] + 2 * np.pi
+    else:
+        angle1 = sorted_angles[max_gap_index]
+        angle2 = sorted_angles[max_gap_index + 1]
+    return (angle1 + angle2) / 2 % (2 * np.pi)
+
+
+def circular_mean(angles, weights=None):
+    """
+    Calculate a weighted circular mean. Based on the scipy.stats.circmean function.
+    https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.circmean.html
+    """
+    if weights is None:
+        weights = np.ones_like(angles)
+    angles, weights = np.array(angles), np.array(weights)
+    total_weight = np.sum(weights)
+    # Convert the angles to complex numbers of unit length
+    complex_numbers = np.exp(1j * angles)
+    # Get the angle of the weighted sum of the complex numbers
+    return np.angle(np.sum(weights * complex_numbers)) % (2 * np.pi)
+
+
+def circular_variance(angles, weights=None):
+    """
+    Calculate a weighted circular variance. Based on the scipy.stats.circvar function.
+    https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.circvar.html
+    """
+    if weights is None:
+        weights = np.ones_like(angles)
+    angles, weights = np.array(angles), np.array(weights)
+    # Convert the angles to complex numbers of unit length
+    complex_numbers = np.exp(1j * angles)
+    total_weight = np.sum(weights)
+    if total_weight == 0:
+        return np.nan
+    complex_sum = np.sum(weights * complex_numbers / total_weight)
+    return 1 - np.abs(complex_sum)

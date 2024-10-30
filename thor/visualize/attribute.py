@@ -1,8 +1,6 @@
 """Functions for visualizing object attributes and classifications."""
 
-from memory_profiler import profile
 import gc
-import os
 from time import sleep
 import multiprocessing
 import numpy as np
@@ -12,12 +10,13 @@ import matplotlib
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import thor.visualize.horizontal as horizontal
-from thor.visualize.visualize import figure_colors, styles, animate_object
+
+# from thor.visualize.visualize import figure_colors, styles, animate_object, mask_colormap
 from thor.attribute.utils import read_attribute_csv
 from thor.analyze.utils import read_options
 import thor.data.dispatch as dispatch
 import thor.detect.detect as detect
-from thor.utils import format_time
+from thor.utils import format_time, new_angle, circular_mean
 import thor.parallel as parallel
 import thor.visualize.utils as utils
 import thor.visualize.visualize as visualize
@@ -84,11 +83,15 @@ def mcs_series(
     masks = xr.open_dataset(masks_filepath, engine="zarr")
     times = masks.time.values
     times = times[(times >= start_time) & (times <= end_time)]
+
+    # Get colors
+    color_angle_df = get_color_angle_df(output_directory)
+
     record_filepath = output_directory / f"records/filepaths/{dataset_name}.csv"
     filepaths = read_attribute_csv(record_filepath)
     time = times[0]
     args = [time, filepaths, masks, output_directory, figure_options]
-    args += [options, track_options, dataset_name, dt]
+    args += [options, track_options, dataset_name, dt, color_angle_df]
     visualize_mcs(*args)
     if len(times) == 1:
         # Switch back to original backend
@@ -103,7 +106,7 @@ def mcs_series(
             for time in times[1:]:
                 sleep(2)
                 args = [time, filepaths, masks, output_directory, figure_options]
-                args += [options, track_options, dataset_name, dt]
+                args += [options, track_options, dataset_name, dt, color_angle_df]
                 args = tuple(args)
                 results.append(pool.apply_async(visualize_mcs, args))
             pool.close()
@@ -112,7 +115,7 @@ def mcs_series(
     else:
         for time in times[1:]:
             args = [time, filepaths, masks, output_directory, figure_options]
-            args += [options, track_options, dataset_name, dt]
+            args += [options, track_options, dataset_name, dt, color_angle_df]
             visualize_mcs(*args)
     if animate:
         figure_name = figure_options["name"]
@@ -120,7 +123,7 @@ def mcs_series(
         figure_directory = output_directory / f"visualize/{figure_name}"
         args = [figure_name, "mcs", output_directory, save_directory]
         args += [figure_directory, figure_name]
-        animate_object(*args, by_date=by_date)
+        visualize.animate_object(*args, by_date=by_date)
     # Switch back to original backend
     plt.close("all")
     matplotlib.use(original_backend)
@@ -137,9 +140,17 @@ def visualize_mcs(
     track_options,
     dataset_name,
     dt,
+    color_angle_df,
 ):
     """Wrapper for mcs_horizontal."""
     logger.info(f"Visualizing MCS at time {time}.")
+
+    # Get object colors
+    keys = color_angle_df.loc[color_angle_df["time"] == time]["universal_id"].values
+    values = color_angle_df.loc[color_angle_df["time"] == time]["color_angle"].values
+    values = [visualize.mask_colormap(v / (2 * np.pi)) for v in values]
+    object_colors = dict(zip(keys, values))
+
     filepath = filepaths[dataset_name].loc[time]
     dataset_options = options["data"][dataset_name]
     convert = dispatch.convert_dataset_dispatcher.get(dataset_name)
@@ -170,8 +181,8 @@ def visualize_mcs(
     args += [figure_options, options["grid"]]
     figure_name = figure_options["name"]
     style = figure_options["style"]
-    with plt.style.context(styles[style]), visualize.set_style(style):
-        fig, ax = mcs_horizontal(*args, dt=dt)
+    with plt.style.context(visualize.styles[style]), visualize.set_style(style):
+        fig, ax = mcs_horizontal(*args, dt=dt, object_colors=object_colors)
         # Remove mask and processed_grid from memory after generating the figure
         del mask, processed_grid
         filename = f"{format_time(time)}.png"
@@ -195,6 +206,7 @@ def mcs_horizontal(
     convective_label="convective",
     anvil_label="anvil",
     dt=3600,
+    object_colors=None,
 ):
     """Create a horizontal cross section plot."""
     member_objects = [convective_label, anvil_label]
@@ -205,7 +217,9 @@ def mcs_horizontal(
     args += [boundary_coordinates]
     time = grid.time.values
     logger.debug(f"Creating grouped mask figure at time {time}.")
-    fig, axes, colorbar_axes, legend_ax = horizontal.grouped_mask(*args)
+    fig, axes, colorbar_axes, legend_ax = horizontal.grouped_mask(
+        *args, object_colors=object_colors
+    )
 
     try:
         filepath = output_directory / "attributes/mcs/group.csv"
@@ -238,7 +252,7 @@ def mcs_horizontal(
     style = figure_options["style"]
     scale = utils.get_extent(grid_options)[1]
 
-    key_color = figure_colors[style]["key"]
+    key_color = visualize.figure_colors[style]["key"]
     horizontal.vector_key(axes[0], color=key_color, dt=dt, scale=scale)
     kwargs = {"mcs_name": "mcs", "mcs_level": 1}
     convective_label, stratiform_label = get_altitude_labels(track_options, **kwargs)
@@ -266,7 +280,7 @@ def mcs_horizontal(
     handle, handler = horizontal.mask_legend_artist()
     handles += [handle]
     labels += ["Object Masks"]
-    legend_color = figure_colors[figure_options["style"]]["legend"]
+    legend_color = visualize.figure_colors[figure_options["style"]]["legend"]
     handles, labels = handles[::-1], labels[::-1]
 
     args = [handles, labels]
@@ -411,3 +425,98 @@ def displacement_attributes_horizontal(axes, figure_options, object_attributes):
         legend_handles.append(legend_artist)
 
     return legend_handles
+
+
+def convert_parents(parents):
+    """Convert a parents string to a list of integers."""
+    if str(parents) == "nan":
+        return []
+    parents_list = parents.split(" ")
+    return [int(parent) for parent in parents_list]
+
+
+def get_parent_angles(df, row, color_dict, previous_time):
+    """Get the parent angles for the object in row."""
+    obj_parents = convert_parents(row["parents"])
+    parent_angles = []
+    areas = []
+    for parent in obj_parents:
+        dict_universal_ids = np.array(color_dict["universal_id"])
+        times = np.array(color_dict["time"])
+        cond = (dict_universal_ids == parent) & (times == previous_time)
+        parent_angle = np.array(color_dict["color_angle"])[cond][0]
+        parent_angles.append(parent_angle)
+        parent_universal_id = dict_universal_ids[cond][0]
+        area = df.loc[previous_time, parent_universal_id]["area"]
+        areas.append(area)
+    return parent_angles, areas
+
+
+def new_color_angle(df, row, color_dict, previous_time, angle_list):
+    """Get a new color for the new object in row."""
+    # Object not yet in color_dict
+    if str(row["parents"]) == "nan":
+        # If object has no parents, get a new color angle as different as possible
+        # from existing color angles
+        angles = color_dict["color_angle"]
+        return new_angle(angles + angle_list)
+    else:
+        # If object has parents, get the average color angle of the parents,
+        # weighting the average by object area
+        args = [df, row, color_dict, previous_time]
+        parent_angles, areas = get_parent_angles(*args)
+        return circular_mean(parent_angles, areas)
+
+
+def update_color_angle(df, row, color_dict, previous_time, universal_id):
+    # If object is already in color_dict, get its color angle
+    dict_universal_ids = np.array(color_dict["universal_id"])
+    times = np.array(color_dict["time"])
+    cond = (dict_universal_ids == universal_id) & (times == previous_time)
+    previous_angle = np.array(color_dict["color_angle"])[cond][0]
+    previous_area = df.loc[previous_time, universal_id]["area"]
+    if str(row["parents"]) == "nan":
+        # If the object has no new parents, i.e. no mergers have occured,
+        # retain the same color
+        return previous_angle
+    else:
+        # If the object has new parents, get the average color angle of the
+        # parents and the current object
+        args = [df, row, color_dict, previous_time]
+        parent_angles, areas = get_parent_angles(*args)
+        args = [parent_angles + [previous_angle], areas + [previous_area]]
+        return circular_mean(*args)
+
+
+def get_color_angle_df(output_parent):
+    """
+    Get a dictionary containing color angles, i.e. indices, for displaying masks.
+    The color angle is calculated to reflect object splits/merges.
+    """
+    filepath = output_parent / "attributes/mcs/core.csv"
+    df = read_attribute_csv(filepath, columns=["parents", "area"])
+    color_dict = {"time": [], "universal_id": [], "color_angle": []}
+    times = sorted(np.unique(df.reset_index().time))
+    previous_time = None
+    for i, time in enumerate(times):
+        df_time = df.xs(time, level="time")
+        universal_ids = sorted(np.unique(df_time.reset_index().universal_id))
+        time_list, universal_id_list, angle_list = [], [], []
+        if i > 0:
+            previous_time = times[i - 1]
+        for j, universal_id in enumerate(universal_ids):
+            row = df_time.loc[universal_id]
+            if universal_id not in color_dict["universal_id"]:
+                # Object not yet in color_dict
+                angle = new_color_angle(df, row, color_dict, previous_time, angle_list)
+            else:
+                # If object is already in color_dict, get its color angle
+                args = [df, row, color_dict, previous_time, universal_id]
+                angle = update_color_angle(*args)
+            time_list.append(time)
+            universal_id_list.append(universal_id)
+            angle_list.append(angle)
+        color_dict["time"] += time_list
+        color_dict["universal_id"] += universal_id_list
+        color_dict["color_angle"] += angle_list
+    return pd.DataFrame(color_dict)

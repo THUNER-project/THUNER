@@ -290,7 +290,14 @@ def get_matches(object_tracks, object_options, grid_options):
             children = children[children != matches[1][i]]
         # Append object i to the list of parents of each child, recalling objects are 1 indexed
         for child in children:
-            parents[child].append(i + 1)
+            if (child not in matches[1]) or (matches[1][i] == -1):
+                # Only append object i+1 as a parent of child if either the child is
+                # unmatched, i.e. a new object in the current mask and hence a "split",
+                # or if object i+1 is unmatched, i.e. a dead object in the previous mask
+                # and hence a "merge". If neither of these conditions are met, while
+                # overlap may occur, both objects are matched, and hence no split/merge
+                # has occurred.
+                parents[child].append(i + 1)
     matches = matches[1] + 1  # Recall ids are 1 indexed. Dead objects now set to zero
     match_data = costs_data.copy()
     del match_data["costs_matrix"]

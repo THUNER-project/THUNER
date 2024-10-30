@@ -1,10 +1,11 @@
 """Horizontal cross-section features."""
 
 from itertools import product
-from typing import Optional, List
+from typing import List
 import copy
 import numpy as np
 import cv2
+import xarray as xr
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.ticker as mticker
@@ -12,7 +13,6 @@ import matplotlib.patheffects as patheffects
 import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
 import matplotlib.colors as mcolors
-from matplotlib.colors import BoundaryNorm
 from matplotlib.legend_handler import HandlerTuple
 import cartopy.feature as cfeature
 from cartopy import crs as ccrs
@@ -53,14 +53,16 @@ def show_grid(grid, ax, grid_options, add_colorbar=True):
 contour_options = {"mode": cv2.RETR_LIST, "method": cv2.CHAIN_APPROX_SIMPLE}
 
 
-def show_mask(mask, ax, grid_options, single_color=False):
-    """Plot masks."""
+def show_mask(mask, ax, grid_options, single_color=False, object_colors=None):
+    """
+    Visualize masks. object_colors should be a dictionary mapping object labels to colors.
+    If object_colors is None, default colors are used, with indexing based on
+    the object id."""
 
     title = ax.get_title()
     colors = visualize.mask_colors
     if single_color:
         colors = [colors[0]] * len(colors)
-    cmap = mcolors.LinearSegmentedColormap.from_list("custom", colors, N=len(colors))
     object_labels = np.unique(mask.where(mask > 0).values)
     object_labels = object_labels[~np.isnan(object_labels)].astype(np.int32)
 
@@ -69,24 +71,26 @@ def show_mask(mask, ax, grid_options, single_color=False):
     elif grid_options["name"] == "cartesian":
         LON, LAT = grid_options["longitude"], grid_options["latitude"]
 
-    levels = np.arange(0, len(colors) + 1)
-    norm = BoundaryNorm(levels, ncolors=len(colors), clip=True)
-    mesh_style = {"shading": "nearest", "transform": proj, "cmap": cmap, "alpha": 0.4}
-    mesh_style.update({"zorder": 2, "norm": norm})
+    # levels = np.arange(0, len(colors) + 1)
+    # norm = BoundaryNorm(levels, ncolors=len(colors), clip=True)
+    mesh_style = {"shading": "nearest", "transform": proj, "alpha": 0.4, "zorder": 2}
 
     for i in object_labels:
-        binary_mask = mask.where(mask == i, 0).astype(bool)
-        color_index = np.uint8((i - 1) % len(colors))
-        pcm_mask = (color_index * binary_mask).where(binary_mask)
-        ax.pcolormesh(LON, LAT, pcm_mask, **mesh_style)
-        binary_array = binary_mask.values.astype(np.uint8)
+        binary_mask = xr.where(mask == i, 1, np.nan)
+        color_index = int((i - 1) % len(colors))
+        if object_colors is not None:
+            color = object_colors[i]
+        else:
+            color = colors[color_index]
+        cmap = mcolors.ListedColormap([color])
+        ax.pcolormesh(LON, LAT, binary_mask, **mesh_style, cmap=cmap)
+        binary_array = xr.where(mask == i, 1, 0).astype(np.uint8).values
         contours = cv2.findContours(binary_array, **contour_options)[0]
         for contour in contours:
             contour = np.append(contour, [contour[0]], axis=0)
             cols = contour[:, :, 0].flatten()
             rows = contour[:, :, 1].flatten()
             lats, lons = thor_grid.get_pixels_geographic(rows, cols, grid_options)
-            color = colors[int(color_index)]
             args = [lons, lats]
             kwargs = {"color": color, "linewidth": 1, "zorder": 3, "transform": proj}
             ax.plot(*args, **kwargs)
@@ -123,10 +127,11 @@ def radar_features(ax, radar_lon, radar_lat, extent):
 def embossed_text(ax, text, longitude, latitude):
     """Add embossed text to an ax."""
     args = [longitude, latitude, text]
-    path_effects = [patheffects.Stroke(linewidth=2, foreground="k")]
+    path_effects = [patheffects.Stroke(linewidth=1.5, foreground="k")]
     path_effects += [patheffects.Normal()]
+    fontsize = int(plt.rcParams["font.size"] / 2)
     kwargs = {"transform": proj, "zorder": 5, "fontweight": "bold", "color": "w"}
-    kwargs.update({"path_effects": path_effects, "fontsize": "x-small"})
+    kwargs.update({"path_effects": path_effects, "fontsize": fontsize})
     text = ax.text(*args, **kwargs)
     text.set_clip_on(True)
     text.set_clip_box(ax.bbox)
@@ -206,7 +211,7 @@ def cartographic_features(
 
     ax.add_feature(land, zorder=0)
     ax.add_feature(ocean, zorder=0)
-    ax.add_feature(states_provinces, zorder=0, alpha=0.75)
+    ax.add_feature(states_provinces, zorder=0, alpha=0.6)
     ax.add_feature(national_borders, zorder=0, edgecolor=colors["coast"])
     ax.coastlines(resolution=scale, zorder=1, color=colors["coast"])
     kwargs = {"left_labels": left_labels, "bottom_labels": bottom_labels}
@@ -585,7 +590,13 @@ def grouped_mask_template(grid, extent, member_objects, scale):
 
 
 def grouped_mask(
-    grid, mask, grid_options, figure_options, member_objects, boundary_coordinates
+    grid,
+    mask,
+    grid_options,
+    figure_options,
+    member_objects,
+    boundary_coordinates,
+    object_colors=None,
 ):
     """Plot masks for a grouped object."""
 
@@ -604,7 +615,8 @@ def grouped_mask(
         ax = subplot_axes[i]
         mask_i = mask[f"{member_objects[i]}_mask"]
         if mask_i is not None:
-            show_mask(mask_i, ax, grid_options, single_color)
+            args = [mask_i, ax, grid_options, single_color]
+            show_mask(*args, object_colors=object_colors)
         if boundary_coordinates is not None:
             domain_boundary(ax, boundary_coordinates, grid_options)
         if grid is None:

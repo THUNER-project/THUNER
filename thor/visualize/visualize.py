@@ -32,16 +32,18 @@ def desaturate_colormap(cmap, factor=0.15):
     return desaturated_cmap
 
 
-def hls_colormap(N=1, lightness=0.9):
+def hls_colormap(N=1, lightness=0.9, saturation=1):
     """Create a hls colormap."""
-    hls_colors = [(i / N, lightness, 1) for i in range(N)]
+    hls_colors = [(i / N, lightness, saturation) for i in range(N)]
     rgb_colors = [colorsys.hls_to_rgb(h, l, s) for h, l, s in hls_colors]
     hls_colormap = mcolors.ListedColormap(rgb_colors, name=f"hls_{lightness}_{N}")
     return hls_colormap
 
 
-# Desaturate the HomeyerRainbow colormap
-desaturated_homeyer_rainbow = desaturate_colormap(pcm.HomeyerRainbow, factor=0.35)
+# mask_colormap = hls_colormap(N=20, lightness=0.5, saturation=0.8)
+
+mask_colors = ["cyan", "magenta", "gold", "cyan"]
+mask_colormap = mcolors.LinearSegmentedColormap.from_list("mask", mask_colors, N=64)
 
 
 @contextlib.contextmanager
@@ -56,6 +58,9 @@ def set_style(new_style):
         style = original_style
 
 
+# Desaturate the HomeyerRainbow colormap
+desaturated_homeyer_rainbow = desaturate_colormap(pcm.HomeyerRainbow, factor=0.35)
+
 reflectivity_levels = np.arange(-10, 60 + 5, 5)
 reflectivity_norm = mcolors.BoundaryNorm(
     reflectivity_levels, ncolors=desaturated_homeyer_rainbow.N, clip=True
@@ -68,10 +73,6 @@ pcolormesh_style = {
         "norm": reflectivity_norm,
     },
 }
-
-mask_colors = ["cyan", "magenta", "purple", "teal", "saddlebrown"]
-mask_colors += ["hotpink", "darkslategrey", "rosybrown", "plum"]
-mask_colors += ["indigo", "darksalmon", "tan"]
 
 
 figure_colors = {
