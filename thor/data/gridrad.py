@@ -426,9 +426,8 @@ def remove_clutter(ds, variables=None, low_level=True, below_anvil=False):
 def get_gridrad(time, input_record, track_options, dataset_options, grid_options):
     filepath = dataset_options["filepaths"][input_record["current_file_index"]]
     utils.log_convert(logger, dataset_options["name"], filepath)
-    ds, boundary_coords = convert_gridrad(
-        time, filepath, track_options, dataset_options, grid_options
-    )
+    args = [time, filepath, track_options, dataset_options, grid_options]
+    ds, boundary_coords = convert_gridrad(*args)[:2]
     update_boundary_data(ds, boundary_coords, input_record)
     return ds
 
@@ -484,7 +483,9 @@ def convert_gridrad(time, filepath, track_options, dataset_options, grid_options
     # Note the relevant domain mask is a function of how the object is detected, e.g.
     # which levels!
     domain_mask = get_domain_mask(ds, track_options, dataset_options)
-    boundary_coords, boundary_mask = utils.get_mask_boundary(domain_mask, grid_options)
+    boundary_coords, simple_boundary_coords, boundary_mask = utils.get_mask_boundary(
+        domain_mask, grid_options
+    )
     ds["domain_mask"] = domain_mask
     ds["boundary_mask"] = boundary_mask
 
@@ -497,7 +498,7 @@ def convert_gridrad(time, filepath, track_options, dataset_options, grid_options
     # Apply the domain mask to the current grid
     ds = utils.apply_mask(ds, grid_options)
     ds = ds.drop_vars(["number_of_observations", "number_of_echoes"])
-    return ds, boundary_coords
+    return ds, boundary_coords, simple_boundary_coords
 
 
 def get_domain_mask(ds, track_options, dataset_options):

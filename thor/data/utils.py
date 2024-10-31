@@ -575,9 +575,17 @@ def get_mask_boundary(mask, grid_options):
     lons = np.array(grid_options["longitude"])
     lats = np.array(grid_options["latitude"])
     mask_array = mask.fillna(0).values.astype(np.uint8)
-    contours = cv2.findContours(mask_array, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)[0]
+    args = [mask_array, cv2.RETR_LIST]
+    # Record the contours with all points, and with only the end points of each line
+    # comprising the contour. The former is used to determine boundary overlap,
+    # the latter makes plotting the boundary more efficient.
+    contours = cv2.findContours(*args, cv2.CHAIN_APPROX_NONE)[0]
+    simple_contours = cv2.findContours(*args, cv2.CHAIN_APPROX_SIMPLE)[0]
     boundary_coords = []
-    for contour in contours:
+    boundary_pixels = []
+    simple_boundary_coords = []
+
+    def get_boundary_coords(contour):
         # Append the first point to the end to close the contour
         contour = np.append(contour, [contour[0]], axis=0)
         contour_rows = contour[:, :, 1].flatten()
@@ -589,19 +597,21 @@ def get_mask_boundary(mask, grid_options):
             boundary_lats = lats[contour_rows]
             boundary_lons = lons[contour_cols]
         boundary_dict = {"latitude": boundary_lats, "longitude": boundary_lons}
+        pixel_dict = {"row": contour_rows, "col": contour_cols}
+        return boundary_dict, pixel_dict
+
+    for contour in contours:
+        boundary_dict, pixel_dict = get_boundary_coords(contour)
         boundary_coords.append(boundary_dict)
+        boundary_pixels.append(pixel_dict)
+    for contour in simple_contours:
+        simple_boundary_coords.append(get_boundary_coords(contour)[0])
 
     boundary_mask = xr.zeros_like(mask).astype(bool)
-    for coords in boundary_coords:
-        if grid_options["name"] == "cartesian":
-            boundary_mask.values[contour_rows, contour_cols] = True
-        elif grid_options["name"] == "geographic":
-            lat_indices = np.searchsorted(boundary_mask.latitude, coords["latitude"])
-            lon_indices = np.searchsorted(boundary_mask.longitude, coords["longitude"])
-            boundary_mask.values[lat_indices, lon_indices] = True
-        else:
-            raise ValueError("Grid name must be 'cartesian' or 'geographic'.")
-    return boundary_coords, boundary_mask
+    for pixels in boundary_pixels:
+        boundary_mask.values[pixels["row"], pixels["col"]] = True
+
+    return boundary_coords, simple_boundary_coords, boundary_mask
 
 
 def get_encoding(ds):

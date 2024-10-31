@@ -15,7 +15,7 @@ logger = setup_logger(__name__)
 # Convenience functions for defining default attribute options
 def altitude():
     """
-    Specify options for a core property, typically obtained from the matching process.
+    Altitude attribute
     """
     name = "altitude"
     method = None
@@ -23,6 +23,20 @@ def altitude():
     precision = 1
     units = "m"
     description = "Altitude coordinate of profile."
+    args = [name, method, data_type, precision, description, units]
+    return utils.get_attribute_dict(*args)
+
+
+def hour_offset():
+    """
+    Hour offset attribute
+    """
+    name = "hour_offset"
+    method = None
+    data_type = float
+    precision = 1
+    units = "hours"
+    description = "Hour offset from the object time."
     args = [name, method, data_type, precision, description, units]
     return utils.get_attribute_dict(*args)
 
@@ -59,6 +73,22 @@ def temperature(dataset, name, method=None, description=None):
     return utils.get_attribute_dict(*args)
 
 
+def pressure(dataset, name, method=None, description=None):
+    """
+    Specify options for a core property, typically obtained from the matching process.
+    """
+    data_type = float
+    precision = 1
+    units = "hPa"
+    if method is None:
+        method = {"function": "from_centers", "dataset": dataset}
+        method["args"] = {"center_type": "area_weighted"}
+    if description is None:
+        description = f"Vertical {name} profile, typically at the object center."
+    args = [name, method, data_type, precision, description, units]
+    return utils.get_attribute_dict(*args)
+
+
 def relative_humidity(dataset, name="relative_humidity", method=None, description=None):
     """
     Specify options for a core property, typically obtained from the matching process.
@@ -81,8 +111,8 @@ def dataset_default(dataset, names=None, matched=True):
     """Create a dictionary of default attribute options for a specified dataset."""
 
     if names is None:
-        names = ["time", "latitude", "longitude", "altitude", "temperature"]
-        names += ["relative_humidity", "u", "v"]
+        names = ["time", "latitude", "longitude", "altitude"]
+        names += ["temperature", "relative_humidity", "u", "v"]
     if matched:
         id_type = "universal_id"
     else:
@@ -94,6 +124,8 @@ def dataset_default(dataset, names=None, matched=True):
     attributes["latitude"] = core.coordinate("latitude", method=core_method)
     attributes["longitude"] = core.coordinate("longitude", method=core_method)
     attributes["altitude"] = altitude()
+    attributes["pressure"] = pressure(dataset, "pressure")
+    # attributes["hour_offset"] = hour_offset()
     attributes[id_type] = core.identity(id_type, method=core_method)
     if "relative_humidity" in names:
         attributes["relative_humidity"] = relative_humidity(dataset)
@@ -118,11 +150,14 @@ def from_pressure_levels(names, previous_time, lats, lons, ds, grid_options):
         raise ValueError("Dataset must contain pressure levels or geopotential.")
 
     logger.debug(f"Interpolating from pressure levels to altitude using geopotential.")
+    # Convert tag lons to 0-360
     ds["longitude"] = ds["longitude"] % 360
     profiles = ds[names + ["geopotential"]]
 
     lats_da = xr.DataArray(lats, dims="points")
     lons_da = xr.DataArray(lons, dims="points")
+
+    # Convert object lons to 0-360
     lons_da = lons_da % 360
     kwargs = {"latitude": lats_da, "longitude": lons_da}
     kwargs.update({"time": previous_time.astype("datetime64[ns]")})
@@ -137,6 +172,7 @@ def from_pressure_levels(names, previous_time, lats, lons, ds, grid_options):
         profile = profile.swap_dims({"pressure": "altitude"})
         profile = profile.drop_vars(["geopotential"])
         profile = profile.interp(altitude=new_altitudes)
+        profile = profile.reset_coords("pressure")
         for name in names:
             profile_dict[name] += list(profile[name].values)
     return profile_dict
@@ -228,7 +264,9 @@ def dataset_record(
     keys = attributes.keys()
     core_attributes = [attr for attr in core_attributes if attr in keys]
     remaining_attributes = [
-        attr for attr in keys if attr not in core_attributes and attr != "altitude"
+        attr
+        for attr in keys
+        if attr not in core_attributes and attr not in ["altitude", "hour_offset"]
     ]
     altitude = grid_options["altitude"]
     # Get the appropriate core attributes

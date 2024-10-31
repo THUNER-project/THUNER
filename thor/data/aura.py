@@ -472,7 +472,9 @@ def setup_operational(data_options, grid_options, url, directory):
 def get_cpol(time, input_record, dataset_options, grid_options):
     """Update the CPOL input_record for tracking."""
     filepath = dataset_options["filepaths"][input_record["current_file_index"]]
-    ds, boundary_coords = convert_cpol(time, filepath, dataset_options, grid_options)
+    ds, boundary_coords, simple_boundary_coords = convert_cpol(
+        time, filepath, dataset_options, grid_options
+    )
 
     # Set data outside instrument range to NaN
     keys = ["current_domain_mask", "current_boundary_coordinates"]
@@ -581,13 +583,15 @@ def convert_cpol(time, filepath, dataset_options, grid_options):
     # Get the domain mask and domain boundary. Note this is the region where data
     # exists, not the detected object masks from the detect module.
     domain_mask = utils.mask_from_range(ds, dataset_options, grid_options)
-    boundary_coords, boundary_mask = utils.get_mask_boundary(domain_mask, grid_options)
+    boundary_coords, simple_boundary_coords, boundary_mask = utils.get_mask_boundary(
+        domain_mask, grid_options
+    )
     ds["domain_mask"] = domain_mask
     ds["boundary_mask"] = boundary_mask
 
     ds = utils.apply_mask(ds, grid_options)
 
-    return ds, boundary_coords
+    return ds, boundary_coords, simple_boundary_coords
 
 
 def convert_operational():

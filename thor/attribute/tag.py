@@ -70,10 +70,15 @@ def from_centers(names, input_records, attributes, object_tracks, method):
     lats = attributes["latitude"]
     lons = attributes["longitude"]
     ds = tag_input_records[method["dataset"]]["dataset"]
+    # Convert tag lons to 0-360
+    ds["longitude"] = ds["longitude"] % 360
 
     tags = ds[names]
     lats_da = xr.DataArray(lats, dims="points")
     lons_da = xr.DataArray(lons, dims="points")
+
+    # Convert object lons to 0-360
+    lons_da = lons_da % 360
     kwargs = {"latitude": lats_da, "longitude": lons_da}
     kwargs.update({"time": previous_time.astype("datetime64[ns]")})
     kwargs.update({"method": "linear"})

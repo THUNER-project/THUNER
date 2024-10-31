@@ -163,7 +163,8 @@ def visualize_mcs(
         "gridrad": [time, filepath, track_options, dataset_options, options["grid"]],
     }
     args = convert_args_dispatcher[dataset_name]
-    ds, boundary_coords = convert(*args)
+    ds, boundary_coords, simple_boundary_coords = convert(*args)
+    del boundary_coords
     logger.debug(f"Getting grid from dataset at time {time}.")
     get_grid = dispatch.grid_from_dataset_dispatcher.get(dataset_name)
     if get_grid is None:
@@ -177,7 +178,7 @@ def visualize_mcs(
     del grid
     mask = masks.sel(time=time)
     mask = mask.load()
-    args = [output_directory, processed_grid, mask, boundary_coords]
+    args = [output_directory, processed_grid, mask, simple_boundary_coords]
     args += [figure_options, options["grid"]]
     figure_name = figure_options["name"]
     style = figure_options["style"]

@@ -215,7 +215,9 @@ def cartographic_features(
     land = cfeature.NaturalEarthFeature("physical", "land", scale, **kwargs)
     kwargs = {"category": "cultural", "name": "admin_1_states_provinces_lines"}
     kwargs.update({"facecolor": "none", "edgecolor": "gray"})
-    states_provinces = cfeature.NaturalEarthFeature(scale="50m", **kwargs)
+    state_scale = min([int(scale.replace("m", "")), 50])
+    state_scale = f"{state_scale}m"
+    states_provinces = cfeature.NaturalEarthFeature(scale=state_scale, **kwargs)
     national_borders = cfeature.BORDERS.with_scale(scale)
 
     ax.add_feature(land, zorder=0)
@@ -739,12 +741,21 @@ class PanelledUniformMaps(BaseLayout):
         colorbar_axes = []
         subplot_axes = []
         legend_ax = None
+
+        dlon = self.extent[1] - self.extent[0]
+        # Choose cartopy scale based on dlon
+        if dlon < 1:
+            scale = "10m"
+        elif dlon < 5:
+            scale = "50m"
+        else:
+            scale = "110m"
         # Looping over self.rows and self.columns rather than rows, columns
         # ignores possible colorbar columns and possible legend row
         for i, j in product(range(self.rows), range(self.columns)):
             ax = fig.add_subplot(grid_spec[i, j], projection=proj)
             ax.set_rasterized(True)
-            kwargs = {"extent": self.extent, "left_labels": (j == 0)}
+            kwargs = {"extent": self.extent, "scale": scale, "left_labels": (j == 0)}
             kwargs.update({"bottom_labels": (i == self.rows - 1)})
             ax = cartographic_features(ax, **kwargs)[0]
             ax.set_extent(self.extent, crs=proj)
