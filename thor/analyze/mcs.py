@@ -3,7 +3,7 @@ Functions for analyzing MCSs. In particular, for implementing the methodologies
 presented in the following papers:
 
 Short et al. (2023), Objectively diagnosing characteristics of mesoscale organization 
-from radar reflectivity and ambient winds. https://dx.doi.org/10.1175/MWR-D-22-0146.1 
+from radar reflectivity and ambient winds. https://dx.doi.org/10.1175/MWR-D-22-0146.1
 """
 
 import numpy as np
@@ -206,6 +206,8 @@ def quality_control(output_directory, analysis_options, analysis_directory=None)
     convective = read_attribute_csv(filepath)
     filepath = output_directory / f"attributes/mcs/{anvil_label}/quality.csv"
     anvil = read_attribute_csv(filepath)
+    filepath = output_directory / "attributes/mcs/core.csv"
+    mcs = read_attribute_csv(filepath, columns=["parents"])
     max_boundary_overlap = analysis_options["max_boundary_overlap"]
     convective = convective.rename(columns={"boundary_overlap": "convective_contained"})
     anvil = anvil.rename(columns={"boundary_overlap": "anvil_contained"})
@@ -260,6 +262,13 @@ def quality_control(output_directory, analysis_options, analysis_directory=None)
     duration_check = dummy_df.merge(duration_check, on="universal_id", how="left")
     duration_check = duration_check.set_index(velocities.index.names)
 
+    # Check whether the object has parents. When plotting we may only wish to filter out
+    # short duration objects if they are not part of a larger system
+    parents_check = mcs.reset_index().groupby("universal_id")["parents"]
+    parents_check = parents_check.agg(lambda x: x.notna().any())
+    parents_check = dummy_df.merge(parents_check, on="universal_id", how="left")
+    parents_check = parents_check.set_index(velocities.index.names)
+
     # Check the linearity of the system
     filepath = output_directory / f"attributes/mcs/{convective_label}/ellipse.csv"
     ellipse = read_attribute_csv(filepath, columns=["major", "minor"])
@@ -271,7 +280,7 @@ def quality_control(output_directory, analysis_options, analysis_directory=None)
 
     names = ["convective_contained", "anvil_contained", "velocity", "shear"]
     names += ["relative_velocity", "area", "offset", "major_axis", "axis_ratio"]
-    names += ["duration"]
+    names += ["duration", "parents"]
     descriptions = [
         "Is the system convective region sufficiently contained within the domain?",
         "Is the system anvil region sufficiently contained within the domain?",
@@ -283,6 +292,7 @@ def quality_control(output_directory, analysis_options, analysis_directory=None)
         "Is the system major axis length sufficiently large?",
         "Is the system axis ratio sufficiently large?",
         "Is the system duration sufficiently long?",
+        "Is the system part of a larger system?",
     ]
     if "u_shear" not in velocities.columns:
         names.remove("shear")
@@ -298,13 +308,10 @@ def quality_control(output_directory, analysis_options, analysis_directory=None)
     attributes["time"] = attribute.core.time()
     attributes["universal_id"] = attribute.core.identity("universal_id")
     filepath = analysis_directory / "quality.csv"
-    if "u_shear" not in velocities.columns:
-        quality = [convective_check, anvil_check, velocity_check, area_check]
-        quality += [offset_check, major_check, axis_ratio_check, duration_check]
-    else:
-        quality = [convective_check, anvil_check, velocity_check, shear_check]
-        quality += [relative_velocity_check, area_check, offset_check, major_check]
-        quality += [axis_ratio_check, duration_check]
+    quality = [convective_check, anvil_check, velocity_check, area_check, offset_check]
+    quality += [major_check, axis_ratio_check, duration_check, parents_check]
+    if "u_shear" in velocities.columns:
+        quality += [shear_check, relative_velocity_check]
     quality = pd.concat(quality, axis=1)
     quality = write.attribute.write_csv(filepath, quality, attributes)
     return quality

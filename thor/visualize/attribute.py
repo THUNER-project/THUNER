@@ -213,13 +213,20 @@ def mcs_horizontal(
     options = read_options(output_directory)
     track_options = options["track"]
 
-    args = [grid, mask, grid_options, figure_options, member_objects]
-    args += [boundary_coordinates]
     time = grid.time.values
     logger.debug(f"Creating grouped mask figure at time {time}.")
-    fig, axes, colorbar_axes, legend_ax = horizontal.grouped_mask(
-        *args, object_colors=object_colors
-    )
+    try:
+        filepath = output_directory / "analysis/quality.csv"
+        kwargs = {"times": [time], "columns": ["duration", "parents"]}
+        mask_quality = read_attribute_csv(filepath, **kwargs).loc[time]
+        mask_quality = mask_quality.any(axis=1).to_dict()
+    except (FileNotFoundError, KeyError):
+        mask_quality = None
+
+    args = [grid, mask, grid_options, figure_options, member_objects]
+    args += [boundary_coordinates]
+    kwargs = {"object_colors": object_colors, "mask_quality": mask_quality}
+    fig, axes, colorbar_axes, legend_ax = horizontal.grouped_mask(*args, **kwargs)
 
     try:
         filepath = output_directory / "attributes/mcs/group.csv"
@@ -326,6 +333,7 @@ quality_dispatcher = {
     "offset": system_contained + ["offset", "duration"],
     "major": ["convective_contained", "anvil_contained", "axis_ratio", "duration"],
     "minor": ["convective_contained", "anvil_contained", "axis_ratio", "duration"],
+    "mask": ["parents", "duration"],
 }
 
 
@@ -368,12 +376,15 @@ def text_attributes_horizontal(axes, figure_options, object_attributes):
     return
 
 
-def get_quality(quality_names, object_attributes):
+def get_quality(quality_names, object_attributes, method="all"):
     if quality_names is None:
         quality = True
     else:
         qualities = object_attributes[quality_names]
-        quality = qualities.all()
+        if method == "all":
+            quality = qualities.all()
+        elif method == "any":
+            quality = qualities.any()
     return quality
 
 

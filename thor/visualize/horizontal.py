@@ -53,7 +53,9 @@ def show_grid(grid, ax, grid_options, add_colorbar=True):
 contour_options = {"mode": cv2.RETR_LIST, "method": cv2.CHAIN_APPROX_SIMPLE}
 
 
-def show_mask(mask, ax, grid_options, single_color=False, object_colors=None):
+def show_mask(
+    mask, ax, grid_options, single_color=False, object_colors=None, mask_quality=None
+):
     """
     Visualize masks. object_colors should be a dictionary mapping object labels to colors.
     If object_colors is None, default colors are used, with indexing based on
@@ -74,8 +76,12 @@ def show_mask(mask, ax, grid_options, single_color=False, object_colors=None):
     # levels = np.arange(0, len(colors) + 1)
     # norm = BoundaryNorm(levels, ncolors=len(colors), clip=True)
     mesh_style = {"shading": "nearest", "transform": proj, "alpha": 0.4, "zorder": 2}
+    if mask_quality is None:
+        mask_quality = {obj: True for obj in object_labels}
 
     for i in object_labels:
+        if not mask_quality[i]:
+            continue
         binary_mask = xr.where(mask == i, 1, np.nan)
         color_index = int((i - 1) % len(colors))
         if object_colors is not None:
@@ -600,6 +606,7 @@ def grouped_mask(
     member_objects,
     boundary_coordinates,
     object_colors=None,
+    mask_quality=None,
 ):
     """Plot masks for a grouped object."""
 
@@ -619,7 +626,7 @@ def grouped_mask(
         mask_i = mask[f"{member_objects[i]}_mask"]
         if mask_i is not None:
             args = [mask_i, ax, grid_options, single_color]
-            show_mask(*args, object_colors=object_colors)
+            show_mask(*args, object_colors=object_colors, mask_quality=mask_quality)
         if boundary_coordinates is not None:
             domain_boundary(ax, boundary_coordinates, grid_options)
         if grid is None:
