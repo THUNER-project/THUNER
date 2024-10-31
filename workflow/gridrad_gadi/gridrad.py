@@ -98,8 +98,10 @@ def gridrad(start, end, event_start, base_local=None):
     analyze.mcs.process_velocities(output_parent)
     analyze.mcs.quality_control(output_parent, analysis_options)
     analyze.mcs.classify_all(output_parent)
+
+    figure_name = f"mcs_gridrad_{event_start.replace('-', '')}"
     figure_options = visualize.option.horizontal_attribute_options(
-        "mcs_velocity_analysis", style="gadi", attributes=["velocity", "offset", "id"]
+        figure_name, style="gadi", attributes=["velocity", "offset"]
     )
     args = [output_parent, start, end, figure_options]
     kwargs = {"parallel_figure": True, "dt": 7200, "by_date": False}

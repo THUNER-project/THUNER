@@ -219,14 +219,14 @@ def mcs_horizontal(
     try:
         filepath = output_directory / "analysis/quality.csv"
         kwargs = {"times": [time], "columns": ["duration", "parents"]}
-        mask_quality = read_attribute_csv(filepath, **kwargs).loc[time]
-        mask_quality = mask_quality.any(axis=1).to_dict()
+        object_quality = read_attribute_csv(filepath, **kwargs).loc[time]
+        object_quality = object_quality.any(axis=1).to_dict()
     except (FileNotFoundError, KeyError):
-        mask_quality = None
+        object_quality = None
 
     args = [grid, mask, grid_options, figure_options, member_objects]
     args += [boundary_coordinates]
-    kwargs = {"object_colors": object_colors, "mask_quality": mask_quality}
+    kwargs = {"object_colors": object_colors, "mask_quality": object_quality}
     fig, axes, colorbar_axes, legend_ax = horizontal.grouped_mask(*args, **kwargs)
 
     try:
@@ -255,7 +255,8 @@ def mcs_horizontal(
         velocity_attributes_horizontal(*args, dt=dt)
         displacement_attributes_horizontal(*args)
         ellipse_attributes(*args)
-        text_attributes_horizontal(*args)
+        if object_quality[obj_id]:
+            text_attributes_horizontal(*args, object_quality=object_quality)
 
     style = figure_options["style"]
     scale = utils.get_extent(grid_options)[1]
@@ -364,7 +365,9 @@ def velocity_attributes_horizontal(axes, figure_options, object_attributes, dt=3
     return legend_handles
 
 
-def text_attributes_horizontal(axes, figure_options, object_attributes):
+def text_attributes_horizontal(
+    axes, figure_options, object_attributes, object_quality=None
+):
     """Add object ID attributes."""
 
     if "id" in figure_options["attributes"]:
