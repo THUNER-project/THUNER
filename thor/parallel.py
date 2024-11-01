@@ -16,6 +16,7 @@ import thor.analyze as analyze
 import thor.data as data
 import thor.grid as grid
 import thor.track as track
+import thor.data.option as option
 
 
 logger = setup_logger(__name__)
@@ -50,31 +51,38 @@ def track_interval(
 ):
     output_directory = output_parent / f"interval_{i}"
     options_directory = output_directory / "options"
-    data_options = data_options.copy()
+    options_directory.mkdir(parents=True, exist_ok=True)
+    data_options = data_options.model_copy(deep=True)
     grid_options = grid_options.copy()
     track_options = track_options.model_copy(deep=True)
     if visualize_options is not None:
         visualize_options = visualize_options.copy()
     interval_data_options = get_interval_data_options(data_options, time_interval)
-    data.option.save_data_options(interval_data_options, options_directory)
+    interval_data_options.to_yaml(options_directory / "data.yml")
     grid.save_grid_options(grid_options, options_directory)
     track_options.to_yaml(options_directory / "track.yml")
-    times = data.utils.generate_times(interval_data_options[dataset_name])
+    times = data.utils.generate_times(
+        interval_data_options.dataset_by_name(dataset_name)
+    )
     args = [times, interval_data_options, grid_options, track_options]
     args += [visualize_options, output_directory]
     track.simultaneous_track(*args)
     gc.collect()
 
 
-def get_interval_data_options(data_options, interval):
+def get_interval_data_options(data_options: option.DataOptions, interval):
     """Get the data options for a given interval."""
-    interval_data_options = data_options.copy()
-    for key in interval_data_options.keys():
-        interval_data_options[key]["start"] = interval[0]
-        interval_data_options[key]["end"] = interval[1]
-        get_filepaths = get_filepaths_dispatcher[key]
-        new_filepaths = get_filepaths(interval_data_options[key])
-        interval_data_options[key]["filepaths"] = new_filepaths
+    interval_data_options = data_options.model_copy(deep=True)
+    for i, dataset_options in enumerate(interval_data_options.datasets):
+        name = dataset_options.name
+        dataset_options.start = interval[0]
+        dataset_options.end = interval[1]
+        get_filepaths = get_filepaths_dispatcher[name]
+        new_filepaths = get_filepaths(dataset_options)
+        dataset_options.filepaths = new_filepaths
+        interval_data_options.datasets[i] = dataset_options
+    # Revalidate the model to rebuild the dataset lookup dict
+    interval_data_options = interval_data_options.model_validate(interval_data_options)
     return interval_data_options
 
 
@@ -194,7 +202,6 @@ def get_tracked_objects(track_options):
     return tracked_objects, all_objects
 
 
-# @profile
 def get_match_dicts(intervals, mask_file_dict, tracked_objects):
     """Get the match dictionaries for each interval."""
     match_dicts = {}

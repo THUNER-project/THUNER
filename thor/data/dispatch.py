@@ -46,7 +46,7 @@ grid_from_dataset_dispatcher = {
 
 generate_filepaths_dispatcher = {
     "cpol": aura.get_cpol_filepaths,
-    "operational": aura.generate_operational_filepaths,
+    "operational": aura.get_operational_filepaths,
     "gridrad": gridrad.get_gridrad_filepaths,
     "era5_pl": era5.get_era5_filepaths,
     "era5_sl": era5.get_era5_filepaths,
@@ -54,36 +54,10 @@ generate_filepaths_dispatcher = {
 }
 
 
-check_data_options_dispatcher = {
-    "cpol": aura.check_data_options,
-    "operational": aura.check_data_options,
-    "gridrad": gridrad.check_data_options,
-    "era5_pl": era5.check_data_options,
-    "era5_sl": era5.check_data_options,
-    "synthetic": synthetic.check_data_options,
-}
-
-
 get_domain_mask_dispatcher = {
     "gridrad": gridrad.get_domain_mask,
     "cpol": utils.mask_from_input_record,
 }
-
-
-def check_data_options(data_options):
-    """TBA."""
-    for name in data_options.keys():
-        check_data_options = check_data_options_dispatcher.get(name)
-        dataset_options = data_options[name]
-        if check_data_options is None:
-            message = "check_data_options function for dataset "
-            message += f"{name} not found."
-            raise KeyError(message)
-        else:
-            check_data_options(dataset_options)
-        if "filepaths" in dataset_options and dataset_options["filepaths"] is None:
-            filepaths = generate_filepaths(dataset_options)
-            dataset_options["filepaths"] = filepaths
 
 
 def generate_filepaths(dataset_options):
@@ -104,7 +78,7 @@ def generate_filepaths(dataset_options):
 
     """
 
-    get_filepaths = generate_filepaths_dispatcher.get(dataset_options["name"])
+    get_filepaths = generate_filepaths_dispatcher.get(dataset_options.name)
     if get_filepaths is None:
         raise KeyError(f"Filepath generator for {dataset_options['name']} not found.")
     filepaths = get_filepaths(dataset_options)
@@ -132,22 +106,28 @@ def update_track_input_records(
     for name in track_input_records.keys():
         input_record = track_input_records[name]
         boilerplate_update(
-            time, input_record, track_options, data_options[name], grid_options
+            time,
+            input_record,
+            track_options,
+            data_options.dataset_by_name(name),
+            grid_options,
         )
         if input_record["current_grid"] is not None:
             input_record["previous_grids"].append(input_record["current_grid"])
         grid_from_dataset = grid_from_dataset_dispatcher.get(name)
-        if len(data_options[name]["fields"]) > 1:
+        if len(data_options.dataset_by_name(name).fields) > 1:
             raise ValueError("Only one field allowed for track datasets.")
         else:
-            field = data_options[name]["fields"][0]
+            field = data_options.dataset_by_name(name).fields[0]
         input_record["current_grid"] = grid_from_dataset(
             input_record["dataset"], field, time
         )
-        if "filepaths" not in data_options[name].keys():
+        if data_options.dataset_by_name(name).filepaths is None:
             return
         input_record["time_list"].append(time)
-        filepath = data_options[name]["filepaths"][input_record["current_file_index"]]
+        filepath = data_options.dataset_by_name(name).filepaths[
+            input_record["current_file_index"]
+        ]
         input_record["filepath_list"].append(filepath)
 
         args = [time, input_record, input_record]
@@ -164,14 +144,18 @@ def update_tag_input_records(
     for name in tag_input_records.keys():
         input_record = tag_input_records[name]
         boilerplate_update(
-            time, input_record, track_options, data_options[name], grid_options
+            time,
+            input_record,
+            track_options,
+            data_options.dataset_by_name(name),
+            grid_options,
         )
 
 
 def update_dataset(time, input_record, track_options, dataset_options, grid_options):
     """Update the dataset."""
 
-    updt_dataset = update_dataset_dispatcher.get(dataset_options["name"])
+    updt_dataset = update_dataset_dispatcher.get(dataset_options.name)
     if updt_dataset is None:
         raise KeyError(f"Dataset updater for {dataset_options['name']} not found.")
     updt_dataset(time, input_record, track_options, dataset_options, grid_options)

@@ -85,7 +85,7 @@ def test_cpol_with_runtime_figures_geographic():
     data_options, grid_options, track_options, visualize_options = options
 
     # Test in geographic coordinates
-    times = data.utils.generate_times(data_options["cpol"])
+    times = data.utils.generate_times(data_options.dataset_by_name("cpol"))
     track.simultaneous_track(
         times,
         data_options,
@@ -115,7 +115,7 @@ def test_cpol_with_runtime_figures_cartesian():
     options = setup(start, end, options_directory, grid_type="cartesian")
     data_options, grid_options, track_options, visualize_options = options
 
-    times = data.utils.generate_times(data_options["cpol"])
+    times = data.utils.generate_times(data_options.dataset_by_name("cpol"))
     track.simultaneous_track(
         times,
         data_options,
@@ -146,7 +146,7 @@ def test_cpol_geographic():
     visualize_options = None
 
     # Test tracking in geographic coordinates
-    times = data.utils.generate_times(data_options["cpol"])
+    times = data.utils.generate_times(data_options.dataset_by_name("cpol"))
     track.simultaneous_track(
         times,
         data_options,
@@ -188,7 +188,7 @@ def test_cpol_cartesian():
     data_options, grid_options, track_options, visualize_options = options
     visualize_options = None
 
-    times = data.utils.generate_times(data_options["cpol"])
+    times = data.utils.generate_times(data_options.dataset_by_name("cpol"))
     track.simultaneous_track(
         times,
         data_options,

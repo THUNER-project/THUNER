@@ -19,8 +19,12 @@ def write(input_record, output_directory):
     name = input_record["name"]
     write_interval = input_record["write_interval"]
     last_write_time = input_record["last_write_time"]
-    message = f"Writing {name} filepaths from {last_write_time} to "
-    message += f"{last_write_time + write_interval}, inclusive and non-inclusive, "
+    last_write_str = format_time(last_write_time, filename_safe=False, day_only=False)
+    next_write_time = last_write_time + write_interval
+    current_str = format_time(next_write_time, filename_safe=False, day_only=False)
+
+    message = f"Writing {name} filepaths from {last_write_str} to "
+    message += f"{current_str}, inclusive and non-inclusive, "
     message += "respectively."
     logger.info(message)
 

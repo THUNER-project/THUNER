@@ -117,16 +117,16 @@ def generate_MCASClimate_urls(options):
 
     base_url = f"{options['parent']}"
 
-    urls = dict(zip(options["fields"], [[] for i in range(len(options["fields"]))]))
+    urls = dict(zip(options.fields, [[] for i in range(len(options.fields))]))
 
     times = np.arange(start, end + np.timedelta64(1, "D"), np.timedelta64(1, "D"))
     times = pd.DatetimeIndex(times)
     times = [t for t in times if t.month in [12, 1, 2]]
     for time in times:
         year_str = get_year_str(time)
-        for field in options["fields"]:
+        for field in options.fields:
             url = (
-                f"{base_url}/{options['version']}/{year_str}/{field}/"
+                f"{base_url}/{options.version}/{year_str}/{field}/"
                 f"{field}_WRF_Maritime_Continent_4km_"
                 f"{time.year:04}{time.month:02}{time.day:02}.nc"
             )

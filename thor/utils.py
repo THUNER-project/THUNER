@@ -50,6 +50,29 @@ class SingletonBase:
         pass
 
 
+def format_string_list(strings):
+    """
+    Format a list of strings into a human-readable string.
+
+    Parameters
+    ----------
+    strings : list of str
+        List of strings to be formatted.
+
+    Returns
+    -------
+    formatted_string : str
+        The formatted string.
+    """
+    if len(strings) > 1:
+        formatted_string = ", ".join(strings[:-1]) + " or " + strings[-1]
+        return formatted_string
+    elif strings:
+        return strings[0]
+    else:
+        raise ValueError("strings must be an iterable of strings'.")
+
+
 def create_hidden_directory(path):
     """Create a hidden directory."""
     if not Path(path).name.startswith("."):
@@ -72,29 +95,6 @@ def hash_dictionary(dictionary):
     hash_obj = hashlib.sha256()
     hash_obj.update(params_str.encode("utf-8"))
     return hash_obj.hexdigest()
-
-
-def format_string_list(strings):
-    """
-    Format a list of strings into a human-readable string.
-
-    Parameters
-    ----------
-    strings : list of str
-        List of strings to be formatted.
-
-    Returns
-    -------
-    formatted_string : str
-        The formatted string.
-    """
-    if len(strings) > 1:
-        formatted_string = ", ".join(strings[:-1]) + " or " + strings[-1]
-        return formatted_string
-    elif strings:
-        return strings[0]
-    else:
-        raise ValueError("strings must be an iterable of strings'.")
 
 
 def drop_time(time):

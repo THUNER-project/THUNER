@@ -52,14 +52,14 @@ def convert_odim(
         try:
             logger.debug(f"Converting {filepath} to pyart.")
             dataset = pyart.aux_io.read_odim_h5(
-                filepath, file_field_names=False, include_fields=data_options["fields"]
+                filepath, file_field_names=False, include_fields=data_options.fields
             )
             logger.debug(f"Gridding {filepath}.")
             dataset = pyart.map.grid_from_radars(
                 dataset,
                 grid_shape=grid_shape,
                 grid_limits=grid_limits,
-                weighting_function=data_options["weighting_function"],
+                weighting_function=data_options.weighting_function,
             )
             logger.debug(f"Converting {filepath} to xarray.")
             dataset = dataset.to_xarray()

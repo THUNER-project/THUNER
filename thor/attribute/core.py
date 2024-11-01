@@ -232,7 +232,7 @@ def velocities_from_object_record(name, object_tracks, attribute_options, grid_o
     for i, shift in enumerate(shifts):
         if np.any(np.isnan(np.array(shift))):
             v_list.append(np.nan), u_list.append(np.nan)
-            logger.info(f"Object {i} has a nan {name}.")
+            logger.debug(f"Object {i} has a nan {name}.")
             continue
         row, col = centers[i]
         distance = grid.pixel_to_cartesian_vector(row, col, shift, grid_options)

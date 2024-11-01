@@ -4,6 +4,7 @@ from pathlib import Path
 import yaml
 import glob
 import thor.option as option
+from thor.data.option import DataOptions
 
 
 def read_options(output_directory):
@@ -17,6 +18,8 @@ def read_options(output_directory):
             name = Path(filepath).stem
             if name == "track":
                 options = option.TrackOptions(**options)
+            if name == "data":
+                options = DataOptions(**options)
             all_options[name] = options
     return all_options
 

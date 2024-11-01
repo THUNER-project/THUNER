@@ -3,7 +3,7 @@
 import yaml
 from pathlib import Path
 import numpy as np
-from typing import Any, Dict, Optional, ClassVar, List, Annotated, Union
+from typing import Any, Dict, List, Annotated, Union
 from pydantic import Field, BaseModel, field_validator, model_validator
 from thor.log import setup_logger
 import thor.attribute as attribute
@@ -263,7 +263,7 @@ class GroupingOptions(BaseOptions):
         return values
 
 
-AnyTrackingOptions = Union[TintOptions, MintOptions]
+AnyTrackingOptions = TintOptions | MintOptions
 
 
 class GroupedObjectOptions(BaseObjectOptions):
@@ -276,7 +276,7 @@ class GroupedObjectOptions(BaseObjectOptions):
     attributes: None | Dict = Field(None, description="Options for object attributes.")
 
 
-AnyObjectOptions = Union[DetectedObjectOptions, GroupedObjectOptions]
+AnyObjectOptions = DetectedObjectOptions | GroupedObjectOptions
 
 
 class LevelOptions(BaseOptions):
@@ -303,13 +303,33 @@ class TrackOptions(BaseOptions):
     """
 
     levels: List[LevelOptions] = Field([], description="Hierachy levels.")
+    _object_lookup: Dict[str, BaseObjectOptions] = {}
+
+    @model_validator(mode="after")
+    def initialize_object_lookup(cls, values):
+        object_names = []
+        lookup_dicts = []
+        for level in values.levels:
+            lookup_dicts.append(level._object_lookup)
+            object_names += level._object_lookup.keys()
+        if len(object_names) != len(set(object_names)):
+            message = "Object names must be unique to facilitate name based lookup."
+            raise ValueError(message)
+        new_lookup_dict = {}
+        for lookup_dict in lookup_dicts:
+            new_lookup_dict.update(lookup_dict)
+        values._object_lookup = new_lookup_dict
+        return values
+
+    def options_by_name(self, obj_name: str) -> BaseObjectOptions:
+        return self._object_lookup.get(obj_name)
 
 
 def consolidate_options(options_list):
     """Consolidate the options into a dictionary."""
     consolidated_options = {}
     for options in options_list:
-        consolidated_options[options["name"]] = options
+        consolidated_options[options.name] = options
     return consolidated_options
 
 

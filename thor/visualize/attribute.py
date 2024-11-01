@@ -152,7 +152,7 @@ def visualize_mcs(
     object_colors = dict(zip(keys, values))
 
     filepath = filepaths[dataset_name].loc[time]
-    dataset_options = options["data"][dataset_name]
+    dataset_options = options["data"].dataset_by_name(dataset_name)
     convert = dispatch.convert_dataset_dispatcher.get(dataset_name)
     if convert is None:
         message = f"Dataset {dataset_name} not found in dispatch."

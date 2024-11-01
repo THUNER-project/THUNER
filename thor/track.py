@@ -13,7 +13,7 @@ import thor.group.group as group
 import thor.visualize as visualize
 import thor.match.match as match
 from thor.config import get_outputs_directory
-from thor.utils import now_str, hash_dictionary, format_time, SingletonBase
+from thor.utils import now_str, hash_dictionary, format_time
 import thor.write as write
 import thor.attribute as attribute
 
@@ -25,12 +25,12 @@ def initialise_input_records(data_options):
     Initialise the input datasets dictionary.
     """
     input_records = {"track": {}, "tag": {}}
-    for name in data_options.keys():
-        use = data_options[name]["use"]
+    for name in data_options._dataset_lookup.keys():
+        use = data_options.dataset_by_name(name).use
         init_input_record = initialise_input_record_dispatcher.get(use)
         if init_input_record is None:
             raise KeyError(f"Initialisation function for {use} not found.")
-        input_record = init_input_record(name, data_options[name])
+        input_record = init_input_record(name, data_options.dataset_by_name(name))
         input_records[use][name] = input_record
 
     return input_records
@@ -46,7 +46,7 @@ def initialise_boilerplate_input_record(name, dataset_options):
     input_record["current_file_index"] = -1
     input_record["dataset"] = None
     input_record["last_write_time"] = None
-    if "filepaths" in dataset_options.keys():
+    if dataset_options.filepaths is not None:
         input_record["filepath_list"] = []
         input_record["time_list"] = []
         input_record["write_interval"] = np.timedelta64(1, "h")
@@ -61,7 +61,7 @@ def initialise_track_input_record(name, dataset_options):
 
     input_record = initialise_boilerplate_input_record(name, dataset_options)
     input_record["current_grid"] = None
-    deque_length = dataset_options["deque_length"]
+    deque_length = dataset_options.deque_length
     input_record["previous_grids"] = deque([None] * deque_length, deque_length)
 
     # Initialize deques of domain masks and boundary coordinates. For datasets like
@@ -148,7 +148,7 @@ def initialise_tracks(track_options, data_options):
             object_options = level_options.options_by_name(obj)
             # dataset = object_options.dataset
             # # This should become a model validator on options
-            # if dataset is not None and dataset not in data_options.keys():
+            # if dataset is not None and dataset not in data_options._dataset_lookup.keys():
             #     raise ValueError(f"{dataset} dataset not in data_options.")
             obj_tracks = initialise_object_tracks(object_options)
             level_tracks[obj] = obj_tracks
@@ -202,7 +202,7 @@ def simultaneous_track(
     logger.info("Beginning thor run. Saving output to %s.", output_directory)
     logger.info("Beginning simultaneous tracking.")
     # option.check_options(track_options)
-    dispatch.check_data_options(data_options)
+    # dispatch.check_data_options(data_options)
     tracks = initialise_tracks(track_options, data_options)
     input_records = initialise_input_records(data_options)
 
@@ -276,7 +276,7 @@ def track_level(
         if "dataset" not in object_options.model_fields:
             dataset_options = None
         else:
-            dataset_options = data_options[object_options.dataset]
+            dataset_options = data_options.dataset_by_name(object_options.dataset)
         track_object_args = [time, level_index, obj, tracks, input_records]
         track_object_args += [dataset_options, grid_options, track_options]
         track_object_args += [visualize_options, output_directory]

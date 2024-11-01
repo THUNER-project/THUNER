@@ -81,7 +81,7 @@ def gridrad(start, end, event_start, base_local=None):
     with logging_listener(), get_context("spawn").Pool(**kwargs) as pool:
         results = []
         for i, time_interval in enumerate(intervals):
-            args = [i, time_interval, data_options.copy(), grid_options.copy()]
+            args = [i, time_interval, data_options.model_copy(), grid_options.copy()]
             args += [track_options.model_copy(), visualize_options]
             args += [output_parent, "gridrad"]
             args = tuple(args)

@@ -158,7 +158,7 @@ def update_dataset(time, input_record, tracks, dataset_options, grid_options):
     dataset : object
         The updated dataset.
     """
-    utils.log_dataset_update(logger, dataset_options["name"], time)
+    utils.log_dataset_update(logger, dataset_options.name, time)
 
     latitude = grid_options["latitude"]
     longitude = grid_options["longitude"]
@@ -178,7 +178,7 @@ def update_dataset(time, input_record, tracks, dataset_options, grid_options):
         grid_options["y"] = Y
 
     if "objects" not in input_record.keys():
-        input_record["objects"] = dataset_options["starting_objects"]
+        input_record["objects"] = dataset_options.starting_objects
 
     updated_objects = copy.deepcopy(input_record["objects"])
     for i in range(len(input_record["objects"])):

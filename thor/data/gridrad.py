@@ -6,13 +6,9 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from skimage.morphology import remove_small_objects
-import thor.data.option as option
-from thor.config import get_outputs_directory
 import thor.data.utils as utils
 from thor.log import setup_logger
 import thor.grid as grid
-from thor.data.option import BaseDataOptions
-from pydantic import Field, model_validator
 
 
 logger = setup_logger(__name__)
@@ -72,97 +68,45 @@ def get_event_times(event_directory: Union[str, Path]):
     return start, end, event_start
 
 
-class GridRadSevereDataOptions(BaseDataOptions):
-    """Options for GridRad Severe datasets."""
-
-    # Overwrite the default values from the base class. Note these objects are still
-    # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
-    name: str = "gridrad"
-    fields: list[str] = ["reflectivity"]
-    parent_remote: str = "https://data.rda.ucar.edu"
-
-    # Define additional fields for CPOL
-    dataset_id: str = Field("ds841.6", description="UCAR RDA dataset ID.")
-    version: str = Field("v4_2", description="GridRad version.")
-    obs_thresh: int = Field(2, description="Observation count threshold for filtering.")
-
-    @model_validator(mode="after")
-    def _check_times(cls, values):
-        start_time = np.datetime64("2010-12-20T18:00:00")
-        if values["start"] < start_time:
-            raise ValueError(f"start must be {str(start_time)} or later.")
-        return values
-
-
-def gridrad_data_options(
-    start="2010-01-20T18:00:00",
-    end="2010-01-20T21:00:00",
-    event_start="2010-01-20",
-    parent_remote="https://data.rda.ucar.edu",
-    save_local=False,
-    parent_local=str(get_outputs_directory() / "input_data/raw"),
-    converted_options=None,
-    filepaths=None,
-    use="track",
-    dataset_id="ds841.6",
-    fields=None,
-    version="v4_2",
-    obs_thresh=2,
-):
+def get_gridrad_filepaths(options):
     """
-    Generate gridrad radar data options dictionary.
+    Get the start and end dates for the cases in the GridRad-Severe dataset
+    (doi.org/10.5065/2B46-1A97).
     """
 
-    if fields is None:
-        fields = ["reflectivity"]
+    start = np.datetime64(options.start).astype("datetime64[s]")
+    end = np.datetime64(options.end).astype("datetime64[s]")
 
-    if converted_options is None:
-        converted_options = {"save": False, "load": False, "parent_converted": None}
+    filepaths = []
 
-    options = option.boilerplate_options(
-        "gridrad",
-        start,
-        end,
-        parent_remote,
-        save_local,
-        parent_local,
-        converted_options,
-        filepaths,
-        use=use,
-    )
+    base_url = utils.get_parent(options)
+    base_url += f"/{dataset_id_converter[options.dataset_id]}/volumes"
 
-    options.update({"fields": fields, "version": version, "dataset_id": dataset_id})
-    options.update({"obs_thresh": obs_thresh, "event_start": event_start})
+    times = np.arange(start, end + np.timedelta64(10, "m"), np.timedelta64(10, "m"))
+    times = pd.DatetimeIndex(times)
+    start, end = pd.Timestamp(start), pd.Timestamp(end)
 
-    return options
-
-
-def check_data_options(options):
-    """
-    Check the input options.
-
-    Parameters
-    ----------
-    options : dict
-        Dictionary containing the input options.
-
-    Returns
-    -------
-    options : dict
-        Dictionary containing the input options.
-    """
-    valid_dataset_ids = ["ds841.6", "ds841.0", "ds841.1"]
-    if options["dataset_id"] not in valid_dataset_ids:
-        raise ValueError(f"Invalid dataset ID. Must be one of {valid_dataset_ids}.")
+    # Note gridrad severe directories are organized by the day the event "started"
+    if options.dataset_id == "ds841.6":
+        event_start = pd.Timestamp(options.event_start)
+        base_filepath = f"{base_url}/{event_start.year}/"
+        base_filepath += f"{event_start.year}{event_start.month:02}{event_start.day:02}"
+        for time in times:
+            filepath = (
+                f"{base_filepath}/nexrad_3d_{options.version}_"
+                f"{time.year}{time.month:02}{time.day:02}T"
+                f"{time.hour:02}{time.minute:02}00Z.nc"
+            )
+            filepaths.append(filepath)
+    return sorted(filepaths)
 
 
-# @profile
 def open_gridrad(path, dataset_options):
     """
     Open a GridRad netcdf file, converting variables with an "Index" dimension back to 3D
     """
 
-    kept_variables = [gridrad_names_dict[f] for f in dataset_options["fields"]]
+    kept_variables = [gridrad_names_dict[f] for f in dataset_options.fields]
     kept_variables += ["Nradobs", "Nradecho", "wReflectivity", "CorrelationCoefficient"]
     ds = xr.open_dataset(path)
     kept_variables = [v for v in kept_variables if v in ds.data_vars]
@@ -174,7 +118,6 @@ def open_gridrad(path, dataset_options):
     return ds
 
 
-# @profile
 def reshape_variable(ds, variable):
     """
     Reshape a variable in a GridRad dataset to a 3D grid. Adapted from code provided by
@@ -197,7 +140,6 @@ def reshape_variable(ds, variable):
     return ds
 
 
-# @profile
 def filter(
     ds,
     weight_thresh=1.2,
@@ -258,40 +200,6 @@ def filter(
     return ds
 
 
-# @profile
-def simple_filter(
-    ds,
-    refl_thresh=-10,
-    obs_thresh=2,
-    variables=None,
-):
-    """
-    Filter a GridRad dataset using reflectivity threshold and observation count only.
-    This is a more appropriate filter for MCS classification following Short et al. (2023)
-    as its much more important the observations match the domain mask, then the precise
-    values of the reflectivity itself. Applying the more complex filter makes it
-    difficult to consistently define a domain boundary.
-    """
-
-    logger.debug("Filtering GridRad data")
-
-    if variables is None:
-        variables = [v for v in gridrad_variables if v in ds.variables]
-
-    kwargs = {"keep_attrs": True}
-    # Get indices to filter
-    refl_cond = xr.where(ds["Reflectivity"] <= refl_thresh, True, False, **kwargs)
-    obs_cond = xr.where(ds["Nradobs"] <= obs_thresh, True, False, **kwargs)
-    # Preserve values not filtered
-    preserved = xr.where(~refl_cond & ~obs_cond, True, False, **kwargs)
-    for var in variables:
-        da = ds[var].where(preserved)
-        da = da.astype(np.float32)
-        ds[var] = da
-    return ds
-
-
-# @profile
 def remove_speckles(ds, window_size=5, coverage_thresh=0.32, variables=None):
     """
     Remove speckles in GridRad data. Based on code from the GridRad website
@@ -313,7 +221,6 @@ def remove_speckles(ds, window_size=5, coverage_thresh=0.32, variables=None):
     return ds
 
 
-# @profile
 def remove_low_level_clutter(ds, variables=None):
     """
     Remove low level clutter from GridRad data. Based on code from the GridRad website
@@ -345,7 +252,6 @@ def remove_low_level_clutter(ds, variables=None):
     return ds
 
 
-# @profile
 def remove_clutter_below_anvils(ds, variables=None):
     """
     Remove clutter below anvils in GridRad data. Based on code from the GridRad website
@@ -367,7 +273,6 @@ def remove_clutter_below_anvils(ds, variables=None):
     return ds
 
 
-# @profile
 def remove_clutter(ds, variables=None, low_level=True, below_anvil=False):
     """
     Remove clutter from GridRad data. Based on code from the GridRad website
@@ -424,15 +329,14 @@ def remove_clutter(ds, variables=None, low_level=True, below_anvil=False):
 
 
 def get_gridrad(time, input_record, track_options, dataset_options, grid_options):
-    filepath = dataset_options["filepaths"][input_record["current_file_index"]]
-    utils.log_convert(logger, dataset_options["name"], filepath)
+    filepath = dataset_options.filepaths[input_record["current_file_index"]]
+    utils.log_convert(logger, dataset_options.name, filepath)
     args = [time, filepath, track_options, dataset_options, grid_options]
     ds, boundary_coords = convert_gridrad(*args)[:2]
     update_boundary_data(ds, boundary_coords, input_record)
     return ds
 
 
-# @profile
 def convert_gridrad(time, filepath, track_options, dataset_options, grid_options):
     """Convert gridrad data to the standard format."""
 
@@ -440,8 +344,7 @@ def convert_gridrad(time, filepath, track_options, dataset_options, grid_options
 
     # Open the dataset and perform preliminary filtering and decluttering
     ds = open_gridrad(filepath, dataset_options)
-    ds = filter(ds, obs_thresh=dataset_options["obs_thresh"])
-    # ds = simple_filter(ds)
+    ds = filter(ds, obs_thresh=dataset_options.obs_thresh)
     ds = remove_clutter(ds)
 
     # Ensure the intended time is in the dataset
@@ -460,12 +363,12 @@ def convert_gridrad(time, filepath, track_options, dataset_options, grid_options
         ds[dim].attrs["standard_name"] = dim
         ds[dim].attrs["long_name"] = dim
     ds["altitude"] = ds["altitude"] * 1000  # Convert to meters
-    kept_fields = dataset_options["fields"] + ["number_of_observations"]
+    kept_fields = dataset_options.fields + ["number_of_observations"]
     kept_fields += ["number_of_echoes"]
     dropped_fields = [f for f in ds.data_vars if f not in kept_fields]
     ds = ds.drop_vars(dropped_fields)
 
-    for field in dataset_options["fields"]:
+    for field in dataset_options.fields:
         ds[field] = ds[field].expand_dims("time")
         ds[field].attrs["long_name"] = field
 
@@ -507,7 +410,7 @@ def get_domain_mask(ds, track_options, dataset_options):
     """
 
     domain_masks = []
-    dataset_name = dataset_options["name"]
+    dataset_name = dataset_options.name
     for level_options in track_options.levels:
         for object_options in level_options.objects:
             detected = "detection" in object_options.model_fields
@@ -562,12 +465,12 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
     dataset : object
         The updated dataset.
     """
-    utils.log_dataset_update(logger, dataset_options["name"], time)
-    conv_options = dataset_options["converted_options"]
+    utils.log_dataset_update(logger, dataset_options.name, time)
+    conv_options = dataset_options.converted_options
 
     input_record["current_file_index"] += 1
-    filepath = dataset_options["filepaths"][input_record["current_file_index"]]
-    if conv_options["load"] is False:
+    filepath = dataset_options.filepaths[input_record["current_file_index"]]
+    if conv_options.load is False:
         args = [time, input_record, track_options, dataset_options, grid_options]
         dataset = get_gridrad(*args)
     else:
@@ -576,45 +479,12 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
         boundary_coords = utils.get_mask_boundary(domain_mask, grid_options)[0]
         update_boundary_data(dataset, boundary_coords, input_record)
 
-    if conv_options["save"]:
+    if conv_options.save:
         utils.save_converted_dataset(dataset, dataset_options)
     input_record["dataset"] = dataset
 
 
 dataset_id_converter = {"ds841.6": "d841006"}
-
-
-def get_gridrad_filepaths(options):
-    """
-    Get the start and end dates for the cases in the GridRad-Severe dataset
-    (doi.org/10.5065/2B46-1A97).
-    """
-
-    start = np.datetime64(options["start"]).astype("datetime64[s]")
-    end = np.datetime64(options["end"]).astype("datetime64[s]")
-
-    filepaths = []
-
-    base_url = utils.get_parent(options)
-    base_url += f"/{dataset_id_converter[options['dataset_id']]}/volumes"
-
-    times = np.arange(start, end + np.timedelta64(10, "m"), np.timedelta64(10, "m"))
-    times = pd.DatetimeIndex(times)
-    start, end = pd.Timestamp(start), pd.Timestamp(end)
-
-    # Note gridrad severe directories are organized by the day the event "started"
-    if options["dataset_id"] == "ds841.6":
-        event_start = pd.Timestamp(options["event_start"])
-        base_filepath = f"{base_url}/{event_start.year}/"
-        base_filepath += f"{event_start.year}{event_start.month:02}{event_start.day:02}"
-        for time in times:
-            filepath = (
-                f"{base_filepath}/nexrad_3d_{options['version']}_"
-                f"{time.year}{time.month:02}{time.day:02}T"
-                f"{time.hour:02}{time.minute:02}00Z.nc"
-            )
-            filepaths.append(filepath)
-    return sorted(filepaths)
 
 
 def gridrad_grid_from_dataset(dataset, variable, time):

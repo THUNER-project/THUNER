@@ -74,6 +74,31 @@ class DownloadState(utils.SingletonBase):
         lock_file.write(str(time.time()))
 
 
+def get_parent(dataset_options):
+    """Get the appropriate parent directory."""
+    conv_options = dataset_options.converted_options
+    local = dataset_options.parent_local
+    remote = dataset_options.parent_remote
+    if conv_options.load:
+        if conv_options.parent_converted is not None:
+            parent = conv_options.parent_converted
+        elif local is not None:
+            conv_options.parent_converted = local.replace("raw", "converted")
+            parent = conv_options.parent_converted
+        elif conv_options.parent_remote is not None:
+            conv_options.parent_converted = remote.replace("raw", "converted")
+            parent = conv_options.parent_converted
+        else:
+            raise ValueError("Could not find/create parent_converted directory.")
+    elif local is not None:
+        parent = local
+    elif remote is not None:
+        parent = remote
+    else:
+        raise ValueError("No parent directory provided.")
+    return parent
+
+
 def url_to_filepath(url, parent_remote, parent_local):
     """Convert remote URL to local file path."""
     if not isinstance(url, str):
@@ -156,11 +181,11 @@ def download(url, parent_remote, parent_local, max_retries=10, retry_delay=2):
                 raise requests.exceptions.RequestException(message)
 
 
-def generate_times(options, attempt_download=True):
+def generate_times(dataset_options, attempt_download=False):
     """Get times from data_options."""
-    filepaths = options["filepaths"]
-    parent_local = options["parent_local"]
-    parent_remote = options["parent_remote"]
+    filepaths = dataset_options.filepaths
+    parent_local = dataset_options.parent_local
+    parent_remote = dataset_options.parent_remote
     for filepath in sorted(filepaths):
         if not Path(filepath).exists() and attempt_download:
             remote_filepath = str(filepath).replace(parent_local, parent_remote)
@@ -287,29 +312,6 @@ def consolidate_netcdf(filepaths, fields=None, concat_dim="time"):
     return dataset
 
 
-def format_string_list(strings):
-    """
-    Format a list of strings into a human-readable string.
-
-    Parameters
-    ----------
-    strings : list of str
-        List of strings to be formatted.
-
-    Returns
-    -------
-    formatted_string : str
-        The formatted string.
-    """
-    if len(strings) > 1:
-        formatted_string = ", ".join(strings[:-1]) + " or " + strings[-1]
-        return formatted_string
-    elif strings:
-        return strings[0]
-    else:
-        raise ValueError("strings must be an iterable of strings'.")
-
-
 def get_pyart_grid_shape(grid_options):
     """
     Get the grid shape for pyart grid.
@@ -433,30 +435,6 @@ def call_ncks(input_filepath, output_filepath, start, end, lat_range, lon_range)
         raise subprocess.CalledProcessError(result.returncode, command)
 
 
-def get_parent(dataset_options):
-    conv_options = dataset_options["converted_options"]
-    local = dataset_options["parent_local"]
-    remote = dataset_options["parent_remote"]
-    if conv_options["load"]:
-        if conv_options["parent_converted"] is not None:
-            parent = conv_options["parent_converted"]
-        elif local is not None:
-            conv_options["parent_converted"] = local.replace("raw", "converted")
-            parent = conv_options["parent_converted"]
-        elif conv_options["parent_remote"] is not None:
-            conv_options["parent_converted"] = remote.replace("raw", "converted")
-            parent = conv_options["parent_converted"]
-        else:
-            raise ValueError("Could not find/create parent_converted directory.")
-    elif local is not None:
-        parent = local
-    elif remote is not None:
-        parent = remote
-    else:
-        raise ValueError("No parent directory provided.")
-    return parent
-
-
 def apply_mask(ds, grid_options):
     """Apply a domain mask to an xr dataset."""
     domain_mask = ds["domain_mask"]
@@ -494,7 +472,7 @@ def mask_from_input_record(
     mask applies to all objects/times in the dataset.
     """
 
-    input_record = track_input_records[dataset_options["name"]]
+    input_record = track_input_records[dataset_options.name]
     domain_mask = input_record["domain_mask"]
     boundary_coords = input_record["boundary_coordinates"]
 
@@ -510,7 +488,7 @@ def mask_from_observations(dataset, dataset_options, object_options=None):
     else:
         altitudes = object_options.detection.altitudes
     num_obs = dataset["number_of_observations"].sel(altitude=slice(*altitudes))
-    mask = num_obs > dataset_options["obs_thresh"]
+    mask = num_obs > dataset_options.obs_thresh
     mask = mask.any(dim="altitude")
     return mask.astype(bool)
 
@@ -562,7 +540,7 @@ def mask_from_range(dataset, dataset_options, grid_options):
         raise ValueError("Grid name must be 'cartesian' or 'geographic'.")
 
     units_dict = {"m": 1, "km": 1e3}
-    range = dataset_options["range"] * units_dict[dataset_options["range_units"]]
+    range = dataset_options.range * units_dict[dataset_options.range_units]
     mask = distances <= range
     mask = xr.DataArray(mask.astype(bool), coords=coords, dims=dims)
 
@@ -624,9 +602,9 @@ def get_encoding(ds):
 
 def save_converted_dataset(dataset, dataset_options):
     """Save a converted dataset."""
-    conv_options = dataset_options["converted_options"]
-    if conv_options["save"]:
-        filepath = dataset_options["filepaths"][0]
+    conv_options = dataset_options.converted_options
+    if conv_options.save:
+        filepath = dataset_options.filepaths[0]
         parent = get_parent(dataset_options)
         if conv_options["parent_converted"] is None:
             parent_converted = parent.replace("raw", "converted")

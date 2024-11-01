@@ -1,11 +1,16 @@
-"""General data options functions."""
+"""Data options classes, convenience subclasses, and functions."""
 
 import numpy as np
+from pathlib import Path
+from typing import Literal, Dict
 from pydantic import Field, model_validator
+import pandas as pd
 from thor.log import setup_logger
-import thor.utils as utils
 from thor.config import get_outputs_directory
 import thor.option as option
+import thor.data.era5 as era5
+import thor.data.aura as aura
+import thor.data.gridrad as gridrad
 
 
 logger = setup_logger(__name__)
@@ -37,24 +42,27 @@ class ConvertedOptions(option.BaseOptions):
     parent_converted: str | None = Field(None, description=_summary["parent_converted"])
 
 
-class BaseDataOptions(option.BaseOptions):
-    """Base class for data options."""
+default_parent_local = str(get_outputs_directory() / "input_data/raw")
+
+
+class BaseDatasetOptions(option.BaseOptions):
+    """Base class for dataset options."""
 
     name: str = Field(..., description=_summary["name"])
     start: str | np.datetime64 = Field(..., description=_summary["start"])
     end: str | np.datetime64 = Field(..., description=_summary["end"])
-    fields: list[str] = Field(..., description=_summary["fields"])
+    fields: list[str] | None = Field(None, description=_summary["fields"])
     parent_remote: str | None = Field(None, description=_summary["parent_remote"])
-    parent_local: str | None = Field(
-        get_outputs_directory, description=_summary["parent_local"]
+    parent_local: str | Path | None = Field(
+        default_parent_local, description=_summary["parent_local"]
     )
     converted_options: ConvertedOptions = Field(
         ConvertedOptions(), description=_summary["converted_options"]
     )
-    filepaths: list[str] | None = Field(None, description=_summary["filepaths"])
+    filepaths: list[str] | dict = Field(None, description=_summary["filepaths"])
     attempt_download: bool = Field(False, description=_summary["attempt_download"])
     deque_length: int = Field(2, description=_summary["deque_length"])
-    use: str = Field("track", description=_summary["use"])
+    use: Literal["track", "tag"] = Field("track", description=_summary["use"])
 
     @model_validator(mode="after")
     def _check_parents(cls, values):
@@ -82,91 +90,204 @@ class BaseDataOptions(option.BaseOptions):
         return values
 
 
-def boilerplate_options(
-    name,
-    start,
-    end,
-    parent_remote=None,
-    save_local=False,
-    parent_local=None,
-    converted_options=None,
-    filepaths=None,
-    attempt_download=False,
-    deque_length=2,
-    use="track",
-):
-    """
-    Generate dataset options dictionary.
-
-    Parameters
-    ----------
-    name : str, optional
-        The name of the dataset; default is "operational".
-    start : datetime.datetime, optional
-        The start time of the dataset; default is None.
-    end : datetime.datetime, optional
-        The end time of the dataset; default is None.
-    parent_remote : str, optional
-        The remote parent directory; default is None.
-    save_local : bool, optional
-        Whether to save the raw data locally; default is False.
-    parent_local : str, optional
-        The local parent directory; default is None.
-    options_converted : dict, optional
-        Dictionary containing the converted data options; default is None.
-    options_mask : dict, optional
-        Dictionary containing the mask options; default is None.
-    filepaths : list, optional
-        List of filepaths to the files to be converted; default is None.
-    attempt_download : bool, optional
-        Whether to attempt to download the data; default is True.
-    deque_length : int, optional
-        The length of the deque; default is 2.
-    use : str, optional
-        The use of the dataset; default is "track".
-
-    Returns
-    -------
-    options : dict
-        Dictionary containing the data options.
-    """
-
-    if converted_options is None:
-        converted_options = {"save": False, "load": False, "parent_converted": None}
-    else:
-        utils.check_component_options(converted_options)
-
-    options = {
-        "name": name,
-        "start": start,
-        "end": end,
-        "parent_remote": parent_remote,
-        "save_local": save_local,
-        "parent_local": parent_local,
-        "converted_options": converted_options,
-        "filepaths": filepaths,
-        "attempt_download": attempt_download,
-        "deque_length": deque_length,
-        "use": use,
-    }
-
-    return options
+_summary = {
+    "latitude_range": "Latitude range if accessing a directory of subsetted era5 data.",
+    "longitude_range": "Longitude range if accessing a directory of subsetted era5 data.",
+    "mode": "Mode of the data, e.g. reannalysis.",
+    "data_format": "Data format, e.g. pressure-levels.",
+    "pressure_levels": "Pressure levels; required if data_format is pressure-levels.",
+    "storage": "Storage format of the data, e.g. monthly.",
+}
 
 
-def save_data_options(
-    data_options, options_directory=None, filename="data", append_time=False
-):
-    """TBA."""
+class ERA5Options(BaseDatasetOptions):
+    """Options for ERA5 datasets."""
 
-    if options_directory is None:
-        options_directory = get_outputs_directory() / "options/data"
-    utils.save_options(
-        data_options, filename, options_directory, append_time=append_time
+    # Overwrite the default values from the base class. Note these objects are still
+    # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
+    name: str = "era5_pl"
+    parent_remote: str = "/g/data/rt52"
+    use: Literal["track", "tag"] = "tag"
+
+    # Define additional fields for era5
+    latitude_range: list[float] = Field(
+        [-90, 90], description=_summary["latitude_range"]
+    )
+    longitude_range: list[float] = Field(
+        [-180, 180], description=_summary["longitude_range"]
+    )
+    mode: Literal["reanalysis"] = Field("reanalysis", description=_summary["mode"])
+    data_format: Literal["pressure-levels", "single-levels"] = Field(
+        "pressure-levels", description=_summary["data_format"]
+    )
+    pressure_levels: list[str] | list[float] | None = Field(
+        None, description=_summary["pressure_levels"]
+    )
+    storage: str = Field("monthly", description=_summary["storage"])
+
+    @model_validator(mode="after")
+    def _check_ranges(cls, values):
+        if values.latitude_range[0] < -90 or values.latitude_range[1] > 90:
+            raise ValueError("Latitude range must be between -90 and 90.")
+        if values.longitude_range[0] < -180 or values.longitude_range[1] > 180:
+            raise ValueError("Longitude range must be between -180 and 180.")
+        return values
+
+    @model_validator(mode="after")
+    def _check_defaults(cls, values):
+        if values.data_format == "pressure-levels":
+            if values.pressure_levels is None:
+                values.pressure_levels = era5.era5_pressure_levels
+                logger.info(f"Assigning default era5 pressure levels.")
+            values.pressure_levels = [str(level) for level in values.pressure_levels]
+        if values.fields is None:
+            message = f"Assigning default era5 {values.data_format} options name "
+            message += "and fields."
+            logger.info(message)
+            if values.data_format == "pressure-levels":
+                values.name = "era5_pl"
+                values.fields = ["u", "v", "z", "r", "t"]
+            elif values.data_format == "single-levels":
+                values.name = "era5_sl"
+                values.fields = ["cape", "cin"]
+        return values
+
+    @model_validator(mode="after")
+    def _check_times(cls, values):
+        start_time = np.datetime64("1940-03-01T00:00:00")
+        if np.datetime64(values.start) < start_time:
+            raise ValueError(f"start must be {str(start_time)} or later.")
+        return values
+
+    @model_validator(mode="after")
+    def _check_filepaths(cls, values):
+        if values.filepaths is None:
+            logger.info("Generating era5 filepaths.")
+            values.filepaths = era5.get_era5_filepaths(values)
+        if values.filepaths is None:
+            raise ValueError("filepaths not provided or badly formed.")
+        return values
+
+
+class AURAOptions(BaseDatasetOptions):
+    """Base options class for AURA datasets."""
+
+    # Overwrite the default values from the base class. Note these objects are still
+    # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
+    fields: list[str] = ["reflectivity"]
+
+    # Define additional fields for CPOL
+    level: Literal["1", "1b", "2"] = Field(..., description="Processing level.")
+    data_format: Literal["grid_150km_2500m", "grid_70km_1000m"] = Field(
+        ..., description="Data format."
+    )
+    range: float = Field(142.5, description="Range of the radar in km.")
+    range_units: str = Field("km", description="Units of the range.")
+
+
+class CPOLOptions(AURAOptions):
+    """Options for CPOL datasets."""
+
+    # Overwrite the default values from the base class. Note these objects are still
+    # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
+    name: str = "cpol"
+    fields: list[str] = ["reflectivity"]
+    parent_remote: str = "https://dapds00.nci.org.au/thredds/fileServer/hj10"
+
+    # Define additional fields for CPOL
+    level: str = "1b"
+    data_format: str = "grid_150km_2500m"
+    version: str = Field("v2020", description="Data version.")
+
+    @model_validator(mode="after")
+    def _check_times(cls, values):
+        if np.datetime64(values.start) < np.datetime64("1998-12-06T00:00:00"):
+            raise ValueError("start must be 1998-12-06 or later.")
+        if np.datetime64(values.end) > np.datetime64("2017-05-02T00:00:00"):
+            raise ValueError("end must be 2017-05-02 or earlier.")
+        return values
+
+    @model_validator(mode="after")
+    def _check_filepaths(cls, values):
+        if values.filepaths is None:
+            logger.info("Generating cpol filepaths.")
+            values.filepaths = aura.get_cpol_filepaths(values)
+        if values.filepaths is None:
+            raise ValueError("filepaths not provided or badly formed.")
+        return values
+
+
+_summary = {}
+_summary["weighting_function"] = "Weighting function used by pyart to reconstruct the "
+_summary["weighting_function"] += "grid from ODIM."
+
+
+class OperationalOptions(AURAOptions):
+    """Options for CPOL datasets."""
+
+    # Overwrite the default values from the base class. Note these objects are still
+    # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
+    name: str = "operational"
+    parent_remote: str = "https://dapds00.nci.org.au/thredds/fileServer/rq0"
+
+    # Define additional fields for the operational radar
+    level: str = "1"
+    data_format: str = "ODIM"
+    radar: int = Field(63, description="Radar ID number.")
+    weighting_function: str = Field(
+        "Barnes2", description=_summary["weighting_function"]
     )
 
 
-def check_boilerplate_options(dataset_options):
-    if dataset_options["use"] == "track":
-        fields = dataset_options["fields"]
-        if fields is not None and len(fields) > 1:
-            raise ValueError("Only one field can be specified for tracking.")
+class GridRadSevereOptions(BaseDatasetOptions):
+    """Options for GridRad Severe datasets."""
+
+    # Overwrite the default values from the base class. Note these objects are still
+    # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
+    name: str = "gridrad"
+    fields: list[str] = ["reflectivity"]
+    parent_remote: str = "https://data.rda.ucar.edu"
+
+    # Define additional fields for CPOL
+    event_start: str = Field(..., description="Event start date.")
+    dataset_id: str = Field("ds841.6", description="UCAR RDA dataset ID.")
+    version: str = Field("v4_2", description="GridRad version.")
+    obs_thresh: int = Field(2, description="Observation count threshold for filtering.")
+
+    @model_validator(mode="after")
+    def _check_times(cls, values):
+        start_time = np.datetime64("2010-01-20T18:00:00")
+        if np.datetime64(values.start) < start_time:
+            raise ValueError(f"start must be {str(start_time)} or later.")
+        return values
+
+    @model_validator(mode="after")
+    def _check_filepaths(cls, values):
+        if values.filepaths is None:
+            logger.info("Generating era5 filepaths.")
+            values.filepaths = gridrad.get_gridrad_filepaths(values)
+        if values.filepaths is None:
+            raise ValueError("filepaths not provided or badly formed.")
+        return values
+
+
+AnyDatasetOptions = (
+    ERA5Options | CPOLOptions | OperationalOptions | GridRadSevereOptions
+)
+
+
+class DataOptions(option.BaseOptions):
+    """Class for managing the options for all the datasets of a given run."""
+
+    datasets: list[AnyDatasetOptions] = Field(
+        ..., description="List of dataset options."
+    )
+    _dataset_lookup: Dict[str, BaseDatasetOptions] = {}
+
+    @model_validator(mode="after")
+    def initialize_dataset_lookup(cls, values):
+        values._dataset_lookup = {d.name: d for d in values.datasets}
+        return values
+
+    def dataset_by_name(self, dataset_name: str) -> BaseDatasetOptions:
+        return self._dataset_lookup.get(dataset_name)

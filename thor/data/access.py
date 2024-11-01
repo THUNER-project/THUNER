@@ -112,7 +112,7 @@ def check_options(options):
     models = ["g", "ge", "c"]
     domains = ["bn", "ph", "ad", "vt", "sy", "dn"]
     modes = ["fc", "an", "fcmm"]
-    if options["mode"] not in modes:
+    if options.mode not in modes:
         raise ValueError(f"mode must be one of {format_string_list(modes)}.")
 
     levels = ["sfc", "ml"]
@@ -162,7 +162,7 @@ def generate_access_urls(options):
 
     domains = ["bn", "ph", "ad", "vt", "sy", "dn"]
 
-    urls = dict(zip(options["fields"], [[] for i in range(len(options["fields"]))]))
+    urls = dict(zip(options.fields, [[] for i in range(len(options.fields))]))
 
     if options["model"] == "g":
         base_url += f"/access-{options['model']}/1"
@@ -175,10 +175,10 @@ def generate_access_urls(options):
     times = np.arange(start, end + np.timedelta64(1, "D"), np.timedelta64(1, "D"))
     times = pd.DatetimeIndex(times)
     for time in times:
-        for field in options["fields"]:
+        for field in options.fields:
             url = (
                 f"{base_url}/{time.year:04}{time.month:02}{time.day:02}/"
-                f"{options['init_time']}/{options['mode']}"
+                f"{options['init_time']}/{options.mode}"
                 f"/{options['level']}/{field}.nc"
             )
             urls[field].append(url)
