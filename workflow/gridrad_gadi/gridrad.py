@@ -28,10 +28,11 @@ def gridrad(start, end, event_start, base_local=None):
     intervals = parallel.get_time_intervals(start, end, period=period)
 
     output_parent = base_local / f"runs/dev/gridrad_{event_start.replace('-', '')}"
-
+    output_parent.mkdir(parents=True, exist_ok=True)
     if output_parent.exists():
         shutil.rmtree(output_parent)
     options_directory = output_parent / "options"
+    options_directory.mkdir(parents=True, exist_ok=True)
 
     # Create the data_options dictionary
     gridrad_parent = str(base_local / "input_data/raw")
