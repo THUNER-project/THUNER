@@ -35,30 +35,23 @@ def gridrad(start, end, event_start, base_local=None):
 
     # Create the data_options dictionary
     gridrad_parent = str(base_local / "input_data/raw")
-    converted_options = {"save": False, "load": False, "parent_converted": None}
-    gridrad_options = data.gridrad.gridrad_data_options(
-        start=start,
-        end=end,
-        converted_options=converted_options,
-        event_start=event_start,
-        parent_local=gridrad_parent,
-    )
     era5_parent = "/g/data/rt52"
-    era5_pl_options = data.era5.data_options(
-        start=start, end=end, parent_local=era5_parent
+
+    # Create and save the dataset options
+    times_dict = {"start": start, "end": end}
+    gridrad_dict = {"event_start": event_start, "parent_local": gridrad_parent}
+    gridrad_options = data.option.GridRadSevereOptions(**times_dict, **gridrad_dict)
+    era5_dict = {"data_format": "pressure-levels", "parent_local": era5_parent}
+    era5_pl_options = data.option.ERA5Options(**times_dict, parent_local=era5_parent)
+    era5_dict["data_format"] = "single-levels"
+    era5_sl_options = data.option.ERA5Options(**times_dict, **era5_dict)
+    data_options = data.option.DataOptions(
+        datasets=[gridrad_options, era5_pl_options, era5_sl_options]
     )
-    kwargs = {"start": start, "end": end, "data_format": "single-levels"}
-    kwargs.update({"parent_local": era5_parent})
-    era5_sl_options = data.era5.data_options(**kwargs)
+    data_options.to_yaml(options_directory / "data.yml")
+    gridrad_options = data_options.dataset_by_name("gridrad")
 
-    data_options = option.consolidate_options(
-        [gridrad_options, era5_pl_options, era5_sl_options]
-    )
-
-    dispatch.check_data_options(data_options)
-    data.option.save_data_options(data_options, options_directory=options_directory)
-
-    # Create the grid_options dictionary using the first file in the cpol dataset
+    # Create the grid_options dictionary
     grid_options = grid.create_options(
         name="geographic", regrid=False, altitude_spacing=None, geographic_spacing=None
     )
