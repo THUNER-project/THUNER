@@ -50,6 +50,7 @@ def track_interval(
     dataset_name,
 ):
     output_directory = output_parent / f"interval_{i}"
+    output_directory.mkdir(parents=True, exist_ok=True)
     options_directory = output_directory / "options"
     options_directory.mkdir(parents=True, exist_ok=True)
     data_options = data_options.model_copy(deep=True)
