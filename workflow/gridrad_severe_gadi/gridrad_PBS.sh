@@ -7,8 +7,8 @@
 #PBS -l walltime=3:00:00
 #PBS -l wd
 #PBS -l storage=gdata/rt52+gdata/w40+gdata/rq0+scratch/w40
-#PBS -o /scratch/w40/esh563/THOR_output/PBS_log/gridrad_PBS.o
-#PBS -e /scratch/w40/esh563/THOR_output/PBS_log/gridrad_PBS.e
+#PBS -o /scratch/w40/esh563/THOR_output/PBS_log/gridrad_2010/gridrad_PBS.o
+#PBS -e /scratch/w40/esh563/THOR_output/PBS_log/gridrad_2010/gridrad_PBS.e
 
 # Load gnu-parallel
 module load parallel
@@ -28,9 +28,6 @@ python3 ${SCRIPT_DIR}/initialize_output_directory.py
 test_directories=("${directories[@]:0:32}")
 
 LOG_DIR="/scratch/w40/esh563/THOR_output/PBS_log/gridrad_${year}"
-# Remove LOG_DIR if it exists, then recreate it
-rm -rf ${LOG_DIR}
-mkdir -p ${LOG_DIR}
 parallel_log="${LOG_DIR}/${year}_parallel.log"
 
 # Run multiple days concurrently with gnu-parallel

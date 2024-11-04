@@ -27,7 +27,8 @@ def gridrad(start, end, event_start, base_local=None):
     period = parallel.get_period(start, end)
     intervals = parallel.get_time_intervals(start, end, period=period)
 
-    output_parent = base_local / f"runs/dev/gridrad_{event_start.replace('-', '')}"
+    event_start_str = event_start.replace("-", "")
+    output_parent = base_local / f"runs/gridrad_severe/gridrad_{event_start_str}"
     output_parent.mkdir(parents=True, exist_ok=True)
     if output_parent.exists():
         shutil.rmtree(output_parent)
