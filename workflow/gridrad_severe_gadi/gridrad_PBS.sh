@@ -25,7 +25,7 @@ SCRIPT_DIR="/home/563/esh563/THOR/workflow/gridrad_severe_gadi"
 # Initialize output directory
 python3 ${SCRIPT_DIR}/initialize_output_directory.py
 
-# Disable HDF flock
+# # Disable HDF flock
 HDF5_USE_FILE_LOCKING=FALSE
 
 # In bash, the a:b syntax says slice 15 elements of the array starting from 10th element
@@ -36,5 +36,5 @@ parallel_log="${LOG_DIR}/${year}_parallel.log"
 
 # Run multiple days concurrently with gnu-parallel
 # Approx 8 cores and 32GB per event
-parallel -j 14 --timeout 3600 --joblog ${parallel_log} \
+parallel -j 8 --timeout 7200 --joblog ${parallel_log} \
     "python3 ${SCRIPT_DIR}/gridrad.py {} > ${LOG_DIR}/thor_{#}.out 2> ${LOG_DIR}/thor_{#}.err" ::: "${test_directories[@]}"
