@@ -2,8 +2,8 @@
 LOCAL_DIR=/home/ewan/THOR_output
 REMOTE_DIR=/scratch/w40/esh563/THOR_output
 GADI_USERNAME=esh563
-REMOTE_RUNS="${GADI_USERNAME}@gadi.nci.org.au:${REMOTE_DIR}/runs/dev"
-LOCAL_RUNS="${LOCAL_DIR}/runs/dev"
+REMOTE_RUNS="${GADI_USERNAME}@gadi.nci.org.au:${REMOTE_DIR}/runs/gridrad_severe"
+LOCAL_RUNS="${LOCAL_DIR}/runs/gridrad_severe"
 # Copy the tar files from the remote directory to the local directory
 rsync -rvP "${REMOTE_RUNS}/*.tar.gz" "${LOCAL_RUNS}/"
 # Get the paths to the tar files

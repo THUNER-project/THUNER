@@ -29,9 +29,16 @@ def gridrad(start, end, event_start, base_local=None):
 
     event_start_str = event_start.replace("-", "")
     output_parent = base_local / f"runs/gridrad_severe/gridrad_{event_start_str}"
-    output_parent.mkdir(parents=True, exist_ok=True)
+
+    # Check if tar.gz exists; if so return
+    tar_file = f"{output_parent}.tar.gz"
+    if Path(tar_file).exists():
+        logger.info(f"Event {event_start} already tracked.")
+        return
+
     if output_parent.exists():
         shutil.rmtree(output_parent)
+    output_parent.mkdir(parents=True, exist_ok=True)
     options_directory = output_parent / "options"
     options_directory.mkdir(parents=True, exist_ok=True)
 

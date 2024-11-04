@@ -4,7 +4,7 @@
 #PBS -l ncpus=112
 #PBS -l mem=512GB
 #PBS -l jobfs=2GB
-#PBS -l walltime=3:00:00
+#PBS -l walltime=6:00:00
 #PBS -l wd
 #PBS -l storage=gdata/rt52+gdata/w40+gdata/rq0+scratch/w40
 #PBS -o /scratch/w40/esh563/THOR_output/PBS_log/gridrad_2010/gridrad_PBS.o
@@ -12,6 +12,7 @@
 
 # Load gnu-parallel
 module load parallel
+module load nco
 # Load conda and activate the THOR environment
 module load python3/3.10.4
 conda init
@@ -24,12 +25,16 @@ SCRIPT_DIR="/home/563/esh563/THOR/workflow/gridrad_severe_gadi"
 # Initialize output directory
 python3 ${SCRIPT_DIR}/initialize_output_directory.py
 
+# Disable HDF flock
+HDF5_USE_FILE_LOCKING=FALSE
+
 # In bash, the a:b syntax says slice 15 elements of the array starting from 10th element
-test_directories=("${directories[@]:0:32}")
+test_directories=("${directories[@]}")
 
 LOG_DIR="/scratch/w40/esh563/THOR_output/PBS_log/gridrad_${year}"
 parallel_log="${LOG_DIR}/${year}_parallel.log"
 
 # Run multiple days concurrently with gnu-parallel
-parallel -j 16 --timeout 2400 --joblog ${parallel_log} \
+# Approx 8 cores and 32GB per event
+parallel -j 14 --timeout 3600 --joblog ${parallel_log} \
     "python3 ${SCRIPT_DIR}/gridrad.py {} > ${LOG_DIR}/thor_{#}.out 2> ${LOG_DIR}/thor_{#}.err" ::: "${test_directories[@]}"

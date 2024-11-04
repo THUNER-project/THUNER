@@ -138,12 +138,12 @@ class ERA5Options(BaseDatasetOptions):
         if values.data_format == "pressure-levels":
             if values.pressure_levels is None:
                 values.pressure_levels = era5.era5_pressure_levels
-                logger.info(f"Assigning default era5 pressure levels.")
+                logger.debug(f"Assigning default era5 pressure levels.")
             values.pressure_levels = [str(level) for level in values.pressure_levels]
         if values.fields is None:
             message = f"Assigning default era5 {values.data_format} options name "
             message += "and fields."
-            logger.info(message)
+            logger.debug(message)
             if values.data_format == "pressure-levels":
                 values.name = "era5_pl"
                 values.fields = ["u", "v", "z", "r", "t"]
