@@ -39,5 +39,5 @@ uniq $PBS_NODEFILE | awk '{print $1"/4"}' > node_list.txt
 
 # Run multiple days concurrently with gnu-parallel
 # Approx 8 cores and 32GB per event
-parallel -j 4 --timeout 7200 --joblog ${parallel_log} \
+parallel --jobs 4 -sshloginfile node_list.txt --timeout 7200 --joblog ${parallel_log} \
     "python3 ${SCRIPT_DIR}/gridrad.py {} > ${LOG_DIR}/thor_{#}.out 2> ${LOG_DIR}/thor_{#}.err" ::: "${test_directories[@]}"
