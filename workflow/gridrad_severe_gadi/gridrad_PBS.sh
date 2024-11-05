@@ -37,4 +37,4 @@ parallel_log="${LOG_DIR}/${year}_${start}_parallel.log"
 # Run multiple days concurrently with gnu-parallel
 # Approx 8 cores and 32GB per event
 parallel --jobs 4 --timeout 7200 --joblog ${parallel_log} \
-    "python3 ${SCRIPT_DIR}/gridrad.py {} > ${LOG_DIR}/thor_$((start + {#})).out 2> ${LOG_DIR}/thor_$((start + {#})).err" ::: "${directories_slice[@]}"
+    "python3 ${SCRIPT_DIR}/gridrad.py {} > ${LOG_DIR}/thor_${start}_{#}.out 2> ${LOG_DIR}/thor_${start}_{#}.err" ::: "${directories_slice[@]}"
