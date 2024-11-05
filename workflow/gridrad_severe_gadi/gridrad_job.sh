@@ -11,4 +11,7 @@ directories=$(find ${DATA_DIR} -mindepth 1 -type d -print | sort)
 filepath="${SCRIPT_DIR}/${year}_directories.txt"
 echo ${directories} > ${filepath}
 
-qsub -v filepath=${filepath},year=${year} ./gridrad_PBS.sh
+# Approx 4 events can be run per normalbw node, so submit in chunks of 4
+for start in $(seq 0 4 93); do 
+    qsub -v filepath=${filepath},year=${year},start=${start} ./gridrad_PBS.sh
+done
