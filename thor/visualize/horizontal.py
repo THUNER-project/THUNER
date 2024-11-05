@@ -1,7 +1,7 @@
 """Horizontal cross-section features."""
 
 from itertools import product
-from typing import List
+from typing import List, Any
 import copy
 import numpy as np
 import cv2
@@ -671,35 +671,40 @@ class BaseLayout:
         self.figure_height = None
 
 
-class PanelledUniformMaps(BaseLayout):
-    """Class to handle layout of cartopy maps with uniform extent."""
+class Panelled(BaseLayout):
+    """Class for basic panelled figure layourts."""
 
     def __init__(
         self,
-        # Extent of the figure [lon_min, lon_max, lat_min, lat_max]
-        extent: List[float],
-        subplot_width: float = 5.75,  # Width of the subplots in inches
+        subplot_width: float = 4.0,  # Width of the subplots in inches
+        subplot_height: float = 4.0,  # Height of the subplots in inches
         rows: int = 1,  # Number of rows in the figure
         columns: int = 1,  # Number of columns in the figure
         # Spacing between subplots as fraction of subplot width
-        horizontal_spacing: float = 0.3,  # Spacing between subplots in inches
-        vertical_spacing: float = 0.6,  # Spacing between subplots in inches
-        colorbar: bool = True,  # Add a colorbar to the figure
-        legend_rows: int | None = 2,  # Number of rows in the legend
+        horizontal_spacing: float = 0.5,  # Estimated spacing between subplots in inches
+        vertical_spacing: float = 0,  # Estimated spacing between subplots in inches)
+        colorbar: bool = False,  # Add a colorbar to the figure
+        legend_rows: int | None = None,  # Number of rows in the legend
+        shared_legends: bool = False,  # Share legends between subplots
+        projections: Any | List[Any] | None = None,  # Projections for each subplot
     ):
-        lat_range = extent[3] - extent[2]
-        lon_range = extent[1] - extent[0]
-        subplot_height = (lat_range / lon_range) * subplot_width
-        args = [subplot_width, subplot_height, rows, columns]
-        args += [horizontal_spacing, vertical_spacing]
-        super().__init__(*args)
-        self.extent = extent
+        super().__init__(
+            subplot_width,
+            subplot_height,
+            rows,
+            columns,
+            horizontal_spacing,
+            vertical_spacing,
+        )
         self.colorbar = colorbar
         self.legend_rows = legend_rows
-        self.legend_rows = legend_rows
-        self.suptitle_height = 1
+        self.shared_legends = shared_legends
+        if not isinstance(projections, list):
+            projections = [projections] * self.rows * self.columns
+        projections = np.reshape(projections, (self.rows, self.columns))
+        self.projections = projections
 
-    def initialize_layout(self):
+    def initialize_gridspec(self):
         """Initialize the figure."""
         width = self.subplot_width * self.columns
         width += self.horizontal_spacing * (self.columns - 1)
@@ -733,10 +738,91 @@ class PanelledUniformMaps(BaseLayout):
         wspace = self.horizontal_spacing / (sum(width_ratios) / len(width_ratios))
         hspace = self.vertical_spacing / (sum(height_ratios) / len(height_ratios))
 
-        fig = plt.figure(figsize=(width, height))
+        self.fig = plt.figure(figsize=(width, height))
         kwargs = {"width_ratios": width_ratios, "height_ratios": height_ratios}
         kwargs.update({"wspace": wspace, "hspace": hspace})
-        grid_spec = gridspec.GridSpec(rows, columns, **kwargs)
+        self.grid_spec = gridspec.GridSpec(rows, columns, **kwargs)
+
+    def initialize_layout(self):
+
+        self.initialize_gridspec()
+
+        colorbar_axes = []
+        subplot_axes = []
+        legend_ax = None
+
+        # Looping over self.rows and self.columns rather than rows, columns
+        # ignores possible colorbar columns and possible legend row
+        for i, j in product(range(self.rows), range(self.columns)):
+            projection = self.projections[i, j]
+            ax = self.fig.add_subplot(self.grid_spec[i, j], projection=projection)
+            subplot_axes.append(ax)
+        if self.rows > 1 or self.columns > 1:
+            make_subplot_labels(subplot_axes, x_shift=-0.12, y_shift=0.06)
+        if self.colorbar:
+            for i in range(self.rows):
+                ax = self.fig.add_subplot(self.grid_spec[i, -1])
+                colorbar_axes.append(ax)
+        if self.legend_rows is not None:
+            if self.shared_legends:
+                legend_ax = self.fig.add_subplot(self.grid_spec[-1, :])
+                legend_ax.axis("off")
+            else:
+                legend_ax = []
+                for j in range(self.columns):
+                    leg_ax = self.fig.add_subplot(self.grid_spec[-1, j])
+                    leg_ax.axis("off")
+                    legend_ax.append(leg_ax)
+        if self.rows == 1:
+            self.suptitle_height = 1
+        else:
+            self.suptitle_height = 0.935
+        return self.fig, subplot_axes, colorbar_axes, legend_ax
+
+    def rescale_figure(self, fig, new_width):
+        """Rescale the figure. Currently rought; could be improved."""
+        if self.figure_width is None:
+            raise ValueError("Layout not yet initialized.")
+        aspect_ratio = self.figure_height / self.figure_width
+        new_height = new_width * aspect_ratio
+        fig.set_size_inches(new_width, new_height)
+        fig.canvas.draw()
+        self.figure_height = new_height
+        self.figure_width = new_width
+
+
+class PanelledUniformMaps(Panelled):
+    """Class to handle layout of cartopy maps with uniform extent."""
+
+    def __init__(
+        self,
+        # Extent of the figure [lon_min, lon_max, lat_min, lat_max]
+        extent: List[float],
+        subplot_width: float = 5.75,  # Width of the subplots in inches
+        rows: int = 1,  # Number of rows in the figure
+        columns: int = 1,  # Number of columns in the figure
+        # Spacing between subplots as fraction of subplot width
+        horizontal_spacing: float = 0.3,  # Spacing between subplots in inches
+        vertical_spacing: float = 0.6,  # Spacing between subplots in inches
+        colorbar: bool = True,  # Add a colorbar to the figure
+        legend_rows: int | None = 2,  # Number of rows in the legend
+    ):
+        lat_range = extent[3] - extent[2]
+        lon_range = extent[1] - extent[0]
+        subplot_height = (lat_range / lon_range) * subplot_width
+        args = [subplot_width, subplot_height, rows, columns]
+        args += [horizontal_spacing, vertical_spacing]
+        super().__init__(*args)
+        self.extent = extent
+        self.colorbar = colorbar
+        self.legend_rows = legend_rows
+        self.legend_rows = legend_rows
+        self.suptitle_height = 1
+
+    # Redefine the initialize_layout method to handle cartopy projections
+    def initialize_layout(self):
+        """Initialize the figure."""
+        self.initialize_gridspec()
 
         colorbar_axes = []
         subplot_axes = []
@@ -753,7 +839,7 @@ class PanelledUniformMaps(BaseLayout):
         # Looping over self.rows and self.columns rather than rows, columns
         # ignores possible colorbar columns and possible legend row
         for i, j in product(range(self.rows), range(self.columns)):
-            ax = fig.add_subplot(grid_spec[i, j], projection=proj)
+            ax = self.fig.add_subplot(self.grid_spec[i, j], projection=proj)
             ax.set_rasterized(True)
             kwargs = {"extent": self.extent, "scale": scale, "left_labels": (j == 0)}
             kwargs.update({"bottom_labels": (i == self.rows - 1)})
@@ -763,24 +849,13 @@ class PanelledUniformMaps(BaseLayout):
         make_subplot_labels(subplot_axes, x_shift=-0.12, y_shift=0.06)
         if self.colorbar:
             for i in range(self.rows):
-                ax = fig.add_subplot(grid_spec[i, -1])
+                ax = self.fig.add_subplot(self.grid_spec[i, -1])
                 colorbar_axes.append(ax)
         if self.legend_rows is not None:
-            legend_ax = fig.add_subplot(grid_spec[-1, :])
+            legend_ax = self.fig.add_subplot(self.grid_spec[-1, :])
             legend_ax.axis("off")
         if self.rows == 1:
             self.suptitle_height = 1
         else:
             self.suptitle_height = 0.935
-        return fig, subplot_axes, colorbar_axes, legend_ax
-
-    def rescale_figure(self, fig, new_width):
-        """Rescale the figure. Currently rought; could be improved."""
-        if self.figure_width is None:
-            raise ValueError("Layout not yet initialized.")
-        aspect_ratio = self.figure_height / self.figure_width
-        new_height = new_width * aspect_ratio
-        fig.set_size_inches(new_width, new_height)
-        fig.canvas.draw()
-        self.figure_height = new_height
-        self.figure_width = new_width
+        return self.fig, subplot_axes, colorbar_axes, legend_ax

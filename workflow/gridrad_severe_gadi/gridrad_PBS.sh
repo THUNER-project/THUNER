@@ -1,14 +1,17 @@
 #!/bin/bash
 #PBS -q normalbw
 #PBS -P w40
-#PBS -l ncpus=112
-#PBS -l mem=512GB
-#PBS -l jobfs=2GB
+#PBS -l select=4:ncpus=16:mem=128GB
+#PBS -l jobfs=100MB
 #PBS -l walltime=6:00:00
 #PBS -l wd
 #PBS -l storage=gdata/rt52+gdata/w40+gdata/rq0+scratch/w40
 #PBS -o /scratch/w40/esh563/THOR_output/PBS_log/gridrad_2010/gridrad_PBS.o
 #PBS -e /scratch/w40/esh563/THOR_output/PBS_log/gridrad_2010/gridrad_PBS.e
+
+# Note using the select=4 commmand above explicitly requests 4 nodes, each with 16 CPUs.
+# This ensures no more than 4 jobs are run concurrently per node (each of which 
+# uses ~ 8 CPUS), which results in no node needing more than 128GB of memory.
 
 # Load gnu-parallel
 module load parallel
@@ -36,5 +39,5 @@ parallel_log="${LOG_DIR}/${year}_parallel.log"
 
 # Run multiple days concurrently with gnu-parallel
 # Approx 8 cores and 32GB per event
-parallel -j 8 --timeout 7200 --joblog ${parallel_log} \
+parallel -j 16 --timeout 7200 --joblog ${parallel_log} \
     "python3 ${SCRIPT_DIR}/gridrad.py {} > ${LOG_DIR}/thor_{#}.out 2> ${LOG_DIR}/thor_{#}.err" ::: "${test_directories[@]}"

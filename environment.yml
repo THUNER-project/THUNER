@@ -33,3 +33,4 @@ dependencies:
   - psutil
   - pydantic
   - zarr
+  - windrose

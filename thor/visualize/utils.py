@@ -6,6 +6,19 @@ from PIL import Image
 import matplotlib.pyplot as plt
 
 
+def reorder_legend_entries(handles, labels, columns=2):
+    """Reorder handles and labels for left-to-right, top-to-bottom order."""
+    rows = np.ceil(len(handles) / columns).astype(int)
+    new_order = []
+    index = 0
+    for i in range(len(handles)):
+        index = columns * (i % rows) + i // rows
+        new_order.append(index)
+    reordered_handles = [handles[i] for i in new_order]
+    reordered_labels = [labels[i] for i in new_order]
+    return reordered_handles, reordered_labels
+
+
 def reduce_color_depth(filepath, num_colors=256):
     """Reduce color depth of png image."""
     image = Image.open(filepath)
