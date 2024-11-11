@@ -29,3 +29,5 @@ psutil
 pydantic
 zarr
 windrose
+pydot
+graphviz

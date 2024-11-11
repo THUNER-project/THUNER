@@ -8,11 +8,13 @@ from radar reflectivity and ambient winds. https://dx.doi.org/10.1175/MWR-D-22-0
 
 import numpy as np
 import pandas as pd
+from pydantic import Field
 from thor.attribute.utils import read_attribute_csv, get_attribute_dict
 import thor.analyze.utils as utils
 import thor.write as write
 import thor.attribute as attribute
 import thor.log as log
+import thor.option as option
 
 logger = log.setup_logger(__name__)
 
@@ -108,75 +110,50 @@ def process_velocities(
     return all_velocities
 
 
-def analysis_options(
-    window_size=6,
-    min_area=1e2,
-    max_area=np.inf,
-    max_boundary_overlap=1e-3,
-    duration=30,
-    min_major_axis_length=25,
-    min_axis_ratio=2,
-    min_offset=10,
-    min_shear=2,
-    min_velocity=5,
-    min_relative_velocity=2,
-    quadrant_buffer_angle=10,
+_summary = {
+    "window_size": "Window size for temporal smoothing of velocities.",
+    "min_area": "Minimum area of MCS in km^2.",
+    "max_area": "Maximum area of MCS in km^2.",
+    "max_boundary_overlap": "Maximum fraction of system member object pixels touching boundary.",
+    "min_major_axis_length": "Minimum major axis length of MCS in km.",
+    "min_axis_ratio": "Minimum axis ratio of MCS.",
+    "min_duration": "Minimum duration of MCS in minutes.",
+    "min_offset": "Minimum stratiform offset in km.",
+    "min_shear": "Minimum shear in m/s.",
+    "min_velocity": "Minimum velocity in m/s.",
+    "min_relative_velocity": "Minimum relative velocity in m/s.",
+    "quadrant_buffer_angle": "Buffer angle in degrees for quadrant based classification.",
+}
+
+
+class AnalysisOptions(option.BaseOptions):
+    """Options for convective system analysis."""
+
+    window_size: int = Field(6, description=_summary["window_size"], ge=1)
+    min_area: float = Field(1e2, description=_summary["min_area"], ge=0)
+    max_area: float = Field(np.inf, description=_summary["max_area"], gt=0)
+    max_boundary_overlap: float = Field(
+        np.round(1e-3, 5), description=_summary["max_boundary_overlap"], gt=0
+    )
+    min_major_axis_length: float = Field(
+        25, description=_summary["min_major_axis_length"], ge=0
+    )
+    min_axis_ratio: float = Field(2, description=_summary["min_axis_ratio"], ge=0)
+    min_duration: float = Field(30, description=_summary["min_duration"], ge=0)
+    min_offset: float = Field(10, description=_summary["min_offset"], ge=0)
+    min_shear: float = Field(2, description=_summary["min_shear"], ge=0)
+    min_velocity: float = Field(5, description=_summary["min_velocity"], ge=0)
+    min_relative_velocity: float = Field(
+        2, description=_summary["min_relative_velocity"], ge=0
+    )
+    quadrant_buffer_angle: float = Field(
+        10, description=_summary["quadrant_buffer_angle"], ge=0
+    )
+
+
+def quality_control(
+    output_directory, analysis_options: AnalysisOptions, analysis_directory=None
 ):
-    """
-    Get quality control options for MCS analysis. These criteria are used to filter
-    system observations before classifications of various kinds are performed.
-
-    Parameters
-    ----------
-    window_size : int, optional
-        Window size for temporal smoothing of velocities. The default is 6.
-    min_area : float, optional
-        Minimum area of MCS in km^2. The default is 1e2.
-    max_area : float, optional
-        Maximum area of MCS in km^2. The default is 1e6.
-    max_boundary_overlap : float, optional
-        Maximum fraction of system member object pixels touching boundary.
-        The default is 1e-3.
-    min_major_axis_length : float, optional
-        Minimum major axis length of MCS in km. The default is None.
-    min_axis_ratio : float, optional
-        Minimum axis ratio of MCS. The default is None.
-    duration : float, optional
-        Minimum duration of MCS in minutes. The default is 30.
-    min_offset : float, optional
-        Minimum stratiform offset in km. The default is 10.
-    min_shear : float, optional
-        Minimum shear in m/s. The default is 2.
-    min_velocity : float, optional
-        Minimum velocity in m/s. The default is 5.
-    min_relative_velocity : float, optional
-        Minimum relative velocity in m/s. The default is 2.
-    quadrant_buffer_angle : float, optional
-        Buffer angle in degrees for quadrant based classification. The default is 10.
-
-    Returns
-    -------
-    dict
-        Dictionary of quality control options.
-    """
-    options = {
-        "window_size": window_size,
-        "min_area": min_area,
-        "max_area": max_area,
-        "max_boundary_overlap": max_boundary_overlap,
-        "min_major_axis_length": min_major_axis_length,
-        "min_axis_ratio": min_axis_ratio,
-        "duration": duration,
-        "min_offset": min_offset,
-        "min_shear": min_shear,
-        "min_velocity": min_velocity,
-        "min_relative_velocity": min_relative_velocity,
-        "quadrant_buffer_angle": quadrant_buffer_angle,
-    }
-    return options
-
-
-def quality_control(output_directory, analysis_options, analysis_directory=None):
     """
     Perform quality control on MCSs based on the provided options.
 
@@ -184,8 +161,8 @@ def quality_control(output_directory, analysis_options, analysis_directory=None)
     ----------
     output_directory : str
         Path to the thor run output directory.
-    analysis_options : dict
-        Dictionary of quality control options.
+    analysis_options : AnalysisOptions
+        Options for analysis and quality control checks.
 
     Returns
     -------
@@ -208,7 +185,7 @@ def quality_control(output_directory, analysis_options, analysis_directory=None)
     anvil = read_attribute_csv(filepath)
     filepath = output_directory / "attributes/mcs/core.csv"
     mcs = read_attribute_csv(filepath, columns=["parents"])
-    max_boundary_overlap = analysis_options["max_boundary_overlap"]
+    max_boundary_overlap = analysis_options.max_boundary_overlap
     convective = convective.rename(columns={"boundary_overlap": "convective_contained"})
     anvil = anvil.rename(columns={"boundary_overlap": "anvil_contained"})
     convective_check = convective["convective_contained"] <= max_boundary_overlap
@@ -218,15 +195,15 @@ def quality_control(output_directory, analysis_options, analysis_directory=None)
     filepath = analysis_directory / "velocities.csv"
     velocities = read_attribute_csv(filepath)
     velocity_magnitude = velocities[["u", "v"]].pow(2).sum(axis=1).pow(0.5)
-    velocity_check = velocity_magnitude >= analysis_options["min_velocity"]
+    velocity_check = velocity_magnitude >= analysis_options.min_velocity
     velocity_check.name = "velocity"
     if "u_shear" in velocities.columns:
         shear_magnitude = velocities[["u_shear", "v_shear"]].pow(2).sum(axis=1).pow(0.5)
-        shear_check = shear_magnitude >= analysis_options["min_shear"]
+        shear_check = shear_magnitude >= analysis_options.min_shear
         shear_check.name = "shear"
         relative_velocity = velocities[["u_relative", "v_relative"]]
         relative_velocity_magnitude = relative_velocity.pow(2).sum(axis=1).pow(0.5)
-        min_relative_velocity = analysis_options["min_relative_velocity"]
+        min_relative_velocity = analysis_options.min_relative_velocity
         relative_velocity_check = relative_velocity_magnitude >= min_relative_velocity
         relative_velocity_check.name = "relative_velocity"
 
@@ -239,7 +216,7 @@ def quality_control(output_directory, analysis_options, analysis_directory=None)
         area = area.rename(columns={"area": f"{obj}_area"})
         all_areas.append(area)
     area = pd.concat(all_areas, axis=1).max(axis=1)
-    min_area, max_area = analysis_options["min_area"], analysis_options["max_area"]
+    min_area, max_area = analysis_options.min_area, analysis_options.max_area
     area_check = (area >= min_area) & (area <= max_area)
     area_check.name = "area"
 
@@ -247,20 +224,28 @@ def quality_control(output_directory, analysis_options, analysis_directory=None)
     filepath = output_directory / f"attributes/mcs/group.csv"
     offset = read_attribute_csv(filepath, columns=["x_offset", "y_offset"])
     offset_magnitude = offset.pow(2).sum(axis=1).pow(0.5)
-    offset_check = offset_magnitude >= analysis_options["min_offset"]
+    offset_check = offset_magnitude >= analysis_options.min_offset
     offset_check.name = "offset"
 
     # Check the duration of the system is sufficiently long
     # First get the duration of each object from the velocity dataframe
-    dummy_df = pd.DataFrame(index=velocities.index)
-    dummy_df.index.names = velocities.index.names
-    time_group = velocities.reset_index().groupby("universal_id")["time"]
-    duration = time_group.agg(lambda x: x.max() - x.min())
-    duration_check = duration >= np.timedelta64(analysis_options["duration"], "m")
+    id_group = velocities.reset_index().groupby("universal_id")["time"]
+    duration = id_group.agg(lambda x: x.max() - x.min())
+    duration_check = duration >= np.timedelta64(analysis_options.min_duration, "m")
     duration_check.name = "duration"
     dummy_df = velocities[[]].reset_index()
-    duration_check = dummy_df.merge(duration_check, on="universal_id", how="left")
+    merge_kwargs = {"on": "universal_id", "how": "left"}
+    duration_check = dummy_df.merge(duration_check, **merge_kwargs)
     duration_check = duration_check.set_index(velocities.index.names)
+
+    # Check if the object fails boundary overlap checks when first detected
+    any_overlap = np.concatenate([convective_check, anvil_check], axis=1).any(axis=1)
+    id_group = any_overlap.reset_index().groupby("universal_id")["time"]
+    initially_contained = id_group.agg(lambda x: x.iloc[0])
+    initially_contained.name = "initially_contained"
+    dummy_df = velocities[[]].reset_index()
+    initially_contained = dummy_df.merge(initially_contained, **merge_kwargs)
+    initially_contained = initially_contained.set_index(velocities.index.names)
 
     # Check whether the object has parents. When plotting we may only wish to filter out
     # short duration objects if they are not part of a larger system
@@ -272,10 +257,10 @@ def quality_control(output_directory, analysis_options, analysis_directory=None)
     # Check the linearity of the system
     filepath = output_directory / f"attributes/mcs/{convective_label}/ellipse.csv"
     ellipse = read_attribute_csv(filepath, columns=["major", "minor"])
-    major_check = ellipse["major"] >= analysis_options["min_major_axis_length"]
+    major_check = ellipse["major"] >= analysis_options.min_major_axis_length
     major_check.name = "major_axis"
     axis_ratio = ellipse["major"] / ellipse["minor"]
-    axis_ratio_check = axis_ratio >= analysis_options["min_axis_ratio"]
+    axis_ratio_check = axis_ratio >= analysis_options.min_axis_ratio
     axis_ratio_check.name = "axis_ratio"
 
     names = ["convective_contained", "anvil_contained", "velocity", "shear"]
@@ -317,7 +302,25 @@ def quality_control(output_directory, analysis_options, analysis_directory=None)
     return quality
 
 
-def classify_all(output_directory, analysis_directory=None):
+ambiguity_quality_dispatcher = {
+    "stratiform_offset": ["velocity"],
+    "inflow": ["velocity", "relative_velocity"],
+    "relative_stratiform_offset": ["relative_velocity"],
+    "tilt": ["shear"],
+    "propagation": ["shear", "relative_velocity"],
+}
+
+
+def classify_all(
+    output_directory,
+    analysis_options: AnalysisOptions,
+    analysis_directory=None,
+    offset_filepath=None,
+    velocities_filepath=None,
+    quality_filepath=None,
+    classify_small_offsets=False,
+    classify_ambiguous=False,
+):
     """
     Classify MCSs based on quadrants, as described in Short et al. (2023).
 
@@ -336,10 +339,15 @@ def classify_all(output_directory, analysis_directory=None):
     if analysis_directory is None:
         analysis_directory = output_directory / "analysis"
 
-    filepath = analysis_directory / "velocities.csv"
-    velocities = read_attribute_csv(filepath)
-    filepath = output_directory / "attributes/mcs/group.csv"
-    offset = read_attribute_csv(filepath, columns=["x_offset", "y_offset"])
+    if velocities_filepath is None:
+        velocities_filepath = analysis_directory / "velocities.csv"
+    velocities = read_attribute_csv(velocities_filepath)
+    if offset_filepath is None:
+        offset_filepath = output_directory / "attributes/mcs/group.csv"
+    offset = read_attribute_csv(offset_filepath, columns=["x_offset", "y_offset"])
+    if quality_filepath is None:
+        quality_filepath = analysis_directory / "quality.csv"
+    quality = read_attribute_csv(quality_filepath)
 
     u, v = velocities["u"], velocities["v"]
 
@@ -364,7 +372,7 @@ def classify_all(output_directory, analysis_directory=None):
     attributes["time"] = attribute.core.time()
     attributes["universal_id"] = attribute.core.identity("universal_id")
     labels = [["leading", "right", "trailing", "left"]]
-    labels += [["front", "right", "back", "left"]]
+    labels += [["front", "right", "rear", "left"]]
     labels += [["leading", "right", "trailing", "left"]]
     labels += [["down-shear", "shear-perpendicular", "up-shear", "shear-perpendicular"]]
     labels += [["down-shear", "shear-perpendicular", "up-shear", "shear-perpendicular"]]
@@ -372,14 +380,24 @@ def classify_all(output_directory, analysis_directory=None):
     # Vector 2 defines the center of the first quadrant
     u2_list = [u, u, u_relative, u_shear, u_shear]
     v2_list = [v, v, v_relative, v_shear, v_shear]
-    # The quadrant vector 2 falls in determines the classification
+    # The quadrant vector 1 falls in determines the classification
     u1_list = [x_offset, u_relative, x_offset, x_offset, u_relative]
     v1_list = [y_offset, v_relative, y_offset, y_offset, v_relative]
 
+    # Offset classifications
+    offset_names = ["stratiform_offset", "relative_stratiform_offset", "tilt"]
+
     all_classifications = []
     for i in range(len(u2_list)):
-        angles = get_angle(u1_list[i], v1_list[i], u2_list[i], v2_list[i])
-        all_classifications.append(classify(names[i], angles, labels[i]))
+        angles = utils.get_angle(u1_list[i], v1_list[i], u2_list[i], v2_list[i])
+        classified = classify_angles(names[i], angles, labels[i])
+        if classify_small_offsets and names[i] in offset_names:
+            args = [classified, x_offset, y_offset, analysis_options.min_offset]
+            classified = classify_small_offsets(*args)
+        if classify_ambiguous:
+            unambiguous = quality[ambiguity_quality_dispatcher[names[i]]].all(axis=1)
+            classified = classify_ambiguous(classified, unambiguous)
+        all_classifications.append(classified)
 
     classifications = pd.concat(all_classifications, axis=1)
     filepath = analysis_directory / "classification.csv"
@@ -387,19 +405,7 @@ def classify_all(output_directory, analysis_directory=None):
     return classifications
 
 
-def get_angle(u1, v1, u2, v2):
-    """
-    Get the angle between two vectors. Angle calculated as second vector direction minus
-    first vector direction.
-    """
-
-    angle_1 = np.arctan2(v1, u1)
-    angle_2 = np.arctan2(v2, u2)
-    # Get angle between vectors, but signed so that in range -np.pi to np.pi
-    return np.mod(angle_2 - angle_1 + np.pi, 2 * np.pi) - np.pi
-
-
-def classify(name, angles, category_labels):
+def classify_angles(name, angles, category_labels):
     """
     Classify the quadrants based on the angles between the vectors.
 
@@ -410,7 +416,7 @@ def classify(name, angles, category_labels):
     angles : pd.DataFrame
         DataFrame of angles between vectors.
     category_labels : list
-        List of category labels, [front_label, right_label, back_label, left_label].
+        List of category labels, [front_label, right_label, rear_label, left_label].
 
     Returns
     -------
@@ -423,8 +429,27 @@ def classify(name, angles, category_labels):
     classification[front_cond] = category_labels[0]
     right_cond = (np.pi / 4 < angles) & (angles <= 3 * np.pi / 4)
     classification[right_cond] = category_labels[1]
-    back_cond = (3 * np.pi / 4 < angles) | (angles <= -3 * np.pi / 4)
-    classification[back_cond] = category_labels[2]
+    rear_cond = (3 * np.pi / 4 < angles) | (angles <= -3 * np.pi / 4)
+    classification[rear_cond] = category_labels[2]
     left_cond = (-3 * np.pi / 4 < angles) & (angles <= -np.pi / 4)
     classification[left_cond] = category_labels[3]
     return classification
+
+
+def classify_small_offsets(classified, x_offset, y_offset, min_offset):
+    """
+    Classify small offsets as 'centered' if the offset is less than the minimum offset.
+    """
+
+    offset_magnitude = np.sqrt(x_offset**2 + y_offset**2)
+    classified[offset_magnitude < min_offset] = "centered"
+    return classified
+
+
+def classify_ambiguous(classified, unambiguous):
+    """
+    Classify ambiguous classifications as 'ambiguous'.
+    """
+
+    classified[~unambiguous] = "ambiguous"
+    return classified

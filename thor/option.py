@@ -68,6 +68,7 @@ class BaseOptions(BaseModel):
         return {field: convert_value(getattr(self, field)) for field in fields}
 
     def to_yaml(self, filepath: str):
+        Path(filepath).parent.mkdir(exist_ok=True, parents=True)
         with open(filepath, "w") as f:
             kwargs = {"default_flow_style": False, "allow_unicode": True}
             kwargs = {"sort_keys": False}

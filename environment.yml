@@ -34,3 +34,5 @@ dependencies:
   - pydantic
   - zarr
   - windrose
+  - pydot
+  - graphviz

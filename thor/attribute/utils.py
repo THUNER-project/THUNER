@@ -182,6 +182,8 @@ def read_metadata_yml(filepath):
 def get_indexes(attribute_options):
     """Get the indexes for the attribute DataFrame."""
     indexes = ["time"]
+    if "event_start" in attribute_options.keys():
+        indexes.append("event_start")
     if "universal_id" in attribute_options.keys():
         id_index = "universal_id"
         indexes.append(id_index)
@@ -224,15 +226,22 @@ def read_attribute_csv(filepath, attribute_options=None, columns=None, times=Non
         logger.warning(message)
         return pd.read_csv(filepath, na_values=["", "NA"], keep_default_na=True)
 
+    # Get attributes with np.datetime64 data type
+    time_attrs = []
+    for attr in attribute_options.keys():
+        if attribute_options[attr]["data_type"] == "datetime64[s]":
+            time_attrs.append(attr)
+
     indexes = get_indexes(attribute_options)
     if columns is None:
         columns = list(attribute_options.keys())
     all_columns = indexes + [col for col in columns if col not in indexes]
     data_types = {name: attribute_options[name]["data_type"] for name in all_columns}
-    # Remove time column as pd handles this separately
-    data_types.pop("time", None)
+    # Remove time columns as pd handles these separately
+    for name in time_attrs:
+        data_types.pop(name, None)
     if times is not None:
-        kwargs = {"usecols": ["time"], "parse_dates": ["time"]}
+        kwargs = {"usecols": ["time"], "parse_dates": time_attrs}
         kwargs.update({"na_values": ["", "NA"], "keep_default_na": True})
         index_df = pd.read_csv(filepath, **kwargs)
         row_numbers = index_df[~index_df["time"].isin(times)].index.tolist()
@@ -240,7 +249,8 @@ def read_attribute_csv(filepath, attribute_options=None, columns=None, times=Non
         row_numbers = [i + 1 for i in row_numbers]
     else:
         row_numbers = None
-    kwargs = {"usecols": all_columns, "dtype": data_types, "parse_dates": ["time"]}
+
+    kwargs = {"usecols": all_columns, "dtype": data_types, "parse_dates": time_attrs}
     kwargs.update({"skiprows": row_numbers})
     kwargs.update({"na_values": ["", "NA"], "keep_default_na": True})
     df = pd.read_csv(filepath, **kwargs)

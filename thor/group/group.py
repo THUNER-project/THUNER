@@ -3,7 +3,7 @@
 import copy
 import numpy as np
 import xarray as xr
-import networkx
+import networkx as nx
 from networkx.algorithms.components.connected import connected_components
 import thor.detect.preprocess as preprocess
 from thor.utils import get_time_interval
@@ -68,7 +68,7 @@ def get_connected_components(tracks, object_options):
         current_max += np.max(mask.values)
 
     # Create graph for objects that overlap at different vertical levels.
-    overlap_graph = networkx.Graph()
+    overlap_graph = nx.Graph()
     overlap_graph.add_nodes_from(set(range(1, current_max)))
 
     # Create edges between the objects that overlap vertically, assuming member objects

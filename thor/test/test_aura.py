@@ -156,7 +156,7 @@ def test_cpol_geographic():
         output_directory=output_directory,
     )
 
-    analysis_options = analyze.mcs.analysis_options()
+    analysis_options = analyze.mcs.AnalysisOptions()
     analyze.mcs.process_velocities(output_directory)
     analyze.mcs.quality_control(output_directory, analysis_options)
     analyze.mcs.classify_all(output_directory)
@@ -198,7 +198,7 @@ def test_cpol_cartesian():
         output_directory=output_directory,
     )
 
-    analysis_options = analyze.mcs.analysis_options()
+    analysis_options = analyze.mcs.AnalysisOptions()
     analyze.mcs.process_velocities(output_directory)
     analyze.mcs.quality_control(output_directory, analysis_options)
     analyze.mcs.classify_all(output_directory)

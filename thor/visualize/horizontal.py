@@ -1,11 +1,12 @@
 """Horizontal cross-section features."""
 
 from itertools import product
-from typing import List, Any
+from typing import List, Any, Literal
 import copy
 import numpy as np
 import cv2
 import xarray as xr
+import windrose
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.ticker as mticker
@@ -585,7 +586,7 @@ def grouped_mask_template(grid, extent, member_objects, scale):
     }
     kwargs.update({"colorbar": True, "legend_rows": 2})
     layout = PanelledUniformMaps(**kwargs)
-    fig, subplot_axes, colorbar_axes, legend_ax = layout.initialize_layout()
+    fig, subplot_axes, colorbar_axes, legend_axes = layout.initialize_layout()
     for i in range(len(member_objects)):
         ax = subplot_axes[i]
         ax.set_title(member_objects[i].replace("_", " ").title(), y=1)
@@ -597,7 +598,7 @@ def grouped_mask_template(grid, extent, member_objects, scale):
             radar_longitude = float(grid_i.attrs["origin_longitude"])
             radar_latitude = float(grid_i.attrs["origin_latitude"])
             radar_features(ax, radar_longitude, radar_latitude, extent)
-    return fig, subplot_axes, colorbar_axes, legend_ax, layout
+    return fig, subplot_axes, colorbar_axes, legend_axes, layout
 
 
 def grouped_mask(
@@ -620,7 +621,7 @@ def grouped_mask(
         figure_options["template"] = grouped_mask_template(*args)
 
     template = copy.deepcopy(figure_options["template"])
-    [fig, subplot_axes, colorbar_axes, legend_ax, layout] = template
+    [fig, subplot_axes, colorbar_axes, legend_axes, layout] = template
     pcm = None
     colorbar_label = None
     for i in range(len(member_objects)):
@@ -645,7 +646,7 @@ def grouped_mask(
     title = f"{mask.time.values.astype('datetime64[s]')} UTC"
     fig.suptitle(title, y=layout.suptitle_height)
 
-    return fig, subplot_axes, colorbar_axes, legend_ax
+    return fig, subplot_axes, colorbar_axes, legend_axes
 
 
 class BaseLayout:
@@ -670,9 +671,20 @@ class BaseLayout:
         self.figure_width = None
         self.figure_height = None
 
+    def rescale_figure(self, fig, new_width):
+        """Rescale the figure. Currently rought; could be improved."""
+        if self.figure_width is None:
+            raise ValueError("Layout not yet initialized.")
+        aspect_ratio = self.figure_height / self.figure_width
+        new_height = new_width * aspect_ratio
+        fig.set_size_inches(new_width, new_height)
+        fig.canvas.draw()
+        self.figure_height = new_height
+        self.figure_width = new_width
+
 
 class Panelled(BaseLayout):
-    """Class for basic panelled figure layourts."""
+    """Class for basic panelled figure layouts."""
 
     def __init__(
         self,
@@ -685,8 +697,10 @@ class Panelled(BaseLayout):
         vertical_spacing: float = 0,  # Estimated spacing between subplots in inches)
         colorbar: bool = False,  # Add a colorbar to the figure
         legend_rows: int | None = None,  # Number of rows in the legend
-        shared_legends: bool = False,  # Share legends between subplots
+        shared_legends: Literal["columns", "all", None] = None,  # Share legends
         projections: Any | List[Any] | None = None,  # Projections for each subplot
+        label_offset_x: float = -0.12,
+        label_offset_y: float = 0.06,
     ):
         super().__init__(
             subplot_width,
@@ -696,6 +710,8 @@ class Panelled(BaseLayout):
             horizontal_spacing,
             vertical_spacing,
         )
+        self.label_offset_x = label_offset_x
+        self.label_offset_y = label_offset_y
         self.colorbar = colorbar
         self.legend_rows = legend_rows
         self.shared_legends = shared_legends
@@ -732,8 +748,19 @@ class Panelled(BaseLayout):
             if self.rows == 1:
                 legend_height += font_inches * 1 * 1.5
             height += legend_height
-            rows = rows + 1
-            height_ratios = height_ratios + [legend_height]
+            if self.shared_legends == "all":
+                rows = rows + 1
+                height_ratios = height_ratios + [legend_height]
+            else:
+                rows = rows * 2
+                # adjust height ratios to account for legend rows interleaved with
+                # subplot rows
+                legend_heights = [legend_height] * len(height_ratios)
+                height_ratios = [
+                    ratio
+                    for pair in zip(height_ratios, legend_heights)
+                    for ratio in pair
+                ]
 
         wspace = self.horizontal_spacing / (sum(width_ratios) / len(width_ratios))
         hspace = self.vertical_spacing / (sum(height_ratios) / len(height_ratios))
@@ -749,46 +776,52 @@ class Panelled(BaseLayout):
 
         colorbar_axes = []
         subplot_axes = []
-        legend_ax = None
+        legend_axes = []
 
         # Looping over self.rows and self.columns rather than rows, columns
         # ignores possible colorbar columns and possible legend row
+        if self.shared_legends == "columns" or self.shared_legends == None:
+            subplot_rows = range(0, 2 * self.rows, 2)
+            legend_rows = range(1, 2 * self.rows, 2)
+        else:
+            subplot_rows = range(self.rows)
+            legend_rows = [-1]
+
         for i, j in product(range(self.rows), range(self.columns)):
-            projection = self.projections[i, j]
-            ax = self.fig.add_subplot(self.grid_spec[i, j], projection=projection)
+            subplot_row = subplot_rows[i]
+            proj = self.projections[i, j]
+            ax = self.fig.add_subplot(self.grid_spec[subplot_row, j], projection=proj)
             subplot_axes.append(ax)
         if self.rows > 1 or self.columns > 1:
-            make_subplot_labels(subplot_axes, x_shift=-0.12, y_shift=0.06)
+            kwargs = {"x_shift": self.label_offset_x, "y_shift": self.label_offset_y}
+            make_subplot_labels(subplot_axes, **kwargs)
         if self.colorbar:
             for i in range(self.rows):
                 ax = self.fig.add_subplot(self.grid_spec[i, -1])
                 colorbar_axes.append(ax)
         if self.legend_rows is not None:
-            if self.shared_legends:
-                legend_ax = self.fig.add_subplot(self.grid_spec[-1, :])
-                legend_ax.axis("off")
+            if self.shared_legends == "all":
+                leg_ax = self.fig.add_subplot(self.grid_spec[-1, :])
+                leg_ax.axis("off")
+                legend_axes = [leg_ax]
+            elif self.shared_legends == "columns":
+                legend_axes = []
+                for i in range(self.rows):
+                    legend_row = legend_rows[i]
+                    leg_ax = self.fig.add_subplot(self.grid_spec[legend_row, :])
+                    leg_ax.axis("off")
+                    legend_axes.append(leg_ax)
             else:
-                legend_ax = []
+                legend_axes = []
                 for j in range(self.columns):
                     leg_ax = self.fig.add_subplot(self.grid_spec[-1, j])
                     leg_ax.axis("off")
-                    legend_ax.append(leg_ax)
+                    legend_axes.append(leg_ax)
         if self.rows == 1:
             self.suptitle_height = 1
         else:
             self.suptitle_height = 0.935
-        return self.fig, subplot_axes, colorbar_axes, legend_ax
-
-    def rescale_figure(self, fig, new_width):
-        """Rescale the figure. Currently rought; could be improved."""
-        if self.figure_width is None:
-            raise ValueError("Layout not yet initialized.")
-        aspect_ratio = self.figure_height / self.figure_width
-        new_height = new_width * aspect_ratio
-        fig.set_size_inches(new_width, new_height)
-        fig.canvas.draw()
-        self.figure_height = new_height
-        self.figure_width = new_width
+        return self.fig, subplot_axes, colorbar_axes, legend_axes
 
 
 class PanelledUniformMaps(Panelled):
@@ -826,7 +859,7 @@ class PanelledUniformMaps(Panelled):
 
         colorbar_axes = []
         subplot_axes = []
-        legend_ax = None
+        legend_axes = []
 
         dlon = self.extent[1] - self.extent[0]
         # Choose cartopy scale based on dlon
@@ -852,10 +885,11 @@ class PanelledUniformMaps(Panelled):
                 ax = self.fig.add_subplot(self.grid_spec[i, -1])
                 colorbar_axes.append(ax)
         if self.legend_rows is not None:
-            legend_ax = self.fig.add_subplot(self.grid_spec[-1, :])
-            legend_ax.axis("off")
+            leg_ax = self.fig.add_subplot(self.grid_spec[-1, :])
+            leg_ax.axis("off")
+            legend_axes = [leg_ax]
         if self.rows == 1:
             self.suptitle_height = 1
         else:
             self.suptitle_height = 0.935
-        return self.fig, subplot_axes, colorbar_axes, legend_ax
+        return self.fig, subplot_axes, colorbar_axes, legend_axes

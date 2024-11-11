@@ -96,7 +96,7 @@ def gridrad(start, end, event_start, base_local=None):
 
     parallel.stitch_run(output_parent, intervals, cleanup=True)
 
-    analysis_options = analyze.mcs.analysis_options()
+    analysis_options = analyze.mcs.AnalysisOptions()
     analyze.mcs.process_velocities(output_parent)
     analyze.mcs.quality_control(output_parent, analysis_options)
     analyze.mcs.classify_all(output_parent)

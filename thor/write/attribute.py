@@ -152,7 +152,7 @@ def write_csv(filepath, df, attribute_options=None):
     """Write attribute dataframe to csv."""
     if attribute_options is None:
         df.to_csv(filepath, na_rep="NA")
-        logger.warning("No attributes metadata provided. Writing csv without metadata.")
+        logger.debug("No attributes metadata provided. Writing csv without metadata.")
         return
     precision_dict = utils.get_precision_dict(attribute_options)
     df = df.round(precision_dict)
@@ -176,11 +176,20 @@ def aggregate_directory(directory, attribute_type, attribute_options, clean_up):
         index_cols += ["id"]
 
     data_types = utils.get_data_type_dict(attribute_options)
-    data_types.pop("time", None)
+
+    time_attrs = []
+    for attr in attribute_options.keys():
+        if attribute_options[attr]["data_type"] == "datetime64[s]":
+            time_attrs.append(attr)
+
+    for name in time_attrs:
+        data_types.pop(name, None)
 
     for filepath in filepaths:
+        date_format = "%Y-%m-%d %H:%M:%S"
         kwargs = {"index_col": index_cols, "na_values": ["", "NA"]}
         kwargs.update({"keep_default_na": True, "dtype": data_types})
+        kwargs.update({"parse_dates": time_attrs, "date_format": date_format})
         df_list.append(pd.read_csv(filepath, **kwargs))
     df = pd.concat(df_list, sort=False)
     aggregated_filepath = directory.parent / f"{attribute_type}.csv"
@@ -236,7 +245,7 @@ def aggregate_grouped(base_directory, object_options, clean_up):
 
 
 def aggregate(track_options, output_directory, clean_up=True):
-    """Aggregate masks into single file."""
+    """Aggregate attributes into single file."""
 
     logger.info("Aggregating attribute files.")
     base_directory = Path(f"{output_directory}/attributes/")

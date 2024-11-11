@@ -3,8 +3,21 @@
 from pathlib import Path
 import yaml
 import glob
+import numpy as np
 import thor.option as option
 from thor.data.option import DataOptions
+
+
+def get_angle(u1, v1, u2, v2):
+    """
+    Get the angle between two vectors. Angle calculated as second vector direction minus
+    first vector direction.
+    """
+
+    angle_1 = np.arctan2(v1, u1)
+    angle_2 = np.arctan2(v2, u2)
+    # Get angle between vectors, but signed so that in range -np.pi to np.pi
+    return np.mod(angle_2 - angle_1 + np.pi, 2 * np.pi) - np.pi
 
 
 def read_options(output_directory):
