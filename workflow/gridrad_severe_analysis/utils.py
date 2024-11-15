@@ -12,9 +12,91 @@ import thor.attribute as attribute
 import thor.data as data
 import thor.match as match
 import thor.log as log
+import thor.analyze as analyze
 
 
 logger = log.setup_logger(__name__)
+
+
+def get_analysis_directory():
+    """Get the analysis directory for the gridrad_severe workflow."""
+    outputs_directory = config.get_outputs_directory()
+    return outputs_directory / "analysis/gridrad_severe"
+
+
+def get_tropopause_height(profile):
+    """Calculate tropopause height using WMO definition."""
+
+    logger.info("Calculating tropopause heights.")
+
+    profile = profile.copy()
+    temperature = profile["temperature"]
+    kwargs = {"drop": False, "append": True}
+    altitude = temperature.reset_index(level="altitude").set_index("altitude", **kwargs)
+    altitude = altitude["altitude"]
+
+    indices = list(altitude.index.names)
+    indices.remove("altitude")
+
+    # Get lapse rate in K/km
+    numerator = temperature.groupby(indices).diff()
+    denominator = altitude.groupby(indices).diff() / 1e3
+    lapse_rate = -numerator / denominator
+    lapse_rate.name = "lapse_rate"
+    lapse_rate = pd.DataFrame(lapse_rate)
+    condition_1 = lapse_rate["lapse_rate"] <= 2
+    condition_1.name = "condition"
+    alts = altitude.index.get_level_values("altitude").unique().sort_values()
+    df_list = []
+    for alt in alts:
+        # Get the average lapse rate across the layer 2 km above alt
+        df = lapse_rate.xs(slice(alt, alt + 2e3), level="altitude", drop_level=False)
+        df = df.groupby(indices).mean()
+        df.insert(1, "altitude", alt)
+        df = df.reset_index().set_index(indices + ["altitude"])
+        df_list.append(df)
+    average_lapse_rate = pd.concat(df_list).sort_index()
+    condition_2 = average_lapse_rate["lapse_rate"] <= 2
+    condition_2.name = "condition"
+    # Condition 3 is that the tropopause occurs above 5 km
+    # Otherwise boundary layer inversions sometimes labeled as tropopause
+    condition_3 = altitude >= 5e3
+    condition_3.name = "condition"
+    condition = condition_1 & condition_2 & condition_3
+
+    tropopause_height = condition.groupby(indices).apply(lambda x: alts[x.argmax()])
+    tropopause_height.name = "tropopause_height"
+    return tropopause_height
+
+
+def get_shear(profile):
+    """Get shear between 1 km and tropopause."""
+    tropopause_height = get_tropopause_height(profile)
+
+    logger.info("Calculating shears.")
+
+    wind = profile[["u", "v"]]
+    low_wind = wind.xs(1e3, level="altitude")
+    index_names = low_wind.index.names
+    indices = pd.DataFrame(tropopause_height).reset_index()
+    indices = indices.set_index(index_names + ["tropopause_height"]).index.values
+    high_wind = wind.loc[indices]
+    shear = (high_wind - low_wind).reset_index(level="altitude", drop=True)
+    return shear
+
+
+def recalculate_quality(base_local=None):
+    """Recalculate the quality csv."""
+
+    if base_local is None:
+        base_local = config.get_outputs_directory()
+
+    pattern = str(base_local / "runs/gridrad_severe/gridrad_2010*[!.tar.gz]")
+    run_directories = sorted(glob.glob(pattern))
+    analysis_options = analyze.mcs.AnalysisOptions()
+    for directory in run_directories:
+        logger.info(f"Recalculating quality.csv for {directory}.")
+        analyze.mcs.quality_control(directory, analysis_options)
 
 
 def aggregate_runs(base_local=None):
@@ -25,7 +107,7 @@ def aggregate_runs(base_local=None):
 
     pattern = str(base_local / "runs/gridrad_severe/gridrad_2010*[!.tar.gz]")
     run_directories = sorted(glob.glob(pattern))
-    analysis_directory = base_local / "runs/gridrad_severe/analysis"
+    analysis_directory = get_analysis_directory()
     attributes_directory = analysis_directory / "attributes/aggregated"
 
     names = ["core", "group", "core", "core", "ellipse"]
@@ -78,8 +160,7 @@ def load_aggregated_runs(attributes_directory=None):
     """Load aggregated runs."""
 
     if attributes_directory is None:
-        base_local = config.get_outputs_directory()
-        analysis_directory = base_local / "runs/gridrad_severe/analysis"
+        analysis_directory = get_analysis_directory()
         attributes_directory = analysis_directory / "attributes/aggregated"
     dfs, metadata = {}, {}
     for csv in glob.glob(str(attributes_directory / "*.csv")):
@@ -94,8 +175,7 @@ def relabel_all(dfs, analysis_directory=None):
     """Relabel objects based on paths through connected components."""
 
     if analysis_directory is None:
-        outputs_directory = config.get_outputs_directory()
-        analysis_directory = outputs_directory / "runs/gridrad_severe/analysis"
+        analysis_directory = get_analysis_directory()
 
     longest_directory = analysis_directory / "longest_paths"
     longest_directory.mkdir(exist_ok=True, parents=True)

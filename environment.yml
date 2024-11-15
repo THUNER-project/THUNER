@@ -36,3 +36,4 @@ dependencies:
   - windrose
   - pydot
   - graphviz
+  - metpy

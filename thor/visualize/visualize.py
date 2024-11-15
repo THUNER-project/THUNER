@@ -8,6 +8,7 @@ import glob
 import numpy as np
 import contextlib
 import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
 import pyart.graph.cm_colorblind as pcm
 import thor.visualize.utils as utils
 from thor.log import setup_logger
@@ -16,6 +17,33 @@ logger = setup_logger(__name__)
 
 
 style = "presentation"
+
+
+def discrete_cmap_norm(
+    levels, cmap_name="Reds", pad_start=0, pad_end=0, extend="neither"
+):
+    """Create a discrete colormap."""
+    number_levels = len(levels)
+
+    extend_above = 1 if extend in ["both", "max"] else 0
+    extend_below = 1 if extend in ["both", "min"] else 0
+    number_colors = pad_start + extend_below + number_levels + extend_above + pad_end
+    cmap = plt.get_cmap(cmap_name, number_colors)
+    colors = list(cmap(np.arange(0, number_colors)))
+    if extend in ["both", "max"]:
+        end = -pad_end - extend_above if pad_end != 0 else -extend_above
+    else:
+        end = -pad_end if pad_end != 0 else None
+    start = pad_start + extend_below
+    cmap = mcolors.ListedColormap(colors[start:end], f"{cmap_name}_discrete")
+    norm = mcolors.BoundaryNorm(levels, ncolors=number_levels, clip=False)
+
+    if extend in ["both", "min"]:
+        cmap.set_under(colors[start - extend_below])
+    if extend in ["both", "max"]:
+        cmap.set_over(colors[end])
+
+    return cmap, norm
 
 
 def desaturate_colormap(cmap, factor=0.15):

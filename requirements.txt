@@ -31,3 +31,4 @@ zarr
 windrose
 pydot
 graphviz
+metpy

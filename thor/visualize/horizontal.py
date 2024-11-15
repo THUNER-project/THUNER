@@ -181,7 +181,14 @@ US_states_dict = {
 
 
 def cartographic_features(
-    ax, scale="110m", extent=(-180, 180, -90, 90), left_labels=True, bottom_labels=True
+    ax,
+    scale="110m",
+    extent=(-180, 180, -90, 90),
+    left_labels=True,
+    bottom_labels=True,
+    border_zorder=0,
+    coastline_zorder=1,
+    grid_zorder=1,
 ):
     """
     Initialize a figure.
@@ -223,16 +230,17 @@ def cartographic_features(
 
     ax.add_feature(land, zorder=0)
     ax.add_feature(ocean, zorder=0)
-    ax.add_feature(states_provinces, zorder=0, alpha=0.6)
-    ax.add_feature(national_borders, zorder=0, edgecolor=colors["coast"])
-    ax.coastlines(resolution=scale, zorder=1, color=colors["coast"])
+    ax.add_feature(states_provinces, zorder=border_zorder, alpha=0.6)
+    ax.add_feature(national_borders, zorder=border_zorder, edgecolor=colors["coast"])
+    ax.coastlines(resolution=scale, zorder=coastline_zorder, color=colors["coast"])
     kwargs = {"left_labels": left_labels, "bottom_labels": bottom_labels}
+    kwargs.update({"zorder": grid_zorder})
     gridlines = initialize_gridlines(ax, extent=extent, **kwargs)
 
     return ax, colors, gridlines
 
 
-def initialize_gridlines(ax, extent, left_labels=True, bottom_labels=True):
+def initialize_gridlines(ax, extent, left_labels=True, bottom_labels=True, zorder=1):
     """
     Initialize gridlines.
 
@@ -258,7 +266,7 @@ def initialize_gridlines(ax, extent, left_labels=True, bottom_labels=True):
 
     grid_style = {"draw_labels": True, "linewidth": 1, "color": "gray", "alpha": 0.4}
     grid_style.update({"linestyle": "--", "x_inline": False, "y_inline": False})
-    grid_style.update({"zorder": 1})
+    grid_style.update({"zorder": zorder})
     gridlines = ax.gridlines(**grid_style)
 
     gridlines.right_labels = False
@@ -721,7 +729,7 @@ class Panelled(BaseLayout):
         self.projections = projections
 
     def initialize_gridspec(self):
-        """Initialize the figure."""
+        """Initialize the gridspec."""
         width = self.subplot_width * self.columns
         width += self.horizontal_spacing * (self.columns - 1)
         height = self.subplot_height * self.rows
@@ -771,27 +779,39 @@ class Panelled(BaseLayout):
         self.grid_spec = gridspec.GridSpec(rows, columns, **kwargs)
 
     def initialize_layout(self):
+        """Initialize the figure layout."""
 
         self.initialize_gridspec()
 
-        colorbar_axes = []
         subplot_axes = []
-        legend_axes = []
 
         # Looping over self.rows and self.columns rather than rows, columns
         # ignores possible colorbar columns and possible legend row
         if self.shared_legends == "columns" or self.shared_legends == None:
             subplot_rows = range(0, 2 * self.rows, 2)
-            legend_rows = range(1, 2 * self.rows, 2)
         else:
             subplot_rows = range(self.rows)
-            legend_rows = [-1]
 
         for i, j in product(range(self.rows), range(self.columns)):
             subplot_row = subplot_rows[i]
             proj = self.projections[i, j]
             ax = self.fig.add_subplot(self.grid_spec[subplot_row, j], projection=proj)
             subplot_axes.append(ax)
+
+        colorbar_axes, legend_axes = self.initialize_legend(subplot_axes)
+        return self.fig, subplot_axes, colorbar_axes, legend_axes
+
+    def initialize_legend(self, subplot_axes):
+        """Initialize the legend and other plot features."""
+
+        colorbar_axes = []
+        legend_axes = []
+
+        if self.shared_legends == "columns" or self.shared_legends == None:
+            legend_rows = range(1, 2 * self.rows, 2)
+        else:
+            legend_rows = [-1]
+
         if self.rows > 1 or self.columns > 1:
             kwargs = {"x_shift": self.label_offset_x, "y_shift": self.label_offset_y}
             make_subplot_labels(subplot_axes, **kwargs)
@@ -821,7 +841,7 @@ class Panelled(BaseLayout):
             self.suptitle_height = 1
         else:
             self.suptitle_height = 0.935
-        return self.fig, subplot_axes, colorbar_axes, legend_axes
+        return colorbar_axes, legend_axes
 
 
 class PanelledUniformMaps(Panelled):
@@ -839,18 +859,25 @@ class PanelledUniformMaps(Panelled):
         vertical_spacing: float = 0.6,  # Spacing between subplots in inches
         colorbar: bool = True,  # Add a colorbar to the figure
         legend_rows: int | None = 2,  # Number of rows in the legend
+        projections: Any | List[Any] | None = proj,  # Projections for each subplot
+        border_zorder: int = 0,  # Political border zorder
+        coastline_zorder: int = 1,  # Coastline zorder
+        grid_zorder: int = 1,  # Grid zorder
     ):
         lat_range = extent[3] - extent[2]
         lon_range = extent[1] - extent[0]
         subplot_height = (lat_range / lon_range) * subplot_width
         args = [subplot_width, subplot_height, rows, columns]
         args += [horizontal_spacing, vertical_spacing]
-        super().__init__(*args)
+        super().__init__(*args, projections=projections)
         self.extent = extent
         self.colorbar = colorbar
         self.legend_rows = legend_rows
         self.legend_rows = legend_rows
         self.suptitle_height = 1
+        self.border_zorder = border_zorder
+        self.coastline_zorder = coastline_zorder
+        self.grid_zorder = grid_zorder
 
     # Redefine the initialize_layout method to handle cartopy projections
     def initialize_layout(self):
@@ -871,25 +898,28 @@ class PanelledUniformMaps(Panelled):
             scale = "110m"
         # Looping over self.rows and self.columns rather than rows, columns
         # ignores possible colorbar columns and possible legend row
+
+        if self.shared_legends == "columns" or self.shared_legends == None:
+            subplot_rows = range(0, 2 * self.rows, 2)
+        else:
+            subplot_rows = range(self.rows)
+
+        # Initialize cartographic_features kwargs
+        kwargs = {"border_zorder": self.border_zorder, "grid_zorder": self.grid_zorder}
+        kwargs.update({"coastline_zorder": self.coastline_zorder})
+        kwargs.update({"scale": scale, "extent": self.extent})
+        # Create maps
         for i, j in product(range(self.rows), range(self.columns)):
-            ax = self.fig.add_subplot(self.grid_spec[i, j], projection=proj)
+            subplot_row = subplot_rows[i]
+            prj = self.projections[i, j]
+            ax = self.fig.add_subplot(self.grid_spec[subplot_row, j], projection=prj)
             ax.set_rasterized(True)
-            kwargs = {"extent": self.extent, "scale": scale, "left_labels": (j == 0)}
+            kwargs.update({"left_labels": (j == 0)})
             kwargs.update({"bottom_labels": (i == self.rows - 1)})
             ax = cartographic_features(ax, **kwargs)[0]
             ax.set_extent(self.extent, crs=proj)
             subplot_axes.append(ax)
-        make_subplot_labels(subplot_axes, x_shift=-0.12, y_shift=0.06)
-        if self.colorbar:
-            for i in range(self.rows):
-                ax = self.fig.add_subplot(self.grid_spec[i, -1])
-                colorbar_axes.append(ax)
-        if self.legend_rows is not None:
-            leg_ax = self.fig.add_subplot(self.grid_spec[-1, :])
-            leg_ax.axis("off")
-            legend_axes = [leg_ax]
-        if self.rows == 1:
-            self.suptitle_height = 1
-        else:
-            self.suptitle_height = 0.935
+
+        colorbar_axes, legend_axes = self.initialize_legend(subplot_axes)
+
         return self.fig, subplot_axes, colorbar_axes, legend_axes

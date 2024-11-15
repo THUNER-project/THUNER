@@ -1,8 +1,10 @@
+from pathlib import Path
 from scipy.stats import circmean, circstd
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import networkx as nx
 import numpy as np
+import pandas as pd
 import pickle
 import thor.visualize as visualize
 import thor.config as config
@@ -14,7 +16,7 @@ logger = setup_logger(__name__)
 
 # Create a dict of quality control attributes for each classification
 # Note duration/parents are often appended to these for particular plots
-core = ["convective_contained", "anvil_contained", "duration"]
+core = ["convective_contained", "anvil_contained", "initially_contained", "duration"]
 quality_dispatcher = {
     "velocity": core + ["velocity"],
     "relative_velocity": core + ["relative_velocity"],
@@ -27,6 +29,10 @@ quality_dispatcher = {
     "propagation": core + ["relative_velocity", "shear"],
     "offset_raw": core,
     "area": core,
+    "cape": core,
+    "ake": core,
+    "R": core,
+    "ambient_wind": core,
 }
 
 
@@ -34,7 +40,7 @@ def parent_graph(parent_graph, ax=None, analysis_directory=None):
     """Visualize a parent graph."""
 
     if analysis_directory is None:
-        analysis_directory = get_analysis_directory()
+        analysis_directory = utils.get_analysis_directory()
 
     # Convert parent graph nodes to ints for visualization
     kwargs = {"label_attribute": "label"}
@@ -69,19 +75,14 @@ def parent_graph(parent_graph, ax=None, analysis_directory=None):
     plt.savefig(filepath, bbox_inches="tight")
 
 
-def get_analysis_directory():
-    outputs_directory = config.get_outputs_directory()
-    return outputs_directory / "runs/gridrad_severe/analysis"
-
-
 def windrose(dfs, analysis_directory=None):
     """Create a windrose style plot of system velocity and stratiform offset."""
 
     if analysis_directory is None:
-        analysis_directory = get_analysis_directory()
+        analysis_directory = utils.get_analysis_directory()
 
     quality = dfs["quality"]
-    raw_sample = quality[["duration", "parents"]].any(axis=1)
+    raw_sample = quality[["duration", "parents", "children"]].any(axis=1)
 
     kwargs = {"subplot_width": 4, "rows": 1, "columns": 2, "projections": "windrose"}
     kwargs.update({"colorbar": False, "legend_rows": 5, "horizontal_spacing": 2})
@@ -120,23 +121,43 @@ def windrose(dfs, analysis_directory=None):
     subplot_axes[1].set_title("Stratiform Offset")
     kwargs = {"columns": 2, "units": "km"}
     visualize.analysis.windrose_legend(legend_axes[1], bins, colormap, **kwargs)
-    visualize_directory = analysis_directory / "visualize"
-    fig.savefig(visualize_directory / "vel_so_rose.png", bbox_inches="tight")
-    fig_dict = {"fig": fig, "axes": subplot_axes, "legend_axes": legend_axes}
-    # Pickle the figure/ax handles for use in other figures
-    with open(visualize_directory / "velocity_stratiform_offset_roses.pkl", "wb") as f:
+    filepath = analysis_directory / "visualize/rose/vel_so_rose.png"
+    save_figure(filepath, fig, subplot_axes, colorbar_axes, legend_axes)
+
+
+def save_figure(filepath, fig, subplot_axes, colorbar_axes, legend_axes):
+    """Save figure to png and with pickle."""
+    filepath = Path(filepath)
+    filepath.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(filepath, bbox_inches="tight")
+    fig_dict = {"fig": fig, "subplot_axes": subplot_axes}
+    fig_dict.update({"colorbar_axes": colorbar_axes, "legend_axes": legend_axes})
+    with open(filepath.with_suffix(".pkl"), "wb") as f:
         pickle.dump(fig_dict, f)
 
 
 prop_cycle = plt.rcParams["axes.prop_cycle"]
 colors = prop_cycle.by_key()["color"]
-color_dict = {"trailing": colors[0], "leading": colors[1]}
-color_dict.update({"left": colors[2], "right": colors[4]})
-color_dict.update({"front": colors[0], "rear": colors[1]})
-color_dict.update({"up-shear": colors[0], "down-shear": colors[1]})
-color_dict.update({"shear-perpendicular": colors[5]})
-color_dict.update({"centered": colors[7], "ambiguous": colors[6]})
 
+offset_color_dict = {"trailing": colors[0], "leading": colors[1]}
+offset_color_dict.update({"left": colors[2], "right": colors[4]})
+
+inflow_color_dict = {"front": colors[0], "rear": colors[1]}
+inflow_color_dict.update({"left": colors[2], "right": colors[4]})
+
+tilt_color_dict = {"up-shear": colors[0], "down-shear": colors[1]}
+tilt_color_dict.update({"shear-perpendicular": colors[5]})
+
+propagation_color_dict = {"up-shear": colors[1], "down-shear": colors[0]}
+propagation_color_dict.update({"shear-perpendicular": colors[5]})
+
+color_dicts = {
+    "stratiform_offset": offset_color_dict,
+    "relative_stratiform_offset": offset_color_dict,
+    "inflow": inflow_color_dict,
+    "tilt": tilt_color_dict,
+    "propagation": propagation_color_dict,
+}
 
 rel_so_formatter = lambda labels: [f"Relative {l.title()} Stratiform" for l in labels]
 formatter_dispatcher = {
@@ -148,30 +169,281 @@ formatter_dispatcher = {
 }
 
 
-def setup_grid(ax, dy, max_y, max_x=540, min_y=0, scientific=False, circular=False):
+def plot_pie_inset(data, longitude, latitude, ax, width, offsets, colors):
+    """Create a pie chart in an inset axis at a given location."""
+    start_lon = longitude - width / 2 + offsets[0]
+    start_lat = latitude - width / 2 + offsets[1]
+    bounds = [start_lon, start_lat, width, width]
+    ax_sub = ax.inset_axes(bounds=bounds, transform=ax.transData, zorder=1)
+    wedge_props = {"edgecolor": "black", "linewidth": 1, "antialiased": True}
+    kwargs = {"colors": colors, "wedgeprops": wedge_props, "normalize": True}
+    patches, texts = ax_sub.pie(data, **kwargs)
+    [p.set_zorder(2) for p in patches]
+    return patches, texts
+
+
+def pie_map(dfs, classification_name, analysis_directory=None, block_size=5):
+    """Create a map of classification ratios using pie charts."""
+
+    if analysis_directory is None:
+        analysis_directory = utils.get_analysis_directory()
+
+    mcs = dfs["mcs_core"].copy()
+    classification = dfs["classification"].copy()
+    classification["latitude_block"] = mcs["latitude"] // block_size * block_size
+    classification["longitude_block"] = mcs["longitude"] // block_size * block_size
+
+    cond = dfs["quality"][quality_dispatcher[classification_name]].all(axis=1)
+    classification = classification.where(cond).dropna()
+
+    block_names = ["latitude_block", "longitude_block"]
+    group_names = block_names + [classification_name]
+    group = classification.groupby(group_names)
+    counts = group[classification_name].apply(lambda x: x.count())
+    ratios = counts / counts.groupby(block_names).transform("sum")
+    totals = counts.groupby(block_names).apply("sum")
+    max_total = totals.max()
+
+    extent = [-125, -70, 24, 51]
+    kwargs = {"extent": extent, "rows": 1, "columns": 1, "subplot_width": 11}
+    kwargs.update({"legend_rows": 1, "colorbar": False})
+    layout = visualize.horizontal.PanelledUniformMaps(**kwargs)
+    fig, subplot_axes, colorbar_axes, legend_axes = layout.initialize_layout()
+
+    min_obs = 100
+
+    for lat, lon in [(i[0], i[1]) for i in ratios.index]:
+        ratio = ratios.loc[(lat, lon)]
+        total = totals.loc[(lat, lon)]
+
+        if total < min_obs:
+            continue
+        lon += block_size / 2
+        lat += block_size / 2
+        lon = (lon + 180) % 360 - 180
+        colors = [color_dicts[classification_name][c] for c in ratio.index]
+
+        scale = 0.6
+        width = block_size * scale
+        width += (total - min_obs) / (max_total - min_obs) * (1 - scale) * block_size
+
+        args = [ratio, lon, lat, subplot_axes[0], width, [0, 0]]
+        plot_pie_inset(*args, colors=colors)
+
+    labels = color_dicts[classification_name].keys()
+    colors = color_dicts[classification_name].values()
+    labels = formatter_dispatcher[classification_name](labels)
+    # Generate recatngle patches with black borders for the legend
+    args = [(0, 0), 1, 1]
+    kwargs = {"edgecolor": "black"}
+    patches = [plt.Rectangle(*args, facecolor=color, **kwargs) for color in colors]
+    kwargs = {"ncol": 2, "loc": "center", "facecolor": "white", "framealpha": 1}
+    legend_axes[0].legend(patches, labels, **kwargs)
+
+    filepath = analysis_directory / f"visualize/pie/{classification_name}.png"
+    save_figure(filepath, fig, subplot_axes, colorbar_axes, legend_axes)
+
+
+def field_map(
+    field, name, mcs, quality, cmap, norm, label, analysis_directory=None, extend=None
+):
+    """Visualize a field on a map as a pcolormesh."""
+
+    if analysis_directory is None:
+        analysis_directory = utils.get_analysis_directory()
+
+    block_size = 5
+
+    field = field.copy()
+    mcs = mcs.copy()
+    field["latitude_block"] = mcs["latitude"] // block_size * block_size
+    field["longitude_block"] = mcs["longitude"] // block_size * block_size
+
+    cond = quality[quality_dispatcher[name]].all(axis=1)
+    field = field.where(cond).dropna()
+
+    block_names = ["latitude_block", "longitude_block"]
+    group = field.groupby(block_names)
+    group_median = group[name].apply(lambda x: x.median())
+    group_total = group[name].apply(lambda x: x.count())
+
+    extent = [-125, -70, 24, 51]
+    kwargs = {"extent": extent, "rows": 1, "columns": 1, "subplot_width": 10}
+    kwargs.update({"legend_rows": 1, "colorbar": True, "border_zorder": 2})
+    kwargs.update({"coastline_zorder": 3, "grid_zorder": 3})
+    layout = visualize.horizontal.PanelledUniformMaps(**kwargs)
+    fig, subplot_axes, colorbar_axes, legend_axes = layout.initialize_layout()
+
+    lats, lons = [group_median.index.get_level_values(b).values for b in block_names]
+    # Create array spanning lats and lons
+    lats, lons = np.unique(sorted(lats)), np.unique(sorted(lons))
+    median_array = np.full((len(lats), len(lons)), np.nan)
+
+    min_obs = 100
+
+    for lat, lon in [(i[0], i[1]) for i in group_median.index]:
+        i, j = lats.tolist().index(lat), lons.tolist().index(lon)
+        if group_total.loc[lat, lon] < min_obs:
+            continue
+        median_array[i, j] = group_median.loc[lat, lon]
+
+    median_array.max()
+
+    LONS, LATS = np.meshgrid(lons, lats)
+    LONS, LATS = LONS + block_size / 2, LATS + block_size / 2
+    kwargs = {"cmap": cmap, "norm": norm, "zorder": 1}
+    pcm = subplot_axes[0].pcolormesh(LONS, LATS, median_array, **kwargs)
+    cbar = plt.colorbar(pcm, cax=colorbar_axes[0], extend=extend)
+    cbar.set_label(label)
+
+    filepath = analysis_directory / f"visualize/heatmap/{name}.png"
+    save_figure(filepath, fig, subplot_axes, colorbar_axes, legend_axes)
+
+
+def field_maps(dfs, analysis_directory=None):
+    """Visualize fields related to mesoscale structure."""
+
+    if analysis_directory is None:
+        analysis_directory = utils.get_analysis_directory()
+
+    shear = utils.get_shear(dfs["profile"])
+    ake = (1 / 2) * (shear["u"] ** 2 + shear["v"] ** 2)
+    ake.name = "ake"
+    ake = pd.DataFrame(ake)
+    cape = dfs["tag"][["cape"]]
+    R = cape["cape"] / ake["ake"]
+    R.name = "R"
+    R = pd.DataFrame(R)
+
+    mcs = dfs["mcs_core"].copy()
+    quality = dfs["quality"].copy()
+
+    all_levels = [
+        np.arange(0, 2000 + 250, 250),
+        np.arange(0, 450 + 50, 50),
+        np.arange(0, 40 + 5, 5),
+    ]
+    all_cmap_names = ["Reds", "Reds", "Spectral_r"]
+    all_names = ["cape", "ake", "R"]
+    all_fields = [cape, ake, R]
+    all_labels = ["CAPE [J kg$^{-1}$]", r"$\frac{1}{2}(\Delta u)^2$ [J kg$^{-1}$]"]
+    all_labels += ["$R$ [-]"]
+    all_extend = ["neither", "neither", "max"]
+    all_pad_start = [2, 2, 0]
+
+    for i in range(len(all_levels)):
+        args = [all_levels[i], all_cmap_names[i]]
+        kwargs = {"pad_start": all_pad_start[i], "extend": all_extend[i]}
+        cmap, norm = visualize.visualize.discrete_cmap_norm(*args, **kwargs)
+        args = [all_fields[i], all_names[i], mcs, quality, cmap, norm, all_labels[i]]
+        field_map(*args, extend=all_extend[i])
+
+
+def profile_grid(x_min, x_max, dx, y_min, y_max, dy, ax, x_label=True, y_label=True):
+    """Set up the ticks for a plot."""
+
+    ax.set_yticks(np.arange(y_min, y_max + dy, dy))
+    ax.set_yticks(np.arange(y_min, y_max + dy / 2, dy / 2), minor=True)
+    ax.set_yticklabels((np.arange(y_min, y_max + dy, dy) / 1e3).astype(int))
+    if y_label:
+        ax.set_ylabel("Altitude [km]")
+    ax.set_xticks(np.arange(x_min, x_max + dx, dx))
+    ax.set_xticks(np.arange(x_min, x_max + dx / 2, dx / 2), minor=True)
+    if x_label:
+        ax.set_xlabel("Wind speed [ms$^{-1}$]")
+    ax.set_ylim(y_min, y_max)
+    ax.set_xlim(x_min, x_max)
+    ax.grid(which="major")
+    ax.grid(which="minor", alpha=0.4)
+
+
+def set_scientific(ax, axis="y"):
+    """Set the axis to scientific notation."""
+    formatter = mticker.ScalarFormatter(useMathText=True)
+    formatter.set_scientific(True)
+    formatter.set_powerlimits((-1, 1))
+    if axis == "x":
+        coord_ax = ax.xaxis
+    elif axis == "y":
+        coord_ax = ax.yaxis
+    else:
+        raise ValueError("Axis must be 'x' or 'y'.")
+    coord_ax.set_major_formatter(formatter)
+
+
+def evolution_grid(ax, dy, y_max, x_max=540, min_y=0, scientific=False, circular=False):
     """Set up the grid for time series style plots."""
-    max_y = np.ceil(max_y / dy) * dy
-    ax.set_ylim(min_y, max_y)
-    ax.set_yticks(np.arange(min_y, max_y + dy, dy))
-    ax.set_yticks(np.arange(min_y, max_y + dy / 2, dy / 2), minor=True)
+    y_max = np.ceil(y_max / dy) * dy
+    ax.set_ylim(min_y, y_max)
+    ax.set_yticks(np.arange(min_y, y_max + dy, dy))
+    ax.set_yticks(np.arange(min_y, y_max + dy / 2, dy / 2), minor=True)
 
     if scientific:
-        formatter = mticker.ScalarFormatter(useMathText=True)
-        formatter.set_scientific(True)
-        formatter.set_powerlimits((-1, 1))
-        ax.yaxis.set_major_formatter(formatter)
+        set_scientific(ax)
 
     if circular:
-        labels = np.round(np.arange(min_y, max_y + dy, dy) * 180 / np.pi).astype(int)
+        labels = np.round(np.arange(min_y, y_max + dy, dy) * 180 / np.pi).astype(int)
         ax.set_yticklabels(labels)
 
     dx = 180
-    ax.set_xlim(0, max_x)
-    ax.set_xticks(np.arange(0, max_x + dx, dx))
-    ax.set_xticks(np.arange(0, max_x + dx / 3, dx / 3), minor=True)
+    ax.set_xlim(0, x_max)
+    ax.set_xticks(np.arange(0, x_max + dx, dx))
+    ax.set_xticks(np.arange(0, x_max + dx / 3, dx / 3), minor=True)
     ax.grid(True, which="major")
     ax.grid(True, which="minor", alpha=0.4)
-    ax.set_xlabel("Time since Detection [min]")
+    ax.set_xlabel("Time since Initiation [min]")
+
+
+def acute_angle_hist(ax, angles_degrees):
+    """Plot a histogram of acute angles, e.g. smallest angle between two vectors."""
+    bins = np.arange(0, 100, 10)
+    ax.hist(angles_degrees, bins=bins, density=True)
+    ax.set_xticks(bins)
+    ax.set_xlabel("Shear/Orientation Angle [degrees]")
+    ax.set_ylabel("Density [-]")
+    # Format y ticks in scientific notation
+    set_scientific(ax)
+
+    ax.grid(True, which="major")
+    ax.grid(True, which="minor", alpha=0.4)
+
+
+def shear_orientation_angles(dfs, analysis_directory=None):
+    """Plot the distribution of angles between shear and orientation."""
+
+    if analysis_directory is None:
+        analysis_directory = utils.get_analysis_directory()
+
+    velocities = dfs["velocities"]
+    quality = dfs["quality"]
+    orientation = dfs["ellipse"]["orientation"]
+    classification = dfs["classification"]
+
+    shear = velocities[["u_shear", "v_shear"]]
+    shear_direction = np.arctan2(shear["v_shear"], shear["u_shear"])
+    angles_1 = np.arccos(np.cos(shear_direction - orientation))
+    angles_2 = np.arccos(np.cos(shear_direction - (orientation + np.pi)))
+    angles = np.minimum(angles_1, angles_2)
+
+    upshear = classification["tilt"] == "up-shear"
+    downshear = classification["tilt"] == "down-shear"
+
+    layout_kwargs = {"subplot_width": 5, "subplot_height": 3.5, "rows": 1, "columns": 2}
+    layout_kwargs.update({"colorbar": False, "legend_rows": 0, "vertical_spacing": 0.6})
+    layout_kwargs.update({"shared_legends": "columns", "horizontal_spacing": 1})
+    layout_kwargs.update({"label_offset_x": -0.125, "label_offset_y": 0.05})
+    panelled_layout = visualize.horizontal.Panelled(**layout_kwargs)
+    fig, subplot_axes, colorbar_axes, legend_axes = panelled_layout.initialize_layout()
+
+    angles_degrees = angles * 180 / np.pi
+    cond = quality[quality_dispatcher["orientation"] + ["shear"]].all(axis=1)
+    acute_angle_hist(subplot_axes[0], angles_degrees.where(downshear & cond).dropna())
+    subplot_axes[0].set_title("Down-shear Tilted")
+    acute_angle_hist(subplot_axes[1], angles_degrees.where(upshear & cond).dropna())
+    subplot_axes[1].set_title("Up-shear Tilted")
+
+    filepath = analysis_directory / "visualize/angle/shear_orientation.png"
+    save_figure(filepath, fig, subplot_axes, colorbar_axes, legend_axes)
 
 
 def plot_counts_ratios(
@@ -191,7 +463,7 @@ def plot_counts_ratios(
 
     max_minutes = 720
 
-    cond = quality[quality_dispatcher[classification_name] + ["duration"]].all(axis=1)
+    cond = quality[quality_dispatcher[classification_name]].all(axis=1)
     classifications = classifications.copy()
     # Select values from with minutes index less than xmax
     classifications = classifications.where(cond).dropna()
@@ -206,15 +478,15 @@ def plot_counts_ratios(
     dratio = 0.2
 
     unstacked = counts.unstack()
-    unstacked.plot(ax=count_ax, legend=False, color=color_dict)
+    unstacked.plot(ax=count_ax, legend=False, color=color_dicts[classification_name])
     max_count = unstacked.max().max()
-    setup_grid(count_ax, dcount, max_count, max_minutes)
+    evolution_grid(count_ax, dcount, max_count, max_minutes)
     count_ax.set_ylabel("Count [-]")
 
     unstacked = ratios.unstack()
-    unstacked.plot(ax=ratio_ax, legend=False, color=color_dict)
+    unstacked.plot(ax=ratio_ax, legend=False, color=color_dicts[classification_name])
     max_ratio = unstacked.dropna().max().max()
-    setup_grid(ratio_ax, dratio, max_ratio, max_minutes)
+    evolution_grid(ratio_ax, dratio, max_ratio, max_minutes)
     ratio_ax.set_ylabel("Ratio [-]")
 
     handles, labels = count_ax.get_legend_handles_labels()
@@ -231,7 +503,7 @@ def plot_attribute(ax, df, quality, name, ylabel=None, circular=False):
 
     max_minutes = 720
 
-    cond = quality[quality_dispatcher[name] + ["duration"]].all(axis=1)
+    cond = quality[quality_dispatcher[name]].all(axis=1)
     df = df.copy()
     # Select values from with minutes index less than xmax
     df = df.where(cond).dropna()
@@ -270,9 +542,9 @@ def plot_attribute(ax, df, quality, name, ylabel=None, circular=False):
     scientific = False
     if np.log10(max_value) > 2:
         scientific = True
-    kwargs = {"max_x": max_minutes, "min_y": min_value, "scientific": scientific}
+    kwargs = {"x_max": max_minutes, "min_y": min_value, "scientific": scientific}
     kwargs.update({"circular": circular})
-    setup_grid(ax, dvalue, max_value, **kwargs)
+    evolution_grid(ax, dvalue, max_value, **kwargs)
 
     if ylabel is not None:
         ax.set_ylabel(ylabel)
@@ -282,7 +554,7 @@ def plot_classification_evolution(classifications, quality, analysis_directory=N
     """Plot the evolution of classifications over time."""
 
     if analysis_directory is None:
-        analysis_directory = get_analysis_directory()
+        analysis_directory = utils.get_analysis_directory()
     if "minutes" not in classifications.index.names:
         classifications = utils.get_duration_minutes(classifications)
     if "minutes" not in quality.index.names:
@@ -307,9 +579,8 @@ def plot_classification_evolution(classifications, quality, analysis_directory=N
         kwargs.update({"legend_formatter": legend_formatter})
         plot_counts_ratios(*args, **kwargs, legend_columns=3)
 
-    filepath = analysis_directory / "visualize/stratiform_inflow.png"
-    plt.savefig(filepath, bbox_inches="tight")
-    pickle_figure(fig, subplot_axes, legend_axes, colorbar_axes, filepath)
+    filepath = analysis_directory / "visualize/evolution/stratiform_inflow.png"
+    save_figure(filepath, fig, subplot_axes, colorbar_axes, legend_axes)
 
     layout_kwargs.update({"rows": 2, "legend_rows": 4})
     panelled_layout = visualize.horizontal.Panelled(**layout_kwargs)
@@ -324,17 +595,8 @@ def plot_classification_evolution(classifications, quality, analysis_directory=N
         kwargs.update({"legend_formatter": legend_formatter})
         plot_counts_ratios(*args, **kwargs, legend_columns=3)
 
-    filepath = analysis_directory / "visualize/tilt_propagation.png"
-    plt.savefig(filepath, bbox_inches="tight")
-    pickle_figure(fig, subplot_axes, legend_axes, colorbar_axes, filepath)
-
-
-def pickle_figure(fig, subplot_axes, legend_axes, colorbar_axes, filepath):
-    """Pickle the figure/ax handles for use in other figures."""
-    fig_dict = {"fig": fig, "axes": subplot_axes, "legend_axes": legend_axes}
-    fig_dict.update({"colorbar_axes": colorbar_axes})
-    with open(filepath.with_suffix(".pkl"), "wb") as f:
-        pickle.dump(fig_dict, f)
+    filepath = analysis_directory / "visualize/evolution/tilt_propagation.png"
+    save_figure(filepath, fig, subplot_axes, colorbar_axes, legend_axes)
 
 
 def plot_attribute_evolution(dfs, analysis_directory=None):
@@ -349,7 +611,7 @@ def plot_attribute_evolution(dfs, analysis_directory=None):
     ellipse = dfs["ellipse"]
 
     if analysis_directory is None:
-        analysis_directory = get_analysis_directory()
+        analysis_directory = utils.get_analysis_directory()
 
     logger.info("Calculating minutes.")
     for df in [velocities, group, quality, convective, anvil, ellipse]:
@@ -394,13 +656,64 @@ def plot_attribute_evolution(dfs, analysis_directory=None):
     handles, labels = subplot_axes[5].get_legend_handles_labels()
     kwargs = {"ncol": 2, "loc": "center", "facecolor": "white", "framealpha": 1}
     legend_axes[0].legend(handles, labels, **kwargs)
-    filepath = analysis_directory / "visualize/attributes.png"
-    plt.savefig(filepath, bbox_inches="tight")
-    pickle_figure(fig, subplot_axes, legend_axes, colorbar_axes, filepath)
+    filepath = analysis_directory / "visualize/evolution/attributes.png"
+    save_figure(filepath, fig, subplot_axes, colorbar_axes, legend_axes)
 
 
-# shear = velocities[["u_shear", "v_shear"]]
-# shear_direction = np.arctan2(shear["v_shear"], shear["u_shear"])
-# angles_1 = np.arccos(np.cos(shear_direction-orientation))
-# angles_2 = np.arccos(np.cos(shear_direction-(orientation+np.pi)))
-# angles = np.minimum(angles_1, angles_2)
+def component_wind_profile(mean_winds, std_winds, ax, linestyle="-", color="tab:blue"):
+    """Plot horizontal wind component profile."""
+    kwargs = {"linestyle": linestyle, "color": color, "label": "Mean"}
+    ax.plot(mean_winds, mean_winds.index, **kwargs)
+    args = [mean_winds.index, mean_winds - std_winds]
+    args += [mean_winds + std_winds]
+    kwargs = {"alpha": 0.2, "linewidth": 1, "color": color}
+    kwargs.update({"label": "Standard Deviation"})
+    ax.fill_betweenx(*args, **kwargs)
+
+
+def wind_profile(mean_winds, std_winds, ax):
+    "Plot wind profile."
+    component_wind_profile(mean_winds["u"], std_winds["u"], ax)
+    component_wind_profile(mean_winds["v"], std_winds["v"], ax, linestyle="--")
+    profile_grid(-10, 35, 5, 0, 16e3, 2e3, ax, y_label=True)
+
+
+def wind_profiles(dfs):
+    """Contrast wind profiles across categories."""
+
+    analysis_directory = utils.get_analysis_directory()
+
+    profile = dfs["profile"].copy()
+    classification = dfs["classification"].copy()
+    quality = dfs["quality"].copy()
+    winds = profile[["u", "v"]].xs(slice(0, 16e3), level="altitude", drop_level=False)
+    cond = quality[quality_dispatcher["ambient_wind"]].all(axis=1)
+
+    tilt_cond = quality[quality_dispatcher["tilt"]].all(axis=1)
+    downshear = classification["tilt"] == "down-shear"
+    upshear = classification["tilt"] == "up-shear"
+
+    layout_kwargs = {"subplot_width": 3, "subplot_height": 3.5, "rows": 1, "columns": 3}
+    layout_kwargs.update({"colorbar": False, "vertical_spacing": 0.75})
+    layout_kwargs.update({"legend_rows": 2})
+    layout_kwargs.update({"shared_legends": "all", "horizontal_spacing": 0.85})
+    layout_kwargs.update({"label_offset_x": -0.15, "label_offset_y": 0.075})
+    panelled_layout = visualize.horizontal.Panelled(**layout_kwargs)
+    fig, subplot_axes, colorbar_axes, legend_axes = panelled_layout.initialize_layout()
+
+    all_conds = [cond, tilt_cond & downshear, tilt_cond & upshear]
+    all_titles = ["All", "Down-shear Tilted", "Up-shear Tilted"]
+    for i, cond in enumerate(all_conds):
+        quality_winds = winds.where(cond).dropna()
+        group = quality_winds.groupby("altitude")
+        mean_winds, std_winds = group.mean(), group.std()
+        wind_profile(mean_winds, std_winds, subplot_axes[i])
+        subplot_axes[i].set_title(all_titles[i])
+
+    handles, labels = subplot_axes[0].get_legend_handles_labels()
+    handles = [handles[i] for i in [0, 2, 1]]
+    labels = ["$u$ Mean", "$v$ Mean", "Standard Deviation"]
+    legend_axes[0].legend(handles, labels, loc="center", ncol=3, framealpha=1)
+
+    filepath = analysis_directory / "visualize/profile/wind.png"
+    save_figure(filepath, fig, subplot_axes, colorbar_axes, legend_axes)

@@ -8,6 +8,7 @@ from radar reflectivity and ambient winds. https://dx.doi.org/10.1175/MWR-D-22-0
 
 import numpy as np
 import pandas as pd
+from pathlib import Path
 from pydantic import Field
 from thor.attribute.utils import read_attribute_csv, get_attribute_dict
 import thor.analyze.utils as utils
@@ -169,6 +170,8 @@ def quality_control(
     pd.DataFrame
         DataFrame describing quality control checks.
     """
+
+    output_directory = Path(output_directory)
     if analysis_directory is None:
         analysis_directory = output_directory / "analysis"
 
@@ -239,13 +242,15 @@ def quality_control(
     duration_check = duration_check.set_index(velocities.index.names)
 
     # Check if the object fails boundary overlap checks when first detected
-    any_overlap = np.concatenate([convective_check, anvil_check], axis=1).any(axis=1)
-    id_group = any_overlap.reset_index().groupby("universal_id")["time"]
-    initially_contained = id_group.agg(lambda x: x.iloc[0])
-    initially_contained.name = "initially_contained"
+    both_contained = pd.concat([convective_check, anvil_check], axis=1).all(axis=1)
+    id_group = both_contained.reset_index().groupby("universal_id")
+    initial_check = id_group.agg(lambda x: x.iloc[0])
+    initial_check = initial_check.drop(columns="time")
+    new_name = {0: "initially_contained"}
+    initial_check = initial_check.rename(columns=new_name)
     dummy_df = velocities[[]].reset_index()
-    initially_contained = dummy_df.merge(initially_contained, **merge_kwargs)
-    initially_contained = initially_contained.set_index(velocities.index.names)
+    initial_check = dummy_df.merge(initial_check, **merge_kwargs)
+    initial_check = initial_check.set_index(velocities.index.names)
 
     # Check whether the object has parents. When plotting we may only wish to filter out
     # short duration objects if they are not part of a larger system
@@ -253,6 +258,17 @@ def quality_control(
     parents_check = parents_check.agg(lambda x: x.notna().any())
     parents_check = dummy_df.merge(parents_check, on="universal_id", how="left")
     parents_check = parents_check.set_index(velocities.index.names)
+
+    # Record whether the given object has children, using the parents column
+    has_parents = mcs["parents"].dropna()
+    children_check = pd.Series(False, index=velocities.index, name="children")
+    children_check = children_check.reset_index()
+    for i in range(len(has_parents)):
+        parents = [int(p) for p in has_parents.iloc[i].split(" ")]
+        for parent in parents:
+            row_cond = children_check["universal_id"] == parent
+            children_check.loc[row_cond, "children"] = True
+    children_check = children_check.set_index(velocities.index.names)
 
     # Check the linearity of the system
     filepath = output_directory / f"attributes/mcs/{convective_label}/ellipse.csv"
@@ -263,12 +279,13 @@ def quality_control(
     axis_ratio_check = axis_ratio >= analysis_options.min_axis_ratio
     axis_ratio_check.name = "axis_ratio"
 
-    names = ["convective_contained", "anvil_contained", "velocity", "shear"]
-    names += ["relative_velocity", "area", "offset", "major_axis", "axis_ratio"]
-    names += ["duration", "parents"]
+    names = ["convective_contained", "anvil_contained", "initially_contained"]
+    names += ["velocity", "shear", "relative_velocity", "area", "offset"]
+    names += ["major_axis", "axis_ratio", "duration", "parents", "children"]
     descriptions = [
         "Is the system convective region sufficiently contained within the domain?",
         "Is the system anvil region sufficiently contained within the domain?",
+        "Is the system contained within the domain when first detected?",
         "Is the system velocity sufficiently large?",
         "Is the system shear sufficiently large?",
         "Is the system relative velocity sufficiently large?",
@@ -277,7 +294,8 @@ def quality_control(
         "Is the system major axis length sufficiently large?",
         "Is the system axis ratio sufficiently large?",
         "Is the system duration sufficiently long?",
-        "Is the system part of a larger system?",
+        "Does the system have parent systems?",
+        "Does the system have children systems?",
     ]
     if "u_shear" not in velocities.columns:
         names.remove("shear")
@@ -293,8 +311,9 @@ def quality_control(
     attributes["time"] = attribute.core.time()
     attributes["universal_id"] = attribute.core.identity("universal_id")
     filepath = analysis_directory / "quality.csv"
-    quality = [convective_check, anvil_check, velocity_check, area_check, offset_check]
-    quality += [major_check, axis_ratio_check, duration_check, parents_check]
+    quality = [convective_check, anvil_check, initial_check, velocity_check, area_check]
+    quality += [offset_check, major_check, axis_ratio_check, duration_check]
+    quality += [parents_check, children_check]
     if "u_shear" in velocities.columns:
         quality += [shear_check, relative_velocity_check]
     quality = pd.concat(quality, axis=1)
