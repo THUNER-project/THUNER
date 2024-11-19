@@ -4,14 +4,71 @@ import yaml
 import inspect
 import numpy as np
 from pyproj import Geod, Proj, Transformer
+from pathlib import Path
+from pydantic import Field
 from thor.utils import almost_equal, pad
 from thor.config import get_outputs_directory
 from thor.log import setup_logger
+import thor.option as option
 import thor.utils as utils
 
 
 logger = setup_logger(__name__)
 grid_name_message = "Grid name must be 'cartesian' or 'geographic'."
+
+_summary = {
+    "timestep": "Time step for the dataset.",
+    "start_latitude": "Starting latitude for the dataset.",
+    "end_latitude": "Ending latitude for the dataset.",
+    "start_longitude": "Starting longitude for the dataset.",
+    "end_longitude": "Ending longitude for the dataset.",
+    "central_latitude": "Central latitude for the dataset.",
+    "central_longitude": "Central longitude for the dataset.",
+    "projection": "Projection for the dataset.",
+    "start_x": "Starting x-coordinate for the dataset.",
+    "end_x": "Ending x-coordinate for the dataset.",
+    "start_y": "Starting y-coordinate for the dataset.",
+    "end_y": "Ending y-coordinate for the dataset.",
+    "start_alt": "Starting z-coordinate for the dataset.",
+    "end_alt": "Ending z-coordinate for the dataset.",
+    "cartesian_spacing": "Spacing for the cartesian grid [z, y, x] in metres.",
+    "geographic_spacing": "Spacing for the geographic grid [z, lat, lon] in metres and degrees.",
+    "regrid": "Whether to regrid the dataset.",
+    "save": "Whether to save the dataset.",
+    "altitude_spacing": "Spacing for the altitude grid in metres.",
+    "x": "x-coordinates for the dataset.",
+    "y": "y-coordinates for the dataset.",
+    "altitude": "z-coordinates for the dataset.",
+    "latitude": "latitudes for the dataset.",
+    "longitude": "longitudes for the dataset.",
+    "shape": "Shape of the dataset.",
+}
+
+
+class GridOptions(option.BaseOptions):
+    name: str = "geographic"
+    altitude: list[float] | None = Field(None, description=_summary["altitude"])
+    latitude: list[float] | None = Field(None, description=_summary["latitude"])
+    longitude: list[float] | None = Field(None, description=_summary["longitude"])
+    central_latitude: float | None = Field(
+        None, description=_summary["central_latitude"]
+    )
+    central_longitude: float | None = Field(
+        None, description=_summary["central_longitude"]
+    )
+    x: list[float] | None = Field(None, description=_summary["x"])
+    y: list[float] | None = Field(None, description=_summary["y"])
+    projection: str | None = Field(None, description=_summary["projection"])
+    altitude_spacing: float = Field(500, description=_summary["altitude_spacing"])
+    cartesian_spacing: list[float] = Field(
+        [2500, 2500], description=_summary["cartesian_spacing"]
+    )
+    geographic_spacing: list[float] = Field(
+        [0.025, 0.025], description=_summary["geographic_spacing"]
+    )
+    shape: tuple[int, int] | None = Field(None, description=_summary["shape"])
+    regrid: bool = Field(True, description=_summary["regrid"])
+    save: bool = Field(False, description=_summary["save"])
 
 
 def create_options(

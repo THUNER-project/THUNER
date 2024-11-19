@@ -39,6 +39,7 @@ quality_dispatcher = {
 def parent_graph(parent_graph, ax=None, analysis_directory=None):
     """Visualize a parent graph."""
 
+    plt.close("all")
     if analysis_directory is None:
         analysis_directory = utils.get_analysis_directory()
 
@@ -78,6 +79,7 @@ def parent_graph(parent_graph, ax=None, analysis_directory=None):
 def windrose(dfs, analysis_directory=None):
     """Create a windrose style plot of system velocity and stratiform offset."""
 
+    plt.close("all")
     if analysis_directory is None:
         analysis_directory = utils.get_analysis_directory()
 
@@ -185,6 +187,7 @@ def plot_pie_inset(data, longitude, latitude, ax, width, offsets, colors):
 def pie_map(dfs, classification_name, analysis_directory=None, block_size=5):
     """Create a map of classification ratios using pie charts."""
 
+    plt.close("all")
     if analysis_directory is None:
         analysis_directory = utils.get_analysis_directory()
 
@@ -249,6 +252,7 @@ def field_map(
 ):
     """Visualize a field on a map as a pcolormesh."""
 
+    plt.close("all")
     if analysis_directory is None:
         analysis_directory = utils.get_analysis_directory()
 
@@ -411,6 +415,7 @@ def acute_angle_hist(ax, angles_degrees):
 def shear_orientation_angles(dfs, analysis_directory=None):
     """Plot the distribution of angles between shear and orientation."""
 
+    plt.close("all")
     if analysis_directory is None:
         analysis_directory = utils.get_analysis_directory()
 
@@ -498,6 +503,10 @@ def plot_counts_ratios(
 def plot_attribute(ax, df, quality, name, ylabel=None, circular=False):
     """Plot counts and ratios of classifications over time."""
 
+    plt.close("all")
+    if analysis_directory is None:
+        analysis_directory = utils.get_analysis_directory()
+
     if "minutes" not in df.index.names:
         df = utils.get_duration_minutes(df)
 
@@ -553,6 +562,7 @@ def plot_attribute(ax, df, quality, name, ylabel=None, circular=False):
 def plot_classification_evolution(classifications, quality, analysis_directory=None):
     """Plot the evolution of classifications over time."""
 
+    plt.close("all")
     if analysis_directory is None:
         analysis_directory = utils.get_analysis_directory()
     if "minutes" not in classifications.index.names:
@@ -602,6 +612,10 @@ def plot_classification_evolution(classifications, quality, analysis_directory=N
 def plot_attribute_evolution(dfs, analysis_directory=None):
     """Plot the evolution of attributes over time."""
 
+    plt.close("all")
+    if analysis_directory is None:
+        analysis_directory = utils.get_analysis_directory()
+
     dfs = dfs.copy()
     velocities = dfs["velocities"]
     group = dfs["group"]
@@ -609,9 +623,6 @@ def plot_attribute_evolution(dfs, analysis_directory=None):
     convective = dfs["convective_core"]
     anvil = dfs["anvil_core"]
     ellipse = dfs["ellipse"]
-
-    if analysis_directory is None:
-        analysis_directory = utils.get_analysis_directory()
 
     logger.info("Calculating minutes.")
     for df in [velocities, group, quality, convective, anvil, ellipse]:
@@ -681,6 +692,7 @@ def wind_profile(mean_winds, std_winds, ax):
 def wind_profiles(dfs):
     """Contrast wind profiles across categories."""
 
+    plt.close("all")
     analysis_directory = utils.get_analysis_directory()
 
     profile = dfs["profile"].copy()
@@ -717,3 +729,79 @@ def wind_profiles(dfs):
 
     filepath = analysis_directory / "visualize/profile/wind.png"
     save_figure(filepath, fig, subplot_axes, colorbar_axes, legend_axes)
+
+
+def cape_ake_R(dfs):
+    """Contrast shear, CAPE and R."""
+
+    plt.close("all")
+    analysis_directory = utils.get_analysis_directory()
+
+    shear = utils.get_shear(dfs["profile"])
+    ake = (1 / 2) * (shear["u"] ** 2 + shear["v"] ** 2)
+    ake.name = "ake"
+    ake = pd.DataFrame(ake)
+    cape = dfs["tag"][["cape"]]
+    R = cape["cape"] / ake["ake"]
+    R.name = "R"
+    R = pd.DataFrame(R)
+
+    quality = dfs["quality"].copy()
+    classification = dfs["classification"].copy()
+
+    # Quality control criteria same for cape, ake, R
+    cond = quality[quality_dispatcher["cape"]].all(axis=1)
+    tilt_cond = quality[quality_dispatcher["tilt"]].all(axis=1)
+    rel_so_cond = quality[quality_dispatcher["relative_stratiform_offset"]].all(axis=1)
+    upshear = classification["tilt"] == "up-shear"
+    downshear = classification["tilt"] == "down-shear"
+    leading = classification["relative_stratiform_offset"] == "leading"
+    trailing = classification["relative_stratiform_offset"] == "trailing"
+    all_names = ["cape", "ake", "R"]
+    all_fields = [cape, ake, R]
+    all_labels = ["CAPE [J kg$^{-1}$]", r"$\frac{1}{2}(\Delta u)^2$ [J kg$^{-1}$]"]
+    all_labels += ["$R$ [-]"]
+    all_bins = [np.arange(0, 4000 + 250, 250), np.arange(0, 1000 + 50, 50)]
+    all_bins += [np.arange(0, 60 + 2.5, 2.5)]
+
+    layout_kwargs = {"subplot_width": 3, "subplot_height": 3.5, "rows": 1, "columns": 3}
+    layout_kwargs.update({"colorbar": False, "vertical_spacing": 0.75})
+    layout_kwargs.update({"legend_rows": 2})
+    layout_kwargs.update({"shared_legends": "all", "horizontal_spacing": 1})
+    layout_kwargs.update({"label_offset_x": -0.15, "label_offset_y": 0.075})
+    panelled_layout = visualize.horizontal.Panelled(**layout_kwargs)
+
+    fig, subplot_axes, colorbar_axes, legend_axes = panelled_layout.initialize_layout()
+
+    line_kwargs = {"linestyle": "--", "linewidth": 2, "label": "Median"}
+    for i in range(len(all_names)):
+
+        group_cond = cond & tilt_cond & rel_so_cond & upshear & trailing
+        field = all_fields[i].where(group_cond).dropna()
+        subplot_axes[i].hist(field, bins=all_bins[i], density=True, alpha=0.5)
+        median = field[all_names[i]].median()
+        subplot_axes[i].axvline(median, color="tab:blue", **line_kwargs)
+
+        group_cond = cond & tilt_cond & rel_so_cond & downshear & leading
+        field = all_fields[i].where(group_cond).dropna()
+        subplot_axes[i].hist(field, bins=all_bins[i], density=True, alpha=0.5)
+        median = field[all_names[i]].median()
+        subplot_axes[i].axvline(median, color="tab:orange", **line_kwargs)
+
+        set_histogram_grid(subplot_axes[i], all_bins[i], all_labels[i])
+
+    filepath = analysis_directory / "visualize/profile/cape_ake_R.png"
+    save_figure(filepath, fig, subplot_axes, colorbar_axes, legend_axes)
+
+
+def set_histogram_grid(ax, bins, label):
+    """Convenience function to setup histogram grid."""
+    ax.set_xticks(bins[::4])
+    ax.set_xticks(bins[::2], minor=True)
+    ax.set_xlabel(label)
+    ax.set_ylabel("Density [-]")
+
+    # Format y ticks in scientific notation
+    set_scientific(ax)
+    ax.grid(True, which="major")
+    ax.grid(True, which="minor", alpha=0.4)

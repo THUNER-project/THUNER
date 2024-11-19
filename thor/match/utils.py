@@ -56,7 +56,9 @@ def get_parent_graph(df):
 
     if "event_start" in df.columns:
         # Check whether event_start column is present; this column is used for GridRad data
-        message = "DataFrame should not have event_start column; take cross section first."
+        message = (
+            "DataFrame should not have event_start column; take cross section first."
+        )
         raise ValueError(message)
 
     # Create a directed graph to capture the object parent/child relationship
@@ -96,10 +98,42 @@ def get_parent_graph(df):
 
 def get_component_subgraphs(parent_graph):
     """Get connected components from a parent graph."""
-    
     undirected_graph = parent_graph.to_undirected()
     components = nx.algorithms.connected.connected_components(undirected_graph)
     return [parent_graph.subgraph(c).copy() for c in components]
+
+
+# Too slow to iterate over all sources and targets.
+# For now, simply take longest path using dag_longest_path
+def get_paths(component_subgraph):
+    """Get the shortest path from sources to targets in a connected component."""
+    sources, targets = get_sources_targets(component_subgraph)
+    all_paths, all_path_lengths = [], []
+    # Iterating over all the sources and targets still seems too slow.
+    for source, target in product(sources, targets):
+        # For our application all paths between source and target are the same length.
+        # Thus for efficiency, simply take the first path found between source and
+        # target, acknowledging there may be more than one such path.
+        path_generator = nx.all_simple_paths(component_subgraph, source, target)
+        try:
+            simple_path = next(path_generator)
+        except StopIteration:
+            continue
+        # Exclude 'paths' of length 1
+        if len(simple_path) < 2:
+            continue
+        # simple_path = [sorted(p) for p in [simple_path] if len(p) > 0]
+        # path_lengths = [len(p) for p in simple_path]
+        all_paths.append(simple_path)
+        all_path_lengths.append(len(simple_path))
+    sorted_paths, sorted_lengths = [], []
+    for length, path in sorted(zip(all_path_lengths, all_paths)):
+        sorted_lengths.append(length)
+        sorted_paths.append(path)
+    shortest_path = sorted_paths[0]
+    longest_path = sorted_paths[-1]
+    median_path = sorted_paths[len(sorted_paths) // 2]
+    return shortest_path, longest_path, median_path
 
 
 def get_sources_targets(component_subgraph):
@@ -132,19 +166,19 @@ def get_component_paths(component_subgraph):
 def get_new_objects(df, paths, object_count=0):
     """Get new objects based on the split merge history."""
 
+    df = df.copy()
     index_names = df.index.names
+    non_index_names = list(set(index_names) - set(["time", "universal_id"]))
+    for name in non_index_names:
+        df = df.reset_index(level=name, drop=False)
     new_objs = []
     for i, path in enumerate(paths):
         # Extract the relevant rows
-        rows = []
-        for node in path:
-            row = df.xs(node[0], level="time", drop_level=False)
-            row = row.xs(node[1], level="universal_id", drop_level=False)
-            rows.append(row)
-        new_obj = pd.concat(rows, axis=0).reset_index()
-        if "parents" in new_obj.columns:
-            new_obj = new_obj.drop(columns=["parents"])
-        new_obj["universal_id"] = i+1+object_count
-        new_obj = new_obj.set_index(index_names)
+        new_obj = df.loc[path].reset_index()
+        new_obj["universal_id"] = i + 1 + object_count
         new_objs.append(new_obj)
-    return pd.concat(new_objs, axis=0)
+    new_df = pd.concat(new_objs, axis=0)
+    new_df = new_df.set_index(index_names)
+    if "parents" in new_df.columns:
+        new_df = new_df.drop(columns=["parents"])
+    return new_df
