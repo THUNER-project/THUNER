@@ -132,7 +132,7 @@ def geographic_pixel_to_distance(latitude, longitude, spacing, axis, orientation
 
 
 def cv2_ellipse(mask, id, grid_options):
-    lats, lons = grid_options["latitude"], grid_options["longitude"]
+    lats, lons = grid_options.latitude, grid_options.longitude
     hull = convex_hull_image(mask == id).astype(np.uint8)
     contours = cv2.findContours(hull, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
 
@@ -149,20 +149,20 @@ def cv2_ellipse(mask, id, grid_options):
     [(column, row), (axis_1, axis_2), orientation] = ellipse_properties
     orientation = np.deg2rad(orientation)
 
-    if grid_options["name"] == "cartesian":
+    if grid_options.name == "cartesian":
         lats = xr.DataArray(lats, dims=("row", "column"))
         lons = xr.DataArray(lons, dims=("row", "column"))
         latitude = lats.interp(row=row, column=column, method="linear")
         longitude = lons.interp(row=row, column=column, method="linear")
-        spacing = grid_options["cartesian_spacing"]
+        spacing = grid_options.cartesian_spacing
         axis_1 = cartesian_pixel_to_distance(spacing, axis_1, orientation)
         axis_2 = cartesian_pixel_to_distance(spacing, axis_2, orientation)
-    elif grid_options["name"] == "geographic":
+    elif grid_options.name == "geographic":
         lats = xr.DataArray(lats, dims=("row"))
         lons = xr.DataArray(lons, dims=("column"))
         latitude = lats.interp(row=row, method="linear")
         longitude = lons.interp(column=column, method="linear")
-        spacing = grid_options["geographic_spacing"]
+        spacing = grid_options.geographic_spacing
         args = [latitude, longitude, spacing, axis_1, orientation]
         axis_1 = geographic_pixel_to_distance(*args)
         args[3] = axis_2

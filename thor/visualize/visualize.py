@@ -68,8 +68,6 @@ def hls_colormap(N=1, lightness=0.9, saturation=1):
     return hls_colormap
 
 
-# mask_colormap = hls_colormap(N=20, lightness=0.5, saturation=0.8)
-
 mask_colors = ["cyan", "magenta", "gold", "cyan"]
 mask_colormap = mcolors.LinearSegmentedColormap.from_list("mask", mask_colors, N=64)
 

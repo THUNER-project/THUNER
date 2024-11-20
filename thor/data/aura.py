@@ -199,9 +199,8 @@ def convert_cpol(time, filepath, dataset_options, grid_options):
     if time not in cpol.time.values:
         raise ValueError(f"{time} not in {filepath}")
 
-    cpol = cpol[
-        dataset_options.fields + ["point_latitude", "point_longitude", "point_altitude"]
-    ]
+    point_coords = ["point_latitude", "point_longitude", "point_altitude"]
+    cpol = cpol[dataset_options.fields + point_coords]
     new_names = {"point_latitude": "latitude", "point_longitude": "longitude"}
     new_names.update({"point_altitude": "altitude"})
     cpol = cpol.rename(new_names)
@@ -212,23 +211,22 @@ def convert_cpol(time, filepath, dataset_options, grid_options):
     for var in ["latitude", "longitude"]:
         cpol[var] = cpol[var].isel(altitude=0)
 
-    if grid_options["name"] == "geographic":
+    if grid_options.name == "geographic":
         dims = ["latitude", "longitude"]
-        if grid_options["latitude"] is None or grid_options["longitude"] is None:
+        if grid_options.latitude is None or grid_options.longitude is None:
             # If the lat/lon of the new grid were not specified, construct from spacing
-            spacing = grid_options["geographic_spacing"]
+            spacing = grid_options.geographic_spacing
             message = f"Creating new geographic grid with spacing {spacing[0]} m, {spacing[1]} m."
             logger.info(message)
             if spacing is None:
                 raise ValueError("Spacing cannot be None if latitude/longitude None.")
             old_lats = cpol["latitude"].values
             old_lons = cpol["longitude"].values
-            latitude, longitude = grid.new_geographic_grid(
-                old_lats, old_lons, spacing[0], spacing[1]
-            )
-            grid_options["latitude"] = latitude
-            grid_options["longitude"] = longitude
-        ds = xr.Dataset({dim: ([dim], grid_options[dim]) for dim in dims})
+            args = [old_lats, old_lons, spacing[0], spacing[1]]
+            latitude, longitude = grid.new_geographic_grid(*args)
+            grid_options.latitude = latitude
+            grid_options.longitude = longitude
+        ds = xr.Dataset({dim: ([dim], getattr(grid_options, dim)) for dim in dims})
         regrid_options = {"periodic": False, "extrap_method": None}
         regridder = xe.Regridder(cpol, ds, "bilinear", **regrid_options)
         ds = regridder(cpol)
@@ -240,32 +238,32 @@ def convert_cpol(time, filepath, dataset_options, grid_options):
         ds.attrs.update(cpol.attrs)
         ds.attrs["history"] += f", regridded using xesmf on " f"{np.datetime64('now')}"
 
-    elif grid_options["name"] == "cartesian":
+    elif grid_options.name == "cartesian":
         dims = ["y", "x"]
         # Interpolate vertically
-        ds = cpol.interp(altitude=grid_options["altitude"], method="linear")
-        grid_options["latitude"] = ds["latitude"].values
-        grid_options["longitude"] = ds["longitude"].values
-        if grid_options["x"] is None or grid_options["y"] is None:
-            grid_options["x"] = ds["x"].values
-            grid_options["y"] = ds["y"].values
+        ds = cpol.interp(altitude=grid_options.altitude, method="linear")
+        grid_options.latitude = ds["latitude"].values
+        grid_options.longitude = ds["longitude"].values
+        if grid_options.x is None or grid_options.y is None:
+            grid_options.x = ds["x"].values
+            grid_options.y = ds["y"].values
         x_spacing = ds["x"].values[1:] - ds["x"].values[:-1]
         y_spacing = ds["y"].values[1:] - ds["y"].values[:-1]
         if np.unique(x_spacing).size > 1 or np.unique(y_spacing).size > 1:
             raise ValueError("x and y must have constant spacing.")
-        grid_options["cartesian_spacing"] = [y_spacing[0], x_spacing[0]]
+        grid_options.cartesian_spacing = [y_spacing[0], x_spacing[0]]
 
     # Define grid shape and gridcell areas
-    grid_options["shape"] = [len(ds[dims[0]].values), len(ds[dims[1]].values)]
+    grid_options.shape = [len(ds[dims[0]].values), len(ds[dims[1]].values)]
     cell_areas = grid.get_cell_areas(grid_options)
     ds["gridcell_area"] = (dims, cell_areas)
     ds["gridcell_area"].attrs.update(
         {"units": "km^2", "standard_name": "area", "valid_min": 0}
     )
-    if grid_options["altitude"] is None:
-        grid_options["altitude"] = ds["altitude"].values
+    if grid_options.altitude is None:
+        grid_options.altitude = ds["altitude"].values
     else:
-        ds = ds.interp(altitude=grid_options["altitude"], method="linear")
+        ds = ds.interp(altitude=grid_options.altitude, method="linear")
     # THOR convention uses longitude in the range [0, 360]
     ds["longitude"] = ds["longitude"] % 360
 

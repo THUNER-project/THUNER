@@ -177,7 +177,7 @@ def relabel_all(dfs, analysis_directory=None):
     if analysis_directory is None:
         analysis_directory = get_analysis_directory()
 
-    longest_directory = analysis_directory / "longest_paths"
+    longest_directory = analysis_directory / "attributes/longest_paths"
     longest_directory.mkdir(exist_ok=True, parents=True)
     for name in dfs.keys():
         (longest_directory / name).mkdir(exist_ok=True, parents=True)

@@ -11,7 +11,6 @@ import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import thor.visualize.horizontal as horizontal
 
-# from thor.visualize.visualize import figure_colors, styles, animate_object, mask_colormap
 from thor.attribute.utils import read_attribute_csv
 from thor.analyze.utils import read_options
 import thor.data.dispatch as dispatch
@@ -227,7 +226,7 @@ def mcs_horizontal(
     args = [grid, mask, grid_options, figure_options, member_objects]
     args += [boundary_coordinates]
     kwargs = {"object_colors": object_colors, "mask_quality": object_quality}
-    fig, axes, colorbar_axes, legend_ax = horizontal.grouped_mask(*args, **kwargs)
+    fig, axes, colorbar_axes, legend_axes = horizontal.grouped_mask(*args, **kwargs)
 
     try:
         filepath = output_directory / "attributes/mcs/group.csv"
@@ -293,12 +292,13 @@ def mcs_horizontal(
     handles, labels = handles[::-1], labels[::-1]
 
     args = [handles, labels]
+    leg_ax = legend_axes[0]
     if scale == 1:
-        legend = legend_ax.legend(*args, **mcs_legend_options, handler_map=handler)
+        legend = leg_ax.legend(*args, **mcs_legend_options, handler_map=handler)
     elif scale == 2:
         mcs_legend_options["loc"] = "lower left"
         mcs_legend_options["bbox_to_anchor"] = (-0.0, -0.425)
-        legend = legend_ax.legend(*args, **mcs_legend_options, handler_map=handler)
+        legend = leg_ax.legend(*args, **mcs_legend_options, handler_map=handler)
     legend.get_frame().set_alpha(None)
     legend.get_frame().set_facecolor(legend_color)
 

@@ -15,9 +15,9 @@ def get_object_area(obj, mask, gridcell_area, grid_options):
     row_inds, col_inds = np.where(mask == obj)
     row_points = xr.Variable("mask_points", row_inds)
     col_points = xr.Variable("mask_points", col_inds)
-    if grid_options["name"] == "cartesian":
+    if grid_options.name == "cartesian":
         areas = gridcell_area.isel(y=row_points, x=col_points).values
-    elif grid_options["name"] == "geographic":
+    elif grid_options.name == "geographic":
         areas = gridcell_area.isel(latitude=row_points, longitude=col_points).values
     return areas.sum()
 

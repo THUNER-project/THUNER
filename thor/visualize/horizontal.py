@@ -36,10 +36,10 @@ domain_plot_style.update({"zorder": 1, "transform": proj, "linestyle": "-"})
 def show_grid(grid, ax, grid_options, add_colorbar=True):
     """Plot a grid cross section."""
 
-    if grid_options["name"] == "geographic":
-        LON, LAT = np.meshgrid(grid_options["longitude"], grid_options["latitude"])
-    elif grid_options["name"] == "cartesian":
-        LON, LAT = grid_options["longitude"], grid_options["latitude"]
+    if grid_options.name == "geographic":
+        LON, LAT = np.meshgrid(grid_options.longitude, grid_options.latitude)
+    elif grid_options.name == "cartesian":
+        LON, LAT = grid_options.longitude, grid_options.latitude
 
     title = ax.get_title()
     mesh_style = visualize.pcolormesh_style[grid.attrs["long_name"].lower()]
@@ -69,10 +69,10 @@ def show_mask(
     object_labels = np.unique(mask.where(mask > 0).values)
     object_labels = object_labels[~np.isnan(object_labels)].astype(np.int32)
 
-    if grid_options["name"] == "geographic":
-        LON, LAT = np.meshgrid(grid_options["longitude"], grid_options["latitude"])
-    elif grid_options["name"] == "cartesian":
-        LON, LAT = grid_options["longitude"], grid_options["latitude"]
+    if grid_options.name == "geographic":
+        LON, LAT = np.meshgrid(grid_options.longitude, grid_options.latitude)
+    elif grid_options.name == "cartesian":
+        LON, LAT = grid_options.longitude, grid_options.latitude
 
     # levels = np.arange(0, len(colors) + 1)
     # norm = BoundaryNorm(levels, ncolors=len(colors), clip=True)
@@ -312,8 +312,8 @@ def get_geographic_vector_scale(grid_options):
     """
     Scale vectors so that a vector of 1 gridcell corresponds to 1/50 of the domain.
     """
-    lats, lons = grid_options["latitude"], grid_options["longitude"]
-    if grid_options["name"] == "cartesian":
+    lats, lons = grid_options.latitude, grid_options.longitude
+    if grid_options.name == "cartesian":
         lats = lats[:, 0]
         lons = lons[0, :]
     row_scale = 0.02 * (lats[-1] - lats[0]) / (lats[1] - lats[0])
@@ -494,9 +494,9 @@ def pixel_vector(
     linestyle="-",
 ):
     """Plot a vector given in gridcell, i.e. "pixel", coordinates."""
-    latitudes = grid_options["latitude"]
-    longitudes = grid_options["longitude"]
-    if grid_options["name"] == "cartesian":
+    latitudes = grid_options.latitude
+    longitudes = grid_options.longitude
+    if grid_options.name == "cartesian":
         if start_lat is None or start_lon is None:
             start_lon = longitudes[row, col]
             start_lat = latitudes[row, col]
@@ -505,19 +505,17 @@ def pixel_vector(
         vector_direction = np.rad2deg(np.arctan2(vector[0], vector[1]))
         # Now convert to azimuth direction, i.e. clockwise from north.
         azimuth = (90 - vector_direction) % 360
-        spacing = np.array(grid_options["cartesian_spacing"])
+        spacing = np.array(grid_options.cartesian_spacing)
         cartesian_vector = np.array(vector) * spacing
         distance = np.sqrt(np.sum(cartesian_vector**2))
         args = [start_lon, start_lat, azimuth, distance]
         end_lon, end_lat = thor_grid.geodesic_forward(*args)[:2]
         geographic_vector = [end_lat - start_lat, end_lon - start_lon]
-    elif grid_options["name"] == "geographic":
+    elif grid_options.name == "geographic":
         if start_lat is None or start_lon is None:
             start_lat = latitudes[row]
             start_lon = longitudes[col]
-        geographic_vector = np.array(vector) * np.array(
-            grid_options["geographic_spacing"]
-        )
+        geographic_vector = np.array(vector) * np.array(grid_options.geographic_spacing)
     else:
         raise ValueError(f"Grid name must be 'cartesian' or 'geographic'.")
     scale = get_geographic_vector_scale(grid_options)
@@ -586,13 +584,9 @@ def grouped_mask_template(grid, extent, member_objects, scale):
         subplot_width = 8
     else:
         raise ValueError("Only scales of 1 or 2 implemented so far.")
-    kwargs = {
-        "extent": extent,
-        "subplot_width": subplot_width,
-        "rows": rows,
-        "columns": columns,
-    }
-    kwargs.update({"colorbar": True, "legend_rows": 2})
+    kwargs = {"extent": extent, "subplot_width": subplot_width, "rows": rows}
+    kwargs.update({"columns": columns, "colorbar": True, "legend_rows": 2})
+    kwargs.update({"shared_legends": "all"})
     layout = PanelledUniformMaps(**kwargs)
     fig, subplot_axes, colorbar_axes, legend_axes = layout.initialize_layout()
     for i in range(len(member_objects)):
@@ -859,7 +853,10 @@ class PanelledUniformMaps(Panelled):
         vertical_spacing: float = 0.6,  # Spacing between subplots in inches
         colorbar: bool = True,  # Add a colorbar to the figure
         legend_rows: int | None = 2,  # Number of rows in the legend
+        shared_legends: Literal["columns", "all", None] = None,  # Share legends
         projections: Any | List[Any] | None = proj,  # Projections for each subplot
+        label_offset_x: float = -0.12,
+        label_offset_y: float = 0.06,
         border_zorder: int = 0,  # Political border zorder
         coastline_zorder: int = 1,  # Coastline zorder
         grid_zorder: int = 1,  # Grid zorder
@@ -868,8 +865,9 @@ class PanelledUniformMaps(Panelled):
         lon_range = extent[1] - extent[0]
         subplot_height = (lat_range / lon_range) * subplot_width
         args = [subplot_width, subplot_height, rows, columns]
-        args += [horizontal_spacing, vertical_spacing]
-        super().__init__(*args, projections=projections)
+        args += [horizontal_spacing, vertical_spacing, colorbar, legend_rows]
+        args += [shared_legends, projections, label_offset_x, label_offset_y]
+        super().__init__(*args)
         self.extent = extent
         self.colorbar = colorbar
         self.legend_rows = legend_rows

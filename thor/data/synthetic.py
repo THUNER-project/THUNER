@@ -160,22 +160,22 @@ def update_dataset(time, input_record, tracks, dataset_options, grid_options):
     """
     utils.log_dataset_update(logger, dataset_options.name, time)
 
-    latitude = grid_options["latitude"]
-    longitude = grid_options["longitude"]
+    latitude = grid_options.latitude
+    longitude = grid_options.longitude
     missing_geographic = (latitude is None) or (longitude is None)
-    x = grid_options["x"]
-    y = grid_options["y"]
+    x = grid_options.x
+    y = grid_options.y
     missing_cartesian = (x is None) or (y is None)
-    if grid_options["name"] == "cartesian" and missing_geographic:
-        X, Y = np.meshgrid(grid_options["x"], grid_options["y"])
+    if grid_options.name == "cartesian" and missing_geographic:
+        X, Y = np.meshgrid(grid_options.x, grid_options.y)
         LON, LAT = grid.cartesian_to_geographic_lcc(grid_options, X, Y)
-        grid_options["latitude"] = LAT
-        grid_options["longitude"] = LON
-    if grid_options["name"] == "geographic" and missing_cartesian:
+        grid_options.latitude = LAT
+        grid_options.longitude = LON
+    if grid_options.name == "geographic" and missing_cartesian:
         LON, LAT = np.meshgrid(longitude, latitude)
         X, Y = grid.geographic_to_cartesian_lcc(grid_options, LAT, LON)
-        grid_options["x"] = X
-        grid_options["y"] = Y
+        grid_options.x = X
+        grid_options.y = Y
 
     if "objects" not in input_record.keys():
         input_record["objects"] = dataset_options.starting_objects
@@ -239,7 +239,7 @@ def create_dataset(time, grid_options):
     time = np.array([np.datetime64(time)]).astype("datetime64[ns]")
     meridional_dim = np.array(grid_options[dims[0]])
     zonal_dim = np.array(grid_options[dims[1]])
-    alt = np.array(grid_options["altitude"])
+    alt = np.array(grid_options.altitude)
 
     # Create ds
     ds_values = np.ones((1, len(alt), len(meridional_dim), len(zonal_dim))) * np.nan

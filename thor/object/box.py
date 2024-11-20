@@ -68,20 +68,20 @@ def get_search_box(box, flow, search_margin, grid_options):
     search_box = box.copy()
     search_box = expand_box(search_box, row_margin, col_margin)
     search_box = shift_box(search_box, flow[0], flow[1])
-    search_box = clip_box(search_box, grid_options["shape"])
+    search_box = clip_box(search_box, grid_options.shape)
     return search_box
 
 
 def get_geographic_box_coords(box, grid_options):
     """Get the geographic coordinates of a box."""
-    lats = np.array(grid_options["latitude"])
-    lons = np.array(grid_options["longitude"])
+    lats = np.array(grid_options.latitude)
+    lons = np.array(grid_options.longitude)
     row_list = ["min", "min", "max", "max", "min"]
     col_list = ["min", "max", "max", "min", "min"]
-    if grid_options["name"] == "geographic":
+    if grid_options.name == "geographic":
         box_lats = [lats[box[f"row_{l}"]] for l in row_list]
         box_lons = [lons[box[f"col_{l}"]] for l in col_list]
-    elif grid_options["name"] == "cartesian":
+    elif grid_options.name == "cartesian":
         box_lats = [lats[box[f"row_{l}"], box[f"col_{l}"]] for l in row_list]
         box_lons = [lons[box[f"row_{l}"], box[f"col_{l}"]] for l in col_list]
     else:
@@ -104,13 +104,13 @@ def get_box_center_coords(box, grid_options):
 def get_margins_pixels(bounding_box, flow_margin, grid_options):
     """Get box margins in gridcell i.e "pixel" coordinates."""
 
-    if grid_options["name"] == "cartesian":
-        grid_spacing = grid_options["cartesian_spacing"]
+    if grid_options.name == "cartesian":
+        grid_spacing = grid_options.cartesian_spacing
         flow_margin_row = int(np.ceil(flow_margin * 1e3 / grid_spacing[0]))
         flow_margin_col = int(np.ceil(flow_margin * 1e3 / grid_spacing[1]))
-    elif grid_options["name"] == "geographic":
-        latitudes = grid_options["latitude"]
-        longitudes = grid_options["longitude"]
+    elif grid_options.name == "geographic":
+        latitudes = grid_options.latitude
+        longitudes = grid_options.longitude
         [row, col] = get_center(bounding_box)
         box_lat = latitudes[row]
         box_lon = longitudes[col] % 360
@@ -124,7 +124,7 @@ def get_margins_pixels(bounding_box, flow_margin, grid_options):
 
 def get_geographic_margins(lat, lon, flow_margin, grid_options):
     """Get box margins in geographic coordinates."""
-    spacing = grid_options["geographic_spacing"]
+    spacing = grid_options.geographic_spacing
     # Avoid calculating forward geodesic over +/- 90 degrees lat
     if lat < 0:
         end_lat = grid.geodesic_forward(lon, lat, 0, flow_margin * 1e3)[1]

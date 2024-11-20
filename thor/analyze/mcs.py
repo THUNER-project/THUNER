@@ -134,7 +134,7 @@ class AnalysisOptions(option.BaseOptions):
     min_area: float = Field(1e2, description=_summary["min_area"], ge=0)
     max_area: float = Field(np.inf, description=_summary["max_area"], gt=0)
     max_boundary_overlap: float = Field(
-        np.round(1e-3, 5), description=_summary["max_boundary_overlap"], gt=0
+        1e-3, description=_summary["max_boundary_overlap"], gt=0
     )
     min_major_axis_length: float = Field(
         25, description=_summary["min_major_axis_length"], ge=0

@@ -178,19 +178,18 @@ def coordinates_from_object_record(object_tracks, grid_options):
     """
 
     pixel_coordinates = object_tracks["object_record"]["previous_centers"]
-    latitude, longitude = grid_options["latitude"], grid_options["longitude"]
+    latitude, longitude = grid_options.latitude, grid_options.longitude
     latitudes, longitudes = [], []
     for pixel_coordinate in pixel_coordinates:
-        if grid_options["name"] == "geographic":
+        if grid_options.name == "geographic":
             latitudes.append(latitude[pixel_coordinate[0]])
             longitudes.append(longitude[pixel_coordinate[1]])
-        elif grid_options["name"] == "cartesian":
+        elif grid_options.name == "cartesian":
             latitudes.append(latitude[pixel_coordinate[0], pixel_coordinate[1]])
             longitudes.append(longitude[pixel_coordinate[0], pixel_coordinate[1]])
     return latitudes, longitudes
 
 
-# @memory_profile
 def areas_from_object_record(object_tracks, attribute_options):
     """
     Get area from object record created by the matching process to avoid redundant
@@ -259,12 +258,12 @@ def coordinates_from_mask(
     for obj_id in ids:
         args = [obj_id, mask, grid_options, gridcell_area]
         row, col = thor_object.get_object_center(*args)[:2]
-        if grid_options["name"] == "geographic":
-            lats.append(grid_options["latitude"][row])
-            lons.append(grid_options["longitude"][col])
-        elif grid_options["name"] == "cartesian":
-            lats.append(grid_options["latitude"][row, col])
-            lons.append(grid_options["longitude"][row, col])
+        if grid_options.name == "geographic":
+            lats.append(grid_options.latitude[row])
+            lons.append(grid_options.longitude[col])
+        elif grid_options.name == "cartesian":
+            lats.append(grid_options.latitude[row, col])
+            lons.append(grid_options.longitude[row, col])
 
     lats = np.array(lats).astype(attribute_options["latitude"]["data_type"])
     lons = np.array(lons).astype(attribute_options["longitude"]["data_type"])
@@ -414,7 +413,6 @@ def get_ids(object_tracks, attribute_options, member_object):
 
 
 # Record core attributes
-# @memory_profile
 def record(
     attributes,
     object_tracks,

@@ -165,7 +165,7 @@ def from_pressure_levels(names, previous_time, lats, lons, ds, grid_options):
     profiles = profiles.interp(**kwargs)
 
     profiles["altitude"] = profiles["geopotential"] / 9.80665
-    new_altitudes = np.array(grid_options["altitude"])
+    new_altitudes = np.array(grid_options.altitude)
     profile_dict = {name: [] for name in names}
     for i in range(len(profiles.points)):
         profile = profiles.isel(points=i)
@@ -268,7 +268,7 @@ def dataset_record(
         for attr in keys
         if attr not in core_attributes and attr not in ["altitude", "hour_offset"]
     ]
-    altitude = grid_options["altitude"]
+    altitude = grid_options.altitude
     # Get the appropriate core attributes
     for name in core_attributes:
         attr_function = attribute_options[name]["method"]["function"]

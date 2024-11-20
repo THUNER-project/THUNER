@@ -120,7 +120,7 @@ def match_features(grid, object_record, axes, grid_options, unique_global_flow=T
             lat = float(grid.attrs["origin_latitude"])
         else:
             lon, lat = None, None
-        [row, col] = np.ceil(np.array(grid_options["shape"]) / 2).astype(int)
+        [row, col] = np.ceil(np.array(grid_options.shape) / 2).astype(int)
         vector_options = {"start_lat": lat, "start_lon": lon, "color": "tab:red"}
         horizontal.pixel_vector(
             axes[1], row, col, global_flow, grid_options, **vector_options
@@ -161,7 +161,7 @@ def match_features(grid, object_record, axes, grid_options, unique_global_flow=T
             horizontal.pixel_vector(*args, color="silver")
         # Label object with corrected flow case and cost
         case = object_record["cases"][i]
-        lat = np.array(grid_options["latitude"])
+        lat = np.array(grid_options.latitude)
         lat_shift = 0.01 * (lat.max() - lat.min())  # Shift text up slightly
         row, col = flow_box["row_max"], flow_box["col_min"]
         text_lat, text_lon = thor_grid.get_pixels_geographic(row, col, grid_options)

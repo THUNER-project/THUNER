@@ -327,16 +327,16 @@ def get_pyart_grid_shape(grid_options):
         The grid shape as a tuple of (nz, ny, nx).
     """
 
-    z_min = grid_options["start_z"]
-    z_max = grid_options["end_z"]
-    y_min = grid_options["start_y"]
-    y_max = grid_options["end_y"]
-    x_min = grid_options["start_x"]
-    x_max = grid_options["end_x"]
+    z_min = grid_options.start_z
+    z_max = grid_options.end_z
+    y_min = grid_options.start_y
+    y_max = grid_options.end_y
+    x_min = grid_options.start_x
+    x_max = grid_options.end_x
 
-    z_count = (z_max - z_min) / grid_options["grid_spacing"][0]
-    y_count = (y_max - y_min) / grid_options["grid_spacing"][1]
-    x_count = (x_max - x_min) / grid_options["grid_spacing"][2]
+    z_count = (z_max - z_min) / grid_options.grid_spacing[0]
+    y_count = (y_max - y_min) / grid_options.grid_spacing[1]
+    x_count = (x_max - x_min) / grid_options.grid_spacing[2]
 
     if z_count.is_integer() and y_count.is_integer() and x_count.is_integer():
         z_count = int(z_count)
@@ -362,12 +362,12 @@ def get_pyart_grid_limits(grid_options):
     tuple
         The grid limits as a tuple of ((z_min, z_max), (y_min, y_max), (x_min, x_max)).
     """
-    z_min = grid_options["start_z"]
-    z_max = grid_options["end_z"]
-    y_min = grid_options["start_y"]
-    y_max = grid_options["end_y"]
-    x_min = grid_options["start_x"]
-    x_max = grid_options["end_x"]
+    z_min = grid_options.start_z
+    z_max = grid_options.end_z
+    y_min = grid_options.start_y
+    y_max = grid_options.end_y
+    x_min = grid_options.start_x
+    x_max = grid_options.end_x
 
     return ((z_min, z_max), (y_min, y_max), (x_min, x_max))
 
@@ -438,9 +438,9 @@ def call_ncks(input_filepath, output_filepath, start, end, lat_range, lon_range)
 def apply_mask(ds, grid_options):
     """Apply a domain mask to an xr dataset."""
     domain_mask = ds["domain_mask"]
-    if grid_options["name"] == "cartesian":
+    if grid_options.name == "cartesian":
         dims = ["y", "x"]
-    elif grid_options["name"] == "geographic":
+    elif grid_options.name == "geographic":
         dims = ["latitude", "longitude"]
     else:
         raise ValueError("Grid name must be 'cartesian' or 'geographic'.")
@@ -522,14 +522,14 @@ def smooth_mask(mask):
 
 def mask_from_range(dataset, dataset_options, grid_options):
     """Create domain mask for gridcells greater than range from central point."""
-    if grid_options["name"] == "cartesian":
-        X, Y = np.meshgrid(grid_options["x"], grid_options["y"])
+    if grid_options.name == "cartesian":
+        X, Y = np.meshgrid(grid_options.x, grid_options.y)
         distances = np.sqrt(X**2 + Y**2)
         coords = {"y": dataset.y, "x": dataset.x}
         dims = {"y": dataset.y, "x": dataset.x}
-    elif grid_options["name"] == "geographic":
-        lons = grid_options["longitude"]
-        lats = grid_options["latitude"]
+    elif grid_options.name == "geographic":
+        lons = grid_options.longitude
+        lats = grid_options.latitude
         origin_longitude = float(dataset.attrs["origin_longitude"])
         origin_latitude = float(dataset.attrs["origin_latitude"])
         LON, LAT = np.meshgrid(lons, lats)
@@ -550,8 +550,8 @@ def mask_from_range(dataset, dataset_options, grid_options):
 def get_mask_boundary(mask, grid_options):
     """Get domain mask boundary using cv2."""
 
-    lons = np.array(grid_options["longitude"])
-    lats = np.array(grid_options["latitude"])
+    lons = np.array(grid_options.longitude)
+    lats = np.array(grid_options.latitude)
     mask_array = mask.fillna(0).values.astype(np.uint8)
     args = [mask_array, cv2.RETR_LIST]
     # Record the contours with all points, and with only the end points of each line
@@ -568,10 +568,10 @@ def get_mask_boundary(mask, grid_options):
         contour = np.append(contour, [contour[0]], axis=0)
         contour_rows = contour[:, :, 1].flatten()
         contour_cols = contour[:, :, 0].flatten()
-        if grid_options["name"] == "cartesian":
+        if grid_options.name == "cartesian":
             boundary_lats = lats[contour_rows, contour_rows]
             boundary_lons = lons[contour_rows, contour_cols]
-        elif grid_options["name"] == "geographic":
+        elif grid_options.name == "geographic":
             boundary_lats = lats[contour_rows]
             boundary_lons = lons[contour_cols]
         boundary_dict = {"latitude": boundary_lats, "longitude": boundary_lons}

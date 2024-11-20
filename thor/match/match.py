@@ -97,9 +97,9 @@ def get_matched_mask(object_tracks, object_options, grid_options, current_ids=No
         replaced = series.map(value_dict).values.reshape(data_array.shape)
         return replaced
 
-    if grid_options["name"] == "cartesian":
+    if grid_options.name == "cartesian":
         core_dims = [["y", "x"]]
-    elif grid_options["name"] == "geographic":
+    elif grid_options.name == "geographic":
         core_dims = [["latitude", "longitude"]]
     else:
         raise ValueError(f"Grid name must be 'cartesian' or 'geographic'.")

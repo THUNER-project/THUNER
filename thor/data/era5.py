@@ -335,8 +335,8 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
         cds_name, requests, local_paths = generate_cdsapi_requests(dataset_options)
         issue_cdsapi_requests(cds_name, requests, local_paths)
 
-    lat = np.array(grid_options["latitude"])
-    lon = np.array(grid_options["longitude"])
+    lat = np.array(grid_options.latitude)
+    lon = np.array(grid_options.longitude)
     # Expand the lat and lon ranges to include a buffer to ensure required gridpoints are included
     lat_range = (lat.min() - 0.25, lat.max() + 0.25)
     lon_range = (lon.min() - 0.25, lon.max() + 0.25)

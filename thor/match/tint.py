@@ -500,16 +500,16 @@ def velocities_disagree(velocity_1, velocity_2, max_velocity_diff):
 
 def get_unique_global_flow_box(global_flow_margin, grid_options):
     """Set the unique global flow box to the center of the domain."""
-    shape = grid_options["shape"]
+    shape = grid_options.shape
     row, col = np.floor(np.array(shape) / 2).astype(int)
-    if grid_options["name"] == "cartesian":
-        spacing = grid_options["cartesian_spacing"]
+    if grid_options.name == "cartesian":
+        spacing = grid_options.cartesian_spacing
         # Note that the global flow margin is in km, but spacing is in m.
         radius = np.ceil(global_flow_margin * 1e3 / np.array(spacing)).astype(int)
-    elif grid_options["name"] == "geographic":
-        spacing = grid_options["geographic_spacing"]
-        lats = grid_options["latitude"]
-        lons = grid_options["longitude"]
+    elif grid_options.name == "geographic":
+        spacing = grid_options.geographic_spacing
+        lats = grid_options.latitude
+        lons = grid_options.longitude
         lat = lats[row]
         lon = lons[col] % 360
         radius = box.get_geographic_margins(lat, lon, global_flow_margin, grid_options)

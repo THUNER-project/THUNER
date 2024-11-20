@@ -125,7 +125,7 @@ def initialise_object_tracks(object_options):
     return object_tracks
 
 
-def initialise_tracks(track_options, data_options):
+def initialise_tracks(track_options):
     """
     Initialise the tracks dictionary.
 
@@ -201,9 +201,7 @@ def simultaneous_track(
     """
     logger.info("Beginning thor run. Saving output to %s.", output_directory)
     logger.info("Beginning simultaneous tracking.")
-    # option.check_options(track_options)
-    # dispatch.check_data_options(data_options)
-    tracks = initialise_tracks(track_options, data_options)
+    tracks = initialise_tracks(track_options)
     input_records = initialise_input_records(data_options)
 
     consolidated_options = consolidate_options(
@@ -328,7 +326,6 @@ def track_object(
         get_objects = detect.detect
     else:
         raise ValueError("No known method for obtaining objects provided.")
-    # get_objects = get_objects_dispatcher.get(object_options["method"])
     get_objects_args = [track_input_records, tracks, level_index, obj, dataset_options]
     get_objects_args += [object_options, grid_options]
     get_objects(*get_objects_args)

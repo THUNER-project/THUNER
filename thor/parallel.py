@@ -60,7 +60,7 @@ def track_interval(
         visualize_options = visualize_options.copy()
     interval_data_options = get_interval_data_options(data_options, time_interval)
     interval_data_options.to_yaml(options_directory / "data.yml")
-    grid.save_grid_options(grid_options, options_directory)
+    grid_options.to_yaml(options_directory / "grid.yml")
     track_options.to_yaml(options_directory / "track.yml")
     times = data.utils.generate_times(
         interval_data_options.dataset_by_name(dataset_name)

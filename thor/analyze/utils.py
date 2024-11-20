@@ -6,6 +6,7 @@ import glob
 import numpy as np
 import thor.option as option
 from thor.data.option import DataOptions
+import thor.grid as grid
 
 
 def get_angle(u1, v1, u2, v2):
@@ -33,6 +34,8 @@ def read_options(output_directory):
                 options = option.TrackOptions(**options)
             if name == "data":
                 options = DataOptions(**options)
+            if name == "grid":
+                options = grid.GridOptions(**options)
             all_options[name] = options
     return all_options
 

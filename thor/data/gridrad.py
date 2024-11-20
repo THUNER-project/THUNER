@@ -373,12 +373,12 @@ def convert_gridrad(time, filepath, track_options, dataset_options, grid_options
         ds[field].attrs["long_name"] = field
 
     spacing = [ds.latitude.delta, ds.longitude.delta]
-    if grid_options["name"] == "geographic":
-        grid_options["latitude"] = ds.latitude.values
-        grid_options["longitude"] = ds.longitude.values
-        grid_options["altitude"] = ds.altitude.values
-        grid_options["geographic_spacing"] = spacing
-        grid_options["shape"] = [len(ds.latitude), len(ds.longitude)]
+    if grid_options.name == "geographic":
+        grid_options.latitude = ds.latitude.values
+        grid_options.longitude = ds.longitude.values
+        grid_options.altitude = ds.altitude.values
+        grid_options.geographic_spacing = spacing
+        grid_options.shape = [len(ds.latitude), len(ds.longitude)]
 
     ds["longitude"] = ds["longitude"] % 360
 

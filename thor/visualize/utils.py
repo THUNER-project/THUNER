@@ -71,8 +71,8 @@ def reduce_color_depth(filepath, num_colors=256):
 
 def get_extent(grid_options):
     """Get the cartopy extent."""
-    lon = np.array(grid_options["longitude"])
-    lat = np.array(grid_options["latitude"])
+    lon = np.array(grid_options.longitude)
+    lat = np.array(grid_options.latitude)
 
     lon_range = (lon.max() - lon.min()) * 1.1
     lat_range = (lat.max() - lat.min()) * 1.1
