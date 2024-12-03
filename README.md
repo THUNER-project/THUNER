@@ -6,9 +6,4 @@ TBA
 ## Examples
 
 ### GridRad
-![GridRad Demo](./gallery/gridrad.gif)
-
-### CPOL
-![CPOL Demo](./gallery/cpol.gif)
-
-
+![GridRad Demo](./gallery/mcs_gridrad_20100120.gif)

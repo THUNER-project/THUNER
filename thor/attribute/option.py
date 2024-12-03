@@ -1,5 +1,6 @@
 """Functions for specifying object attributes."""
 
+from typing import Callable
 from pydantic import Field
 import thor.option as option
 
@@ -59,20 +60,47 @@ import thor.option as option
 
 _summary = {
     "name": "Name of the attribute.",
-    "method": "Name of the function/method for obtaining the attribute.",
+    "retrieval_method": "Name of the function/method for obtaining the attribute.",
     "data_type": "Data type of the attribute.",
     "precision": "Number of decimal places for a numerical attribute.",
     "description": "Description of the attribute.",
     "units": "Units of the attribute.",
+    "function": "The function/method used to retrieve the attribute.",
 }
 
 
 class BaseAttribute(option.BaseOptions):
-    """Base attribute class."""
+    """
+    Base attribute description class. An "attribute" will become a column of a pandas
+    dataframe or csv file.
+    """
 
     name: str = Field(..., description=_summary["name"])
-    method: dict | None = Field(None, description=_summary["method"])
+    retrieval_method: dict | None = Field(
+        None, description=_summary["retrieval_method"]
+    )
     data_type: type = Field(..., description=_summary["data_type"])
     precision: int | None = Field(None, description=_summary["precision"])
     description: str | None = Field(None, description=_summary["description"])
     units: str | None = Field(None, description=_summary["units"])
+
+
+class RetrievalMethod(option.BaseOptions):
+    """
+    Method for retrieving an attribute.
+    """
+
+    function: Callable = Field(..., description=_summary["function"])
+    kwargs: dict = Field({}, description="Dictionary of key word arguments.")
+
+
+class AttributeGroup(option.BaseOptions):
+    """
+    A group of closely related attributes, typically retrieved together,
+    e.g. lat/lon or u/v.
+    """
+
+    name: str = Field(..., description="Name of the attribute group.")
+    attributes: list[BaseAttribute] = Field(
+        ..., description="List of attributes comprising the group."
+    )

@@ -170,7 +170,6 @@ attribute_dispatcher = {
 
 
 # Functions for obtaining and recording core attributes
-# @memory_profile
 def coordinates_from_object_record(object_tracks, grid_options):
     """
     Get coordinate from object record created by the matching process to avoid
@@ -270,7 +269,6 @@ def coordinates_from_mask(
     return lats, lons
 
 
-# @memory_profile
 def areas_from_mask(object_tracks, attribute_options, grid_options, member_object):
     """Get object area from mask."""
     mask = utils.get_previous_mask(attribute_options, object_tracks)
