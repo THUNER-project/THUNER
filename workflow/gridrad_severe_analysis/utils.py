@@ -3,16 +3,16 @@
 import yaml
 from pathlib import Path
 import pandas as pd
-import thor.write as write
+import thuner.write as write
 import glob
 import networkx as nx
 import numpy as np
-import thor.config as config
-import thor.attribute as attribute
-import thor.data as data
-import thor.match as match
-import thor.log as log
-import thor.analyze as analyze
+import thuner.config as config
+import thuner.attribute as attribute
+import thuner.data as data
+import thuner.match as match
+import thuner.log as log
+import thuner.analyze as analyze
 
 
 logger = log.setup_logger(__name__)

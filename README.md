@@ -1,4 +1,4 @@
-# Thunderstorm Hierachical Object Reconnoiterer (THOR)
+# Thunderstorm Event Reconnaissance (THUNER)
 
 ## Package description
 TBA

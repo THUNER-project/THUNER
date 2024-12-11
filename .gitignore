@@ -7,9 +7,9 @@ build
 log
 .flake8
 .vscode
-thor/test/data
-thor/test/runtime_visualization
-thor/options
+thuner/test/data
+thuner/test/runtime_visualization
+thuner/options
 kitchen_sink
 .coverage
 htmlcov

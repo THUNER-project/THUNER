@@ -6,15 +6,15 @@ from multiprocessing import get_context
 import time
 from pathlib import Path
 import shutil
-import thor.data as data
-import thor.data.dispatch as dispatch
-import thor.grid as grid
-import thor.option as option
-import thor.analyze as analyze
-import thor.parallel as parallel
-import thor.visualize as visualize
-from thor.log import setup_logger, logging_listener
-import thor.config as config
+import thuner.data as data
+import thuner.data.dispatch as dispatch
+import thuner.grid as grid
+import thuner.option as option
+import thuner.analyze as analyze
+import thuner.parallel as parallel
+import thuner.visualize as visualize
+from thuner.log import setup_logger, logging_listener
+import thuner.config as config
 
 logger = setup_logger(__name__)
 

@@ -15,7 +15,7 @@ install:
 - conda config --set show_channel_urls True
 - conda update --quiet conda
 - conda env create -f environment.yml
-- conda activate THOR
+- conda activate THUNER
 - conda list
 - conda info -a
 - pip install .
@@ -27,9 +27,9 @@ before_script:
 - aws configure set default.region ap-southeast-2
 - aws configure list
 - aws sts get-caller-identity
-- aws s3 cp s3://thor-storage/THOR_output ~/THOR_output --recursive
+- aws s3 cp s3://thuner-storage/THUNER_output ~/THUNER_output --recursive
 script:
-- python -m pytest --verbose --color=yes -s --cov=thor --log-cli-level=INFO
+- python -m pytest --verbose --color=yes -s --cov=thuner --log-cli-level=INFO
 env:
   global:
   - secure: tg4J4EKBK9Qf0PljDQs6ibxFdR6IbjWeCG9LbBK9kPeilkQKviyLWmCpK1XP0ofXYvEyDMhvhp+N2/0uGSU18Qozp1lwWlZ/T+NsRq7Vf9loU1TLp4p28UAbbQAtuazJsIylmldjxSQ1lZokYc3C3Nd4fG/pZidum2EhqHuUAZZxcBnien7vJFQNp2SUvYBhXDOKr+5zTrLNAvp42gbcjsKtp5GBycsqGQwVxslydemXnjSCOBBE8zsSc74vnaEvtFe6blbqFDsapUPdKtwGxtyCI9BhzMQeNtELD/KnzQlcV/CcKS+esM3KjJZebfI7mfOXPaaXR5uZIWSCf8WF4jJmwoqH+4E0MU5SKkJtrs22jzchqLbuSznvnGf/6wdL94QV3u2GClogi7SndSBfoeWsbYuIS+2qrK+URV006Y9/JCCm+Syxc3allw1129+Q6PDHPF0Glri/f14F60r4hCPe+fGMEIZfKL9P26ftq7VwO2p3E5r//7Y0lEckCwPtSlVscj+mbVZLPawvZ3QvZA/D1oU8gdohJ73gzGi7GDLvdaqvLiAlpLrH0dTAichZIh0YcPL3NWBW9LbpQOCqpfsIyCG9uF/j8KjFlR3huoLJto5nl8ehRZxUTzxYSecmALNywZEcvEsyRuGxWD/oVit2PqpLm9YNLWgBGOCCH6o=
@@ -37,4 +37,4 @@ env:
   - secure: VZw2WcRmkOjYl7FZpR2woT25Vk9jcLeB8ZPQgPBVpNIyktqu8PdW8u1Av+FWKdSOVD4hNdvl4RuluP3POZ6ySiYzVwKRr21GLtyMoqPWhVCXjdsX7TfqdEvVpdeY/JTKAMxxKIGoZ9+qRwJEQ9ZEFQdtX6mcqERUIS1sH1a6MxxfZneQ16UAAeYRkG62MUVbqgjnLA9TnX8ThI+8iRYJlkeruhoaaPX0B8vZsiJ1IBvrftMPkV5YbYQzkkCpeWChuRN/dcQ5ik1VShMG6gGy8P946W272cc5D941i7NOvwg7tmz5awc3YxjBveKZ+OUj8OrMR0wj6x1DXJ2GSzprwliGKNXbia1E1IrdcVpNBbmGHKZ0bOGBM5HfaTf9kKib9/ySrJuVrd+kHUl5B36PRBn/iyrvKmCjSEq9xXTKzxkWSM+d4lzqnztGQmwK2eBrycpjJplOLDdXhMUH33dwXp58p0i00uvF57qTJ7pfkeSOwFi5ohrOejwpljIeyZIJiFeZMr6+WesblG3j0BmG4fN+gdVsyIToXlpEv7cKwEoqnk4FpgZljdAB4Y2aPEkv3xAKe+/9wrZtUwiPxuE81R0bH88+KCnaQJ8TjE0BRXno6L0AePLJLh+PmOFM/wMzQaiQ71sPXwWKp+Myz3ZKs1WgEXZeIGGLYTwcqVUDY68=
 after_success:
 - codecov
-- aws s3 cp ~/THOR_output/runs s3://thor-storage/runs --recursive
+- aws s3 cp ~/THUNER_output/runs s3://thuner-storage/runs --recursive

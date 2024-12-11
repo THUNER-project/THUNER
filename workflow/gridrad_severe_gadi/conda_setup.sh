@@ -10,7 +10,7 @@ hash -r
 /g/data/${PROJECT}/${USER}/miniconda/bin/conda init
 source ~/.bashrc
 /g/data/${PROJECT}/${USER}/miniconda/bin/conda update conda
-# One can now use this custom conda installation as normal, e.g. to create the THOR environment
+# One can now use this custom conda installation as normal, e.g. to create the THUNER environment
 # For now specify the full path to the custom conda executable whevenever you call 
 # a "conda" command. Not sure how to make the gadi shell point to the custom conda by
 # default.

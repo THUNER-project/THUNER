@@ -1,6 +1,6 @@
 #!/bin/bash
-LOCAL_DIR=/home/ewan/THOR_output
-REMOTE_DIR=/scratch/w40/esh563/THOR_output
+LOCAL_DIR=/home/ewan/THUNER_output
+REMOTE_DIR=/scratch/w40/esh563/THUNER_output
 GADI_USERNAME=esh563
 REMOTE_RUNS="${GADI_USERNAME}@gadi.nci.org.au:${REMOTE_DIR}/runs/gridrad_severe"
 LOCAL_RUNS="${LOCAL_DIR}/runs/gridrad_severe"

@@ -1,7 +1,7 @@
 ..
-   THOR homepage
+   THUNER homepage
 
-THOR - Thunderstorm Hierachical Object Reconoitrer
+THUNER - Thunderstorm Hierachical Object Reconoitrer
 -------------------------------------------------------
 
-**THOR** 
+**THUNER** 

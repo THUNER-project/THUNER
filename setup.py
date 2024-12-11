@@ -14,15 +14,15 @@ import os
 DOCLINES = __doc__.split("\n")
 
 
-def create_user_config(output_directory=Path.home() / "THOR_output"):
+def create_user_config(output_directory=Path.home() / "THUNER_output"):
     # Determine the OS-specific path
     if os.name == "nt":  # Windows
-        config_path = Path(os.getenv("LOCALAPPDATA")) / "THOR" / "config.json"
+        config_path = Path(os.getenv("LOCALAPPDATA")) / "THUNER" / "config.json"
     elif os.name == "posix":
         if "HOME" in os.environ:  # Linux/macOS
-            config_path = Path.home() / ".config" / "THOR" / "config.json"
+            config_path = Path.home() / ".config" / "THUNER" / "config.json"
         else:  # Fallback for other POSIX systems
-            config_path = Path("/etc") / "THOR" / "config.json"
+            config_path = Path("/etc") / "THUNER" / "config.json"
     else:
         raise Exception("Unsupported operating system.")
 
@@ -42,18 +42,18 @@ def post_setup():
     if os.isatty(0):  # Check if running in an interactive terminal
         output_dir = input(
             "Please specify the default output directory. "
-            f"Leave blank for {Path.home() / 'THOR_output'}: "
+            f"Leave blank for {Path.home() / 'THUNER_output'}: "
         )
     else:
         output_dir = ""
 
     if output_dir == "":
-        output_dir = Path.home() / "THOR_output"
+        output_dir = Path.home() / "THUNER_output"
     try:
         output_dir.mkdir(parents=True, exist_ok=True)
     except FileNotFoundError:
         print("Invalid directory. Using default.")
-        output_dir = Path.home() / "THOR_output"
+        output_dir = Path.home() / "THUNER_output"
         output_dir.mkdir(parents=True, exist_ok=True)
 
     create_user_config(output_dir)
@@ -124,14 +124,14 @@ CLASSIFIERS = [
     "Topic :: Scientific/Engineering :: Atmospheric Science",
 ]
 
-PACKAGE_NAME = "thor"
-AUTHORS = "Ewan Short, Mark Picel, Bhupendra Raut"
+PACKAGE_NAME = "thuner"
+AUTHUNERS = "Ewan Short, Mark Picel, Bhupendra Raut"
 MAINTAINER = "Ewan Short"
 MAINTAINER_EMAIL = "ewan.short@unimelb.edu.au"
 DESCRIPTION = DOCLINES[0]
 LONG_DESCRIPTION = "\n".join(DOCLINES[2:])
-URL = "https://github.com/THOR-proj/THOR.git"
-DOWNLOAD_URL = "https://github.com/THOR-proj/THOR.git"
+URL = "https://github.com/THUNER-proj/THUNER.git"
+DOWNLOAD_URL = "https://github.com/THUNER-proj/THUNER.git"
 LICENSE = "BSD"
 PLATFORMS = ["Linux", "Mac OS-X", "Unix"]
 MAJOR = 0
@@ -146,7 +146,7 @@ setup(
     name=PACKAGE_NAME,
     version=get_version(PACKAGE_NAME),
     description=("Thunderstorm hierachical object reconnoitrer"),
-    url="http://github.com/THOR-proj/THOR",
+    url="http://github.com/THUNER-proj/THUNER",
     classifiers=CLASSIFIERS,
     author=[
         "Ewan Short",

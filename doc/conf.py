@@ -27,7 +27,7 @@ html_theme = "sphinx_rtd_theme"
 html_static_path = ["_static"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
-project = "THOR"
+project = "THUNER"
 
 master_doc = "index"
 

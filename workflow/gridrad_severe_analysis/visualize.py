@@ -6,9 +6,9 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 import pickle
-import thor.visualize as visualize
-import thor.config as config
-from thor.log import setup_logger
+import thuner.visualize as visualize
+import thuner.config as config
+from thuner.log import setup_logger
 import utils
 
 logger = setup_logger(__name__)

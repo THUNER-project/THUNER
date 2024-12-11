@@ -1,1 +1,1 @@
-# Contributing to THOR
+# Contributing to THUNER

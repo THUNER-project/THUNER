@@ -1,4 +1,4 @@
-name: THOR
+name: THUNER
 channels:
   - conda-forge
 dependencies:

@@ -3,40 +3,12 @@ requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "thor"
+name = "thuner"
 version = "0.0.1"
-description = "Thunderstorm hierachical object reconnoitrer"
-authors = [
-    { name = "Ewan Short", email = "ewan.short@unimelb.edu.au" }
-]
-dependencies = [
-    "numpy",
-    "arm_pyart",
-    "numpy",
-    "numba",
-    "scipy",
-    "scikit-image",
-    "pandas",
-    "matplotlib",
-    "xarray",
-    "cartopy",
-    "typing_extensions",
-    "pre-commit",
-    "black",
-    "pytest",
-    "pytest-cov",
-    "codecov",
-    "ipykernel",
-    "netcdf4",
-    "h5netcdf",
-    "requests",
-    "arm_pyart",
-    "tqdm",
-    "cdsapi",
-    "xesmf",
-    "opencv-python",
-]
-license = { text = "BSD-3-Clause" }
+description = "Thunderstorm event reconnaissance"
+authors = [{name = "Ewan Short", email = "ewan.short@unimelb.edu.au"}]
+dynamic = ["dependencies"]
+license = {text = "BSD-3-Clause"}
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
@@ -48,3 +20,6 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Topic :: Scientific/Engineering :: Atmospheric Science",
 ]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
