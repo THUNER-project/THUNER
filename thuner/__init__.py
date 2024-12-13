@@ -9,7 +9,7 @@ if sys.version_info < (3, 10):
     raise ImportError(message)
 
 # Set version number
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 
 welcome_message = f"""
 Welcome to the Thunderstorm Event Reconnaissance (THUNER) v{__version__} package!
