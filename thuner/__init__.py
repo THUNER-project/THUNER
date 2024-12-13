@@ -1,6 +1,7 @@
 import sys
 import os
-import thuner.config as config
+
+# import thuner.config as config
 
 if sys.version_info < (3, 10):
     message = """
@@ -28,10 +29,10 @@ Leese et al. (1971), JAMC, doi: 10.1175/1520-0450(1971)010<0118:AATFOC>2.0.CO;2
 if "PYART_QUIET" not in os.environ:
     print(welcome_message)
 
-# Create config file if one does not exist
-try:
-    print("Reading configuration file.")
-    configuration = config.read_config(config.get_config_path())
-except FileNotFoundError:
-    print("Configuration file not found. Creating a new one.")
-    configuration = config.create_user_config()
+# # Create config file if one does not exist
+# try:
+#     print("Reading configuration file.")
+#     configuration = config.read_config(config.get_config_path())
+# except FileNotFoundError:
+#     print("Configuration file not found. Creating a new one.")
+#     configuration = config.create_user_config()
