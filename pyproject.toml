@@ -6,20 +6,31 @@ build-backend = "setuptools.build_meta"
 name = "thuner"
 version = "0.0.1"
 description = "Thunderstorm event reconnaissance"
-authors = [{name = "Ewan Short", email = "ewan.short@unimelb.edu.au"}]
+authors = [
+    {name = "Ewan Short", email = "ewan.short@unimelb.edu.au"},
+    {name = "Mark Picel", email = "mhpicel@gmail.com"},
+    {name = "Bhupendra Raut", email = "braut@anl.gov"},
+]
 dynamic = ["dependencies"]
 license = {text = "BSD-3-Clause"}
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: BSD License",
+    "Natural Language :: English",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Topic :: Scientific/Engineering :: Atmospheric Science",
 ]
+
+[project.urls]
+Homepage = "https://github.com/THUNER-project/THUNER/tree/main"
+Issues = "https://github.com/THUNER-project/THUNER/issues"
 
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
