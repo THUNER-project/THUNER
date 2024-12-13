@@ -10,8 +10,7 @@ log
 thuner/test/data
 thuner/test/runtime_visualization
 thuner/options
-thuner/build
-thuner/dist
+dist
 kitchen_sink
 .coverage
 htmlcov
