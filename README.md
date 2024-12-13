@@ -1,7 +1,7 @@
 # Thunderstorm Event Reconnaissance (THUNER)
 
 ## Package description
-Welcome to the Thunderstorm Event Reconnaissance (THUNER) v{__version__} package!
+Welcome to the Thunderstorm Event Reconnaissance (THUNER) package v{__version__}!
 THUNER is a flexible toolkit for performing multi-feature detection, tracking, tagging
 and analysis of events within meteorological datasets. The intended application is to
 convective weather events. If you use this package in your research, consider citing 
@@ -14,10 +14,10 @@ Raut et al. (2021), JAMC, doi: 10.1175/JAMC-D-20-0119.1
 Short et al. (2023), MWR, doi: 10.1175/MWR-D-22-0146.1
 
 Note many excellent competitors to THUNER exist, for instance;
-https://github.com/FlexTRKR/PyFLEXTRKR
-https://github.com/knubez/TAMS
-https://github.com/tobac-project/tobac
-https://github.com/AndreasPrein/MOAAP
+- https://github.com/FlexTRKR/PyFLEXTRKR
+- https://github.com/knubez/TAMS
+- https://github.com/tobac-project/tobac
+- https://github.com/AndreasPrein/MOAAP
 Consider exploring these competitors to increase the robustness of your science!
 
 ## Examples

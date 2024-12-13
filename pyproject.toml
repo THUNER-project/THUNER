@@ -36,4 +36,4 @@ Issues = "https://github.com/THUNER-project/THUNER/issues"
 dependencies = {file = ["requirements.txt"]}
 
 [tool.setuptools.packages.find]
-where = ["thuner"]
+where = ["."]
