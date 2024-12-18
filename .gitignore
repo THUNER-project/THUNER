@@ -14,3 +14,4 @@ dist
 kitchen_sink
 .coverage
 htmlcov
+build_scripts
