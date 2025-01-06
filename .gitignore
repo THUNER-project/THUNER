@@ -2,6 +2,7 @@
 __pycache__
 .pytest_cache
 build
+build_scripts
 *.ipynb_checkpoints
 *.egg-info
 log
@@ -14,4 +15,3 @@ dist
 kitchen_sink
 .coverage
 htmlcov
-build_scripts

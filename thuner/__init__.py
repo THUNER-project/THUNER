@@ -10,10 +10,10 @@ if sys.version_info < (3, 10):
     raise ImportError(message)
 
 # Set version number
-__version__ = "0.0.2"
+__version__ = "0.0.6"
 
 welcome_message = f"""
-Welcome to the Thunderstorm Event Reconnaissance (THUNER) v{__version__} package!
+Welcome to the Thunderstorm Event Reconnaissance (THUNER) package v{__version__}!
 THUNER is a flexible toolkit for performing multi-feature detection, tracking, tagging
 and analysis of events within meteorological datasets. The intended application is to
 convective weather events. If you use this package in your research, consider citing 
@@ -26,10 +26,10 @@ Dixon and Wiener (1993), JTECH, doi: 10.1175/1520-0426(1993)010<0785:TTITAA>2.0.
 Leese et al. (1971), JAMC, doi: 10.1175/1520-0450(1971)010<0118:AATFOC>2.0.CO;2
 """
 
-if "PYART_QUIET" not in os.environ:
+if "THUNER_QUIET" not in os.environ:
     print(welcome_message)
 
-# # Create config file if one does not exist
+# Create config file if one does not exist
 # try:
 #     print("Reading configuration file.")
 #     configuration = config.read_config(config.get_config_path())

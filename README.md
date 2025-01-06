@@ -23,6 +23,21 @@ Note many excellent competitors to THUNER exist, for instance;
 When designing a tracking based research project involving THUNER, consider performing 
 sensitivity tests using these competitors.
 
+## Installation
+The thuner package may be installed via conda
+```sh
+conda install -c conda-forge thuner
+```
+While installation using conda is preferred, thuner may also be installed using pip,
+although the esmpy package must first be installed manually as 
+detailed [here](https://xesmf.readthedocs.io/en/latest/installation.html#notes-about-esmpy).
+THUNER can then be installed using 
+```sh
+pip install thuner
+```
+Because thuner depends on xesmf for regridding, it is currently only available on Linux 
+and OSX systems. Future versions will explore alternative regridding packages. 
+
 ## Examples
 
 ### GridRad
