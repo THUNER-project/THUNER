@@ -1,79 +1,14 @@
 """Functions for creating and modifying default tracking configurations."""
 
-import copy
-import yaml
-from pathlib import Path
 import numpy as np
-from typing import Any, Dict, List, Annotated, Callable
-from pydantic import Field, BaseModel, field_validator, model_validator
+from typing import Dict, List, Annotated, Callable
+from pydantic import Field, field_validator, model_validator
 from thuner.log import setup_logger
 import thuner.attribute as attribute
+from thuner.utils import BaseOptions
 
 
 logger = setup_logger(__name__)
-
-
-def convert_value(value: Any) -> Any:
-    """
-    Convenience function to convert options attributes to types serializable as yaml.
-    """
-    if isinstance(value, Path):
-        return str(value)
-    if isinstance(value, np.ndarray):
-        return [convert_value(v) for v in value.tolist()]
-    if isinstance(value, BaseOptions):
-        fields = value.model_fields.keys()
-        return {field: convert_value(getattr(value, field)) for field in fields}
-    if isinstance(value, np.datetime64):
-        return str(value)
-    if isinstance(value, dict):
-        return {convert_value(k): convert_value(v) for k, v in value.items()}
-    if isinstance(value, list):
-        return [convert_value(v) for v in value]
-    if isinstance(value, bool):
-        return int(value)
-    if isinstance(value, type):
-        return value.__name__
-    if type(value) is np.float32:
-        return float(value)
-    return value
-
-
-class BaseOptions(BaseModel):
-    """
-    The base class for all options classes. This class is built on the pydantic
-    BaseModel class, which is similar to python dataclasses but with type checking.
-    """
-
-    type: str = Field(None, description="Type of the options class.")
-
-    # Allow arbitrary types in the options classes.
-    class Config:
-        arbitrary_types_allowed = True
-
-    # Ensure that floats in all options classes are np.float32
-    @model_validator(mode="after")
-    def convert_floats(cls, values):
-        for field in values.model_fields:
-            if type(getattr(values, field)) is float:
-                setattr(values, field, np.float32(getattr(values, field)))
-        return values
-
-    @model_validator(mode="after")
-    def _set_type(cls, values):
-        values.type = cls.__name__
-        return values
-
-    def to_dict(self) -> Dict[str, Any]:
-        fields = self.model_fields.keys()
-        return {field: convert_value(getattr(self, field)) for field in fields}
-
-    def to_yaml(self, filepath: str):
-        Path(filepath).parent.mkdir(exist_ok=True, parents=True)
-        with open(filepath, "w") as f:
-            kwargs = {"default_flow_style": False, "allow_unicode": True}
-            kwargs = {"sort_keys": False}
-            yaml.dump(self.to_dict(), f, **kwargs)
 
 
 _summary = {
@@ -457,77 +392,3 @@ def synthetic_track_options():
         global_flow_margin=70, unique_global_flow=False
     )
     return TrackOptions(levels=[LevelOptions(objects=[convective_options])])
-
-
-"""
-Attribute options
-"""
-
-_summary = {
-    "name": "Name of the attribute or attribute group.",
-    "retrieval_method": "Name of the function/method for obtaining the attribute.",
-    "data_type": "Data type of the attribute.",
-    "precision": "Number of decimal places for a numerical attribute.",
-    "description": "Description of the attribute.",
-    "units": "Units of the attribute.",
-    "retrieval": "The function/method used to retrieve the attribute.",
-}
-
-
-class BaseAttribute(BaseOptions):
-    """
-    Base attribute description class. An "attribute" will become a column of a pandas
-    dataframe or csv file.
-    """
-
-    name: str = Field(..., description=_summary["name"])
-    retrieval: Callable | str | None = Field(None, description=_summary["retrieval"])
-    data_type: type = Field(..., description=_summary["data_type"])
-    precision: int | None = Field(None, description=_summary["precision"])
-    description: str | None = Field(None, description=_summary["description"])
-    units: str | None = Field(None, description=_summary["units"])
-
-
-class AttributeGroup(BaseOptions):
-    """
-    A group of closely related attributes retrieved together, e.g. lat/lon or u/v.
-    """
-
-    attributes: list[BaseAttribute] = Field(
-        ..., description="Attributes comprising the group."
-    )
-    retrieval: Callable | str | None = Field(None, description=_summary["retrieval"])
-    description: str | None = Field(None, description=_summary["description"])
-
-    @model_validator(mode="after")
-    def check_retrieval(cls, values):
-        """
-        Check that the retrieval method is the same for all attributes in the group.
-        Also check that the shared retrieval method is the same as the group retrieval
-        method if one has been provided.
-        """
-        retrievals = []
-        for attribute in values.attributes:
-            retrievals.append(attribute.retrieval)
-        if np.all(np.array(retrievals) == None):
-            # If retrieval for all attributes is None, do nothing
-            return values
-        if values.retrieval is None and len(set(retrievals)) > 1:
-            message = "attributes in group must have the same retrieval method."
-            raise ValueError(message)
-        elif values.retrieval is None:
-            # if retrieval is None, set it to the common retrieval method
-            values.retrieval = retrievals[0]
-        return values
-
-
-class AttributeType(BaseOptions):
-    """
-    Attribute type options. Each "attribute type" will form a pandas dataframe or csv
-    file.
-    """
-
-    name: str = Field(..., description="Name of the attribute type.")
-    attributes: list[BaseAttribute | AttributeGroup] = Field(
-        ..., description="List of attributes or attribute groups comprising the type."
-    )

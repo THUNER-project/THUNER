@@ -14,205 +14,24 @@ import thuner.grid as grid
 import thuner.object.object as thuner_object
 import thuner.grid as grid
 import thuner.attribute.utils as utils
-import thuner.option as option
+from thuner.attribute.option import BaseAttribute, AttributeGroup
 
 logger = setup_logger(__name__)
 
 
-# Convenience functions for creating default core attribute options dictionaries
-def default(names=None, tracked=True, matched=None, grouped=False):
-    """Create a dictionary of default core attributes."""
-
-    if matched is None:
-        matched = tracked
-
-    if names is None:
-        names = ["time", "latitude", "longitude"]
-        if not grouped:
-            names += ["area"]
-        if matched:
-            names += ["universal_id"]
-        else:
-            names += ["id"]
-        if tracked:
-            names += ["parents", "u_flow", "v_flow"]
-            names += ["u_displacement", "v_displacement"]
-
-    attributes_dict = {}
-    for name in names:
-        attributes_dict[name] = attribute_dispatcher[name](name, tracked=tracked)
-
-    return attributes_dict
-
-
-# Define convenience attributes
-id_description = "id taken from object recoord. Unlike universal_id, the same object "
-id_description += "can change ids across time steps."
-kwargs = {"name": "id", "data_type": int, "description": id_description}
-id_from_record = option.BaseAttribute(**kwargs, retrieval=ids_from_object_record)
-id_from_mask = option.BaseAttribute(**kwargs, retrieval=ids_from_mask)
-
-parent_description = "parent objects as space separated list of universal_ids."
-kwargs = {"name": "parents", "data_type": str, "description": parent_description}
-parents = option.BaseAttribute(**kwargs, retrieval=parents_from_object_record)
-
-
-def identity(name="id", method=None, description=None, tracked=True):
-    """
-    Options for id attribute.
-    """
-    data_type = int
-    precision = None
-    units = None
-    if method is None:
-        if tracked:
-            method = {"function": "ids_from_object_record"}
-        else:
-            method = {"function": "ids_from_mask"}
-    if description is None:
-        description = f"{name} taken from object record or object mask. "
-        description += "Unlike uid, id is not necessarily unique across time steps."
-    args = [name, method, data_type, precision, description, units]
-    return utils.get_attribute_dict(*args)
-
-
-def parents(name="parents", method=None, description=None, tracked=True):
-    """
-    Options for parents attribute. Store a space separated list of parent ids as a str.
-    """
-    data_type = str
-    precision = None
-    units = None
-    if method is None:
-        method = {"function": "parents_from_object_record"}
-    if description is None:
-        description = f"{name} taken from object record."
-    args = [name, method, data_type, precision, description, units]
-    return utils.get_attribute_dict(*args)
-
-
-kwargs = {"data_type": float, "precision": 4, "retrieval": None}
-latitude = option.BaseAttribute(
-    name="latitude",
-    units="degrees_north",
-    description="Latitude position of the object.",
-    **kwargs,
-)
-longitude = option.BaseAttribute(
-    name="longitude",
-    units="degrees_east",
-    description="Longitude position of the object.",
-    **kwargs,
-)
-description = f"Coordinates taken from the object_record or object mask; "
-description += f"usually a gridcell area weighted mean over the object mask."
-coordinates_from_record = option.AttributeGroup(
-    name="coordinate",
-    description=description,
-    attributes=[latitude, longitude],
-    retrieval=coordinates_from_object_record,
-)
-coordinates_from_mask = option.AttributeGroup(
-    name="coordinate",
-    description=description,
-    attributes=[latitude, longitude],
-    retrieval=coordinates_from_mask,
-)
-
-
-def coordinate(name, method=None, description=None, tracked=True):
-    """
-    Options for coordinate attributes.
-    """
-    data_type = float
-    precision = 4
-    if name == "latitude":
-        units = "degrees_north"
-    elif name == "longitude":
-        units = "degrees_east"
-    else:
-        raise ValueError(f"Coordinate must be 'latitude' or 'longitude'.")
-    if method is None:
-        if tracked:
-            method = {"function": "coordinates_from_object_record"}
-        else:
-            method = {"function": "coordinates_from_mask"}
-    if description is None:
-        description = f"{name} taken from object record or object mask. "
-        description += "Unlike uid, id is not necessarily unique across time steps."
-
-    args = [name, method, data_type, precision, description, units]
-    return utils.get_attribute_dict(*args)
-
-
-kwargs = {"data_type": float, "precision": 1, "retrieval": None, "units": "m/s"}
-
-
-def velocity(name, method=None, description=None, tracked=True):
-    """
-    Options for velocity attributes. Velocities only defined for tracked objects.
-    """
-    data_type = float
-    precision = 1
-    units = "m/s"
-    if not tracked:
-        message = f"Velocity attribute {name} only defined for tracked objects."
-        raise ValueError(message)
-
-    if method is None:
-        method = {"function": "velocities_from_object_record"}
-    if description is None:
-        description = f"{name} velocities taken from the matching process."
-    args = [name, method, data_type, precision, description, units]
-    return utils.get_attribute_dict(*args)
-
-
-def area(name="area", method=None, description=None, tracked=True):
-    """
-    Options for area attribute.
-    """
-    data_type = float
-    precision = 1
-    units = "km^2"
-    if method is None:
-        if tracked:
-            method = {"function": "areas_from_object_record"}
-        else:
-            method = {"function": "areas_from_mask"}
-    if description is None:
-        description = f"Object area taken from the object_record or object mask."
-    args = [name, method, data_type, precision, description, units]
-    return utils.get_attribute_dict(*args)
-
-
-def time(name="time", method=None, description=None, tracked=True):
-    """
-    Options for time attribute.
-    """
-    if method is None:
-        method = {"function": None}
-    if description is None:
-        description = f"Time taken from the tracking process."
-    data_type = "datetime64[s]"
-    units = None
-    precision = None
-    args = [name, method, data_type, precision, description, units]
-    return utils.get_attribute_dict(*args)
-
-
-attribute_dispatcher = {
-    "id": identity,
-    "universal_id": identity,
-    "parents": parents,
-    "latitude": coordinate,
-    "longitude": coordinate,
-    "u_flow": velocity,
-    "v_flow": velocity,
-    "u_displacement": velocity,
-    "v_displacement": velocity,
-    "area": area,
-    "time": time,
-}
+# attribute_dispatcher = {
+#     "id": identity,
+#     "universal_id": identity,
+#     "parents": parents,
+#     "latitude": coordinate,
+#     "longitude": coordinate,
+#     "u_flow": velocity,
+#     "v_flow": velocity,
+#     "u_displacement": velocity,
+#     "v_displacement": velocity,
+#     "area": area,
+#     "time": time,
+# }
 
 
 # Functions for obtaining and recording attributes
@@ -359,6 +178,254 @@ def ids_from_object_record(name, object_tracks):
     object_record_names = {"universal_id": "universal_ids", "id": "previous_ids"}
     ids = object_tracks["object_record"][object_record_names[name]]
     return ids
+
+
+# Convenience functions for creating default core attribute options dictionaries
+# def default(names=None, tracked=True, matched=None, grouped=False):
+#     """Create a dictionary of default core attributes."""
+
+#     if matched is None:
+#         matched = tracked
+
+#     if names is None:
+#         names = ["time", "latitude", "longitude"]
+#         if not grouped:
+#             names += ["area"]
+#         if matched:
+#             names += ["universal_id"]
+#         else:
+#             names += ["id"]
+#         if tracked:
+#             names += ["parents", "u_flow", "v_flow"]
+#             names += ["u_displacement", "v_displacement"]
+
+#     attributes_dict = {}
+#     for name in names:
+#         attributes_dict[name] = attribute_dispatcher[name](name, tracked=tracked)
+
+#     return attributes_dict
+
+
+# Define convenience attributes
+id_description = "id taken from object recoord. Unlike universal_id, the same object "
+id_description += "can change ids across time steps."
+kwargs = {"name": "id", "data_type": int, "description": id_description}
+id_from_record = BaseAttribute(**kwargs, retrieval=ids_from_object_record)
+id_from_mask = BaseAttribute(**kwargs, retrieval=ids_from_mask)
+
+parent_description = "parent objects as space separated list of universal_ids."
+kwargs = {"name": "parents", "data_type": str, "description": parent_description}
+parents = BaseAttribute(**kwargs, retrieval=parents_from_object_record)
+
+
+def identity(name="id", method=None, description=None, tracked=True):
+    """
+    Options for id attribute.
+    """
+    data_type = int
+    precision = None
+    units = None
+    if method is None:
+        if tracked:
+            method = {"function": "ids_from_object_record"}
+        else:
+            method = {"function": "ids_from_mask"}
+    if description is None:
+        description = f"{name} taken from object record or object mask. "
+        description += "Unlike uid, id is not necessarily unique across time steps."
+    args = [name, method, data_type, precision, description, units]
+    return utils.get_attribute_dict(*args)
+
+
+def parents(name="parents", method=None, description=None, tracked=True):
+    """
+    Options for parents attribute. Store a space separated list of parent ids as a str.
+    """
+    data_type = str
+    precision = None
+    units = None
+    if method is None:
+        method = {"function": "parents_from_object_record"}
+    if description is None:
+        description = f"{name} taken from object record."
+    args = [name, method, data_type, precision, description, units]
+    return utils.get_attribute_dict(*args)
+
+
+kwargs = {"data_type": float, "precision": 4, "retrieval": None}
+latitude = BaseAttribute(
+    name="latitude",
+    units="degrees_north",
+    description="Latitude position of the object.",
+    **kwargs,
+)
+longitude = BaseAttribute(
+    name="longitude",
+    units="degrees_east",
+    description="Longitude position of the object.",
+    **kwargs,
+)
+description = f"Coordinates taken from the object_record or object mask; "
+description += f"usually a gridcell area weighted mean over the object mask."
+coordinates_from_record = AttributeGroup(
+    name="coordinate",
+    description=description,
+    attributes=[latitude, longitude],
+    retrieval=coordinates_from_object_record,
+)
+coordinates_from_mask = AttributeGroup(
+    name="coordinate",
+    description=description,
+    attributes=[latitude, longitude],
+    retrieval=coordinates_from_mask,
+)
+
+kwargs = {"data_type": float, "precision": 1, "retrieval": None, "units": "m/s"}
+description = "velocity from cross correlation."
+u_flow = BaseAttribute(name="u_flow", description="Zonal " + description, **kwargs)
+v_flow = BaseAttribute(name="v_flow", description="Meridional " + description, **kwargs)
+description = "centroid displacement."
+u_displacement = BaseAttribute(
+    name="u_displacement", description="Zonal centroid displacement.", **kwargs
+)
+v_displacement = BaseAttribute(
+    name="u_displacement", description="Meridional centroid displacement.", **kwargs
+)
+flow_velocity = AttributeGroup(
+    name="flow_velocity",
+    description="Flow velocities from object record.",
+    attributes=[u_flow, v_flow],
+    retrieval=velocities_from_object_record,
+)
+displacement_velocity = AttributeGroup(
+    name="displacement_velocity",
+    description="Displacement velocities from object record.",
+    attributes=[u_displacement, v_displacement],
+    retrieval=velocities_from_object_record,
+)
+
+
+def coordinate(name, method=None, description=None, tracked=True):
+    """
+    Options for coordinate attributes.
+    """
+    data_type = float
+    precision = 4
+    if name == "latitude":
+        units = "degrees_north"
+    elif name == "longitude":
+        units = "degrees_east"
+    else:
+        raise ValueError(f"Coordinate must be 'latitude' or 'longitude'.")
+    if method is None:
+        if tracked:
+            method = {"function": "coordinates_from_object_record"}
+        else:
+            method = {"function": "coordinates_from_mask"}
+    if description is None:
+        description = f"{name} taken from object record or object mask. "
+        description += "Unlike uid, id is not necessarily unique across time steps."
+
+    args = [name, method, data_type, precision, description, units]
+    return utils.get_attribute_dict(*args)
+
+
+def velocity(name, method=None, description=None, tracked=True):
+    """
+    Options for velocity attributes. Velocities only defined for tracked objects.
+    """
+    data_type = float
+    precision = 1
+    units = "m/s"
+    if not tracked:
+        message = f"Velocity attribute {name} only defined for tracked objects."
+        raise ValueError(message)
+
+    if method is None:
+        method = {"function": "velocities_from_object_record"}
+    if description is None:
+        description = f"{name} velocities taken from the matching process."
+    args = [name, method, data_type, precision, description, units]
+    return utils.get_attribute_dict(*args)
+
+
+kwargs = {"data_type": float, "precision": 1, "retrieval": None, "units": "m/s"}
+description = "velocity from cross correlation."
+u_flow = BaseAttribute(name="u_flow", description="Zonal " + description, **kwargs)
+v_flow = BaseAttribute(name="v_flow", description="Meridional " + description, **kwargs)
+description = "centroid displacement."
+u_displacement = BaseAttribute(
+    name="u_displacement", description="Zonal centroid displacement.", **kwargs
+)
+v_displacement = BaseAttribute(
+    name="u_displacement", description="Meridional centroid displacement.", **kwargs
+)
+flow_velocity = AttributeGroup(
+    name="flow_velocity",
+    description="Flow velocities from object record.",
+    attributes=[u_flow, v_flow],
+    retrieval=velocities_from_object_record,
+)
+displacement_velocity = AttributeGroup(
+    name="displacement_velocity",
+    description="Displacement velocities from object record.",
+    attributes=[u_displacement, v_displacement],
+    retrieval=velocities_from_object_record,
+)
+
+
+def area(name="area", method=None, description=None, tracked=True):
+    """
+    Options for area attribute.
+    """
+    data_type = float
+    precision = 1
+    units = "km^2"
+    if method is None:
+        if tracked:
+            method = {"function": "areas_from_object_record"}
+        else:
+            method = {"function": "areas_from_mask"}
+    if description is None:
+        description = f"Object area taken from the object_record or object mask."
+    args = [name, method, data_type, precision, description, units]
+    return utils.get_attribute_dict(*args)
+
+
+kwargs = {"data_type": float, "precision": 1, "units": "km^2"}
+areas_from_record = BaseAttribute(
+    name="area",
+    description="Area taken from the object record.",
+    retrieval=areas_from_object_record,
+    **kwargs,
+)
+areas_from_mask = BaseAttribute(
+    name="area",
+    description="Area taken from the object mask.",
+    retrieval=areas_from_mask,
+    **kwargs,
+)
+
+
+def time(name="time", method=None, description=None, tracked=True):
+    """
+    Options for time attribute.
+    """
+    if method is None:
+        method = {"function": None}
+    if description is None:
+        description = f"Time taken from the tracking process."
+    data_type = "datetime64[s]"
+    units = None
+    precision = None
+    args = [name, method, data_type, precision, description, units]
+    return utils.get_attribute_dict(*args)
+
+
+kwargs = {"name": "time", "retrieval": None}
+kwargs.update({"data_type": np.datetime64, "precision": None, "units": None})
+kwargs.update({"description": "Time taken from the tracking process."})
+time = BaseAttribute(**kwargs)
 
 
 # Dispatch dictionary for getting core attributes

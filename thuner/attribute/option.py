@@ -1,59 +1,76 @@
 """Functions for specifying object attributes."""
 
+import numpy as np
 from typing import Callable
-from pydantic import Field
-import thuner.option as option
+from pydantic import Field, model_validator
+from thuner.utils import BaseOptions
 
 
-# def get_attribute_dict(name, method, data_type, precision, description, units):
-#     """Create a dictionary of attribute options."""
-#     attribute_dict = {}
-#     attribute_dict.update({"name": name, "method": method, "data_type": data_type})
-#     attribute_dict.update({"precision": precision, "description": description})
-#     attribute_dict.update({"units": units})
-#     return attribute_dict
+_summary = {
+    "name": "Name of the attribute or attribute group.",
+    "retrieval_method": "Name of the function/method for obtaining the attribute.",
+    "data_type": "Data type of the attribute.",
+    "precision": "Number of decimal places for a numerical attribute.",
+    "description": "Description of the attribute.",
+    "units": "Units of the attribute.",
+    "retrieval": "The function/method used to retrieve the attribute.",
+}
 
 
-# def identity(name="id", method=None, description=None, tracked=True):
-#     """
-#     Options for id attribute.
-#     """
-#     data_type = int
-#     precision = None
-#     units = None
-#     if method is None:
-#         if tracked:
-#             method = {"function": "ids_from_object_record"}
-#         else:
-#             method = {"function": "ids_from_mask"}
-#     if description is None:
-#         description = f"{name} taken from object record or object mask. "
-#         description += "Unlike uid, id is not necessarily unique across time steps."
-#     args = [name, method, data_type, precision, description, units]
-#     return utils.get_attribute_dict(*args)
+class BaseAttribute(BaseOptions):
+    """
+    Base attribute description class. An "attribute" will become a column of a pandas
+    dataframe or csv file.
+    """
+
+    name: str = Field(..., description=_summary["name"])
+    retrieval: Callable | str | None = Field(None, description=_summary["retrieval"])
+    data_type: type = Field(..., description=_summary["data_type"])
+    precision: int | None = Field(None, description=_summary["precision"])
+    description: str | None = Field(None, description=_summary["description"])
+    units: str | None = Field(None, description=_summary["units"])
 
 
-# Convenience functions for creating default core attribute options dictionaries
-# def default(names=None, tracked=True, matched=None, grouped=False):
-#     """Create a dictionary of default core attributes."""
+class AttributeGroup(BaseOptions):
+    """
+    A group of closely related attributes retrieved together, e.g. lat/lon or u/v.
+    """
 
-#     if matched is None:
-#         matched = tracked
+    attributes: list[BaseAttribute] = Field(
+        ..., description="Attributes comprising the group."
+    )
+    retrieval: Callable | str | None = Field(None, description=_summary["retrieval"])
+    description: str | None = Field(None, description=_summary["description"])
 
-#     if names is None:
-#         names = ["time", "latitude", "longitude"]
-#         if not grouped:
-#             names += ["area"]
-#         if matched:
-#             names += ["universal_id"]
-#         else:
-#             names += ["id"]
-#         if tracked:
-#             names += ["parents", "u_flow", "v_flow"]
-#             names += ["u_displacement", "v_displacement"]
+    @model_validator(mode="after")
+    def check_retrieval(cls, values):
+        """
+        Check that the retrieval method is the same for all attributes in the group.
+        Also check that the shared retrieval method is the same as the group retrieval
+        method if one has been provided.
+        """
+        retrievals = []
+        for attribute in values.attributes:
+            retrievals.append(attribute.retrieval)
+        if np.all(np.array(retrievals) == None):
+            # If retrieval for all attributes is None, do nothing
+            return values
+        if values.retrieval is None and len(set(retrievals)) > 1:
+            message = "attributes in group must have the same retrieval method."
+            raise ValueError(message)
+        elif values.retrieval is None:
+            # if retrieval is None, set it to the common retrieval method
+            values.retrieval = retrievals[0]
+        return values
 
-#     attributes_dict = {}
-#     for name in names:
-#         attributes_dict[name] = attribute_dispatcher[name](name, tracked=tracked)
 
-#     return attributes_dict
+class AttributeType(BaseOptions):
+    """
+    Attribute type options. Each "attribute type" will form a pandas dataframe or csv
+    file.
+    """
+
+    name: str = Field(..., description="Name of the attribute type.")
+    attributes: list[BaseAttribute | AttributeGroup] = Field(
+        ..., description="List of attributes or attribute groups comprising the type."
+    )
