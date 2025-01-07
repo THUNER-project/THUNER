@@ -24,12 +24,15 @@ When designing a tracking based research project involving THUNER, consider perf
 sensitivity tests using these competitors.
 
 ## Installation
-The thuner package may be installed via conda
+The THUNER repository can be cloned from github in the usual ways. Cloning the 
+repository is the easiest way to access the demo, workflow and gallery folders. 
+
+The thuner package can also be installed via conda
 ```sh
 conda install -c conda-forge thuner
 ```
-While installation using conda is preferred, thuner may also be installed using pip,
-although the esmpy package must first be installed manually as 
+While installation using conda is preferred, thuner may also be installed using pip.
+To install with pip, the esmpy package must first be installed manually as 
 detailed [here](https://xesmf.readthedocs.io/en/latest/installation.html#notes-about-esmpy).
 THUNER can then be installed using 
 ```sh
@@ -41,6 +44,7 @@ and OSX systems. Future versions will explore alternative regridding packages.
 ## Examples
 
 ### GridRad
+![GridRad Demo](./gallery/mcs_gridrad_20100804.gif)
 ![GridRad Demo](./gallery/mcs_gridrad_20100120.gif)
 
 ## Etymology

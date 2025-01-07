@@ -14,6 +14,7 @@ import thuner.grid as grid
 import thuner.object.object as thuner_object
 import thuner.grid as grid
 import thuner.attribute.utils as utils
+import thuner.option as option
 
 logger = setup_logger(__name__)
 
@@ -42,6 +43,18 @@ def default(names=None, tracked=True, matched=None, grouped=False):
         attributes_dict[name] = attribute_dispatcher[name](name, tracked=tracked)
 
     return attributes_dict
+
+
+# Define convenience attributes
+id_description = "id taken from object recoord. Unlike universal_id, the same object "
+id_description += "can change ids across time steps."
+kwargs = {"name": "id", "data_type": int, "description": id_description}
+id_from_record = option.BaseAttribute(**kwargs, retrieval=ids_from_object_record)
+id_from_mask = option.BaseAttribute(**kwargs, retrieval=ids_from_mask)
+
+parent_description = "parent objects as space separated list of universal_ids."
+kwargs = {"name": "parents", "data_type": str, "description": parent_description}
+parents = option.BaseAttribute(**kwargs, retrieval=parents_from_object_record)
 
 
 def identity(name="id", method=None, description=None, tracked=True):
@@ -78,6 +91,35 @@ def parents(name="parents", method=None, description=None, tracked=True):
     return utils.get_attribute_dict(*args)
 
 
+kwargs = {"data_type": float, "precision": 4, "retrieval": None}
+latitude = option.BaseAttribute(
+    name="latitude",
+    units="degrees_north",
+    description="Latitude position of the object.",
+    **kwargs,
+)
+longitude = option.BaseAttribute(
+    name="longitude",
+    units="degrees_east",
+    description="Longitude position of the object.",
+    **kwargs,
+)
+description = f"Coordinates taken from the object_record or object mask; "
+description += f"usually a gridcell area weighted mean over the object mask."
+coordinates_from_record = option.AttributeGroup(
+    name="coordinate",
+    description=description,
+    attributes=[latitude, longitude],
+    retrieval=coordinates_from_object_record,
+)
+coordinates_from_mask = option.AttributeGroup(
+    name="coordinate",
+    description=description,
+    attributes=[latitude, longitude],
+    retrieval=coordinates_from_mask,
+)
+
+
 def coordinate(name, method=None, description=None, tracked=True):
     """
     Options for coordinate attributes.
@@ -96,10 +138,14 @@ def coordinate(name, method=None, description=None, tracked=True):
         else:
             method = {"function": "coordinates_from_mask"}
     if description is None:
-        description = f"{name} position taken from the object_record or object mask; "
-        description += f"usually a gridcell area weighted mean over the object mask."
+        description = f"{name} taken from object record or object mask. "
+        description += "Unlike uid, id is not necessarily unique across time steps."
+
     args = [name, method, data_type, precision, description, units]
     return utils.get_attribute_dict(*args)
+
+
+kwargs = {"data_type": float, "precision": 1, "retrieval": None, "units": "m/s"}
 
 
 def velocity(name, method=None, description=None, tracked=True):
@@ -169,7 +215,7 @@ attribute_dispatcher = {
 }
 
 
-# Functions for obtaining and recording core attributes
+# Functions for obtaining and recording attributes
 def coordinates_from_object_record(object_tracks, grid_options):
     """
     Get coordinate from object record created by the matching process to avoid

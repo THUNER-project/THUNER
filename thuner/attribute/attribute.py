@@ -15,6 +15,12 @@ record_dispatcher = {
 }
 
 
+def filter_arguments(func, args):
+    """Filter arguments for the given attribute retrieval function."""
+    func_args = func.__code__.co_varnames
+    return {key: value for key, value in args.items() if key in func_args}
+
+
 def get_record_arguments(
     attributes_type,
     input_records,
