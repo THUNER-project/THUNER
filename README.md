@@ -13,7 +13,7 @@ If you use this package in your work, consider citing the following papers;
 - Raut et al. (2021), JAMC, doi: 10.1175/JAMC-D-20-0119.1
 - Short et al. (2023), MWR, doi: 10.1175/MWR-D-22-0146.1
 
-Note many excellent competitors to THUNER exist, for instance;
+Many excellent competitors to THUNER also exist, for instance;
 
 - https://github.com/FlexTRKR/PyFLEXTRKR
 - https://github.com/knubez/TAMS
