@@ -4,150 +4,21 @@ Functions for defining attribute options associated with vertical profile attrib
 
 import numpy as np
 from itertools import chain
+import xarray as xr
 from thuner.log import setup_logger
 import thuner.attribute.core as core
 import thuner.attribute.utils as utils
-import xarray as xr
+from thuner.attribute.option import Retrieval, Attribute, AttributeGroup, AttributeType
+
 
 logger = setup_logger(__name__)
-
-
-# Convenience functions for defining default attribute options
-def altitude():
-    """
-    Altitude attribute
-    """
-    name = "altitude"
-    method = None
-    data_type = float
-    precision = 1
-    units = "m"
-    description = "Altitude coordinate of profile."
-    args = [name, method, data_type, precision, description, units]
-    return utils.get_attribute_dict(*args)
-
-
-def hour_offset():
-    """
-    Hour offset attribute
-    """
-    name = "hour_offset"
-    method = None
-    data_type = float
-    precision = 1
-    units = "hours"
-    description = "Hour offset from the object time."
-    args = [name, method, data_type, precision, description, units]
-    return utils.get_attribute_dict(*args)
-
-
-def wind(dataset, name, method=None, description=None):
-    """
-    Specify options for a core property, typically obtained from the matching process.
-    """
-    data_type = float
-    precision = 1
-    units = "m/s"
-    if method is None:
-        method = {"function": "from_centers", "dataset": dataset}
-        method["args"] = {"center_type": "area_weighted"}
-    if description is None:
-        description = f"Vertical {name} profile, typically at the object center."
-    args = [name, method, data_type, precision, description, units]
-    return utils.get_attribute_dict(*args)
-
-
-def temperature(dataset, name, method=None, description=None):
-    """
-    Specify options for a core property, typically obtained from the matching process.
-    """
-    data_type = float
-    precision = 2
-    units = "K"
-    if method is None:
-        method = {"function": "from_centers", "dataset": dataset}
-        method["args"] = {"center_type": "area_weighted"}
-    if description is None:
-        description = f"Vertical {name} profile, typically at the object center."
-    args = [name, method, data_type, precision, description, units]
-    return utils.get_attribute_dict(*args)
-
-
-def pressure(dataset, name, method=None, description=None):
-    """
-    Specify options for a core property, typically obtained from the matching process.
-    """
-    data_type = float
-    precision = 1
-    units = "hPa"
-    if method is None:
-        method = {"function": "from_centers", "dataset": dataset}
-        method["args"] = {"center_type": "area_weighted"}
-    if description is None:
-        description = f"Vertical {name} profile, typically at the object center."
-    args = [name, method, data_type, precision, description, units]
-    return utils.get_attribute_dict(*args)
-
-
-def relative_humidity(dataset, name="relative_humidity", method=None, description=None):
-    """
-    Specify options for a core property, typically obtained from the matching process.
-    """
-    data_type = float
-    precision = 1
-    units = "%"
-    if method is None:
-        method = {"function": "from_centers", "dataset": dataset}
-        method["args"] = {"center_type": "area_weighted"}
-    if description is None:
-        description = f"Vertical {name} profile, typically at the object center."
-    args = [name, method, data_type, precision, description, units]
-    return utils.get_attribute_dict(*args)
-
-
-# Modify below approach to allow for multiple tagging/profile datasets.
-# Simply create another function to call the one below.
-def dataset_default(dataset, names=None, matched=True):
-    """Create a dictionary of default attribute options for a specified dataset."""
-
-    if names is None:
-        names = ["time", "latitude", "longitude", "altitude"]
-        names += ["temperature", "relative_humidity", "u", "v"]
-    if matched:
-        id_type = "universal_id"
-    else:
-        id_type = "id"
-    core_method = {"function": "attribute_from_core"}
-    attributes = {}
-    # Reuse core attributes, just replace the default functions method
-    attributes["time"] = core.time(method=core_method)
-    attributes["latitude"] = core.coordinate("latitude", method=core_method)
-    attributes["longitude"] = core.coordinate("longitude", method=core_method)
-    attributes["altitude"] = altitude()
-    attributes["pressure"] = pressure(dataset, "pressure")
-    # attributes["hour_offset"] = hour_offset()
-    attributes[id_type] = core.identity(id_type, method=core_method)
-    if "relative_humidity" in names:
-        attributes["relative_humidity"] = relative_humidity(dataset)
-    if "temperature" in names:
-        attributes["temperature"] = temperature(dataset, "temperature")
-    if "u" in names and "v" in names:
-        attributes["u"] = wind(dataset, "u")
-        attributes["v"] = wind(dataset, "v")
-    return attributes
-
-
-def default(datasets, names=None, matched=True):
-    """Create a dictionary of default attribute options across all datasets."""
-    attributes = {ds: dataset_default(ds, names, matched) for ds in datasets}
-    return attributes
 
 
 def from_pressure_levels(names, previous_time, lats, lons, ds, grid_options):
     """Get vertical profiles from data on pressure levels."""
 
     if "pressure" not in ds.coords or "geopotential" not in ds.data_vars:
-        raise ValueError("Dataset must contain pressure levels or geopotential.")
+        raise ValueError("Dataset must contain pressure levels and geopotential.")
 
     logger.debug(f"Interpolating from pressure levels to altitude using geopotential.")
     # Convert tag lons to 0-360
@@ -204,6 +75,208 @@ def from_centers(names, input_records, attributes, object_tracks, method, grid_o
     interp = interpolate_dispatcher.get(method["dataset"])
     profiles = interp(names, previous_time, lats, lons, ds, grid_options)
     return profiles
+
+
+# Convenience functions for defining default attribute options
+# def altitude():
+#     """
+#     Altitude attribute
+#     """
+#     name = "altitude"
+#     method = None
+#     data_type = float
+#     precision = 1
+#     units = "m"
+#     description = "Altitude coordinate of profile."
+#     args = [name, method, data_type, precision, description, units]
+#     return utils.get_attribute_dict(*args)
+
+
+kwargs = {"name": "altitude", "data_type": float, "precision": 1, "units": "m"}
+kwargs.update({"description": "Altitude coordinate of profile."})
+altitude = Attribute(**kwargs)
+
+
+# def hour_offset():
+#     """
+#     Hour offset attribute
+#     """
+#     name = "hour_offset"
+#     method = None
+#     data_type = float
+#     precision = 1
+#     units = "hours"
+#     description = "Hour offset from the object time."
+#     args = [name, method, data_type, precision, description, units]
+#     return utils.get_attribute_dict(*args)
+
+
+kwargs = {"name": "time_offset", "data_type": int, "units": "min"}
+description = "Time offset in minutes of tagging dataset from object detection time."
+kwargs.update({"description": description})
+minute_offset = Attribute(**kwargs)
+
+# def wind(dataset, name, method=None, description=None):
+#     """
+#     Specify options for a core property, typically obtained from the matching process.
+#     """
+#     data_type = float
+#     precision = 1
+#     units = "m/s"
+#     if method is None:
+#         method = {"function": "from_centers", "dataset": dataset}
+#         method["args"] = {"center_type": "area_weighted"}
+#     if description is None:
+#         description = f"Vertical {name} profile, typically at the object center."
+#     args = [name, method, data_type, precision, description, units]
+#     return utils.get_attribute_dict(*args)
+
+
+kwargs = {"name": "u", "data_type": float, "precision": 1, "units": "m/s"}
+description = " profile taken at the object center."
+kwargs.update({"description": "u " + description})
+u = Attribute(**kwargs)
+kwargs.update({"name": "v", "description": "v " + description})
+v = Attribute(**kwargs)
+
+# wind = AttributeGroup(name="wind", attributes=[u, v], retrieval=retrieval)
+
+
+# def temperature(dataset, name, method=None, description=None):
+#     """
+#     Specify options for a core property, typically obtained from the matching process.
+#     """
+#     data_type = float
+#     precision = 2
+#     units = "K"
+#     if method is None:
+#         method = {"function": "from_centers", "dataset": dataset}
+#         method["args"] = {"center_type": "area_weighted"}
+#     if description is None:
+#         description = f"Vertical {name} profile, typically at the object center."
+#     args = [name, method, data_type, precision, description, units]
+#     return utils.get_attribute_dict(*args)
+
+
+kwargs = {"name": "temperature", "data_type": float, "precision": 2, "units": "K"}
+kwargs.update({"description": "temperature" + description})
+temperature = Attribute(**kwargs)
+
+
+# def pressure(dataset, name, method=None, description=None):
+#     """
+#     Specify options for a core property, typically obtained from the matching process.
+#     """
+#     data_type = float
+#     precision = 1
+#     units = "hPa"
+#     if method is None:
+#         method = {"function": "from_centers", "dataset": dataset}
+#         method["args"] = {"center_type": "area_weighted"}
+#     if description is None:
+#         description = f"Vertical {name} profile, typically at the object center."
+#     args = [name, method, data_type, precision, description, units]
+#     return utils.get_attribute_dict(*args)
+
+
+kwargs = {"name": "pressure", "data_type": float, "precision": 1, "units": "hPa"}
+kwargs.update({"description": "pressure" + description})
+pressure = Attribute(**kwargs)
+
+
+# def relative_humidity(dataset, name="relative_humidity", method=None, description=None):
+#     """
+#     Specify options for a core property, typically obtained from the matching process.
+#     """
+#     data_type = float
+#     precision = 1
+#     units = "%"
+#     if method is None:
+#         method = {"function": "from_centers", "dataset": dataset}
+#         method["args"] = {"center_type": "area_weighted"}
+#     if description is None:
+#         description = f"Vertical {name} profile, typically at the object center."
+#     args = [name, method, data_type, precision, description, units]
+#     return utils.get_attribute_dict(*args)
+
+kwargs = {"name": "relative_humidity", "data_type": float, "precision": 1, "units": "%"}
+kwargs.update({"description": "relative humidity" + description})
+relative_humidity = Attribute(**kwargs)
+
+# Create a convenience attribute group, as they are typically all retrieved at once
+arguments = {"center_type": "area_weighted"}
+retrieval = Retrieval(function=from_centers, arguments=arguments)
+attribute_list = [u, v, temperature, pressure, relative_humidity]
+kwargs = {"name": "profiles", "attributes": attribute_list, "retrieval": retrieval}
+profile_center = AttributeGroup(**kwargs)
+
+# def default(matched=True):
+#     """Create a dictionary of default quality control attribute options."""
+
+#     attribute_list = [core.time]
+#     if matched:
+#         attribute_list += [core.universal_ids_record]
+#     else:
+#         attribute_list += [core.ids_record]
+#     # Replace retrieval for the core attributes with attribute_from_core function
+#     for attribute in attribute_list:
+#         attribute.retrieval = Retrieval(function=utils.attribute_from_core)
+#     attribute_list += [ellipse_fit]
+
+#     return AttributeType(name="ellipse", attributes=attribute_list)
+
+
+# Modify below approach to allow for multiple tagging/profile datasets.
+# Simply create another function to call the one below.
+def default(dataset, matched=True):
+    """Create the default profile attribute type."""
+
+    attributes_list = core.retrieve_core(matched=matched)
+    attributes_list += [profile_center]
+    description = "Attributes corresponding to profiles taken from a tagging dataset, "
+    description += "e.g. ambient winds, temperature and humidity."
+    kwargs = {"name": "profile", "attributes": attributes_list}
+    kwargs.update({"description": description, "dataset": dataset})
+
+    return AttributeType(**kwargs)
+
+
+# Modify below approach to allow for multiple tagging/profile datasets.
+# Simply create another function to call the one below.
+# def dataset_default(dataset, names=None, matched=True):
+#     """Create a dictionary of default attribute options for a specified dataset."""
+
+#     if names is None:
+#         names = ["time", "latitude", "longitude", "altitude"]
+#         names += ["temperature", "relative_humidity", "u", "v"]
+#     if matched:
+#         id_type = "universal_id"
+#     else:
+#         id_type = "id"
+#     core_method = {"function": "attribute_from_core"}
+#     attributes = {}
+#     # Reuse core attributes, just replace the default functions method
+#     attributes["time"] = core.time(method=core_method)
+#     attributes["latitude"] = core.coordinate("latitude", method=core_method)
+#     attributes["longitude"] = core.coordinate("longitude", method=core_method)
+#     attributes["altitude"] = altitude()
+#     attributes["pressure"] = pressure(dataset, "pressure")
+#     # attributes["hour_offset"] = hour_offset()
+#     attributes[id_type] = core.identity(id_type, method=core_method)
+#     if "relative_humidity" in names:
+#         attributes["relative_humidity"] = relative_humidity(dataset)
+#     if "temperature" in names:
+#         attributes["temperature"] = temperature(dataset, "temperature")
+#     if "u" in names and "v" in names:
+#         attributes["u"] = wind(dataset, "u")
+#         attributes["v"] = wind(dataset, "v")
+#     return attributes
+
+
+# def default(datasets, names=None, matched=True):
+#     """Create a dictionary of default attribute options across all datasets."""
+#     attributes = {ds: dataset_default(ds, names, matched) for ds in datasets}
+#     return attributes
 
 
 get_attributes_dispatcher = {"attribute_from_core": utils.attribute_from_core}

@@ -2,54 +2,9 @@ from thuner.log import setup_logger
 import thuner.attribute.core as core
 import thuner.attribute.utils as utils
 import xarray as xr
+from thuner.attribute.option import Retrieval, Attribute, AttributeGroup, AttributeType
 
 logger = setup_logger(__name__)
-
-
-def cape(dataset, name, method=None, description=None):
-    """
-    Specify options for a specific potential energy type attribute.
-    """
-    data_type = float
-    precision = 1
-    units = "J/kg"
-    if method is None:
-        method = {"function": "from_centers", "dataset": dataset}
-        method["args"] = {"center_type": "area_weighted"}
-    if description is None:
-        description = f"{name} at the object center."
-    args = [name, method, data_type, precision, description, units]
-    return utils.get_attribute_dict(*args)
-
-
-def dataset_default(dataset, names=None, matched=True):
-    """Create a dictionary of default attribute options of grouped objects."""
-
-    if names is None:
-        names = ["time", "latitude", "longitude", "cape", "cin"]
-    if matched:
-        id_type = "universal_id"
-    else:
-        id_type = "id"
-    core_method = {"function": "attribute_from_core"}
-    attributes = {}
-    # Reuse core attributes, just replace the default functions method
-    attributes["time"] = core.time(method=core_method)
-    attributes["latitude"] = core.coordinate("latitude", method=core_method)
-    attributes["longitude"] = core.coordinate("longitude", method=core_method)
-    attributes[id_type] = core.identity(id_type, method=core_method)
-    if "cape" in names:
-        attributes["cape"] = cape(dataset, "cape")
-    if "cin" in names:
-        attributes["cin"] = cape(dataset, "cin")
-
-    return attributes
-
-
-def default(datasets, names=None, matched=True):
-    """Create a dictionary of default attribute options across all datasets."""
-    attributes = {ds: dataset_default(ds, names, matched) for ds in datasets}
-    return attributes
 
 
 # Functions for obtaining and recording attributes
@@ -88,6 +43,82 @@ def from_centers(names, input_records, attributes, object_tracks, method):
     for name in names:
         tag_dict[name] += list(tags[name].values)
     return tag_dict
+
+
+# def cape(dataset, name, method=None, description=None):
+#     """
+#     Specify options for a specific potential energy type attribute.
+#     """
+#     data_type = float
+#     precision = 1
+#     units = "J/kg"
+#     if method is None:
+#         method = {"function": "from_centers", "dataset": dataset}
+#         method["args"] = {"center_type": "area_weighted"}
+#     if description is None:
+#         description = f"{name} at the object center."
+#     args = [name, method, data_type, precision, description, units]
+#     return utils.get_attribute_dict(*args)
+
+
+kwargs = {"name": "cape", "data_type": float, "precision": 1, "units": "J/kg"}
+description = "Convective available potential energy at the object center."
+kwargs.update({"description": description})
+cape = Attribute(**kwargs)
+
+description = "Convective inhibition at the object center."
+kwargs.update({"description": description, "name": "cin"})
+cin = Attribute(**kwargs)
+
+kwargs = {"name": "tags_center", "attributes": [cape, cin]}
+description = "Tag attributes associated with object centers, e.g. cape and cin."
+kwargs.update({"description": description})
+arguments = {"center_type": "area_weighted"}
+retrieval = Retrieval(function=from_centers, arguments=arguments)
+kwargs.update({"retrieval": retrieval})
+tag_center = AttributeGroup(**kwargs)
+
+
+def default(matched=True):
+    """Create the default tag attribute type."""
+
+    attributes_list = core.retrieve_core(matched=matched)
+    attributes_list += [tag_center]
+    description = "Tag attributes, e.g. cape and cin."
+    kwargs = {"name": "tag", "attributes": attributes_list}
+    kwargs.update({"description": description})
+
+    return AttributeType(**kwargs)
+
+
+# def dataset_default(dataset, names=None, matched=True):
+#     """Create a dictionary of default attribute options of grouped objects."""
+
+#     if names is None:
+#         names = ["time", "latitude", "longitude", "cape", "cin"]
+#     if matched:
+#         id_type = "universal_id"
+#     else:
+#         id_type = "id"
+#     core_method = {"function": "attribute_from_core"}
+#     attributes = {}
+#     # Reuse core attributes, just replace the default functions method
+#     attributes["time"] = core.time(method=core_method)
+#     attributes["latitude"] = core.coordinate("latitude", method=core_method)
+#     attributes["longitude"] = core.coordinate("longitude", method=core_method)
+#     attributes[id_type] = core.identity(id_type, method=core_method)
+#     if "cape" in names:
+#         attributes["cape"] = cape(dataset, "cape")
+#     if "cin" in names:
+#         attributes["cin"] = cape(dataset, "cin")
+
+#     return attributes
+
+
+# def default(datasets, names=None, matched=True):
+#     """Create a dictionary of default attribute options across all datasets."""
+#     attributes = {ds: dataset_default(ds, names, matched) for ds in datasets}
+#     return attributes
 
 
 get_attributes_dispatcher = {"attribute_from_core": utils.attribute_from_core}

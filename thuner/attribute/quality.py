@@ -1,46 +1,66 @@
 """Functions for working with attributes related to quality control."""
 
+import xarray as xr
 from thuner.log import setup_logger
 import thuner.attribute.core as core
 import thuner.attribute.utils as utils
-import xarray as xr
+from thuner.attribute.option import Retrieval, Attribute, AttributeType
+
 
 logger = setup_logger(__name__)
 
 
 # Convenience functions for defining default attribute options
-def boundary_overlap():
-    """
-    Options for the boundary_overlap fraction attribute.
-    """
-    name = "boundary_overlap"
-    method = None
-    data_type = float
-    precision = 4
-    units = None
-    description = "Fraction of object area comprised on boundary pixels."
-    args = [name, method, data_type, precision, description, units]
-    return utils.get_attribute_dict(*args)
+# def boundary_overlap():
+#     """
+#     Options for the boundary_overlap fraction attribute.
+#     """
+#     name = "boundary_overlap"
+#     method = None
+#     data_type = float
+#     precision = 4
+#     units = None
+#     description = "Fraction of object area comprised on boundary pixels."
+#     args = [name, method, data_type, precision, description, units]
+#     return utils.get_attribute_dict(*args)
 
 
-def default(names=None, matched=True):
-    """Create a dictionary of default quality control attribute options."""
+kwargs = {"name": "boundary_overlap", "data_type": float, "precision": 4}
+kwargs.update({"description": "Fraction of object area comprised on boundary pixels."})
+boundary_overlap = Attribute(**kwargs)
 
-    if names is None:
-        names = ["time", "boundary_overlap"]
-    if matched:
-        id_type = "universal_id"
-    else:
-        id_type = "id"
-    core_method = {"function": "attribute_from_core"}
-    attributes = {}
-    # Reuse core attributes, just replace the default functions method
-    attributes["time"] = core.time(method=core_method)
-    attributes[id_type] = core.identity(id_type, method=core_method)
-    if "boundary_overlap" in names:
-        attributes["boundary_overlap"] = boundary_overlap()
 
-    return attributes
+# Convenience functions for creating default ellipse attribute type
+def default(matched=True):
+    """Create the default quality attribute type."""
+
+    attributes_list = core.retrieve_core(attributes_list=[core.time], matched=matched)
+    attributes_list.append(boundary_overlap)
+    description = "Attributes associated with quality control, e.g. boundary overlap."
+    kwargs = {"name": "quality", "attributes": attributes_list}
+    kwargs.update({"description": description})
+
+    return AttributeType(**kwargs)
+
+
+# def default(names=None, matched=True):
+#     """Create a dictionary of default quality control attribute options."""
+
+#     if names is None:
+#         names = ["time", "boundary_overlap"]
+#     if matched:
+#         id_type = "universal_id"
+#     else:
+#         id_type = "id"
+#     core_method = {"function": "attribute_from_core"}
+#     attributes = {}
+#     # Reuse core attributes, just replace the default functions method
+#     attributes["time"] = core.time(method=core_method)
+#     attributes[id_type] = core.identity(id_type, method=core_method)
+#     if "boundary_overlap" in names:
+#         attributes["boundary_overlap"] = boundary_overlap()
+
+#     return attributes
 
 
 get_attributes_dispatcher = {"attribute_from_core": utils.attribute_from_core}

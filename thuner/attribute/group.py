@@ -11,53 +11,11 @@ import thuner.attribute.core as core
 import numpy as np
 import thuner.grid as grid
 import thuner.attribute.utils as utils
+from thuner.attribute.option import Retrieval, Attribute, AttributeType, AttributeGroup
 
 logger = setup_logger(__name__)
 
 
-# Convenience functions for defining default attribute options
-def offset(name, method=None, description=None):
-    """
-    Specify options for a core property, typically obtained from the matching process.
-    """
-    data_type = float
-    precision = 1
-    units = "km"
-    if method is None:
-        method = {"function": "offset_from_centers"}
-        # List objects to calculate offset between, with the offset vector pointing
-        # from the first object in the list to the second object
-        method["args"] = {"objects": ["convective", "anvil"]}
-    if description is None:
-        description = f"{name} of one member object center from another."
-    args = [name, method, data_type, precision, description, units]
-    return utils.get_attribute_dict(*args)
-
-
-def default(names=None, matched=True):
-    """Create a dictionary of default attribute options of grouped objects."""
-
-    if names is None:
-        names = ["time", "latitude", "longitude", "x_offset", "y_offset"]
-    if matched:
-        id_type = "universal_id"
-    else:
-        id_type = "id"
-    names += [id_type]
-    core_method = {"function": "attribute_from_core"}
-    attributes = {}
-    # Reuse core attributes, just replace the default functions method
-    attributes["time"] = core.time(method=core_method)
-    attributes["latitude"] = core.coordinate("latitude", method=core_method)
-    attributes["longitude"] = core.coordinate("longitude", method=core_method)
-    attributes[id_type] = core.identity(id_type, method=core_method)
-    attributes["x_offset"] = offset("x_offset")
-    attributes["y_offset"] = offset("y_offset")
-
-    return attributes
-
-
-# Functions for obtaining and recording attributes
 def offset_from_centers(name, object_tracks, attribute_options):
     """Calculate offset between object centers."""
     member_attributes = object_tracks["current_attributes"]["member_objects"]
@@ -91,6 +49,78 @@ def offset_from_centers(name, object_tracks, attribute_options):
     # Convert to km
     y_offsets, x_offsets = y_offsets / 1000, x_offsets / 1000
     return y_offsets, x_offsets
+
+
+# Convenience functions for defining default attribute options
+# def offset(name, method=None, description=None):
+#     """
+#     Specify options for a core property, typically obtained from the matching process.
+#     """
+#     data_type = float
+#     precision = 1
+#     units = "km"
+#     if method is None:
+#         method = {"function": "offset_from_centers"}
+#         # List objects to calculate offset between, with the offset vector pointing
+#         # from the first object in the list to the second object
+#         method["args"] = {"objects": ["convective", "anvil"]}
+#     if description is None:
+#         description = f"{name} of one member object center from another."
+#     args = [name, method, data_type, precision, description, units]
+#     return utils.get_attribute_dict(*args)
+
+kwargs = {"name": "x_offset", "data_type": float, "precision": 1, "units": "km"}
+description = " offset of one object from another in km."
+kwargs.update({"description": "x " + description})
+x_offset = Attribute(**kwargs)
+kwargs.update({"name": "y_offset", "description": "y " + description})
+y_offset = Attribute(**kwargs)
+
+arguments = {"objects": ["convective", "anvil"]}
+retrieval = Retrieval(function=offset_from_centers, arguments=arguments)
+kwargs = {"name": "offset", "description": "Offset of one object from another"}
+kwargs.update({"retrieval": retrieval, "attributes": [x_offset, y_offset]})
+offset = AttributeGroup(**kwargs)
+
+
+# Convenience functions for creating default ellipse attribute type
+def default(matched=True):
+    """Create the default group attribute type."""
+
+    attributes_list = core.retrieve_core(attributes_list=[core.time], matched=matched)
+    attributes_list.append(offset)
+    description = "Attributes associated with grouped objects, e.g. offset of "
+    description += "stratiform echo from convective echo."
+    kwargs = {"name": "group", "attributes": attributes_list}
+    kwargs.update({"description": description})
+
+    return AttributeType(**kwargs)
+
+
+# def default(names=None, matched=True):
+#     """Create a dictionary of default attribute options of grouped objects."""
+
+#     if names is None:
+#         names = ["time", "latitude", "longitude", "x_offset", "y_offset"]
+#     if matched:
+#         id_type = "universal_id"
+#     else:
+#         id_type = "id"
+#     names += [id_type]
+#     core_method = {"function": "attribute_from_core"}
+#     attributes = {}
+#     # Reuse core attributes, just replace the default functions method
+#     attributes["time"] = core.time(method=core_method)
+#     attributes["latitude"] = core.coordinate("latitude", method=core_method)
+#     attributes["longitude"] = core.coordinate("longitude", method=core_method)
+#     attributes[id_type] = core.identity(id_type, method=core_method)
+#     attributes["x_offset"] = offset("x_offset")
+#     attributes["y_offset"] = offset("y_offset")
+
+#     return attributes
+
+
+# Functions for obtaining and recording attributes
 
 
 get_attributes_dispatcher = {

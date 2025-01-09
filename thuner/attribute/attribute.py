@@ -54,7 +54,6 @@ def get_record_arguments(
     return argument_dispatcher[attributes_type]
 
 
-# @memory_profile
 def record_detected(time, input_records, object_tracks, object_options, grid_options):
     """Get detected object attributes."""
     all_attribute_options = object_options.attributes
@@ -69,8 +68,6 @@ def record_detected(time, input_records, object_tracks, object_options, grid_opt
         record_func(*args)
 
 
-# @memory_profile
-# But what if a member object is also a grouped object?
 def record_grouped(time, input_records, object_tracks, object_options, grid_options):
     """Get object attributes."""
     # First get the attributes of each member object

@@ -4,7 +4,8 @@ import numpy as np
 from typing import Dict, List, Annotated, Callable
 from pydantic import Field, field_validator, model_validator
 from thuner.log import setup_logger
-import thuner.attribute as attribute
+from thuner.attribute import core, ellipse, quality, tag, profile, group
+from thuner.attribute.option import GroupedObjectAttributes, DetectedObjectAttributes
 from thuner.utils import BaseOptions
 
 
@@ -22,11 +23,6 @@ _summary = {
     "max_velocity_diff": "Maximum allowable shift difference.",
     "matched_object": "Name of object used for matching.",
 }
-
-
-"""
-Track Options
-"""
 
 
 class TintOptions(BaseOptions):
@@ -69,8 +65,8 @@ class MintOptions(TintOptions):
 
 class MaskOptions(BaseOptions):
     """
-    Options for saving and loading masks. Note thuner uses .zarr format saving masks,
-    which is great for sparse, chunked arrays.
+    Options for saving and loading masks. Note thuner uses .zarr format for saving
+    masks, which is great for sparse, chunked arrays.
     """
 
     save: bool = Field(True, description="If True, save masks as .zarr files.")
@@ -89,7 +85,7 @@ _summary.update(
     be moved elsewhere for grouped objects in future.""",
         "deque_length": "Length of the deque used for tracking.",
         "mask_options": "Options for saving and loading masks.",
-        "write_interval": "Interval in minutes for writing objects to disk.",
+        "write_interval": "Interval in hours for writing objects to disk.",
         "allowed_gap": "Allowed gap in minutes between consecutive times when tracking.",
         "grouping": "Options for grouping objects.",
         "detect_method": "Method used to detect the object.",
@@ -103,7 +99,7 @@ class BaseObjectOptions(BaseOptions):
     """Base class for object options."""
 
     name: str = Field(..., description="Name of the object.")
-    hierarchy_level: int = Field(..., description=_summary["hierarchy_level"], ge=0)
+    hierarchy_level: int = Field(0, description=_summary["hierarchy_level"], ge=0)
     method: str = Field("detect", description=_summary["method"])
     dataset: str = Field(
         ..., description=_summary["dataset"], examples=["cpol", "gridrad"]
@@ -154,6 +150,7 @@ class DetectionOptions(BaseOptions):
 
 _summary["variable"] = "Variable to use for detection."
 _summary["detection"] = "Method used to detect the object."
+_summary["attributes"] = "Options for object attributes."
 
 
 class DetectedObjectOptions(BaseObjectOptions):
@@ -164,7 +161,9 @@ class DetectedObjectOptions(BaseObjectOptions):
         DetectionOptions(method="steiner"), description=_summary["detection"]
     )
     tracking: BaseOptions | None = Field(TintOptions(), description="Tracking options.")
-    attributes: Dict = Field({}, description="Options for object attributes.")
+    attributes: DetectedObjectAttributes | None = Field(
+        None, description=_summary["attributes"]
+    )
 
 
 # Define a custom type with constraints
@@ -211,10 +210,14 @@ class GroupedObjectOptions(BaseObjectOptions):
         GroupingOptions(), description=_summary["grouping"]
     )
     tracking: AnyTrackingOptions = Field(MintOptions(), description="Tracking options.")
-    attributes: None | Dict = Field(None, description="Options for object attributes.")
+    attributes: GroupedObjectAttributes | None = Field(
+        None, description=_summary["attributes"]
+    )
 
 
 AnyObjectOptions = DetectedObjectOptions | GroupedObjectOptions
+
+_summary["objects"] = "Options for each object in the level."
 
 
 class LevelOptions(BaseOptions):
@@ -223,7 +226,7 @@ class LevelOptions(BaseOptions):
     used to define objects at higher levels.
     """
 
-    objects: List[AnyObjectOptions] = Field([], description="Hierachy levels.")
+    objects: List[AnyObjectOptions] = Field([], description=_summary["objects"])
     _object_lookup: Dict[str, BaseObjectOptions] = {}
 
     @model_validator(mode="after")
@@ -271,100 +274,68 @@ def consolidate_options(options_list):
     return consolidated_options
 
 
+""" 
+Convenience functions for creating default object options
+"""
+
+
 def default_convective(dataset="cpol"):
     """Build default options for convective objects."""
-    return DetectedObjectOptions(
-        name="convective",
-        hierarchy_level=0,
-        dataset=dataset,
-        variable="reflectivity",
-        detection={
-            "method": "steiner",
-            "altitudes": [500, 3e3],
-            "threshold": 40,
-        },
-        tracking=None,
-    )
+    kwargs = {"name": "convective", "dataset": dataset, "variable": "reflectivity"}
+    detection = {"method": "steiner", "altitudes": [500, 3e3], "threshold": 40}
+    kwargs.update({"detection": detection, "tracking": None})
+    return DetectedObjectOptions(**kwargs)
 
 
 def default_middle(dataset="cpol"):
     """Build default options for mid-level echo objects."""
-    return DetectedObjectOptions(
-        name="middle",
-        hierarchy_level=0,
-        dataset=dataset,
-        variable="reflectivity",
-        detection={
-            "method": "threshold",
-            "altitudes": [3.5e3, 7e3],
-            "threshold": 20,
-        },
-        tracking=None,
-    )
+    kwargs = {"name": "middle", "dataset": dataset, "variable": "reflectivity"}
+    detection = {"method": "threshold", "altitudes": [3.5e3, 7e3], "threshold": 20}
+    kwargs.update({"detection": detection, "tracking": None})
+    return DetectedObjectOptions(**kwargs)
 
 
 def default_anvil(dataset="cpol"):
     """Build default options for anvil objects."""
-    return DetectedObjectOptions(
-        name="anvil",
-        hierarchy_level=0,
-        dataset=dataset,
-        variable="reflectivity",
-        detection={
-            "method": "threshold",
-            "altitudes": [7500, 10000],
-            "threshold": 15,
-        },
-        tracking=None,
-    )
+    kwargs = {"name": "anvil", "dataset": dataset, "variable": "reflectivity"}
+    detection = {"method": "threshold", "altitudes": [7.5e3, 10e3], "threshold": 15}
+    kwargs.update({"detection": detection, "tracking": None})
+    return DetectedObjectOptions(**kwargs)
 
 
-def default_mcs(dataset="cpol"):
+def default_mcs(
+    tracking_dataset="cpol", profile_dataset="era5_pl", tag_dataset="era5_sl"
+):
     """Build default options for MCS objects."""
 
+    name = "mcs"
+    member_objects = ["convective", "middle", "anvil"]
+
     grouping = GroupingOptions(
-        member_objects=["convective", "middle", "anvil"],
+        member_objects=member_objects,
         member_levels=[0, 0, 0],
         member_min_areas=[80, 400, 800],
     )
     tracking = MintOptions(matched_object="convective")
-    mcs_options = GroupedObjectOptions(
-        name="mcs",
-        dataset=dataset,
-        hierarchy_level=1,
-        grouping=grouping,
-        tracking=tracking,
-    )
-    kwargs = {}
-    core_tracked = attribute.core.default(tracked=True, matched=True)
-    core_untracked = attribute.core.default(tracked=False, matched=True)
-    # Note attributes for grouped objects are specified slightly differently
-    # than for detected objects; the dictionary has an extra layer of nesting to
-    # separate the attributes for member objects and for the grouped object.
 
-    name = mcs_options.name
-    member_objects = mcs_options.grouping.member_objects
+    core_tracked = core.default(tracked=True)
+    core_untracked = core.default(tracked=False)
+    mcs_types = [core_tracked, ellipse.default(), quality.default(), group.default()]
+    mcs_types += [profile.default(profile_dataset), tag.default(tag_dataset)]
 
-    attribute_options = {"member_objects": {}, name: {}}
-    member_options = attribute_options["member_objects"]
-    # By default assume that the first member object is the matched/tracked object.
-    member_options[member_objects[0]] = {}
-    member_options[member_objects[0]]["core"] = core_tracked
-    member_options[member_objects[0]]["quality"] = attribute.quality.default()
-    member_options[member_objects[0]]["ellipse"] = attribute.ellipse.default()
-    for i in range(1, len(member_objects)):
-        member_options[member_objects[i]] = {}
-        member_options[member_objects[i]]["core"] = core_untracked
-        member_options[member_objects[i]]["quality"] = attribute.quality.default()
-        # member_options[member_objects[0]]["ellipse"] = attribute.ellipse.default()
-    # Define the attributes for the grouped object.
-    attribute_options[name]["core"] = core_tracked
-    attribute_options[name]["group"] = attribute.group.default()
-    profile_dataset = kwargs.get("profile_dataset", "era5_pl")
-    tag_dataset = kwargs.get("tag_dataset", "era5_sl")
-    attribute_options[name]["profile"] = attribute.profile.default([profile_dataset])
-    attribute_options[name]["tag"] = attribute.tag.default([tag_dataset])
-    mcs_options.attributes = attribute_options
+    # Assume the first member object is used for tracking.
+    types_tracked = [core_tracked, quality.default(), ellipse.default()]
+    member_types = {member_objects[0]: types_tracked}
+    for obj in member_objects[1:]:
+        member_types[obj] = [core_untracked, quality.default()]
+    kwargs = {"name": "mcs", "attribute_types": mcs_types, "member_types": member_types}
+    attributes = GroupedObjectAttributes(**kwargs)
+
+    kwargs = {"name": name, "dataset": tracking_dataset, "grouping": grouping}
+    kwargs.update({"tracking": tracking, "attributes": attributes})
+    kwargs.update({"hierarchy_level": 1, "method": "group"})
+    mcs_options = GroupedObjectOptions(**kwargs)
+
     return mcs_options
 
 

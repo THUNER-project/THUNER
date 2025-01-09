@@ -1,5 +1,6 @@
 "General utilities for the thuner package."
 from datetime import datetime
+import inspect
 import yaml
 from pathlib import Path
 import json
@@ -44,6 +45,12 @@ def convert_value(value: Any) -> Any:
         return value.__name__
     if type(value) is np.float32:
         return float(value)
+    if inspect.isroutine(value):
+        module = inspect.getmodule(value)
+        if module:
+            return f"{module.__name__}.{value.__name__}"
+        else:
+            return value.__name__
     return value
 
 
