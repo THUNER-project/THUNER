@@ -1,4 +1,6 @@
-"""Handle the config file."""
+"""
+Handle package configuration. Tracking options are handled by the options module.
+"""
 
 import os
 import json

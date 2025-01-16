@@ -49,12 +49,12 @@ def gridrad(start, end, event_start, base_local=None):
     # Create and save the dataset options
     times_dict = {"start": start, "end": end}
     gridrad_dict = {"event_start": event_start, "parent_local": gridrad_parent}
-    gridrad_options = data.option.GridRadSevereOptions(**times_dict, **gridrad_dict)
+    gridrad_options = option.data.GridRadSevereOptions(**times_dict, **gridrad_dict)
     era5_dict = {"data_format": "pressure-levels", "parent_local": era5_parent}
-    era5_pl_options = data.option.ERA5Options(**times_dict, parent_local=era5_parent)
+    era5_pl_options = option.data.ERA5Options(**times_dict, parent_local=era5_parent)
     era5_dict["data_format"] = "single-levels"
-    era5_sl_options = data.option.ERA5Options(**times_dict, **era5_dict)
-    data_options = data.option.DataOptions(
+    era5_sl_options = option.data.ERA5Options(**times_dict, **era5_dict)
+    data_options = option.data.DataOptions(
         datasets=[gridrad_options, era5_pl_options, era5_sl_options]
     )
     data_options.to_yaml(options_directory / "data.yml")
@@ -68,7 +68,7 @@ def gridrad(start, end, event_start, base_local=None):
     grid.save_grid_options(grid_options, options_directory=options_directory)
 
     # Create the track_options dictionary
-    track_options = option.default_track_options(dataset="gridrad")
+    track_options = track.default_track_options(dataset="gridrad")
     track_options.levels[1].objects[0].tracking.global_flow_margin = 70
     track_options.levels[1].objects[0].tracking.unique_global_flow = False
     track_options.to_yaml(options_directory / "track.yml")

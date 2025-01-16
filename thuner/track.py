@@ -6,7 +6,6 @@ from collections import deque
 import copy
 import numpy as np
 from thuner.log import setup_logger
-import thuner.option as option
 import thuner.data.dispatch as dispatch
 import thuner.detect.detect as detect
 import thuner.group.group as group
@@ -115,9 +114,9 @@ def initialise_object_tracks(object_options):
         # The current_attributes dict holds the attributes associated with matching the
         # "previous" grid to the "current" grid. It is reset at the start of each time
         # step.
-        current_attributes = attribute.utils.initialize_attributes(object_options)
+        current_attributes = attribute.attribute.initialize_attributes(object_options)
         object_tracks["current_attributes"] = current_attributes
-        attributes = attribute.utils.initialize_attributes(object_options)
+        attributes = attribute.attribute.initialize_attributes(object_options)
         object_tracks["attributes"] = attributes
 
     object_tracks["last_write_time"] = None

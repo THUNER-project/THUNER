@@ -10,7 +10,7 @@ import inspect
 from scipy.stats import vonmises
 from thuner.log import setup_logger
 from thuner.config import get_outputs_directory
-import thuner.data.option as option
+import thuner.option.data as data
 import thuner.data.utils as utils
 import thuner.grid as grid
 

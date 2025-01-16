@@ -2,7 +2,7 @@ from thuner.log import setup_logger
 import thuner.attribute.core as core
 import thuner.attribute.utils as utils
 import xarray as xr
-from thuner.attribute.option import Retrieval, Attribute, AttributeGroup, AttributeType
+from thuner.option.attribute import Retrieval, Attribute, AttributeGroup, AttributeType
 
 logger = setup_logger(__name__)
 
@@ -73,8 +73,8 @@ cin = Attribute(**kwargs)
 kwargs = {"name": "tags_center", "attributes": [cape, cin]}
 description = "Tag attributes associated with object centers, e.g. cape and cin."
 kwargs.update({"description": description})
-arguments = {"center_type": "area_weighted"}
-retrieval = Retrieval(function=from_centers, arguments=arguments)
+keyword_arguments = {"center_type": "area_weighted"}
+retrieval = Retrieval(function=from_centers, keyword_arguments=keyword_arguments)
 kwargs.update({"retrieval": retrieval})
 tag_center = AttributeGroup(**kwargs)
 

@@ -34,7 +34,7 @@ _summary = {
 }
 
 
-class ConvertedOptions(option.BaseOptions):
+class ConvertedOptions(option.utils.BaseOptions):
     """Converted options."""
 
     save: bool = Field(False, description="Whether to save the converted data.")
@@ -45,7 +45,7 @@ class ConvertedOptions(option.BaseOptions):
 default_parent_local = str(get_outputs_directory() / "input_data/raw")
 
 
-class BaseDatasetOptions(option.BaseOptions):
+class BaseDatasetOptions(option.utils.BaseOptions):
     """Base class for dataset options."""
 
     name: str = Field(..., description=_summary["name"])
@@ -276,7 +276,7 @@ AnyDatasetOptions = (
 )
 
 
-class DataOptions(option.BaseOptions):
+class DataOptions(option.utils.BaseOptions):
     """Class for managing the options for all the datasets of a given run."""
 
     datasets: list[AnyDatasetOptions] = Field(

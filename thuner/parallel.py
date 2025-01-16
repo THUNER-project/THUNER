@@ -16,7 +16,7 @@ import thuner.analyze as analyze
 import thuner.data as data
 import thuner.grid as grid
 import thuner.track as track
-import thuner.data.option as option
+import thuner.option.data as data
 
 
 logger = setup_logger(__name__)
@@ -71,7 +71,7 @@ def track_interval(
     gc.collect()
 
 
-def get_interval_data_options(data_options: option.DataOptions, interval):
+def get_interval_data_options(data_options: data.DataOptions, interval):
     """Get the data options for a given interval."""
     interval_data_options = data_options.model_copy(deep=True)
     for i, dataset_options in enumerate(interval_data_options.datasets):

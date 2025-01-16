@@ -1,12 +1,11 @@
 """Functions for creating and modifying default tracking configurations."""
 
 import numpy as np
-from typing import Dict, List, Annotated, Callable
+from typing import Dict, List, Annotated
 from pydantic import Field, field_validator, model_validator
 from thuner.log import setup_logger
-from thuner.attribute import core, ellipse, quality, tag, profile, group
-from thuner.attribute.option import GroupedObjectAttributes, DetectedObjectAttributes
-from thuner.utils import BaseOptions
+from thuner.option.attribute import GroupedObjectAttributes, DetectedObjectAttributes
+from thuner.option.utils import BaseOptions
 
 
 logger = setup_logger(__name__)
@@ -272,94 +271,3 @@ def consolidate_options(options_list):
     for options in options_list:
         consolidated_options[options.name] = options
     return consolidated_options
-
-
-""" 
-Convenience functions for creating default object options
-"""
-
-
-def default_convective(dataset="cpol"):
-    """Build default options for convective objects."""
-    kwargs = {"name": "convective", "dataset": dataset, "variable": "reflectivity"}
-    detection = {"method": "steiner", "altitudes": [500, 3e3], "threshold": 40}
-    kwargs.update({"detection": detection, "tracking": None})
-    return DetectedObjectOptions(**kwargs)
-
-
-def default_middle(dataset="cpol"):
-    """Build default options for mid-level echo objects."""
-    kwargs = {"name": "middle", "dataset": dataset, "variable": "reflectivity"}
-    detection = {"method": "threshold", "altitudes": [3.5e3, 7e3], "threshold": 20}
-    kwargs.update({"detection": detection, "tracking": None})
-    return DetectedObjectOptions(**kwargs)
-
-
-def default_anvil(dataset="cpol"):
-    """Build default options for anvil objects."""
-    kwargs = {"name": "anvil", "dataset": dataset, "variable": "reflectivity"}
-    detection = {"method": "threshold", "altitudes": [7.5e3, 10e3], "threshold": 15}
-    kwargs.update({"detection": detection, "tracking": None})
-    return DetectedObjectOptions(**kwargs)
-
-
-def default_mcs(
-    tracking_dataset="cpol", profile_dataset="era5_pl", tag_dataset="era5_sl"
-):
-    """Build default options for MCS objects."""
-
-    name = "mcs"
-    member_objects = ["convective", "middle", "anvil"]
-
-    grouping = GroupingOptions(
-        member_objects=member_objects,
-        member_levels=[0, 0, 0],
-        member_min_areas=[80, 400, 800],
-    )
-    tracking = MintOptions(matched_object="convective")
-
-    core_tracked = core.default(tracked=True)
-    core_untracked = core.default(tracked=False)
-    mcs_types = [core_tracked, ellipse.default(), quality.default(), group.default()]
-    mcs_types += [profile.default(profile_dataset), tag.default(tag_dataset)]
-
-    # Assume the first member object is used for tracking.
-    types_tracked = [core_tracked, quality.default(), ellipse.default()]
-    member_types = {member_objects[0]: types_tracked}
-    for obj in member_objects[1:]:
-        member_types[obj] = [core_untracked, quality.default()]
-    kwargs = {"name": "mcs", "attribute_types": mcs_types, "member_types": member_types}
-    attributes = GroupedObjectAttributes(**kwargs)
-
-    kwargs = {"name": name, "dataset": tracking_dataset, "grouping": grouping}
-    kwargs.update({"tracking": tracking, "attributes": attributes})
-    kwargs.update({"hierarchy_level": 1, "method": "group"})
-    mcs_options = GroupedObjectOptions(**kwargs)
-
-    return mcs_options
-
-
-def default_track_options(dataset="cpol"):
-    """Build default options for tracking MCS."""
-
-    mask_options = MaskOptions(save=False, load=False)
-    convective_options = default_convective(dataset)
-    convective_options.mask_options = mask_options
-    middle_options = default_middle(dataset)
-    middle_options.mask_options = mask_options
-    anvil_options = default_anvil(dataset)
-    anvil_options.mask_options = mask_options
-    mcs_options = default_mcs(dataset)
-    level_0 = LevelOptions(objects=[convective_options, middle_options, anvil_options])
-    level_1 = LevelOptions(objects=[mcs_options])
-    levels = [level_0, level_1]
-    track_options = TrackOptions(levels=levels)
-    return track_options
-
-
-def synthetic_track_options():
-    convective_options = default_convective(dataset="synthetic")
-    convective_options.tracking = MintOptions(
-        global_flow_margin=70, unique_global_flow=False
-    )
-    return TrackOptions(levels=[LevelOptions(objects=[convective_options])])

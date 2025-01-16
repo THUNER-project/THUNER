@@ -11,7 +11,7 @@ import thuner.attribute.core as core
 import numpy as np
 import thuner.grid as grid
 import thuner.attribute.utils as utils
-from thuner.attribute.option import Retrieval, Attribute, AttributeType, AttributeGroup
+from thuner.option.attribute import Retrieval, Attribute, AttributeType, AttributeGroup
 
 logger = setup_logger(__name__)
 
@@ -76,8 +76,8 @@ x_offset = Attribute(**kwargs)
 kwargs.update({"name": "y_offset", "description": "y " + description})
 y_offset = Attribute(**kwargs)
 
-arguments = {"objects": ["convective", "anvil"]}
-retrieval = Retrieval(function=offset_from_centers, arguments=arguments)
+keyword_arguments = {"objects": ["convective", "anvil"]}
+retrieval = Retrieval(function=offset_from_centers, keyword_arguments=keyword_arguments)
 kwargs = {"name": "offset", "description": "Offset of one object from another"}
 kwargs.update({"retrieval": retrieval, "attributes": [x_offset, y_offset]})
 offset = AttributeGroup(**kwargs)

@@ -64,14 +64,14 @@ def test_synthetic():
         longitude_range=[lon[0], lon[-1]],
     )
 
-    data_options = option.consolidate_options(
+    data_options = track.consolidate_options(
         [synthetic_options, era5_pl_options, era5_sl_options]
     )
     dispatch.check_data_options(data_options)
-    data.option.save_data_options(data_options, options_directory)
+    data.data.save_data_options(data_options, options_directory)
 
     # Create the track_options dictionary
-    track_options = option.synthetic_track_options()
+    track_options = track.synthetic_track_options()
     track_options.to_yaml(options_directory / "track.yml")
 
     # Create the display_options dictionary
@@ -117,9 +117,9 @@ def test_synthetic():
     )
     grid.check_options(grid_options)
     grid.save_grid_options(grid_options, options_directory)
-    track_options = option.synthetic_track_options()
+    track_options = track.synthetic_track_options()
     track_options.to_yaml(options_directory / "track.yml")
-    data.option.save_data_options(data_options, options_directory)
+    data.data.save_data_options(data_options, options_directory)
 
     times = np.arange(
         np.datetime64(start),

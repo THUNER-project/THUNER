@@ -41,12 +41,12 @@ def setup(start, end, options_directory, grid_type="geographic"):
         longitude_range=lon_range,
     )
 
-    data_options = option.consolidate_options(
+    data_options = track.consolidate_options(
         [cpol_options, era5_pl_options, era5_sl_options]
     )
 
     dispatch.check_data_options(data_options)
-    data.option.save_data_options(data_options, options_directory)
+    data.data.save_data_options(data_options, options_directory)
 
     altitude = list(np.arange(0, 20e3 + 500, 500))
     altitude = [float(alt) for alt in altitude]
@@ -55,7 +55,7 @@ def setup(start, end, options_directory, grid_type="geographic"):
     grid.save_grid_options(grid_options, options_directory)
 
     # Create the track_options dictionary
-    track_options = option.default_track_options(dataset="cpol")
+    track_options = track.default_track_options(dataset="cpol")
     track_options.to_yaml(options_directory / "track.yml")
 
     mcs_vis_options = visualize.option.runtime_options(

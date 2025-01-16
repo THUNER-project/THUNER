@@ -54,12 +54,12 @@ def test_gridrad():
     kwargs.update({"longitude_range": lon_range, "latitude_range": lat_range})
     era5_sl_options = data.era5.data_options(**kwargs)
 
-    data_options = option.consolidate_options(
+    data_options = track.consolidate_options(
         [gridrad_options, era5_pl_options, era5_sl_options]
     )
 
     dispatch.check_data_options(data_options)
-    data.option.save_data_options(data_options, options_directory=options_directory)
+    data.data.save_data_options(data_options, options_directory=options_directory)
 
     # Create the grid_options dictionary using the first file in the cpol dataset
     grid_options = grid.create_options(
@@ -69,7 +69,7 @@ def test_gridrad():
     grid.save_grid_options(grid_options, options_directory=options_directory)
 
     # Create the track_options dictionary
-    track_options = option.default_track_options(dataset="gridrad")
+    track_options = track.default_track_options(dataset="gridrad")
     # Modify the default options for gridrad. Because grids so large we now use a distinct
     # global flow box for each object.
     track_options.levels[1].objects[0].tracking.global_flow_margin = 70

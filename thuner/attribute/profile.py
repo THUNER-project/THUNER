@@ -8,7 +8,7 @@ import xarray as xr
 from thuner.log import setup_logger
 import thuner.attribute.core as core
 import thuner.attribute.utils as utils
-from thuner.attribute.option import Retrieval, Attribute, AttributeGroup, AttributeType
+from thuner.option.attribute import Retrieval, Attribute, AttributeGroup, AttributeType
 
 
 logger = setup_logger(__name__)
@@ -204,8 +204,8 @@ kwargs.update({"description": "relative humidity" + description})
 relative_humidity = Attribute(**kwargs)
 
 # Create a convenience attribute group, as they are typically all retrieved at once
-arguments = {"center_type": "area_weighted"}
-retrieval = Retrieval(function=from_centers, arguments=arguments)
+keyword_arguments = {"center_type": "area_weighted"}
+retrieval = Retrieval(function=from_centers, keyword_arguments=keyword_arguments)
 attribute_list = [u, v, temperature, pressure, relative_humidity]
 kwargs = {"name": "profiles", "attributes": attribute_list, "retrieval": retrieval}
 profile_center = AttributeGroup(**kwargs)

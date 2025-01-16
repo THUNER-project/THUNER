@@ -5,6 +5,5 @@ from . import era5
 from . import gridrad
 from . import nexrad
 from . import odim
-from . import option
 from . import utils
 from . import wrf

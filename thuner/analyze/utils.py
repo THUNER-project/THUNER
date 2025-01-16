@@ -5,7 +5,6 @@ import yaml
 import glob
 import numpy as np
 import thuner.option as option
-from thuner.data.option import DataOptions
 import thuner.grid as grid
 
 
@@ -31,11 +30,11 @@ def read_options(output_directory):
             options = yaml.safe_load(file)
             name = Path(filepath).stem
             if name == "track":
-                options = option.TrackOptions(**options)
+                options = option.track.TrackOptions(**options)
             if name == "data":
-                options = DataOptions(**options)
+                options = option.data.DataOptions(**options)
             if name == "grid":
-                options = grid.GridOptions(**options)
+                options = option.grid.GridOptions(**options)
             all_options[name] = options
     return all_options
 

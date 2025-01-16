@@ -1,9 +1,9 @@
-"""Functions for specifying object attributes."""
+"""Classes for object attribute options."""
 
 import numpy as np
 from typing import Callable, Union
 from pydantic import Field, model_validator
-from thuner.utils import BaseOptions
+from thuner.option.utils import BaseOptions
 
 
 _summary = {
@@ -15,7 +15,7 @@ _summary = {
     "units": "Units of the attribute.",
     "retrieval": "The function/kwargs used to retrieve the attribute.",
     "function": "The function used to retrieve the attribute.",
-    "arguments": "Keyword arguments for the retrieval.",
+    "keyword_arguments": "Keyword arguments for the retrieval.",
 }
 
 
@@ -26,7 +26,7 @@ class Retrieval(BaseOptions):
     """
 
     function: Callable | None = Field(None, description=_summary["function"])
-    arguments: dict | None = Field(None, description=_summary["arguments"])
+    keyword_arguments: dict = Field({}, description=_summary["keyword_arguments"])
 
 
 class Attribute(BaseOptions):
@@ -105,7 +105,7 @@ class DetectedObjectAttributes(BaseOptions):
     Container for the attributes of a given object.
     """
 
-    object_name: str = Field(..., description="Name of the object.")
+    name: str = Field(..., description="Name of the detected object.")
     attribute_types: list[AttributeType] = Field(
         ..., description=_summary["attribute_types"]
     )
@@ -114,11 +114,10 @@ class DetectedObjectAttributes(BaseOptions):
 _summary = {
     "member_names": "Names of member objects comprising the grouped object.",
     "attribute_types": "Attribute types of the grouped object.",
-    "member_attribute_types": "Dict containing name and attributes of member objects.",
+    "member_attributes": "List of object attributes for the member objects.",
 }
 
-AttributesList = list[Union[DetectedObjectAttributes, "GroupedObjectAttributes"]]
-AttributesDict = dict[str, AttributesList]
+AttributesDict = dict[str, Union[DetectedObjectAttributes, "GroupedObjectAttributes"]]
 
 
 class GroupedObjectAttributes(BaseOptions):
@@ -130,6 +129,9 @@ class GroupedObjectAttributes(BaseOptions):
     attribute_types: list[AttributeType] = Field(
         ..., description=_summary["attribute_types"]
     )
-    member_attribute_types: AttributesDict | None = Field(
-        None, description=_summary["member_attribute_types"]
+    member_attributes: AttributesDict | None = Field(
+        None, description=_summary["member_attributes"]
     )
+
+
+AnyAttributes = DetectedObjectAttributes | GroupedObjectAttributes

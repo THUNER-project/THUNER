@@ -15,7 +15,7 @@ import thuner.analyze.utils as utils
 import thuner.write as write
 import thuner.attribute as attribute
 import thuner.log as log
-import thuner.option as option
+from thuner.option.utils import BaseOptions
 
 logger = log.setup_logger(__name__)
 
@@ -127,7 +127,7 @@ _summary = {
 }
 
 
-class AnalysisOptions(option.BaseOptions):
+class AnalysisOptions(BaseOptions):
     """Options for convective system analysis."""
 
     window_size: int = Field(6, description=_summary["window_size"], ge=1)

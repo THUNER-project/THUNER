@@ -133,7 +133,7 @@ def aggregate_runs(base_local=None):
         for directory in run_directories:
             options_filepath = Path(directory) / "options/data.yml"
             with open(options_filepath, "r") as f:
-                data_options = data.option.DataOptions(**yaml.safe_load(f))
+                data_options = data.data.DataOptions(**yaml.safe_load(f))
             gridrad_options = data_options.dataset_by_name("gridrad")
             event_start = gridrad_options.event_start
 

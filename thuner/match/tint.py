@@ -465,7 +465,7 @@ def determine_case(
             case = 3
             corrected_flow = local_flow.astype(int)
     else:
-        if type(tracking_options) is option.MintOptions:
+        if type(tracking_options) is option.track.MintOptions:
             # In the MINT method, we are typically matching large objects, and
             # center velocities (calculated from the displacement of object centers)
             # are often unreliable. We also want to use the local flow for object
@@ -483,7 +483,7 @@ def determine_case(
                 # Otherwise, trust the local flow.
                 case = 5
                 corrected_flow = local_flow.astype(int)
-        elif type(tracking_options) is option.TintOptions:
+        elif type(tracking_options) is option.track.TintOptions:
             # In the TINT method, when the local flow velocity agrees with the center
             # velocity, average the local flow and displacement.
             case = 6

@@ -4,7 +4,7 @@ import xarray as xr
 from thuner.log import setup_logger
 import thuner.attribute.core as core
 import thuner.attribute.utils as utils
-from thuner.attribute.option import Retrieval, Attribute, AttributeType
+from thuner.option.attribute import Retrieval, Attribute, AttributeType
 
 
 logger = setup_logger(__name__)

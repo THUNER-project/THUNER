@@ -28,15 +28,12 @@ def get_attribute_dict(name, method, data_type, precision, description, units):
     return attribute_dict
 
 
-def get_previous_mask(attribute_options, object_tracks):
+def get_previous_mask(object_tracks, matched=False):
     """Get the appropriate previous mask."""
-    if "universal_id" in attribute_options.keys():
+    if matched:
         mask_type = "previous_matched_masks"
-    elif "id" in attribute_options.keys():
-        mask_type = "previous_masks"
     else:
-        message = "Either universal_id or id must be specified as an attribute."
-        raise ValueError(message)
+        mask_type = "previous_masks"
     mask = object_tracks[mask_type][-1]
     return mask
 
@@ -76,81 +73,6 @@ def attribute_from_core(name, object_tracks, member_object):
     else:
         attr = object_tracks["current_attributes"]["core"][name]
     return attr
-
-
-def initialize_attributes_detected(object_options):
-    """Initialize attributes lists for detected objects."""
-    attribute_options = object_options.attributes
-    attribute_types = attribute_options.keys()
-    attributes_dict = {t: {} for t in attribute_types}
-    for attribute_type in attribute_types:
-        if attribute_type == "tag" or attribute_type == "profile":
-            datasets = attribute_options[attribute_type].keys()
-            attributes_dict[attribute_type] = {ds: {} for ds in datasets}
-            for dataset in attribute_options[attribute_type].keys():
-                all_options = attribute_options[attribute_type]
-                attribute_options = all_options[dataset]
-                attributes = {attr: [] for attr in attribute_options.keys()}
-                attributes_dict[attribute_type][dataset] = attributes
-        else:
-            attribute_options = attribute_options[attribute_type]
-            attributes = {attr: [] for attr in attribute_options.keys()}
-            attributes_dict[attribute_type] = attributes
-    return attributes_dict
-
-
-def initialize_attributes_grouped(object_options):
-    """Initialize attributes lists for grouped objects."""
-    # First initialize attributes for member objects
-    attribute_options = object_options.attributes
-    member_options = object_options.attributes["member_objects"]
-    object_name = object_options.name
-    attributes_dict = {"member_objects": {}, object_name: {}}
-    member_attributes = attributes_dict["member_objects"]
-    for obj in member_options.keys():
-        member_types = member_options[obj].keys()
-        member_attributes[obj] = {t: {} for t in member_types}
-        for attribute_type in member_options[obj].keys():
-            if attribute_type == "tag" or attribute_type == "profile":
-                datasets = member_options[obj][attribute_type].keys()
-                member_attributes[obj][attribute_type] = {ds: {} for ds in datasets}
-                for dataset in datasets:
-                    attr_options = member_options[obj][attribute_type][dataset]
-                    attributes = {attr: [] for attr in attr_options.keys()}
-                    member_attributes[obj][attribute_type][dataset] = attributes
-            else:
-                attr_options = member_options[obj][attribute_type]
-                attributes = {attr: [] for attr in attr_options.keys()}
-                member_attributes[obj][attribute_type] = attributes
-    # Now initialize attributes for grouped object
-    obj = object_name
-    for attribute_type in attribute_options[obj].keys():
-        if attribute_type == "tag" or attribute_type == "profile":
-            datasets = attribute_options[obj][attribute_type].keys()
-            attributes_dict[obj][attribute_type] = {ds: {} for ds in datasets}
-            for dataset in datasets:
-                obj_attribute_options = attribute_options[obj]
-                attr_options = obj_attribute_options[attribute_type][dataset]
-                attributes = {attr: [] for attr in attr_options.keys()}
-                attributes_dict[obj][attribute_type][dataset] = attributes
-        else:
-            attr_options = attribute_options[obj][attribute_type]
-            attributes = {attr: [] for attr in attr_options.keys()}
-            attributes_dict[obj][attribute_type] = attributes
-    return attributes_dict
-
-
-def initialize_attributes(object_options):
-    """Initialize attributes lists for object tracks."""
-    if "detection" in object_options.model_fields:
-        init_func = initialize_attributes_detected
-    elif "grouping" in object_options.model_fields:
-        init_func = initialize_attributes_grouped
-    else:
-        message = "Object indentification method must be specified, i.e. "
-        message += "'detection' or 'grouping'."
-        raise ValueError(message)
-    return init_func(object_options)
 
 
 def attributes_dataframe(attributes, options):
