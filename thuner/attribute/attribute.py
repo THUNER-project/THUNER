@@ -150,6 +150,7 @@ def record_grouped(
 ):
     """Get object attributes."""
 
+    # Specify the keyword arguments common to all attribute retrieval functions
     kwargs = {"time": time, "input_records": input_records}
     kwargs.update({"object_tracks": object_tracks, "object_options": object_options})
     kwargs.update({"grid_options": grid_options})
@@ -161,11 +162,11 @@ def record_grouped(
         for attribute_type in member_attribute_options[obj].attribute_types:
             for attribute in attribute_type.attributes:
                 # Get the retrieval function for the attribute
-                func = attribute.retrieval.function
                 keyword_arguments = attribute.retrieval.keyword_arguments
-                func_kwargs = filter_arguments(func, kwargs)
+                func_kwargs = filter_arguments(attribute.retrieval.function, kwargs)
                 func_kwargs.update(keyword_arguments)
-                attr = func(**func_kwargs)
+                func_kwargs.update({"attribute": attribute})
+                attr = attribute.retrieval.function(**func_kwargs)
                 member_attributes[obj][attribute_type.name][attribute.name] = attr
 
     # Now get attributes of the grouped object

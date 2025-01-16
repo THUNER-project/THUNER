@@ -32,8 +32,8 @@ logger = setup_logger(__name__)
 def time_from_tracks(object_tracks, attribute: Attribute):
     """Get time from object tracks."""
     previous_time = object_tracks["previous_times"][-1]
-    array_length = len(object_tracks["previous_ids"])
-    times = np.array([previous_time for i in range(len(array_length))])
+    array_length = len(object_tracks["object_record"]["previous_ids"])
+    times = np.array([previous_time for i in range(array_length)])
     return times.astype(attribute.data_type)
 
 
@@ -446,9 +446,12 @@ def retrieve_core(attributes_list=[time, latitude, longitude], matched=True):
     else:
         attributes_list += [ids_record]
     # Replace retrieval for the core attributes with attribute_from_core function
+    new_attributes_list = []
     for attribute in attributes_list:
-        attribute.retrieval = Retrieval(function=utils.attribute_from_core)
-    return attributes_list
+        new_attribute = attribute.model_copy()
+        new_attribute.retrieval = Retrieval(function=utils.attribute_from_core)
+        new_attributes_list.append(new_attribute)
+    return new_attributes_list
 
 
 # Convenience functions for creating default core attribute options dictionaries
