@@ -117,26 +117,24 @@ def cv2_ellipse(mask, id, grid_options):
 
 
 def from_mask(
-    attributes,
-    attribute_options,
+    attribute_group,
     object_tracks,
     grid_options,
     member_object=None,
+    matched=True,
 ):
     """
     Get ellipse properties from object mask.
     """
-    mask = utils.get_previous_mask(attribute_options, object_tracks)
+    mask = utils.get_previous_mask(object_tracks, matched=matched)
     # If examining just a member of a grouped object, get masks for that object
     if member_object is not None and isinstance(mask, xr.Dataset):
         mask = mask[f"{member_object}_mask"]
 
-    if "universal_id" in attribute_options:
-        id_type = "universal_id"
-    elif "id" in attribute_options:
-        id_type = "id"
-
-    ids = attributes[id_type]
+    if matched:
+        ids = object_tracks["object_record"]["universal_ids"]
+    else:
+        ids = object_tracks["object_record"]["previous_ids"]
 
     all_names = ["latitude", "longitude", "major", "minor", "orientation"]
     all_names += ["eccentricity"]
@@ -147,7 +145,9 @@ def from_mask(
         for i, name in enumerate(all_names):
             all_attributes[name].append(ellipse_properties[i])
 
-    ellipse_attributes = {key: all_attributes[key] for key in all_attributes.keys()}
+    # Subset to just those attributes requested
+    names = [attr.name for attr in attribute_group.attributes]
+    ellipse_attributes = {key: all_attributes[key] for key in all_names if key in names}
     return ellipse_attributes
 
 
@@ -243,7 +243,7 @@ description = f"The eccentricity of the ellipse fit to the object mask."
 kwargs = {"name": "eccentricity", "description": description, "units": None}
 kwargs.update({"data_type": float, "precision": 4, "retrieval": None})
 eccentricity = Attribute(**kwargs)
-
+retrieval = Retrieval(function=from_mask, keyword_arguments={"matched": True})
 kwargs = {"name": "ellipse_fit", "retrieval": Retrieval(function=from_mask)}
 kwargs.update({"description": "Properties of ellipse fit to object mask."})
 attr_list = [latitude, longitude, major, minor, orientation, eccentricity]
@@ -251,10 +251,10 @@ kwargs.update({"attributes": attr_list})
 ellipse_fit = AttributeGroup(**kwargs)
 
 # Dispatch dictionary for getting core attributes
-get_attributes_dispatcher = {
-    "from_mask": from_mask,
-    "attribute_from_core": utils.attribute_from_core,
-}
+# get_attributes_dispatcher = {
+#     "from_mask": from_mask,
+#     "attribute_from_core": utils.attribute_from_core,
+# }
 
 
 # Convenience functions for creating default ellipse attribute type
@@ -303,63 +303,63 @@ def default(matched=True):
 # return attributes
 
 
-def record_ellipse(
-    attributes,
-    attribute_options,
-    object_tracks,
-    grid_options,
-    method,
-    member_object,
-):
-    """Record ellipse properties."""
-    method = utils.tuple_to_dict(method)
-    get_ellipse = get_attributes_dispatcher.get(method["function"])
-    if get_ellipse is None:
-        message = f"Function {method['function']} for obtaining ellipse properties "
-        message += "not recognised."
-        raise ValueError(message)
-    from_mask_args = [attributes, attribute_options, object_tracks, grid_options]
-    from_mask_args += [member_object]
-    args_dispatcher = {"from_mask": from_mask_args}
-    args = args_dispatcher[method["function"]]
-    ellipse = get_ellipse(*args)
-    attributes.update(ellipse)
+# def record_ellipse(
+#     attributes,
+#     attribute_options,
+#     object_tracks,
+#     grid_options,
+#     method,
+#     member_object,
+# ):
+#     """Record ellipse properties."""
+#     method = utils.tuple_to_dict(method)
+#     get_ellipse = get_attributes_dispatcher.get(method["function"])
+#     if get_ellipse is None:
+#         message = f"Function {method['function']} for obtaining ellipse properties "
+#         message += "not recognised."
+#         raise ValueError(message)
+#     from_mask_args = [attributes, attribute_options, object_tracks, grid_options]
+#     from_mask_args += [member_object]
+#     args_dispatcher = {"from_mask": from_mask_args}
+#     args = args_dispatcher[method["function"]]
+#     ellipse = get_ellipse(*args)
+#     attributes.update(ellipse)
 
 
-def record(
-    attributes,
-    object_tracks,
-    attribute_options,
-    grid_options,
-    member_object=None,
-):
-    """Get ellipse object attributes."""
-    # Get core attributes
-    previous_time = object_tracks["previous_times"][-1]
-    if previous_time is None:
-        return
-    core_attributes = ["time", "id", "universal_id"]
-    keys = attributes.keys()
-    core_attributes = [attr for attr in core_attributes if attr in keys]
-    remaining_attributes = [attr for attr in keys if attr not in core_attributes]
-    # Get the appropriate core attributes
-    for name in core_attributes:
-        attr_function = attribute_options[name]["method"]["function"]
-        get_attr = get_attributes_dispatcher.get(attr_function)
-        if get_attr is not None:
-            attr = get_attr(name, object_tracks, member_object)
-            attributes[name] += list(attr)
-        else:
-            message = f"Function {attr_function} for obtaining attribute {name} not recognised."
-            raise ValueError(message)
+# def record(
+#     attributes,
+#     object_tracks,
+#     attribute_options,
+#     grid_options,
+#     member_object=None,
+# ):
+#     """Get ellipse object attributes."""
+#     # Get core attributes
+#     previous_time = object_tracks["previous_times"][-1]
+#     if previous_time is None:
+#         return
+#     core_attributes = ["time", "id", "universal_id"]
+#     keys = attributes.keys()
+#     core_attributes = [attr for attr in core_attributes if attr in keys]
+#     remaining_attributes = [attr for attr in keys if attr not in core_attributes]
+#     # Get the appropriate core attributes
+#     for name in core_attributes:
+#         attr_function = attribute_options[name]["method"]["function"]
+#         get_attr = get_attributes_dispatcher.get(attr_function)
+#         if get_attr is not None:
+#             attr = get_attr(name, object_tracks, member_object)
+#             attributes[name] += list(attr)
+#         else:
+#             message = f"Function {attr_function} for obtaining attribute {name} not recognised."
+#             raise ValueError(message)
 
-    if attributes["time"] is None or len(attributes["time"]) == 0:
-        return
+#     if attributes["time"] is None or len(attributes["time"]) == 0:
+#         return
 
-    # Get profiles efficiently by processing attributes with same method together
-    ellipse_attributes = {key: attribute_options[key] for key in remaining_attributes}
-    grouped_by_method = utils.group_by_method(ellipse_attributes)
-    for method in grouped_by_method.keys():
-        args = [attributes, attribute_options, object_tracks, grid_options]
-        args += [method, member_object]
-        record_ellipse(*args)
+#     # Get profiles efficiently by processing attributes with same method together
+#     ellipse_attributes = {key: attribute_options[key] for key in remaining_attributes}
+#     grouped_by_method = utils.group_by_method(ellipse_attributes)
+#     for method in grouped_by_method.keys():
+#         args = [attributes, attribute_options, object_tracks, grid_options]
+#         args += [method, member_object]
+#         record_ellipse(*args)

@@ -60,18 +60,19 @@ def group_by_method(attributes):
     return grouped
 
 
-def attribute_from_core(name, object_tracks, member_object):
+def attribute_from_core(attribute, object_tracks, member_object):
     """Get attribute from core object properties."""
     # Check if grouped object
     object_name = object_tracks["name"]
     if object_name in object_tracks["current_attributes"]:
         if member_object is not None and member_object is not object_name:
             member_attr = object_tracks["current_attributes"]["member_objects"]
-            attr = member_attr[member_object]["core"][name]
+            attr = member_attr[member_object]["core"][attribute.name]
         else:
-            attr = object_tracks["current_attributes"][object_name]["core"][name]
+            core_attr = object_tracks["current_attributes"][object_name]["core"]
+            attr = core_attr[attribute.name]
     else:
-        attr = object_tracks["current_attributes"]["core"][name]
+        attr = object_tracks["current_attributes"]["core"][attribute.name]
     return attr
 
 

@@ -10,6 +10,46 @@ from thuner.option.attribute import Retrieval, Attribute, AttributeType
 logger = setup_logger(__name__)
 
 
+def overlap_from_mask(
+    input_records,
+    object_tracks,
+    object_options,
+    member_object=None,
+    matched=True,
+):
+    """Get boundary overlap from mask."""
+
+    if "dataset" not in object_options.model_fields:
+        raise ValueError("Dataset must be specified in object_options.")
+    object_dataset = object_options.dataset
+    input_record = input_records["track"][object_dataset]
+    boundary_mask = input_record["previous_boundary_masks"][-1]
+
+    mask = utils.get_previous_mask(object_tracks, matched=matched)
+    # If examining just a member of a grouped object, get masks for that object
+    if member_object is not None and isinstance(mask, xr.Dataset):
+        mask = mask[f"{member_object}_mask"]
+
+    areas = object_tracks["gridcell_area"]
+
+    if matched:
+        ids = object_tracks["object_record"]["universal_ids"]
+    else:
+        ids = object_tracks["object_record"]["previous_ids"]
+
+    overlaps = []
+    for obj_id in ids:
+        if boundary_mask is None:
+            overlaps.append(0)
+        else:
+            obj_mask = mask == obj_id
+            overlap = (obj_mask * boundary_mask) == True
+            area_fraction = areas.where(overlap).sum() / areas.where(obj_mask).sum()
+            overlaps.append(float(area_fraction.values))
+
+    return {"boundary_overlap": overlaps}
+
+
 # Convenience functions for defining default attribute options
 # def boundary_overlap():
 #     """
@@ -26,7 +66,8 @@ logger = setup_logger(__name__)
 
 
 kwargs = {"name": "boundary_overlap", "data_type": float, "precision": 4}
-kwargs.update({"description": "Fraction of object area comprised on boundary pixels."})
+kwargs.update({"description": "Fraction of object area comprised of boundary pixels."})
+kwargs.update({"retrieval": Retrieval(function=overlap_from_mask)})
 boundary_overlap = Attribute(**kwargs)
 
 
@@ -63,87 +104,39 @@ def default(matched=True):
 #     return attributes
 
 
-get_attributes_dispatcher = {"attribute_from_core": utils.attribute_from_core}
+# get_attributes_dispatcher = {"attribute_from_core": utils.attribute_from_core}
 
 
-def record_boundary_overlaps(
-    input_records,
-    attributes,
-    attribute_options,
-    object_tracks,
-    object_options,
-    member_object=None,
-):
-    """Get boundary overlap from mask."""
+# def record(
+#     input_records,
+#     attributes,
+#     object_tracks,
+#     object_options,
+#     attribute_options,
+#     member_object=None,
+# ):
+#     """Get group object attributes."""
+#     # Get core attributes
+#     core_attributes = ["time", "id", "universal_id"]
+#     keys = attributes.keys()
+#     core_attributes = [attr for attr in core_attributes if attr in keys]
+#     remaining_attributes = [attr for attr in keys if attr not in core_attributes]
+#     # Get the appropriate core attributes
+#     for name in core_attributes:
+#         attr_function = attribute_options[name]["method"]["function"]
+#         get_attr = get_attributes_dispatcher.get(attr_function)
+#         if get_attr is None:
+#             message = f"Function {attr_function} for obtaining attribute {name} not recognised."
+#             raise ValueError(message)
+#         # Should add an arguments dispatcher here
+#         attr = get_attr(name, object_tracks, member_object)
+#         attributes[name] += list(attr)
 
-    if "universal_id" in attributes.keys():
-        id_type = "universal_id"
-    elif "id" in attributes.keys():
-        id_type = "id"
-    else:
-        message = "No id attribute found in attributes."
-        raise ValueError(message)
-    ids = attributes[id_type]
+#     if attributes["time"] is None or len(attributes["time"]) == 0:
+#         return
 
-    if "dataset" not in object_options.model_fields:
-        message = "Dataset must be specified in object_options for which domain "
-        message += "boundary is defined."
-        raise ValueError(message)
-    object_dataset = object_options.dataset
-    input_record = input_records["track"][object_dataset]
-    boundary_mask = input_record["previous_boundary_masks"][-1]
-
-    mask = utils.get_previous_mask(attribute_options, object_tracks)
-    # If examining just a member of a grouped object, get masks for that object
-    if member_object is not None and isinstance(mask, xr.Dataset):
-        mask = mask[f"{member_object}_mask"]
-
-    areas = object_tracks["gridcell_area"]
-
-    overlaps = []
-    for obj_id in ids:
-        if boundary_mask is None:
-            overlaps.append(0)
-        else:
-            obj_mask = mask == obj_id
-            overlap = (obj_mask * boundary_mask) == True
-            area_fraction = areas.where(overlap).sum() / areas.where(obj_mask).sum()
-            overlaps.append(float(area_fraction.values))
-
-    boundary_overlaps = {"boundary_overlap": overlaps}
-    attributes.update(boundary_overlaps)
-
-
-def record(
-    input_records,
-    attributes,
-    object_tracks,
-    object_options,
-    attribute_options,
-    member_object=None,
-):
-    """Get group object attributes."""
-    # Get core attributes
-    core_attributes = ["time", "id", "universal_id"]
-    keys = attributes.keys()
-    core_attributes = [attr for attr in core_attributes if attr in keys]
-    remaining_attributes = [attr for attr in keys if attr not in core_attributes]
-    # Get the appropriate core attributes
-    for name in core_attributes:
-        attr_function = attribute_options[name]["method"]["function"]
-        get_attr = get_attributes_dispatcher.get(attr_function)
-        if get_attr is None:
-            message = f"Function {attr_function} for obtaining attribute {name} not recognised."
-            raise ValueError(message)
-        # Should add an arguments dispatcher here
-        attr = get_attr(name, object_tracks, member_object)
-        attributes[name] += list(attr)
-
-    if attributes["time"] is None or len(attributes["time"]) == 0:
-        return
-
-    # Get non-core attributes
-    if "boundary_overlap" in remaining_attributes:
-        args = [input_records, attributes, attribute_options, object_tracks]
-        args += [object_options, member_object]
-        record_boundary_overlaps(*args)
+#     # Get non-core attributes
+#     if "boundary_overlap" in remaining_attributes:
+#         args = [input_records, attributes, attribute_options, object_tracks]
+#         args += [object_options, member_object]
+#         record_boundary_overlaps(*args)

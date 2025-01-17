@@ -9,6 +9,7 @@ import pandas as pd
 from numba import njit, int32, float32
 from numba.typed import List
 from scipy.interpolate import interp1d
+import re
 import os
 import platform
 from pathlib import Path
@@ -17,6 +18,20 @@ from thuner.config import get_outputs_directory
 
 
 logger = setup_logger(__name__)
+
+
+def camel_to_snake(name):
+    """
+    Convert camel case string to snake case.
+
+    Parameters:
+    name (str): The camel case string to convert.
+
+    Returns:
+    str: The converted snake case string.
+    """
+    s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
+    return re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
 
 
 class SingletonBase:

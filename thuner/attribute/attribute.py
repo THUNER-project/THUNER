@@ -2,6 +2,7 @@
 
 from thuner.log import setup_logger
 from thuner.option.track import AnyObjectOptions
+from thuner.utils import camel_to_snake
 
 logger = setup_logger(__name__)
 
@@ -145,6 +146,23 @@ def filter_arguments(func, args):
 #     return argument_dispatcher[attributes_type]
 
 
+def retrieve_attribute(general_kwargs, attribute, member_object=None):
+    # Get the retrieval function and arguments for the attribute
+    keyword_arguments = attribute.retrieval.keyword_arguments
+    func_kwargs = general_kwargs.copy()
+    func_kwargs.update(keyword_arguments)
+    # Retrieval functions expect either "attribute" or "attribute_group"
+    # keyword arguments. Infer correct argument name from attribute type.
+    var_name = camel_to_snake(attribute.type)
+    func_kwargs.update({var_name: attribute, "member_object": member_object})
+    func = attribute.retrieval.function
+    # Filter out arguments not expected by the function
+    # Doing this here avoids cluttering retrieval function definitions
+    func_kwargs = filter_arguments(func, func_kwargs)
+    # Retrieve the attribute
+    return func(**func_kwargs)
+
+
 def record_grouped(
     time, input_records, object_tracks, object_options: AnyObjectOptions, grid_options
 ):
@@ -155,35 +173,37 @@ def record_grouped(
     kwargs.update({"object_tracks": object_tracks, "object_options": object_options})
     kwargs.update({"grid_options": grid_options})
 
-    # First get the attributes of each member object
+    # First get the attributes of each member object if relevant
     member_attribute_options = object_options.attributes.member_attributes
     member_attributes = object_tracks["current_attributes"]["member_objects"]
     for obj in member_attribute_options.keys():
         for attribute_type in member_attribute_options[obj].attribute_types:
             for attribute in attribute_type.attributes:
-                # Get the retrieval function for the attribute
-                keyword_arguments = attribute.retrieval.keyword_arguments
-                func_kwargs = filter_arguments(attribute.retrieval.function, kwargs)
-                func_kwargs.update(keyword_arguments)
-                func_kwargs.update({"attribute": attribute})
-                attr = attribute.retrieval.function(**func_kwargs)
+                attr = retrieve_attribute(kwargs, attribute, member_object=obj)
                 member_attributes[obj][attribute_type.name][attribute.name] = attr
 
     # Now get attributes of the grouped object
-    obj = list(object_options.attributes.keys() - {"member_objects"})[0]
+    obj = object_options.attributes.name
     obj_attributes = object_tracks["current_attributes"][obj]
     for attributes_type in obj_attributes.keys():
-        attribute_options = object_options.attributes[obj][attributes_type]
-        attributes = obj_attributes[attributes_type]
-        record_func = record_dispatcher[attributes_type]
-        args = [input_records, attributes, object_tracks, object_options]
-        args += [attribute_options, grid_options, obj]
-        args = get_record_arguments(attributes_type, *args)
-        record_func(*args)
+        for attribute in attribute_type.attributes:
+            attr = retrieve_attribute(kwargs, attribute)
+            obj_attributes[attributes_type][attribute.name] = attr
 
 
-def record_detected(time, input_records, object_tracks, object_options, grid_options):
+def record_detected(
+    time, input_records, object_tracks, object_options: AnyObjectOptions, grid_options
+):
     """Get detected object attributes."""
+
+    # Now get attributes of the grouped object
+    obj = object_options.attributes.name
+    obj_attributes = object_tracks["current_attributes"][obj]
+    for attributes_type in obj_attributes.keys():
+        for attribute in attribute_type.attributes:
+            attr = retrieve_attribute(kwargs, attribute)
+            obj_attributes[attributes_type][attribute.name] = attr
+
     all_attribute_options = object_options.attributes
     # Get the object attributes of each type, e.g. core, tag, profile
     for attributes_type in all_attribute_options.keys():
