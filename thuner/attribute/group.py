@@ -16,10 +16,9 @@ from thuner.option.attribute import Retrieval, Attribute, AttributeType, Attribu
 logger = setup_logger(__name__)
 
 
-def offset_from_centers(name, object_tracks, attribute_options):
+def offset_from_centers(object_tracks, attribute_group: AttributeGroup, objects):
     """Calculate offset between object centers."""
     member_attributes = object_tracks["current_attributes"]["member_objects"]
-    objects = attribute_options[name]["method"]["args"]["objects"]
     grouped_object = object_tracks["name"]
     if len(objects) != 2:
         raise ValueError("Offset calculation requires two objects.")
@@ -48,26 +47,11 @@ def offset_from_centers(name, object_tracks, attribute_options):
     y_offsets, x_offsets = grid.geographic_to_cartesian_displacement(*args)
     # Convert to km
     y_offsets, x_offsets = y_offsets / 1000, x_offsets / 1000
-    return y_offsets, x_offsets
+    data_type = attribute_group.attributes[0].data_type
+    y_offsets = y_offsets.astype(data_type).tolist()
+    x_offsets = x_offsets.astype(data_type).tolist()
+    return {"y_offset": y_offsets, "x_offset": x_offsets}
 
-
-# Convenience functions for defining default attribute options
-# def offset(name, method=None, description=None):
-#     """
-#     Specify options for a core property, typically obtained from the matching process.
-#     """
-#     data_type = float
-#     precision = 1
-#     units = "km"
-#     if method is None:
-#         method = {"function": "offset_from_centers"}
-#         # List objects to calculate offset between, with the offset vector pointing
-#         # from the first object in the list to the second object
-#         method["args"] = {"objects": ["convective", "anvil"]}
-#     if description is None:
-#         description = f"{name} of one member object center from another."
-#     args = [name, method, data_type, precision, description, units]
-#     return utils.get_attribute_dict(*args)
 
 kwargs = {"name": "x_offset", "data_type": float, "precision": 1, "units": "km"}
 description = " offset of one object from another in km."
@@ -95,89 +79,3 @@ def default(matched=True):
     kwargs.update({"description": description})
 
     return AttributeType(**kwargs)
-
-
-# def default(names=None, matched=True):
-#     """Create a dictionary of default attribute options of grouped objects."""
-
-#     if names is None:
-#         names = ["time", "latitude", "longitude", "x_offset", "y_offset"]
-#     if matched:
-#         id_type = "universal_id"
-#     else:
-#         id_type = "id"
-#     names += [id_type]
-#     core_method = {"function": "attribute_from_core"}
-#     attributes = {}
-#     # Reuse core attributes, just replace the default functions method
-#     attributes["time"] = core.time(method=core_method)
-#     attributes["latitude"] = core.coordinate("latitude", method=core_method)
-#     attributes["longitude"] = core.coordinate("longitude", method=core_method)
-#     attributes[id_type] = core.identity(id_type, method=core_method)
-#     attributes["x_offset"] = offset("x_offset")
-#     attributes["y_offset"] = offset("y_offset")
-
-#     return attributes
-
-
-# Functions for obtaining and recording attributes
-
-
-get_attributes_dispatcher = {
-    "attribute_from_core": utils.attribute_from_core,
-    "offset_from_centers": offset_from_centers,
-}
-
-
-def record_offsets(attributes, attribute_options, object_tracks):
-    """Record offset."""
-    keys = attributes.keys()
-    if "x_offset" not in keys or "y_offset" not in keys:
-        message = "Both x_offset and y_offset must be specified."
-        raise ValueError(message)
-    get_offsets_function = attribute_options["x_offset"]["method"]["function"]
-    y_get_offsets_function = attribute_options["y_offset"]["method"]["function"]
-    if get_offsets_function != y_get_offsets_function:
-        message = "Functions for acquring y_offset and x_offset must be the same."
-        raise ValueError(message)
-    get_offsets = get_attributes_dispatcher.get(get_offsets_function)
-    if get_offsets is None:
-        message = f"Function {get_offsets_function} for obtaining x_offset and y_offset not recognised."
-        raise ValueError(message)
-
-    offset_args = ["y_offset", object_tracks, attribute_options]
-    args_dispatcher = {"offset_from_centers": offset_args}
-    args = args_dispatcher[get_offsets_function]
-    y_offsets, x_offsets = get_offsets(*args)
-    attributes["y_offset"] += list(y_offsets)
-    attributes["x_offset"] += list(x_offsets)
-
-
-def record(
-    attributes,
-    object_tracks,
-    attribute_options,
-    member_object=None,
-):
-    """Get group object attributes."""
-    # Get core attributes
-    core_attributes = ["time", "id", "universal_id", "latitude", "longitude"]
-    core_attributes += ["u_flow", "v_flow", "u_displacement", "v_displacement"]
-    keys = attributes.keys()
-    core_attributes = [attr for attr in core_attributes if attr in keys]
-    # Get the appropriate core attributes
-    for name in core_attributes:
-        attr_function = attribute_options[name]["method"]["function"]
-        get_attr = get_attributes_dispatcher.get(attr_function)
-        if get_attr is None:
-            message = f"Function {attr_function} for obtaining attribute {name} not recognised."
-            raise ValueError(message)
-        attr = get_attr(name, object_tracks, member_object)
-        attributes[name] += list(attr)
-
-    if attributes["time"] is None or len(attributes["time"]) == 0:
-        return
-
-    # Get non-core attributes
-    if "x_offset" in keys and "y_offset" in keys:
-        record_offsets(attributes, attribute_options, object_tracks)

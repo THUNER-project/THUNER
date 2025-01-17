@@ -45,24 +45,9 @@ def overlap_from_mask(
             obj_mask = mask == obj_id
             overlap = (obj_mask * boundary_mask) == True
             area_fraction = areas.where(overlap).sum() / areas.where(obj_mask).sum()
-            overlaps.append(float(area_fraction.values))
+            overlaps.append(float(area_fraction))
 
     return {"boundary_overlap": overlaps}
-
-
-# Convenience functions for defining default attribute options
-# def boundary_overlap():
-#     """
-#     Options for the boundary_overlap fraction attribute.
-#     """
-#     name = "boundary_overlap"
-#     method = None
-#     data_type = float
-#     precision = 4
-#     units = None
-#     description = "Fraction of object area comprised on boundary pixels."
-#     args = [name, method, data_type, precision, description, units]
-#     return utils.get_attribute_dict(*args)
 
 
 kwargs = {"name": "boundary_overlap", "data_type": float, "precision": 4}
@@ -72,71 +57,16 @@ boundary_overlap = Attribute(**kwargs)
 
 
 # Convenience functions for creating default ellipse attribute type
-def default(matched=True):
+def default(matched=True, member_object=None):
     """Create the default quality attribute type."""
 
+    # Copy boundary overlap and add the appropriate member object argument
+    new_boundary_overlap = boundary_overlap.model_copy(deep=True)
+    new_boundary_overlap.retrieval.keyword_arguments["member_object"] = member_object
     attributes_list = core.retrieve_core(attributes_list=[core.time], matched=matched)
-    attributes_list.append(boundary_overlap)
+    attributes_list.append(new_boundary_overlap)
     description = "Attributes associated with quality control, e.g. boundary overlap."
     kwargs = {"name": "quality", "attributes": attributes_list}
     kwargs.update({"description": description})
 
     return AttributeType(**kwargs)
-
-
-# def default(names=None, matched=True):
-#     """Create a dictionary of default quality control attribute options."""
-
-#     if names is None:
-#         names = ["time", "boundary_overlap"]
-#     if matched:
-#         id_type = "universal_id"
-#     else:
-#         id_type = "id"
-#     core_method = {"function": "attribute_from_core"}
-#     attributes = {}
-#     # Reuse core attributes, just replace the default functions method
-#     attributes["time"] = core.time(method=core_method)
-#     attributes[id_type] = core.identity(id_type, method=core_method)
-#     if "boundary_overlap" in names:
-#         attributes["boundary_overlap"] = boundary_overlap()
-
-#     return attributes
-
-
-# get_attributes_dispatcher = {"attribute_from_core": utils.attribute_from_core}
-
-
-# def record(
-#     input_records,
-#     attributes,
-#     object_tracks,
-#     object_options,
-#     attribute_options,
-#     member_object=None,
-# ):
-#     """Get group object attributes."""
-#     # Get core attributes
-#     core_attributes = ["time", "id", "universal_id"]
-#     keys = attributes.keys()
-#     core_attributes = [attr for attr in core_attributes if attr in keys]
-#     remaining_attributes = [attr for attr in keys if attr not in core_attributes]
-#     # Get the appropriate core attributes
-#     for name in core_attributes:
-#         attr_function = attribute_options[name]["method"]["function"]
-#         get_attr = get_attributes_dispatcher.get(attr_function)
-#         if get_attr is None:
-#             message = f"Function {attr_function} for obtaining attribute {name} not recognised."
-#             raise ValueError(message)
-#         # Should add an arguments dispatcher here
-#         attr = get_attr(name, object_tracks, member_object)
-#         attributes[name] += list(attr)
-
-#     if attributes["time"] is None or len(attributes["time"]) == 0:
-#         return
-
-#     # Get non-core attributes
-#     if "boundary_overlap" in remaining_attributes:
-#         args = [input_records, attributes, attribute_options, object_tracks]
-#         args += [object_options, member_object]
-#         record_boundary_overlaps(*args)

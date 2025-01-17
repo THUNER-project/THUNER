@@ -100,27 +100,16 @@ class AttributeType(BaseOptions):
     dataset: str | None = Field(None, description=_summary["dataset"])
 
 
-class DetectedObjectAttributes(BaseOptions):
-    """
-    Container for the attributes of a given object.
-    """
-
-    name: str = Field(..., description="Name of the detected object.")
-    attribute_types: list[AttributeType] = Field(
-        ..., description=_summary["attribute_types"]
-    )
-
-
 _summary = {
     "member_names": "Names of member objects comprising the grouped object.",
     "attribute_types": "Attribute types of the grouped object.",
     "member_attributes": "List of object attributes for the member objects.",
 }
 
-AttributesDict = dict[str, Union[DetectedObjectAttributes, "GroupedObjectAttributes"]]
+AttributesDict = dict[str, "Attributes"]
 
 
-class GroupedObjectAttributes(BaseOptions):
+class Attributes(BaseOptions):
     """
     Container for the attributes of a grouped object.
     """
@@ -132,6 +121,3 @@ class GroupedObjectAttributes(BaseOptions):
     member_attributes: AttributesDict | None = Field(
         None, description=_summary["member_attributes"]
     )
-
-
-AnyAttributes = DetectedObjectAttributes | GroupedObjectAttributes

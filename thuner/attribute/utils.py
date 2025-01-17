@@ -73,7 +73,7 @@ def attribute_from_core(attribute, object_tracks, member_object):
             attr = core_attr[attribute.name]
     else:
         attr = object_tracks["current_attributes"]["core"][attribute.name]
-    return attr
+    return {attribute.name: attr}
 
 
 def attributes_dataframe(attributes, options):

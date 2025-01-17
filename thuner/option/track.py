@@ -4,7 +4,7 @@ import numpy as np
 from typing import Dict, List, Annotated
 from pydantic import Field, field_validator, model_validator
 from thuner.log import setup_logger
-from thuner.option.attribute import GroupedObjectAttributes, DetectedObjectAttributes
+from thuner.option.attribute import Attributes
 from thuner.option.utils import BaseOptions
 
 
@@ -160,9 +160,7 @@ class DetectedObjectOptions(BaseObjectOptions):
         DetectionOptions(method="steiner"), description=_summary["detection"]
     )
     tracking: BaseOptions | None = Field(TintOptions(), description="Tracking options.")
-    attributes: DetectedObjectAttributes | None = Field(
-        None, description=_summary["attributes"]
-    )
+    attributes: Attributes | None = Field(None, description=_summary["attributes"])
 
 
 # Define a custom type with constraints
@@ -209,9 +207,7 @@ class GroupedObjectOptions(BaseObjectOptions):
         GroupingOptions(), description=_summary["grouping"]
     )
     tracking: AnyTrackingOptions = Field(MintOptions(), description="Tracking options.")
-    attributes: GroupedObjectAttributes | None = Field(
-        None, description=_summary["attributes"]
-    )
+    attributes: Attributes | None = Field(None, description=_summary["attributes"])
 
 
 AnyObjectOptions = DetectedObjectOptions | GroupedObjectOptions

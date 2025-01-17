@@ -9,6 +9,10 @@ import numpy as np
 import contextlib
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
+import os
+
+# Set the environment variable to turn off the pyart welcome message
+os.environ["PYART_QUIET"] = "True"
 import pyart.graph.cm_colorblind as pcm
 import thuner.visualize.utils as utils
 from thuner.log import setup_logger

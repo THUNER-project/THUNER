@@ -43,21 +43,22 @@ def mcs(tracking_dataset="cpol", profile_dataset="era5_pl", tag_dataset="era5_sl
     core_untracked = core.default(tracked=False)
 
     # Assume the first member object is used for tracking.
-    attribute_types = [core_tracked, quality.default(), ellipse.default()]
+    obj = member_objects[0]
+    attribute_types = [core_tracked, quality.default(member_object=obj)]
+    attribute_types += [ellipse.default()]
     kwargs = {"name": member_objects[0], "attribute_types": attribute_types}
-    attributes = option.track.DetectedObjectAttributes(**kwargs)
-    member_attributes = {member_objects[0]: attributes}
+    attributes = option.track.Attributes(**kwargs)
+    member_attributes = {obj: attributes}
     for obj in member_objects[1:]:
-        attribute_types = [core_untracked, quality.default()]
+        attribute_types = [core_untracked, quality.default(member_object=obj)]
         kwargs = {"name": obj, "attribute_types": attribute_types}
-        member_attributes[obj] = option.track.DetectedObjectAttributes(**kwargs)
+        member_attributes[obj] = option.track.Attributes(**kwargs)
 
-    attribute_types = [core_tracked, ellipse.default(), quality.default()]
-    attribute_types += [group.default()]
+    attribute_types = [core_tracked, group.default()]
     attribute_types += [profile.default(profile_dataset), tag.default(tag_dataset)]
     kwargs = {"name": "mcs", "attribute_types": attribute_types}
     kwargs.update({"member_attributes": member_attributes})
-    attributes = option.track.GroupedObjectAttributes(**kwargs)
+    attributes = option.attribute.Attributes(**kwargs)
 
     kwargs = {"name": name, "dataset": tracking_dataset, "grouping": grouping}
     kwargs.update({"tracking": tracking, "attributes": attributes})

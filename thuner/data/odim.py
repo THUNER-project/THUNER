@@ -1,5 +1,9 @@
 """Process ODIM data."""
 
+import os
+
+# Set the environment variable to turn off the pyart welcome message
+os.environ["PYART_QUIET"] = "True"
 import pyart
 from thuner.log import setup_logger
 import thuner.data.utils as utils
