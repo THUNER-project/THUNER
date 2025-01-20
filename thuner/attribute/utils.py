@@ -5,6 +5,7 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 from collections import defaultdict
+from thuner.option.attribute import AttributeGroup, AttributeType
 from thuner.log import setup_logger
 
 logger = setup_logger(__name__)
@@ -17,15 +18,6 @@ string_to_data_type = {
     "bool": bool,
     "str": str,
 }
-
-
-def get_attribute_dict(name, method, data_type, precision, description, units):
-    """Create a dictionary of attribute options."""
-    attribute_dict = {}
-    attribute_dict.update({"name": name, "method": method, "data_type": data_type})
-    attribute_dict.update({"precision": precision, "description": description})
-    attribute_dict.update({"units": units})
-    return attribute_dict
 
 
 def get_previous_mask(object_tracks, matched=False):
@@ -76,17 +68,21 @@ def attribute_from_core(attribute, object_tracks, member_object):
     return {attribute.name: attr}
 
 
-def attributes_dataframe(attributes, options):
+def attributes_dataframe(recorded_attributes, attribute_type):
     """Create a pandas DataFrame from object attributes dictionary."""
-    data_types = {name: options[name]["data_type"] for name in options.keys()}
-    df = pd.DataFrame(attributes).astype(data_types)
-    if "universal_id" in attributes.keys():
+
+    data_types = get_data_type_dict(attribute_type)
+    data_types.pop("time")
+    df = pd.DataFrame(recorded_attributes).astype(data_types)
+    if "universal_id" in recorded_attributes.keys():
         id_index = "universal_id"
     else:
         id_index = "id"
     multi_index = ["time", id_index]
-    if "altitude" in attributes.keys():
+    if "altitude" in recorded_attributes.keys():
         multi_index.append("altitude")
+    if "time_offset" in recorded_attributes.keys():
+        multi_index.append("time_offset")
     df.set_index(multi_index, inplace=True)
     df.sort_index(inplace=True)
     return df
@@ -181,18 +177,28 @@ def read_attribute_csv(filepath, attribute_options=None, columns=None, times=Non
     return df
 
 
-def get_precision_dict(attribute_options):
+def get_precision_dict(attribute_type: AttributeType):
     """Get precision dictionary for attribute options."""
     precision_dict = {}
-    for key in attribute_options.keys():
-        if attribute_options[key]["data_type"] == float:
-            precision_dict[key] = attribute_options[key]["precision"]
+    for attribute in attribute_type.attributes:
+        if isinstance(attribute, AttributeGroup):
+            for attr in attribute.attributes:
+                if attr.data_type == float:
+                    precision_dict[attr.name] = attr.precision
+        else:
+            if attribute.data_type == float:
+                precision_dict[attribute.name] = attribute.precision
     return precision_dict
 
 
-def get_data_type_dict(attribute_options):
+def get_data_type_dict(attribute_type: AttributeType):
     """Get precision dictionary for attribute options."""
     data_type_dict = {}
-    for key in attribute_options.keys():
-        data_type_dict[key] = attribute_options[key]["data_type"]
+    for attribute in attribute_type.attributes:
+        if isinstance(attribute, AttributeGroup):
+            # If the attribute is a group, get data type for each attribute in group
+            for attr in attribute.attributes:
+                data_type_dict[attr.name] = attr.data_type
+        else:
+            data_type_dict[attribute.name] = attribute.data_type
     return data_type_dict

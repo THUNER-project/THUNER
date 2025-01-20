@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from pydantic import Field
-from thuner.attribute.utils import read_attribute_csv, get_attribute_dict
+from thuner.attribute.utils import read_attribute_csv
 import thuner.analyze.utils as utils
 import thuner.write as write
 import thuner.attribute as attribute

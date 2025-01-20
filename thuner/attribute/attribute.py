@@ -56,8 +56,9 @@ def filter_arguments(func, args):
 
 def retrieve_attribute(general_kwargs, attribute, member_object=None):
     # Get the retrieval function and arguments for the attribute
-    keyword_arguments = attribute.retrieval.keyword_arguments
     func_kwargs = general_kwargs.copy()
+
+    keyword_arguments = attribute.retrieval.keyword_arguments
     func_kwargs.update(keyword_arguments)
     # Retrieval functions expect either "attribute" or "attribute_group"
     # keyword arguments. Infer correct argument name from attribute type.

@@ -6,6 +6,7 @@ import thuner.attribute.utils as utils
 import thuner.write.attribute as attribute
 from thuner.utils import format_time
 from thuner.log import setup_logger
+from thuner.option.attribute import Attribute, AttributeType
 
 logger = setup_logger(__name__)
 
@@ -33,31 +34,19 @@ def write(input_record, output_directory):
     csv_filepath = csv_filepath / f"{name}/{last_write_str}.csv"
     csv_filepath.parent.mkdir(parents=True, exist_ok=True)
 
-    method = None
-    data_type = str
-    precision = None
-    units = None
-
-    attribute_options = {}
     filepaths = input_record["filepath_list"]
     times = input_record["time_list"]
-
-    description = f"Filepath to {name} data containing the given time."
     filepaths_df = pd.DataFrame({"time": times, name: filepaths})
-    args = [name, method, data_type, precision, description, units]
-    attribute_options[name] = utils.get_attribute_dict(*args)
-    args = ["time", None, np.datetime64, None, "Time.", "UTC"]
-    attribute_options["time"] = utils.get_attribute_dict(*args)
-    precision_dict = utils.get_precision_dict(attribute_options)
-    filepaths_df = filepaths_df.round(precision_dict)
     filepaths_df = filepaths_df.sort_index()
     # Make filepath parent directory if it doesn't exist
     csv_filepath.parent.mkdir(parents=True, exist_ok=True)
+
     logger.debug("Writing attribute dataframe to %s", csv_filepath)
     filepaths_df.set_index("time", inplace=True)
     filepaths_df.sort_index(inplace=True)
     filepaths_df.to_csv(csv_filepath, na_rep="NA")
     input_record["last_write_time"] = last_write_time + write_interval
+
     # Empty mask_list after writing
     input_record["time_list"] = []
     input_record["filepath_list"] = []
@@ -80,13 +69,20 @@ def aggregate(track_input_records, output_directory, clean_up=True):
     for input_record in track_input_records.values():
         if "filepath_list" not in input_record.keys():
             continue
-        attribute_options = {}
         name = input_record["name"]
         directory = output_directory / f"records/filepaths/{name}"
-        description = f"Filepath to {name} data containing the given time."
-        args = [name, None, str, None, description, None]
-        attribute_options[name] = utils.get_attribute_dict(*args)
+
         description = "Time taken from the tracking process."
-        args = ["time", None, "datetime64[s]", None, description, None]
-        attribute_options["time"] = utils.get_attribute_dict(*args)
-        attribute.aggregate_directory(directory, name, attribute_options, clean_up)
+        kwargs = {"name": "time", "data_type": np.datetime64}
+        kwargs.update({"description": description, "units": "UTC"})
+        time_attr = Attribute(**kwargs)
+
+        description = f"Filepath to {name} data containing the given time."
+        kwargs = {"name": name, "data_type": "str", "description": description}
+        filepaths_attr = Attribute(**kwargs)
+
+        kwargs = {"name": "filepath", "description": "Filepath to the data."}
+        kwargs.update({"attributes": [time_attr, filepaths_attr]})
+        attribute_type = AttributeType(**kwargs)
+
+        attribute.aggregate_directory(directory, name, attribute_type, clean_up)

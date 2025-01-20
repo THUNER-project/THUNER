@@ -15,22 +15,23 @@ def setup_interp(
 ):
     # previous timestep.
     name = object_tracks["name"]
-    names = [attr.name for attr in attribute_group.attributes]
+    excluded = ["time", "id", "universal_id", "latitude", "longitude", "altitude"]
+    excluded += ["time_offset"]
+    attributes = attribute_group.attributes
+    names = [attr.name for attr in attributes if attr.name not in excluded]
     tag_input_records = input_records["tag"]
     previous_time = object_tracks["previous_times"][-1]
 
     # Get object centers
     if member_object is None:
-        recorded_attributes = object_tracks["current_attributes"][name]["core"]
+        core_attributes = object_tracks["current_attributes"][name]["core"]
     else:
-        recorded_attributes = object_tracks["current_attributes"]["member_objects"]
-        recorded_attributes = recorded_attributes[member_object]["core"]
-    lats = recorded_attributes["latitude"]
-    lons = recorded_attributes["longitude"]
+        core_attributes = object_tracks["current_attributes"]["member_objects"]
+        core_attributes = core_attributes[member_object]["core"]
 
     ds = tag_input_records[dataset]["dataset"]
     ds["longitude"] = ds["longitude"] % 360
-    return name, names, lats, lons, ds, previous_time
+    return name, names, ds, core_attributes, previous_time
 
 
 # Functions for obtaining and recording attributes
@@ -53,10 +54,11 @@ def from_centers(
     # Note the attributes being recorded correspond to objects identified in the
     # previous timestep.
     args = [attribute_group, input_records, object_tracks, dataset, member_object]
-    name, names, lats, lons, ds, previous_time = setup_interp(*args)
+    name, names, ds, core_attributes, previous_time = setup_interp(*args)
     tags = ds[names]
-    lats_da = xr.DataArray(lats, dims="points")
-    lons_da = xr.DataArray(lons, dims="points")
+    lats_da = xr.DataArray(core_attributes["latitude"], dims="points")
+    lons_da = xr.DataArray(core_attributes["longitude"], dims="points")
+    previous_time = object_tracks["previous_times"][-1]
 
     # Convert object lons to 0-360
     lons_da = lons_da % 360
@@ -97,7 +99,7 @@ def default(dataset, matched=True):
     new_tag_center.retrieval.keyword_arguments.update({"dataset": dataset})
     attributes_list += [new_tag_center]
     description = "Tag attributes, e.g. cape and cin."
-    kwargs = {"name": "tag", "attributes": attributes_list}
+    kwargs = {"name": f"{dataset}_tag", "attributes": attributes_list}
     kwargs.update({"description": description})
 
     return AttributeType(**kwargs)

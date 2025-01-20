@@ -6,12 +6,13 @@ import shutil
 import copy
 from pathlib import Path
 import numpy as np
-import xarray as xr
 import pandas as pd
-import multiprocessing
 from thuner.utils import format_time
 from thuner.log import setup_logger
 import thuner.attribute.utils as utils
+from thuner.attribute.attribute import initialize_attributes
+from thuner.option.track import AnyObjectOptions
+from thuner.option.attribute import AttributeType
 
 logger = setup_logger(__name__)
 data_type_to_string = {v: k for k, v in utils.string_to_data_type.items()}
@@ -51,78 +52,69 @@ def write_attributes(directory, last_write_str, attributes, attribute_options):
     df.to_csv(filepath, na_rep="NA")
 
 
-def write_attribute_type(
-    base_directory, last_write_str, attribute_type, attributes, attribute_options
-):
+# def write_attribute_type(
+#     base_directory, last_write_str, attribute_type, attributes, attribute_options
+# ):
+#     """Write attributes to file."""
+#     if attribute_type == "tag" or attribute_type == "profile":
+#         for dataset in attributes.keys():
+#             # For tag and profile attributes, additional layer of nesting by dataset
+#             directory = base_directory / f"{dataset}/{attribute_type}"
+#             attr = attributes[dataset]
+#             attr_options = attribute_options[dataset]
+#             write_attributes(directory, last_write_str, attr, attr_options)
+# else:
+
+
+# def write_detected(object_tracks, object_options: AnyObjectOptions, output_directory):
+#     """
+#     Write detected object attributes to file.
+#     """
+
+#     if object_options.attributes is None:
+#         return
+
+#     args = [object_tracks, object_options, output_directory]
+#     base_directory, last_write_str = write_setup(*args)
+
+#     for attribute_type in object_options.attributes.attribute_types:
+#         recorded_attributes = object_tracks["attributes"][attribute_type.name]
+#         args = [base_directory, last_write_str, attribute_type, recorded_attributes]
+#         # write_attribute_type(*args)
+
+
+# def write_grouped(object_tracks, object_options: AnyObjectOptions, output_directory):
+#     """
+#     Write grouped object attributes to file.
+#     """
+
+
+def write(object_tracks, object_options: AnyObjectOptions, output_directory):
     """Write attributes to file."""
-    if attribute_type == "tag" or attribute_type == "profile":
-        for dataset in attributes.keys():
-            # For tag and profile attributes, additional layer of nesting by dataset
-            directory = base_directory / f"{dataset}/{attribute_type}"
-            attr = attributes[dataset]
-            attr_options = attribute_options[dataset]
-            write_attributes(directory, last_write_str, attr, attr_options)
-    else:
-        directory = base_directory / f"{attribute_type}"
-        write_attributes(directory, last_write_str, attributes, attribute_options)
 
+    if object_options.attributes is None:
+        return
 
-def write_detected(object_tracks, object_options, output_directory):
-    """
-    Write detected object attributes to file.
-    """
-    args = [object_tracks, object_options, output_directory]
-    base_directory, last_write_str = write_setup(*args)
-
-    for attribute_type in object_options.attributes.keys():
-        attributes = object_tracks["attributes"][attribute_type]
-        options = object_options.attributes[attribute_type]
-        write_attribute_type(
-            base_directory, last_write_str, attribute_type, attributes, options
-        )
-
-
-def write_grouped(object_tracks, object_options, output_directory):
-    """
-    Write grouped object attributes to file.
-    """
     write_args = [object_tracks, object_options, output_directory]
     base_directory, last_write_str = write_setup(*write_args)
-    # Write member object attributes
-    member_options = object_options.attributes["member_objects"]
-    member_attributes = object_tracks["attributes"]["member_objects"]
-    for obj in member_options.keys():
-        for attribute_type in member_attributes[obj].keys():
-            directory = base_directory / f"{obj}/"
-            attributes = member_attributes[obj][attribute_type]
-            options = member_options[obj][attribute_type]
-            args = [directory, last_write_str, attribute_type, attributes, options]
-            write_attribute_type(*args)
-    # Write grouped object attributes
-    obj_attr_options = object_options.attributes[object_options.name]
+    member_attribute_options = object_options.attributes.member_attributes
+    if member_attribute_options is not None:
+        # Write member object attributes
+        recorded_member_attr = object_tracks["attributes"]["member_objects"]
+        for obj in member_attribute_options.keys():
+            for attribute_type in member_attribute_options[obj].attribute_types:
+                directory = base_directory / f"{obj}" / f"{attribute_type.name}/"
+                rec_attr = recorded_member_attr[obj][attribute_type.name]
+                write_attributes(directory, last_write_str, rec_attr, attribute_type)
+    # Write object attributes
     obj_attr = object_tracks["attributes"][object_options.name]
-    for attribute_type in obj_attr.keys():
-        attributes = obj_attr[attribute_type]
-        options = obj_attr_options[attribute_type]
-        args = [base_directory, last_write_str, attribute_type, attributes, options]
-        write_attribute_type(*args)
+    for attribute_type in object_options.attributes.attribute_types:
+        attributes = obj_attr[attribute_type.name]
+        directory = base_directory / f"{attribute_type.name}"
+        write_attributes(directory, last_write_str, attributes, attribute_type)
 
-
-def write(object_tracks, object_options, output_directory):
-    """Write attributes to file."""
-
-    if "detection" in object_options.model_fields:
-        write_func = write_detected
-    elif "grouping" in object_options.model_fields:
-        write_func = write_grouped
-    else:
-        message = "Object indentification method must be specified, i.e. "
-        message += "'detection' or 'grouping'."
-        raise ValueError(message)
-
-    write_func(object_tracks, object_options, output_directory)
     # Reset attributes lists after writing
-    object_tracks["attributes"] = utils.initialize_attributes(object_options)
+    object_tracks["attributes"] = initialize_attributes(object_options)
 
 
 def write_final(tracks, track_options, output_directory):
@@ -148,13 +140,13 @@ def write_metadata(filepath, attribute_options):
         yaml.dump(formatted_options, outfile, **args)
 
 
-def write_csv(filepath, df, attribute_options=None):
+def write_csv(filepath, df, attribute_type=None):
     """Write attribute dataframe to csv."""
-    if attribute_options is None:
+    if attribute_type is None:
         df.to_csv(filepath, na_rep="NA")
         logger.debug("No attributes metadata provided. Writing csv without metadata.")
         return
-    precision_dict = utils.get_precision_dict(attribute_options)
+    precision_dict = utils.get_precision_dict(attribute_type)
     df = df.round(precision_dict)
     df = df.sort_index()
     # Make filepath parent directory if it doesn't exist
@@ -165,22 +157,22 @@ def write_csv(filepath, df, attribute_options=None):
     return df
 
 
-def aggregate_directory(directory, attribute_type, attribute_options, clean_up):
+def aggregate_directory(directory, attribute_type: AttributeType, clean_up=True):
     """Aggregate attribute files within a directory into single file."""
     filepaths = glob.glob(str(directory / "*.csv"))
     df_list = []
     index_cols = ["time"]
-    if "universal_id" in attribute_options.keys():
+    names = [attr.name for attr in attribute_type.attributes]
+    if "universal_id" in names:
         index_cols += ["universal_id"]
-    elif "id" in attribute_options.keys():
+    elif "id" in names:
         index_cols += ["id"]
 
-    data_types = utils.get_data_type_dict(attribute_options)
-
+    data_types = utils.get_data_type_dict(attribute_type)
     time_attrs = []
-    for attr in attribute_options.keys():
-        if attribute_options[attr]["data_type"] == "datetime64[s]":
-            time_attrs.append(attr)
+    for name in data_types.keys():
+        if data_types[name] == "datetime64[s]":
+            time_attrs.append(name)
 
     for name in time_attrs:
         data_types.pop(name, None)
@@ -193,7 +185,7 @@ def aggregate_directory(directory, attribute_type, attribute_options, clean_up):
         df_list.append(pd.read_csv(filepath, **kwargs))
     df = pd.concat(df_list, sort=False)
     aggregated_filepath = directory.parent / f"{attribute_type}.csv"
-    write_csv(aggregated_filepath, df, attribute_options)
+    write_csv(aggregated_filepath, df, attribute_type)
     if clean_up:
         shutil.rmtree(directory)
 

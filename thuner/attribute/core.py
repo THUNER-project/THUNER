@@ -269,7 +269,8 @@ kwargs.update({"description": "Area taken from the object mask."})
 kwargs.update({"retrieval": Retrieval(function=areas_from_mask)})
 areas_mask = Attribute(**kwargs)
 
-kwargs = {"data_type": np.datetime64, "precision": None, "units": "yyyy-mm-dd hh:mm:ss"}
+kwargs = {"data_type": np.datetime64, "precision": None}
+kwargs.update({"units": "yyyy-mm-dd hh:mm:ss"})
 kwargs.update({"description": "Time taken from the tracking process."})
 retrieval = Retrieval(function=time_from_tracks)
 kwargs.update({"name": "time", "retrieval": retrieval})
@@ -279,9 +280,7 @@ time = Attribute(**kwargs)
 # Convenience function for creating default core attribute type
 def default(matched=True, tracked=True, grouped=False):
     """Create the default core attribute type."""
-
     attributes_list = [time]
-
     if matched:
         # If the object is matched, take core properties from the object record
         attributes_list += [universal_ids_record, coordinates_record, parents]
@@ -292,10 +291,8 @@ def default(matched=True, tracked=True, grouped=False):
         attributes_list += [ids_mask, coordinates_mask]
         if not grouped:
             attributes_list += [areas_mask]
-
     if tracked:
         attributes_list += [flow_velocity, displacement_velocity]
-
     description = "Core attributes of the object, e.g. position and velocities."
     kwargs = {"name": "core", "attributes": attributes_list, "description": description}
     return AttributeType(**kwargs)
