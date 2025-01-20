@@ -50,7 +50,9 @@ The examples below illustrate the tracking of convective systems in
 [GridRad Severe](https://gridrad.org/) radar data. Object merge events are visualized
 through the "mixing" of the colours associated with each merging object. Objects that 
 split off from existing objects retain the colour of their parent object. 
+
 ![GridRad Demo](./gallery/mcs_gridrad_20100804.gif)
+
 ![GridRad Demo](./gallery/mcs_gridrad_20100120.gif)
 
 ## Etymology
