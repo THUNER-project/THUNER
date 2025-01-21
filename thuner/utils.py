@@ -1,4 +1,5 @@
 "General utilities for the thuner package."
+import inspect
 from datetime import datetime
 import yaml
 from pathlib import Path
@@ -32,6 +33,12 @@ def camel_to_snake(name):
     """
     s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
     return re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
+
+
+def filter_arguments(func, args):
+    """Filter arguments for the given attribute retrieval function."""
+    sig = inspect.signature(func)
+    return {key: value for key, value in args.items() if key in sig.parameters}
 
 
 class SingletonBase:

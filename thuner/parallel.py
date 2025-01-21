@@ -3,7 +3,6 @@
 import shutil
 import gc
 import multiprocessing
-import os
 import glob
 from pathlib import Path
 import pandas as pd
@@ -14,10 +13,8 @@ import thuner.attribute as attribute
 import thuner.write as write
 import thuner.analyze as analyze
 import thuner.data as data
-import thuner.grid as grid
 import thuner.track as track
-import thuner.option.data as data
-
+import thuner.option as option
 
 logger = setup_logger(__name__)
 
@@ -71,7 +68,7 @@ def track_interval(
     gc.collect()
 
 
-def get_interval_data_options(data_options: data.DataOptions, interval):
+def get_interval_data_options(data_options: option.data.DataOptions, interval):
     """Get the data options for a given interval."""
     interval_data_options = data_options.model_copy(deep=True)
     for i, dataset_options in enumerate(interval_data_options.datasets):

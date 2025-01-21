@@ -5,7 +5,6 @@ import yaml
 import glob
 import numpy as np
 import thuner.option as option
-import thuner.grid as grid
 
 
 def get_angle(u1, v1, u2, v2):

@@ -4,7 +4,7 @@ import inspect
 from thuner.log import setup_logger
 from thuner.option.track import AnyObjectOptions
 from thuner.option.attribute import Attribute, AttributeGroup, AttributeType
-from thuner.utils import camel_to_snake
+from thuner.utils import camel_to_snake, filter_arguments
 
 logger = setup_logger(__name__)
 
@@ -46,12 +46,6 @@ def initialize_attributes(object_options):
         attr = _initialize_attribute_type(attribute_type)
         attributes_record[obj][attribute_type.name] = attr
     return attributes_record
-
-
-def filter_arguments(func, args):
-    """Filter arguments for the given attribute retrieval function."""
-    sig = inspect.signature(func)
-    return {key: value for key, value in args.items() if key in sig.parameters}
 
 
 def retrieve_attribute(general_kwargs, attribute, member_object=None):

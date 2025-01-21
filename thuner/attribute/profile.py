@@ -42,37 +42,51 @@ def from_centers(
         raise ValueError("Dataset must contain pressure levels and geopotential.")
 
     logger.debug(f"Interpolating from pressure levels to altitude using geopotential.")
-    # Convert tag lons to 0-360
     ds["longitude"] = ds["longitude"] % 360
     profiles = ds[names + ["geopotential"]]
 
     latitude, longitude = core_attributes["latitude"], core_attributes["longitude"]
-    time = core_attributes["time"]
     lats_da = xr.DataArray(core_attributes["latitude"], dims="points")
     lons_da = xr.DataArray(core_attributes["longitude"], dims="points")
-
-    # Convert object lons to 0-360
     lons_da = lons_da % 360
+
+    if "id" in core_attributes.keys():
+        id_name = "id"
+    elif "universal_id" in core_attributes.keys():
+        id_name = "universal_id"
+    else:
+        message = "No id or universal_id found in core attributes."
+        raise ValueError(message)
+    ids = core_attributes[id_name]
+
+    profile_dict = {name: [] for name in names}
+    coordinates = ["time", "time_offset", id_name, "altitude", "latitude", "longitude"]
+    profile_dict.update({name: [] for name in coordinates})
+    # Setup interp kwargs
+    kwargs = {"latitude": lats_da, "longitude": lons_da, "method": "linear"}
     for offset in time_offsets:
+        # Interp to given time
         interp_time = previous_time + np.timedelta64(offset, "m")
-        kwargs = {"latitude": lats_da, "longitude": lons_da}
         kwargs.update({"time": interp_time.astype("datetime64[ns]")})
-        kwargs.update({"method": "linear"})
-        profiles = profiles.interp(**kwargs)
+        profile_time = profiles.interp(**kwargs)
 
-        profiles["altitude"] = profiles["geopotential"] / 9.80665
+        profile_time["altitude"] = profile_time["geopotential"] / 9.80665
         new_altitudes = np.array(grid_options.altitude)
-        profile_dict = {name: [] for name in names}
 
-        for i in range(len(profiles.points)):
-            profile = profiles.isel(points=i)
+        for i in range(len(profile_time.points)):
+            profile = profile_time.isel(points=i)
             profile = profile.swap_dims({"pressure": "altitude"})
             profile = profile.drop_vars(["geopotential"])
             profile = profile.interp(altitude=new_altitudes)
             profile = profile.reset_coords("pressure")
             for name in names:
                 profile_dict[name] += list(profile[name].values)
-
+            profile_dict["altitude"] += list(profile["altitude"].values)
+            profile_dict["time_offset"] += [offset] * len(profile["altitude"])
+            profile_dict["latitude"] += [latitude[i]] * len(profile["altitude"])
+            profile_dict["longitude"] += [longitude[i]] * len(profile["altitude"])
+            profile_dict["time"] += [previous_time] * len(profile["altitude"])
+            profile_dict[id_name] += [ids[i]] * len(profile["altitude"])
     return profile_dict
 
 

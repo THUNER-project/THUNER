@@ -52,43 +52,6 @@ def write_attributes(directory, last_write_str, attributes, attribute_options):
     df.to_csv(filepath, na_rep="NA")
 
 
-# def write_attribute_type(
-#     base_directory, last_write_str, attribute_type, attributes, attribute_options
-# ):
-#     """Write attributes to file."""
-#     if attribute_type == "tag" or attribute_type == "profile":
-#         for dataset in attributes.keys():
-#             # For tag and profile attributes, additional layer of nesting by dataset
-#             directory = base_directory / f"{dataset}/{attribute_type}"
-#             attr = attributes[dataset]
-#             attr_options = attribute_options[dataset]
-#             write_attributes(directory, last_write_str, attr, attr_options)
-# else:
-
-
-# def write_detected(object_tracks, object_options: AnyObjectOptions, output_directory):
-#     """
-#     Write detected object attributes to file.
-#     """
-
-#     if object_options.attributes is None:
-#         return
-
-#     args = [object_tracks, object_options, output_directory]
-#     base_directory, last_write_str = write_setup(*args)
-
-#     for attribute_type in object_options.attributes.attribute_types:
-#         recorded_attributes = object_tracks["attributes"][attribute_type.name]
-#         args = [base_directory, last_write_str, attribute_type, recorded_attributes]
-#         # write_attribute_type(*args)
-
-
-# def write_grouped(object_tracks, object_options: AnyObjectOptions, output_directory):
-#     """
-#     Write grouped object attributes to file.
-#     """
-
-
 def write(object_tracks, object_options: AnyObjectOptions, output_directory):
     """Write attributes to file."""
 
@@ -126,18 +89,11 @@ def write_final(tracks, track_options, output_directory):
             write(tracks[index][obj_name], object_options, output_directory)
 
 
-def write_metadata(filepath, attribute_options):
+def write_metadata(filepath, attribute_type: AttributeType):
     """Write metadata to yml file."""
-    formatted_options = copy.deepcopy(attribute_options)
-    for key in formatted_options.keys():
-        data_type = formatted_options[key]["data_type"]
-        data_type_string = data_type_to_string[data_type]
-        formatted_options[key]["data_type"] = data_type_string
     logger.debug("Saving attribute metadata to %s", filepath)
     with open(filepath, "w") as outfile:
-        args = {"default_flow_style": False, "allow_unicode": True, "sort_keys": False}
-        args.update({"Dumper": NoAliasDumper})
-        yaml.dump(formatted_options, outfile, **args)
+        attribute_type.to_yaml(outfile)
 
 
 def write_csv(filepath, df, attribute_type=None):
@@ -153,7 +109,7 @@ def write_csv(filepath, df, attribute_type=None):
     filepath.parent.mkdir(parents=True, exist_ok=True)
     logger.debug("Writing attribute dataframe to %s", filepath)
     df.to_csv(filepath, na_rep="NA")
-    write_metadata(Path(filepath).with_suffix(".yml"), attribute_options)
+    write_metadata(Path(filepath).with_suffix(".yml"), attribute_type)
     return df
 
 
@@ -161,8 +117,10 @@ def aggregate_directory(directory, attribute_type: AttributeType, clean_up=True)
     """Aggregate attribute files within a directory into single file."""
     filepaths = glob.glob(str(directory / "*.csv"))
     df_list = []
-    index_cols = ["time"]
     names = [attr.name for attr in attribute_type.attributes]
+    index_cols = ["time"]
+    if ["time_offset"] in names:
+        index_cols += ["time_offset"]
     if "universal_id" in names:
         index_cols += ["universal_id"]
     elif "id" in names:

@@ -6,13 +6,74 @@ import xarray as xr
 import xesmf as xe
 import numpy as np
 import pandas as pd
+from typing import Literal
+from pydantic import Field, model_validator
 from thuner.log import setup_logger
 from thuner.data.odim import convert_odim
 import thuner.data.utils as utils
 import thuner.grid as grid
+import thuner.option as option
 
 
 logger = setup_logger(__name__)
+
+
+_summary = {
+    "latitude_range": "Latitude range if accessing a directory of subsetted era5 data.",
+    "longitude_range": "Longitude range if accessing a directory of subsetted era5 data.",
+    "mode": "Mode of the data, e.g. reannalysis.",
+    "data_format": "Data format, e.g. pressure-levels.",
+    "pressure_levels": "Pressure levels; required if data_format is pressure-levels.",
+    "storage": "Storage format of the data, e.g. monthly.",
+}
+
+
+class AURAOptions(option.data.BaseDatasetOptions):
+    """Base options class for AURA datasets."""
+
+    # Overwrite the default values from the base class. Note these objects are still
+    # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
+    fields: list[str] = ["reflectivity"]
+
+    # Define additional fields for CPOL
+    level: Literal["1", "1b", "2"] = Field(..., description="Processing level.")
+    data_format: Literal["grid_150km_2500m", "grid_70km_1000m"] = Field(
+        ..., description="Data format."
+    )
+    range: float = Field(142.5, description="Range of the radar in km.")
+    range_units: str = Field("km", description="Units of the range.")
+
+
+class CPOLOptions(AURAOptions):
+    """Options for CPOL datasets."""
+
+    # Overwrite the default values from the base class. Note these objects are still
+    # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
+    name: str = "cpol"
+    fields: list[str] = ["reflectivity"]
+    parent_remote: str = "https://dapds00.nci.org.au/thredds/fileServer/hj10"
+
+    # Define additional fields for CPOL
+    level: str = "1b"
+    data_format: str = "grid_150km_2500m"
+    version: str = Field("v2020", description="Data version.")
+
+    @model_validator(mode="after")
+    def _check_times(cls, values):
+        if np.datetime64(values.start) < np.datetime64("1998-12-06T00:00:00"):
+            raise ValueError("start must be 1998-12-06 or later.")
+        if np.datetime64(values.end) > np.datetime64("2017-05-02T00:00:00"):
+            raise ValueError("end must be 2017-05-02 or earlier.")
+        return values
+
+    @model_validator(mode="after")
+    def _check_filepaths(cls, values):
+        if values.filepaths is None:
+            logger.info("Generating cpol filepaths.")
+            values.filepaths = get_cpol_filepaths(values)
+        if values.filepaths is None:
+            raise ValueError("filepaths not provided or badly formed.")
+        return values
 
 
 def get_cpol_filepaths(options):
@@ -75,6 +136,23 @@ def get_cpol_filepaths(options):
     #         filepaths.append(filepath)
 
     return sorted(filepaths)
+
+
+class OperationalOptions(AURAOptions):
+    """Options for CPOL datasets."""
+
+    # Overwrite the default values from the base class. Note these objects are still
+    # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
+    name: str = "operational"
+    parent_remote: str = "https://dapds00.nci.org.au/thredds/fileServer/rq0"
+
+    # Define additional fields for the operational radar
+    level: str = "1"
+    data_format: str = "ODIM"
+    radar: int = Field(63, description="Radar ID number.")
+    weighting_function: str = Field(
+        "Barnes2", description=_summary["weighting_function"]
+    )
 
 
 def get_operational_filepaths(options):

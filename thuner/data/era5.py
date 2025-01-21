@@ -3,20 +3,91 @@
 import calendar
 import signal
 from pathlib import Path
-import inspect
 import tempfile
 import numpy as np
 import pandas as pd
 import xarray as xr
 import cdsapi
-from typing import Any
+from typing import Any, Literal
+from pydantic import Field, model_validator
 import thuner.log as log
 from thuner.utils import get_hour_interval
 import thuner.data.utils as utils
 from thuner.config import get_outputs_directory
+import thuner.option as option
 
 
 logger = log.setup_logger(__name__)
+
+
+class ERA5Options(option.data.BaseDatasetOptions):
+    """Options for ERA5 datasets."""
+
+    # Overwrite the default values from the base class. Note these objects are still
+    # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
+    name: str = "era5_pl"
+    parent_remote: str = "/g/data/rt52"
+    use: Literal["track", "tag"] = "tag"
+
+    # Define additional fields for era5
+    latitude_range: list[float] = Field(
+        [-90, 90], description=_summary["latitude_range"]
+    )
+    longitude_range: list[float] = Field(
+        [-180, 180], description=_summary["longitude_range"]
+    )
+    mode: Literal["reanalysis"] = Field("reanalysis", description=_summary["mode"])
+    data_format: Literal["pressure-levels", "single-levels"] = Field(
+        "pressure-levels", description=_summary["data_format"]
+    )
+    pressure_levels: list[str] | list[float] | None = Field(
+        None, description=_summary["pressure_levels"]
+    )
+    storage: str = Field("monthly", description=_summary["storage"])
+
+    @model_validator(mode="after")
+    def _check_ranges(cls, values):
+        if values.latitude_range[0] < -90 or values.latitude_range[1] > 90:
+            raise ValueError("Latitude range must be between -90 and 90.")
+        if values.longitude_range[0] < -180 or values.longitude_range[1] > 180:
+            raise ValueError("Longitude range must be between -180 and 180.")
+        return values
+
+    @model_validator(mode="after")
+    def _check_defaults(cls, values):
+        if values.data_format == "pressure-levels":
+            if values.pressure_levels is None:
+                values.pressure_levels = era5_pressure_levels
+                logger.debug(f"Assigning default era5 pressure levels.")
+            values.pressure_levels = [str(level) for level in values.pressure_levels]
+        if values.fields is None:
+            message = f"Assigning default era5 {values.data_format} options name "
+            message += "and fields."
+            logger.debug(message)
+            if values.data_format == "pressure-levels":
+                values.name = "era5_pl"
+                values.fields = ["u", "v", "z", "r", "t"]
+            elif values.data_format == "single-levels":
+                values.name = "era5_sl"
+                values.fields = ["cape", "cin"]
+        return values
+
+    @model_validator(mode="after")
+    def _check_times(cls, values):
+        start_time = np.datetime64("1940-03-01T00:00:00")
+        if np.datetime64(values.start) < start_time:
+            raise ValueError(f"start must be {str(start_time)} or later.")
+        return values
+
+    @model_validator(mode="after")
+    def _check_filepaths(cls, values):
+        if values.filepaths is None:
+            logger.info("Generating era5 filepaths.")
+            values.filepaths = get_era5_filepaths(values)
+        if values.filepaths is None:
+            raise ValueError("filepaths not provided or badly formed.")
+        return values
+
 
 era5_pressure_levels = ["1000", "975", "950", "925", "900", "875", "850", "825", "800"]
 era5_pressure_levels += ["775", "750", "700", "650", "600", "550", "500", "450", "400"]
@@ -65,10 +136,8 @@ def get_era5_filepaths(options, start=None, end=None, local=True):
         for time in times:
             time = pd.Timestamp(time)
             daterange_str = format_daterange(options, time)
-            filepath = (
-                f"{base_path}/{field}/{time.year}/{field}_era5_oper_"
-                f"{short_data_format[options.data_format]}_{daterange_str}.nc"
-            )
+            filepath = f"{base_path}/{field}/{time.year}/{field}_era5_oper_"
+            filepath += f"{short_data_format[options.data_format]}_{daterange_str}.nc"
             filepaths[field].append(filepath)
 
     for key in filepaths.keys():

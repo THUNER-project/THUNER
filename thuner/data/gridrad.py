@@ -6,12 +6,47 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from skimage.morphology import remove_small_objects
+from pydantic import Field, model_validator
 import thuner.data.utils as utils
 from thuner.log import setup_logger
 import thuner.grid as grid
+import thuner.option as option
 
 
 logger = setup_logger(__name__)
+
+
+class GridRadSevereOptions(option.BaseDatasetOptions):
+    """Options for GridRad Severe datasets."""
+
+    # Overwrite the default values from the base class. Note these objects are still
+    # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
+    name: str = "gridrad"
+    fields: list[str] = ["reflectivity"]
+    parent_remote: str = "https://data.rda.ucar.edu"
+
+    # Define additional fields for CPOL
+    event_start: str = Field(..., description="Event start date.")
+    dataset_id: str = Field("ds841.6", description="UCAR RDA dataset ID.")
+    version: str = Field("v4_2", description="GridRad version.")
+    obs_thresh: int = Field(2, description="Observation count threshold for filtering.")
+
+    @model_validator(mode="after")
+    def _check_times(cls, values):
+        start_time = np.datetime64("2010-01-20T18:00:00")
+        if np.datetime64(values.start) < start_time:
+            raise ValueError(f"start must be {str(start_time)} or later.")
+        return values
+
+    @model_validator(mode="after")
+    def _check_filepaths(cls, values):
+        if values.filepaths is None:
+            logger.info("Generating era5 filepaths.")
+            values.filepaths = get_gridrad_filepaths(values)
+        if values.filepaths is None:
+            raise ValueError("filepaths not provided or badly formed.")
+        return values
+
 
 gridrad_variables = [
     "Reflectivity",

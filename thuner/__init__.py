@@ -1,7 +1,6 @@
 import sys
 import os
 
-# import thuner.config as config
 
 if sys.version_info < (3, 10):
     message = """
@@ -16,10 +15,9 @@ welcome_message = f"""
 Welcome to the Thunderstorm Event Reconnaissance (THUNER) package v{__version__}! 
 THUNER is a flexible toolkit for performing multi-feature detection, tracking, tagging
 and analysis of events within meteorological datasets. The intended application is to
-convective weather events. For examples and instructions, see
-github.com/NCAR/thuner.
-If you use this package in your research, consider citing 
-the following papers;
+convective weather events. For examples and instructions, see 
+github.com/THUNER-project/THUNER. If you use this package in your research, consider 
+citing the following papers;
 
 Short et al. (2023), MWR, doi: 10.1175/MWR-D-22-0146.1
 Raut et al. (2021), JAMC, doi: 10.1175/JAMC-D-20-0119.1

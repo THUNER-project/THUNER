@@ -13,7 +13,6 @@ def setup_interp(
     dataset,
     member_object=None,
 ):
-    # previous timestep.
     name = object_tracks["name"]
     excluded = ["time", "id", "universal_id", "latitude", "longitude", "altitude"]
     excluded += ["time_offset"]

@@ -77,9 +77,19 @@ def initialise_track_input_record(name, dataset_options):
     return input_record
 
 
+def initialise_tag_input_record(name, dataset_options):
+    """
+    Initialise the track input record dictionary.
+    """
+
+    input_record = initialise_boilerplate_input_record(name, dataset_options)
+
+    return input_record
+
+
 initialise_input_record_dispatcher = {
     "track": initialise_track_input_record,
-    "tag": initialise_boilerplate_input_record,
+    "tag": initialise_tag_input_record,
 }
 
 
