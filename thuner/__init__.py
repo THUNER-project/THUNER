@@ -12,7 +12,10 @@ if sys.version_info < (3, 10):
 __version__ = "0.0.6"
 
 welcome_message = f"""
-Welcome to the Thunderstorm Event Reconnaissance (THUNER) package v{__version__}! 
+Welcome to the Thunderstorm Event Reconnaissance (THUNER) package v{__version__}! This 
+is a placeholder version of the package and is not yet functional. Please visit 
+github.com/THUNER-project/THUNER to report issues or contribute.
+
 THUNER is a flexible toolkit for performing multi-feature detection, tracking, tagging
 and analysis of events within meteorological datasets. The intended application is to
 convective weather events. For examples and instructions, see 

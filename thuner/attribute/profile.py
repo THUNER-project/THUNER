@@ -124,14 +124,14 @@ retrieval = Retrieval(function=from_centers, keyword_arguments=keyword_arguments
 
 attribute_list = [
     core.time.model_copy(deep=True),
+    time_offset,
     core.universal_ids_record.model_copy(deep=True),
     core.latitude.model_copy(deep=True),
     core.longitude.model_copy(deep=True),
 ]
+attribute_list += [altitude, u, v, temperature, pressure, relative_humidity]
 for attr in attribute_list:
     attr.retrieval = None
-attribute_list += [time_offset, altitude, u, v, temperature]
-attribute_list += [pressure, relative_humidity]
 kwargs = {"name": "profiles", "attributes": attribute_list, "retrieval": retrieval}
 kwargs.update({"description": "Environmental profiles at object center."})
 profile_center_matched = AttributeGroup(**kwargs)

@@ -1,7 +1,9 @@
 """Classes for object attribute options."""
 
+import importlib
 import numpy as np
-from typing import Callable, Union
+from numpy import datetime64
+from typing import Callable
 from pydantic import Field, model_validator
 from thuner.option.utils import BaseOptions
 
@@ -25,8 +27,23 @@ class Retrieval(BaseOptions):
     kwargs.
     """
 
-    function: Callable | None = Field(None, description=_summary["function"])
+    function: Callable | str | None = Field(None, description=_summary["function"])
     keyword_arguments: dict = Field({}, description=_summary["keyword_arguments"])
+
+    @model_validator(mode="after")
+    def check_function(cls, values):
+        if isinstance(values.function, str):
+            module_name, function_name = values.function.rsplit(".", 1)
+            try:
+                module = importlib.import_module(module_name)
+                values.function = getattr(module, function_name)
+            except ImportError:
+                message = f"Could not import function {values.function}."
+                raise ImportError(message)
+            except AttributeError:
+                message = f"Function {values.function} not found in {module_name}."
+                raise AttributeError(message)
+        return values
 
 
 class Attribute(BaseOptions):
@@ -37,10 +54,23 @@ class Attribute(BaseOptions):
 
     name: str = Field(..., description=_summary["name"])
     retrieval: Retrieval | None = Field(None, description=_summary["retrieval"])
-    data_type: type = Field(..., description=_summary["data_type"])
+    data_type: type | str = Field(..., description=_summary["data_type"])
     precision: int | None = Field(None, description=_summary["precision"])
     description: str | None = Field(None, description=_summary["description"])
     units: str | None = Field(None, description=_summary["units"])
+
+    @model_validator(mode="after")
+    def check_data_type(cls, values):
+        """
+        Check that the data type is valid.
+        """
+        if isinstance(values.data_type, str):
+            # convert string to type
+            if "." in values.data_type:
+                module_name, type_name = values.data_type.rsplit(".", 1)
+                module = importlib.import_module(module_name)
+                values.data_type = getattr(module, type_name)
+        return values
 
 
 class AttributeGroup(BaseOptions):

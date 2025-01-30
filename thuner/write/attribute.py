@@ -92,8 +92,7 @@ def write_final(tracks, track_options, output_directory):
 def write_metadata(filepath, attribute_type: AttributeType):
     """Write metadata to yml file."""
     logger.debug("Saving attribute metadata to %s", filepath)
-    with open(filepath, "w") as outfile:
-        attribute_type.to_yaml(outfile)
+    attribute_type.to_yaml(filepath)
 
 
 def write_csv(filepath, df, attribute_type=None):
@@ -129,7 +128,7 @@ def aggregate_directory(directory, attribute_type: AttributeType, clean_up=True)
     data_types = utils.get_data_type_dict(attribute_type)
     time_attrs = []
     for name in data_types.keys():
-        if data_types[name] == "datetime64[s]":
+        if data_types[name] is np.datetime64:
             time_attrs.append(name)
 
     for name in time_attrs:
@@ -142,74 +141,45 @@ def aggregate_directory(directory, attribute_type: AttributeType, clean_up=True)
         kwargs.update({"parse_dates": time_attrs, "date_format": date_format})
         df_list.append(pd.read_csv(filepath, **kwargs))
     df = pd.concat(df_list, sort=False)
-    aggregated_filepath = directory.parent / f"{attribute_type}.csv"
+    aggregated_filepath = directory.parent / f"{attribute_type.name}.csv"
     write_csv(aggregated_filepath, df, attribute_type)
     if clean_up:
         shutil.rmtree(directory)
 
 
-def aggregate_attribute_type(
-    base_directory, attribute_type, attribute_options, clean_up
-):
+def aggregate_attribute_type(base_directory, attribute_type: AttributeType, clean_up):
     """Aggregate attributes within a directory."""
 
-    if attribute_type == "tag" or attribute_type == "profile":
-        # Additional layer of nesting by dataset for tag and profile attributes
-        for dataset in attribute_options.keys():
-            directory = base_directory / f"{dataset}/{attribute_type}"
-            attr_options = attribute_options[dataset]
-            aggregate_directory(directory, attribute_type, attr_options, clean_up)
-            filepath = Path(directory.parent) / f"{attribute_type}.yml"
-            write_metadata(filepath, attr_options)
-    else:
-        directory = base_directory / f"{attribute_type}"
-        aggregate_directory(directory, attribute_type, attribute_options, clean_up)
-        filepath = Path(directory.parent) / f"{attribute_type}.yml"
-        write_metadata(filepath, attribute_options)
+    directory = base_directory / f"{attribute_type.name}"
+    aggregate_directory(directory, attribute_type, clean_up)
+    filepath = Path(directory.parent) / f"{attribute_type.name}.yml"
+    write_metadata(filepath, attribute_type)
 
 
-def aggregate_detected(base_directory, object_options, clean_up):
-    """Aggregate attributes directory for detected objects."""
-    obj_name = object_options.name
-    for attribute_type in object_options.attributes.keys():
-        directory = base_directory / f"{obj_name}"
-        options = object_options.attributes[attribute_type]
-        aggregate_attribute_type(directory, attribute_type, options, clean_up)
-
-
-def aggregate_grouped(base_directory, object_options, clean_up):
+def aggregate_object(base_directory, object_options, clean_up):
     """Aggregate attributes directory for grouped attributes."""
-    member_options = object_options.attributes["member_objects"]
+    if object_options.attributes is None:
+        return
+    member_options = object_options.attributes.member_attributes
     obj_name = object_options.name
     # First aggregate attributes of member objects
-    for member_obj in member_options.keys():
-        for attribute_type in member_options[member_obj].keys():
-            directory = base_directory / f"{obj_name}/{member_obj}"
-            options = member_options[member_obj][attribute_type]
-            aggregate_attribute_type(directory, attribute_type, options, clean_up)
-    # Now aggregate core attributes of grouped object
-    for attribute_type in object_options.attributes[obj_name].keys():
+    if member_options is not None:
+        for member_obj in member_options.keys():
+            for attribute_type in member_options[member_obj].attribute_types:
+                directory = base_directory / f"{obj_name}/{member_obj}"
+                aggregate_attribute_type(directory, attribute_type, clean_up)
+    # Now aggregate attributes of object itself
+    for attribute_type in object_options.attributes.attribute_types:
         directory = base_directory / f"{obj_name}"
-        options = object_options.attributes[obj_name][attribute_type]
-        aggregate_attribute_type(directory, attribute_type, options, clean_up)
+        aggregate_attribute_type(directory, attribute_type, clean_up)
 
 
 def aggregate(track_options, output_directory, clean_up=True):
-    """Aggregate attributes into single file."""
+    """Aggregate attribute types of each object."""
 
     logger.info("Aggregating attribute files.")
     base_directory = Path(f"{output_directory}/attributes/")
 
     for level_options in track_options.levels:
         for object_options in level_options.objects:
-
-            if "detection" in object_options.model_fields:
-                aggregate_func = aggregate_detected
-            elif "grouping" in object_options.model_fields:
-                aggregate_func = aggregate_grouped
-            else:
-                message = "Object indentification method must be specified, i.e. "
-                message += "'detection' or 'grouping'."
-                raise ValueError(message)
-
-            aggregate_func(base_directory, object_options, clean_up)
+            aggregate_object(base_directory, object_options, clean_up)

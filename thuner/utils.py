@@ -170,14 +170,10 @@ def time_in_dataset_range(time, dataset):
     return condition
 
 
-def get_hour_interval(time, interval=6):
-    if 24 % interval != 0:
-        raise ValueError("Interval must be a divisor of 24")
-    hour = time.astype("M8[h]").item().hour
-    start_hour = hour // interval * interval
-    start = np.datetime64(time, "h") - np.timedelta64(hour - start_hour, "h")
-    end = start + np.timedelta64(interval, "h")
-    return start, end
+def get_hour_interval(time, interval=6, start_buffer=0, end_buffer=0):
+    start = (time + np.timedelta64(start_buffer, "m")).astype("M8[h]")
+    step = np.max([np.timedelta64(interval, "h"), np.timedelta64(end_buffer, "m")])
+    return start, start + step
 
 
 def format_time(time, filename_safe=True, day_only=False):

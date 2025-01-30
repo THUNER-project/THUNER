@@ -16,6 +16,7 @@ import thuner.write as write
 import thuner.attribute as attribute
 import thuner.log as log
 from thuner.option.utils import BaseOptions
+from thuner.option.attribute import Attribute, AttributeType
 
 logger = log.setup_logger(__name__)
 
@@ -49,8 +50,9 @@ def process_velocities(
     velocities = velocities.rename(columns={"u_flow": "u", "v_flow": "v"})
 
     if profile_dataset is not None:
-        filepath = output_directory / f"attributes/mcs/{profile_dataset}/profile.csv"
+        filepath = output_directory / f"attributes/mcs/{profile_dataset}_profile.csv"
         winds = read_attribute_csv(filepath, columns=["u", "v"])
+        winds = winds.xs(0, level="time_offset")
 
         indexer = pd.IndexSlice[:, :, altitudes[0] : altitudes[1]]
         mean_winds = winds.loc[indexer].groupby(["time", "universal_id"]).mean()
@@ -99,16 +101,18 @@ def process_velocities(
         names = names[:2]
         descriptions = descriptions[:2]
 
-    data_type, precision, units, method = float, 1, "m/s", None
-    attributes = {}
+    data_type, precision, units, retrieval = float, 1, "m/s", None
+    attributes = []
     for name, description in zip(names, descriptions):
-        args = [name, method, data_type, precision, description, units]
-        attributes[name] = get_attribute_dict(*args)
-    attributes["time"] = attribute.core.time()
-    attributes["universal_id"] = attribute.core.identity("universal_id")
+        kwargs = {"name": name, "retrieval": retrieval, "data_type": data_type}
+        kwargs.update({"precision": precision, "description": description})
+        kwargs.update({"units": units})
+        attributes.append(Attribute(**kwargs))
+    attributes.append(attribute.core.time)
+    attributes.append(attribute.core.universal_ids_record)
+    attribute_type = AttributeType(name="velocities", attributes=attributes)
     filepath = analysis_directory / "velocities.csv"
-    all_velocities = write.attribute.write_csv(filepath, all_velocities, attributes)
-    return all_velocities
+    all_velocities = write.attribute.write_csv(filepath, all_velocities, attribute_type)
 
 
 _summary = {
@@ -303,13 +307,17 @@ def quality_control(
         descriptions.remove("Is the system shear sufficiently large?")
         descriptions.remove("Is the system relative velocity sufficiently large?")
 
-    data_type, precision, units, method = bool, None, None, None
-    attributes = {}
+    data_type, precision, units, retrieval = bool, None, None, None
+    attributes = []
     for name, description in zip(names, descriptions):
-        args = [name, method, data_type, precision, description, units]
-        attributes[name] = get_attribute_dict(*args)
-    attributes["time"] = attribute.core.time()
-    attributes["universal_id"] = attribute.core.identity("universal_id")
+        kwargs = {"name": name, "retrieval": retrieval, "data_type": data_type}
+        kwargs.update({"precision": precision, "description": description})
+        kwargs.update({"units": units})
+        attributes.append(Attribute(**kwargs))
+
+    attributes.append(attribute.core.time)
+    attributes.append(attribute.core.universal_ids_record)
+    attribute_type = AttributeType(name="quality", attributes=attributes)
     filepath = analysis_directory / "quality.csv"
     quality = [convective_check, anvil_check, initial_check, velocity_check, area_check]
     quality += [offset_check, major_check, axis_ratio_check, duration_check]
@@ -317,8 +325,7 @@ def quality_control(
     if "u_shear" in velocities.columns:
         quality += [shear_check, relative_velocity_check]
     quality = pd.concat(quality, axis=1)
-    quality = write.attribute.write_csv(filepath, quality, attributes)
-    return quality
+    quality = write.attribute.write_csv(filepath, quality, attribute_type)
 
 
 ambiguity_quality_dispatcher = {
@@ -383,13 +390,29 @@ def classify_all(
         "System 'tilt' relative to shear classification.",
         "System propagation relative to shear classification.",
     ]
-    data_type, precision, units, method = str, None, None, None
-    attributes = {}
+
+    data_type, precision, units, retrieval = float, 1, "m/s", None
+    attributes = []
     for name, description in zip(names, descriptions):
-        args = [name, method, data_type, precision, description, units]
-        attributes[name] = get_attribute_dict(*args)
-    attributes["time"] = attribute.core.time()
-    attributes["universal_id"] = attribute.core.identity("universal_id")
+        kwargs = {"name": name, "retrieval": retrieval, "data_type": data_type}
+        kwargs.update({"precision": precision, "description": description})
+        kwargs.update({"units": units})
+        attributes.append(Attribute(**kwargs))
+    attributes.append(attribute.core.time)
+    attributes.append(attribute.core.universal_ids_record)
+    attribute_type = AttributeType(name="velocities", attributes=attributes)
+
+    data_type, precision, units, retrieval = str, None, None, None
+    attributes = []
+    for name, description in zip(names, descriptions):
+        kwargs = {"name": name, "retrieval": retrieval, "data_type": data_type}
+        kwargs.update({"precision": precision, "description": description})
+        kwargs.update({"units": units})
+        attributes.append(Attribute(**kwargs))
+    attributes.append(attribute.core.time)
+    attributes.append(attribute.core.universal_ids_record)
+    attribute_type = AttributeType(name="classification", attributes=attributes)
+
     labels = [["leading", "right", "trailing", "left"]]
     labels += [["front", "right", "rear", "left"]]
     labels += [["leading", "right", "trailing", "left"]]
@@ -420,8 +443,8 @@ def classify_all(
 
     classifications = pd.concat(all_classifications, axis=1)
     filepath = analysis_directory / "classification.csv"
-    classifications = write.attribute.write_csv(filepath, classifications, attributes)
-    return classifications
+    args = [filepath, classifications, attribute_type]
+    classifications = write.attribute.write_csv(*args)
 
 
 def classify_angles(name, angles, category_labels):

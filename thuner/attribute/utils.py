@@ -4,7 +4,6 @@ import yaml
 from pathlib import Path
 import pandas as pd
 import numpy as np
-from collections import defaultdict
 from thuner.option.attribute import AttributeGroup, AttributeType
 from thuner.log import setup_logger
 
@@ -30,28 +29,6 @@ def get_previous_mask(object_tracks, matched=False):
     return mask
 
 
-def dict_to_tuple(d):
-    """Recursively convert a dictionary to a tuple of key-value pairs."""
-    return tuple(
-        (k, dict_to_tuple(v) if isinstance(v, dict) else v) for k, v in d.items()
-    )
-
-
-def tuple_to_dict(t):
-    """Recursively convert a tuple of key-value pairs back to a dictionary."""
-    return {k: tuple_to_dict(v) if isinstance(v, tuple) else v for k, v in t}
-
-
-def group_by_method(attributes):
-    """Group attributes dictionary by method key."""
-    grouped = defaultdict(list)
-    for key, value in attributes.items():
-        method = value["method"]
-        method_tuple = dict_to_tuple(method)
-        grouped[method_tuple].append(key)
-    return grouped
-
-
 def attribute_from_core(attribute, object_tracks, member_object):
     """Get attribute from core object properties."""
     # Check if grouped object
@@ -74,15 +51,16 @@ def attributes_dataframe(recorded_attributes, attribute_type):
     data_types = get_data_type_dict(attribute_type)
     data_types.pop("time")
     df = pd.DataFrame(recorded_attributes).astype(data_types)
+    multi_index = ["time"]
+    if "time_offset" in recorded_attributes.keys():
+        multi_index.append("time_offset")
     if "universal_id" in recorded_attributes.keys():
         id_index = "universal_id"
     else:
         id_index = "id"
-    multi_index = ["time", id_index]
+    multi_index.append(id_index)
     if "altitude" in recorded_attributes.keys():
         multi_index.append("altitude")
-    if "time_offset" in recorded_attributes.keys():
-        multi_index.append("time_offset")
     df.set_index(multi_index, inplace=True)
     df.sort_index(inplace=True)
     return df
@@ -91,30 +69,28 @@ def attributes_dataframe(recorded_attributes, attribute_type):
 def read_metadata_yml(filepath):
     """Read metadata from a yml file."""
     with open(filepath, "r") as file:
-        attribute_options = yaml.safe_load(file)
-        for key in attribute_options.keys():
-            data_type = attribute_options[key]["data_type"]
-            attribute_options[key]["data_type"] = string_to_data_type[data_type]
-    return attribute_options
+        kwargs = yaml.safe_load(file)
+        attribute_type = AttributeType(**kwargs)
+    return attribute_type
 
 
-def get_indexes(attribute_options):
+def get_indexes(attribute_type: AttributeType):
     """Get the indexes for the attribute DataFrame."""
-    indexes = ["time"]
-    if "event_start" in attribute_options.keys():
-        indexes.append("event_start")
-    if "universal_id" in attribute_options.keys():
-        id_index = "universal_id"
-        indexes.append(id_index)
-    elif "id" in attribute_options.keys():
-        id_index = "id"
-        indexes.append(id_index)
-    if "altitude" in attribute_options.keys():
-        indexes.append("altitude")
+    all_indexes = ["time", "time_offset", "event_start", "universal_id", "id"]
+    all_indexes += ["altitude"]
+    indexes = []
+    for attribute in attribute_type.attributes:
+        if isinstance(attribute, AttributeGroup):
+            for attr in attribute.attributes:
+                if attr.name in all_indexes:
+                    indexes.append(attr.name)
+        else:
+            if attribute.name in all_indexes:
+                indexes.append(attribute.name)
     return indexes
 
 
-def read_attribute_csv(filepath, attribute_options=None, columns=None, times=None):
+def read_attribute_csv(filepath, attribute_type=None, columns=None, times=None):
     """
     Read a CSV file and return a DataFrame.
 
@@ -132,30 +108,35 @@ def read_attribute_csv(filepath, attribute_options=None, columns=None, times=Non
     filepath = Path(filepath)
 
     data_types = None
-    if attribute_options is None:
+    if attribute_type is None:
         try:
             meta_path = filepath.with_suffix(".yml")
-            attribute_options = read_metadata_yml(meta_path)
-            data_types = get_data_type_dict(attribute_options)
+            attribute_type = read_metadata_yml(meta_path)
+            data_types = get_data_type_dict(attribute_type)
         except FileNotFoundError:
             logger.warning("No metadata file found for %s.", filepath)
 
-    if attribute_options is None:
+    if attribute_type is None:
         message = "No metadata; loading entire dataframe and data types not enforced."
         logger.warning(message)
         return pd.read_csv(filepath, na_values=["", "NA"], keep_default_na=True)
 
     # Get attributes with np.datetime64 data type
     time_attrs = []
-    for attr in attribute_options.keys():
-        if attribute_options[attr]["data_type"] == "datetime64[s]":
-            time_attrs.append(attr)
+    for attribute in attribute_type.attributes:
+        if isinstance(attribute, AttributeGroup):
+            for attr in attribute.attributes:
+                if attr.data_type is np.datetime64:
+                    time_attrs.append(attr.name)
+        else:
+            if attribute.data_type is np.datetime64:
+                time_attrs.append(attribute.name)
 
-    indexes = get_indexes(attribute_options)
+    indexes = get_indexes(attribute_type)
     if columns is None:
-        columns = list(attribute_options.keys())
+        columns = get_names(attribute_type)
     all_columns = indexes + [col for col in columns if col not in indexes]
-    data_types = {name: attribute_options[name]["data_type"] for name in all_columns}
+    data_types = get_data_type_dict(attribute_type)
     # Remove time columns as pd handles these separately
     for name in time_attrs:
         data_types.pop(name, None)
@@ -175,6 +156,18 @@ def read_attribute_csv(filepath, attribute_options=None, columns=None, times=Non
     df = pd.read_csv(filepath, **kwargs)
     df = df.set_index(indexes)
     return df
+
+
+def get_names(attribute_type: AttributeType):
+    """Get the names of the attributes in the attribute type."""
+    names = []
+    for attribute in attribute_type.attributes:
+        if isinstance(attribute, AttributeGroup):
+            for attr in attribute.attributes:
+                names.append(attr.name)
+        else:
+            names.append(attribute.name)
+    return names
 
 
 def get_precision_dict(attribute_type: AttributeType):

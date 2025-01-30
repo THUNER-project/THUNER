@@ -1,6 +1,5 @@
 """General input data processing."""
 
-import copy
 import thuner.data.aura as aura
 import thuner.data.era5 as era5
 import thuner.data.synthetic as synthetic
@@ -9,6 +8,7 @@ import thuner.data.utils as utils
 import thuner.write as write
 from thuner.log import setup_logger
 from thuner.utils import time_in_dataset_range
+import thuner.option as option
 
 
 logger = setup_logger(__name__)
@@ -87,10 +87,19 @@ def generate_filepaths(dataset_options):
 
 
 def boilerplate_update(
-    time, input_record, track_options, dataset_options, grid_options
+    time,
+    input_record,
+    track_options: option.track.TrackOptions,
+    dataset_options: option.data.BaseDatasetOptions,
+    grid_options: option.grid.GridOptions,
 ):
     """Update the dataset."""
-    if not time_in_dataset_range(time, input_record["dataset"]):
+
+    earliest_time = time + dataset_options.start_buffer
+    latest_time = time + dataset_options.end_buffer
+    cond = not time_in_dataset_range(earliest_time, input_record["dataset"])
+    cond = cond or not time_in_dataset_range(latest_time, input_record["dataset"])
+    if cond:
         update_dataset(time, input_record, track_options, dataset_options, grid_options)
 
 
@@ -152,7 +161,13 @@ def update_tag_input_records(
         )
 
 
-def update_dataset(time, input_record, track_options, dataset_options, grid_options):
+def update_dataset(
+    time,
+    input_record,
+    track_options: option.track.TrackOptions,
+    dataset_options: option.data.BaseDatasetOptions,
+    grid_options: option.grid.GridOptions,
+):
     """Update the dataset."""
 
     updt_dataset = update_dataset_dispatcher.get(dataset_options.name)

@@ -16,7 +16,7 @@ import thuner.option as option
 logger = setup_logger(__name__)
 
 
-class GridRadSevereOptions(option.BaseDatasetOptions):
+class GridRadSevereOptions(option.data.BaseDatasetOptions):
     """Options for GridRad Severe datasets."""
 
     # Overwrite the default values from the base class. Note these objects are still

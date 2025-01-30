@@ -138,6 +138,11 @@ def get_cpol_filepaths(options):
     return sorted(filepaths)
 
 
+_summary = {}
+_summary["weighting_function"] = "Weighting function used by pyart to reconstruct the "
+_summary["weighting_function"] += "grid from ODIM."
+
+
 class OperationalOptions(AURAOptions):
     """Options for CPOL datasets."""
 
@@ -402,6 +407,7 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
         )
     if conv_options.save:
         utils.save_converted_dataset(dataset, dataset_options)
+
     input_record["dataset"] = dataset
 
 

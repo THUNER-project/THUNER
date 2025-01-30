@@ -19,6 +19,15 @@ import thuner.option as option
 
 logger = log.setup_logger(__name__)
 
+_summary = {
+    "latitude_range": "Latitude range if accessing a directory of subsetted era5 data.",
+    "longitude_range": "Longitude range if accessing a directory of subsetted era5 data.",
+    "mode": "Mode of the data, e.g. reannalysis.",
+    "data_format": "Data format, e.g. pressure-levels.",
+    "pressure_levels": "Pressure levels; required if data_format is pressure-levels.",
+    "storage": "Storage format of the data, e.g. monthly.",
+}
+
 
 class ERA5Options(option.data.BaseDatasetOptions):
     """Options for ERA5 datasets."""
@@ -28,6 +37,8 @@ class ERA5Options(option.data.BaseDatasetOptions):
     name: str = "era5_pl"
     parent_remote: str = "/g/data/rt52"
     use: Literal["track", "tag"] = "tag"
+    # Redefine refault start buffer to -120 minutes
+    start_buffer: int = Field(-120, description=option.data._summary["start_buffer"])
 
     # Define additional fields for era5
     latitude_range: list[float] = Field(
@@ -394,7 +405,9 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
 
     utils.log_dataset_update(logger, dataset_options.name, time)
 
-    start, end = get_hour_interval(time)
+    kwargs = {"start_buffer": dataset_options.start_buffer}
+    kwargs.update({"end_buffer": dataset_options.end_buffer})
+    start, end = get_hour_interval(time, **kwargs)
     filepaths = get_era5_filepaths(dataset_options, start, end, local=True)
     all_files_exist = all(
         Path(filepath).exists() for field in filepaths.values() for filepath in field

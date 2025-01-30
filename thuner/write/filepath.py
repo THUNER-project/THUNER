@@ -30,7 +30,7 @@ def write(input_record, output_directory):
     logger.info(message)
 
     last_write_str = format_time(last_write_time, filename_safe=True, day_only=False)
-    csv_filepath = output_directory / "records/filepaths"
+    csv_filepath = output_directory / "records/"
     csv_filepath = csv_filepath / f"{name}/{last_write_str}.csv"
     csv_filepath.parent.mkdir(parents=True, exist_ok=True)
 
@@ -78,11 +78,11 @@ def aggregate(track_input_records, output_directory, clean_up=True):
         time_attr = Attribute(**kwargs)
 
         description = f"Filepath to {name} data containing the given time."
-        kwargs = {"name": name, "data_type": "str", "description": description}
+        kwargs = {"name": name, "data_type": str, "description": description}
         filepaths_attr = Attribute(**kwargs)
 
         kwargs = {"name": "filepath", "description": "Filepath to the data."}
         kwargs.update({"attributes": [time_attr, filepaths_attr]})
         attribute_type = AttributeType(**kwargs)
 
-        attribute.aggregate_directory(directory, name, attribute_type, clean_up)
+        attribute.aggregate_directory(directory, attribute_type, clean_up)

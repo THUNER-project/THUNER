@@ -17,8 +17,6 @@ def convert_value(value: Any) -> Any:
     if isinstance(value, BaseOptions):
         fields = value.model_fields.keys()
         return {field: convert_value(getattr(value, field)) for field in fields}
-    if isinstance(value, np.datetime64):
-        return str(value)
     if isinstance(value, dict):
         return {convert_value(k): convert_value(v) for k, v in value.items()}
     if isinstance(value, list):
@@ -26,15 +24,13 @@ def convert_value(value: Any) -> Any:
     if isinstance(value, bool):
         return int(value)
     if isinstance(value, type):
-        return value.__name__
+        # return full name of type, i.e. including module
+        return f"{inspect.getmodule(value).__name__}.{value.__name__}"
     if type(value) is np.float32:
         return float(value)
     if inspect.isroutine(value):
         module = inspect.getmodule(value)
-        if module:
-            return f"{module.__name__}.{value.__name__}"
-        else:
-            return value.__name__
+        return f"{module.__name__}.{value.__name__}"
     return value
 
 

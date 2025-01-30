@@ -1,6 +1,5 @@
 """Track storm objects in a dataset."""
 
-from memory_profiler import profile
 import shutil
 from collections import deque
 import copy
@@ -15,11 +14,12 @@ from thuner.config import get_outputs_directory
 from thuner.utils import now_str, hash_dictionary, format_time
 import thuner.write as write
 import thuner.attribute as attribute
+import thuner.option as option
 
 logger = setup_logger(__name__)
 
 
-def initialise_input_records(data_options):
+def initialise_input_records(data_options: option.data.DataOptions):
     """
     Initialise the input datasets dictionary.
     """
@@ -35,7 +35,9 @@ def initialise_input_records(data_options):
     return input_records
 
 
-def initialise_boilerplate_input_record(name, dataset_options):
+def initialise_boilerplate_input_record(
+    name, dataset_options: option.data.BaseDatasetOptions
+):
     """
     Initialise the tag input record dictionary.
     """
