@@ -22,6 +22,7 @@ class GridRadSevereOptions(option.data.BaseDatasetOptions):
     # Overwrite the default values from the base class. Note these objects are still
     # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
     name: str = "gridrad"
+    type: str = "GridRadSevereOptions"
     fields: list[str] = ["reflectivity"]
     parent_remote: str = "https://data.rda.ucar.edu"
 

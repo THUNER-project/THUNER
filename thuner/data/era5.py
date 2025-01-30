@@ -35,6 +35,7 @@ class ERA5Options(option.data.BaseDatasetOptions):
     # Overwrite the default values from the base class. Note these objects are still
     # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
     name: str = "era5_pl"
+    type: str = "ERA5Options"
     parent_remote: str = "/g/data/rt52"
     use: Literal["track", "tag"] = "tag"
     # Redefine refault start buffer to -120 minutes

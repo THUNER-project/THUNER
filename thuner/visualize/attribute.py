@@ -86,7 +86,7 @@ def mcs_series(
     # Get colors
     color_angle_df = get_color_angle_df(output_directory)
 
-    record_filepath = output_directory / f"records/filepath.csv"
+    record_filepath = output_directory / f"records/filepaths/{dataset_name}.csv"
     filepaths = read_attribute_csv(record_filepath, columns=[dataset_name])
     time = times[0]
     args = [time, filepaths, masks, output_directory, figure_options]

@@ -56,7 +56,8 @@ class BaseOptions(BaseModel):
 
     @model_validator(mode="after")
     def _set_type(cls, values):
-        values.type = cls.__name__
+        if values.type is None:
+            values.type = cls.__name__
         return values
 
     def to_dict(self) -> Dict[str, Any]:

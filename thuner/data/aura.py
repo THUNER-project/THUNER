@@ -50,6 +50,7 @@ class CPOLOptions(AURAOptions):
     # Overwrite the default values from the base class. Note these objects are still
     # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
     name: str = "cpol"
+    type: str = "CPOLOptions"
     fields: list[str] = ["reflectivity"]
     parent_remote: str = "https://dapds00.nci.org.au/thredds/fileServer/hj10"
 
@@ -149,6 +150,7 @@ class OperationalOptions(AURAOptions):
     # Overwrite the default values from the base class. Note these objects are still
     # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
     name: str = "operational"
+    type: str = "OperationalOptions"
     parent_remote: str = "https://dapds00.nci.org.au/thredds/fileServer/rq0"
 
     # Define additional fields for the operational radar
