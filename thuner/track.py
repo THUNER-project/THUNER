@@ -11,15 +11,15 @@ import thuner.group.group as group
 import thuner.visualize as visualize
 import thuner.match.match as match
 from thuner.config import get_outputs_directory
-from thuner.utils import now_str, hash_dictionary, format_time
+from thuner.utils import now_str, hash_dictionary, format_time, BaseDatasetOptions
 import thuner.write as write
 import thuner.attribute as attribute
-import thuner.option as option
+from thuner.option.data import DataOptions
 
 logger = setup_logger(__name__)
 
 
-def initialise_input_records(data_options: option.data.DataOptions):
+def initialise_input_records(data_options: DataOptions):
     """
     Initialise the input datasets dictionary.
     """
@@ -35,9 +35,7 @@ def initialise_input_records(data_options: option.data.DataOptions):
     return input_records
 
 
-def initialise_boilerplate_input_record(
-    name, dataset_options: option.data.BaseDatasetOptions
-):
+def initialise_boilerplate_input_record(name, dataset_options: BaseDatasetOptions):
     """
     Initialise the tag input record dictionary.
     """

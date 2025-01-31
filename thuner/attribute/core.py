@@ -55,7 +55,7 @@ def areas_from_object_record(attribute: Attribute, object_tracks):
     calculation.
     """
 
-    areas = object_tracks["object_record"]["previous_areas"]
+    areas = np.array(object_tracks["object_record"]["previous_areas"])
     return {attribute.name: list(areas.astype(attribute.data_type))}
 
 
@@ -221,8 +221,9 @@ kwargs.update({"retrieval": retrieval})
 ids_mask = Attribute(**kwargs)
 
 description = "universal_id taken from object record."
-retrieval_kwargs = {"matched": True}
-retrieval = Retrieval(function=ids_from_mask, keyword_arguments=retrieval_kwargs)
+retrieval = Retrieval(
+    function=ids_from_object_record, keyword_arguments={"matched": True}
+)
 kwargs.update({"name": "universal_id", "description": description})
 kwargs.update({"retrieval": retrieval})
 universal_ids_record = Attribute(**kwargs)

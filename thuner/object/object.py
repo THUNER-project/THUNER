@@ -71,9 +71,13 @@ def empty_object_record():
         "previous_ids": [],
         "matched_current_ids": [],
         "universal_ids": [],
+        "previous_parents": [],
+        "current_parents": [],
+        "previous_areas": [],
         "flow_boxes": [],  # Extract box centers as required
         "search_boxes": [],  # Extract box centers as required
         "flows": [],
+        "corrected_flows": [],
         "global_flows": [],
         "global_flow_boxes": [],
         "current_displacements": [],
@@ -126,7 +130,9 @@ def relabel_parents(previous_ids, parents, universal_ids):
 
 
 def update_object_record(match_data, object_tracks, object_options):
-    """Update record of object properties in previous and current masks."""
+    """
+    Update record of object properties in previous and current masks after matching.
+    """
 
     previous_object_record = copy.deepcopy(object_tracks["object_record"])
     previous_mask = utils.get_masks(object_tracks, object_options)[1]
@@ -160,8 +166,7 @@ def update_object_record(match_data, object_tracks, object_options):
     object_record["previous_parents"] = previous_object_record["current_parents"]
     current_parents = object_record["current_parents"]
     current_parents = relabel_parents(previous_ids, current_parents, universal_ids)
-    if len(object_record["previous_parents"]) != len(previous_ids):
-        print("asdf")
+
     object_record["current_parents"] = current_parents
     object_record["previous_ids"] = previous_ids
     object_tracks["object_record"] = object_record

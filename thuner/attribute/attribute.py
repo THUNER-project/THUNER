@@ -71,7 +71,11 @@ def record(
 ):
     """Record object attributes."""
 
-    if object_options.attributes is None:
+    if "object_record" not in object_tracks.keys():
+        no_objects = True
+    else:
+        no_objects = len(object_tracks["object_record"]["previous_ids"]) == 0
+    if object_options.attributes is None or no_objects:
         return
 
     logger.info(f"Recording {object_options.name} attributes.")
