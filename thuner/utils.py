@@ -13,12 +13,160 @@ from scipy.interpolate import interp1d
 import re
 import os
 import platform
-from pathlib import Path
+from typing import Any, Dict, Literal
+from pydantic import Field, model_validator, BaseModel
 from thuner.log import setup_logger
 from thuner.config import get_outputs_directory
 
 
 logger = setup_logger(__name__)
+
+
+def convert_value(value: Any) -> Any:
+    """
+    Convenience function to convert options attributes to types serializable as yaml.
+    """
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, np.ndarray):
+        return [convert_value(v) for v in value.tolist()]
+    if isinstance(value, BaseOptions):
+        fields = value.model_fields.keys()
+        return {field: convert_value(getattr(value, field)) for field in fields}
+    if isinstance(value, dict):
+        return {convert_value(k): convert_value(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [convert_value(v) for v in value]
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, type):
+        # return full name of type, i.e. including module
+        return f"{inspect.getmodule(value).__name__}.{value.__name__}"
+    if type(value) is np.float32:
+        return float(value)
+    if inspect.isroutine(value):
+        module = inspect.getmodule(value)
+        return f"{module.__name__}.{value.__name__}"
+    return value
+
+
+class BaseOptions(BaseModel):
+    """
+    The base class for all options classes. This class is built on the pydantic
+    BaseModel class, which is similar to python dataclasses but with type checking.
+    """
+
+    type: str = Field(None, description="Type of the options class.")
+
+    # Allow arbitrary types in the options classes.
+    class Config:
+        arbitrary_types_allowed = True
+
+    # Ensure that floats in all options classes are np.float32
+    @model_validator(mode="after")
+    def convert_floats(cls, values):
+        for field in values.model_fields:
+            if type(getattr(values, field)) is float:
+                setattr(values, field, np.float32(getattr(values, field)))
+        return values
+
+    @model_validator(mode="after")
+    def _set_type(cls, values):
+        if values.type is None:
+            values.type = cls.__name__
+        return values
+
+    def to_dict(self) -> Dict[str, Any]:
+        fields = self.model_fields.keys()
+        return {field: convert_value(getattr(self, field)) for field in fields}
+
+    def to_yaml(self, filepath: str):
+        Path(filepath).parent.mkdir(exist_ok=True, parents=True)
+        with open(filepath, "w") as f:
+            kwargs = {"default_flow_style": False, "allow_unicode": True}
+            kwargs = {"sort_keys": False}
+            yaml.dump(self.to_dict(), f, **kwargs)
+
+
+# Create convenience dictionary for options descriptions.
+_summary = {
+    "name": "Name of the dataset.",
+    "start": "Tracking start time.",
+    "end": "Tracking end time.",
+    "parent_remote": "Data parent directory on remote storage.",
+    "parent_local": "Data parent directory on local storage.",
+    "converted_options": "Options for converted data.",
+    "filepaths": "List of filepaths to used for tracking.",
+    "attempt_download": "Whether to attempt to download the data.",
+    "deque_length": """Number of previous grids from this dataset to keep in memory. 
+    Most tracking algorithms require at least two previous grids.""",
+    "use": "Whether this dataset will be used for tagging or tracking.",
+    "parent_converted": "Parent directory for converted data.",
+    "fields": """List of dataset fields, i.e. variables, to use. Fields should be given 
+    using their thuner, i.e. CF-Conventions, names, e.g. 'reflectivity'.""",
+    "start_buffer": """Minutes before interval start time to include. Useful for 
+    tagging datasets when one wants to record pre-storm ambient profiles.""",
+    "end_buffer": """Minutes after interval end time to include. Useful for 
+    tagging datasets when one wants to record post-storm ambient profiles.""",
+}
+
+
+class ConvertedOptions(BaseOptions):
+    """Converted options."""
+
+    save: bool = Field(False, description="Whether to save the converted data.")
+    load: bool = Field(False, description="Whether to load the converted data.")
+    parent_converted: str | None = Field(None, description=_summary["parent_converted"])
+
+
+default_parent_local = str(get_outputs_directory() / "input_data/raw")
+
+
+class BaseDatasetOptions(BaseOptions):
+    """Base class for dataset options."""
+
+    name: str = Field(..., description=_summary["name"])
+    start: str | np.datetime64 = Field(..., description=_summary["start"])
+    end: str | np.datetime64 = Field(..., description=_summary["end"])
+    fields: list[str] | None = Field(None, description=_summary["fields"])
+    parent_remote: str | None = Field(None, description=_summary["parent_remote"])
+    parent_local: str | Path | None = Field(
+        default_parent_local, description=_summary["parent_local"]
+    )
+    converted_options: ConvertedOptions = Field(
+        ConvertedOptions(), description=_summary["converted_options"]
+    )
+    filepaths: list[str] | dict = Field(None, description=_summary["filepaths"])
+    attempt_download: bool = Field(False, description=_summary["attempt_download"])
+    deque_length: int = Field(2, description=_summary["deque_length"])
+    use: Literal["track", "tag"] = Field("track", description=_summary["use"])
+    start_buffer: int = Field(-120, description=_summary["start_buffer"])
+    end_buffer: int = Field(0, description=_summary["end_buffer"])
+
+    @model_validator(mode="after")
+    def _check_parents(cls, values):
+        if values.parent_remote is None and values.parent_local is None:
+            message = "At least one of parent_remote and parent_local must be "
+            message += "specified."
+            raise ValueError(message)
+        if values.converted_options.save or values.converted_options.load:
+            if values.parent_converted is None:
+                message = "parent_converted must be specified if saving or loading."
+                raise ValueError(message)
+        if values.attempt_download:
+            if values.parent_remote is None | values.parent_local is None:
+                message = "parent_remote and parent_local must both be specified if "
+                message += "attempting to download."
+                raise ValueError(message)
+        return values
+
+    @model_validator(mode="after")
+    def _check_fields(cls, values):
+        if values.use == "track" and len(values.fields) != 1:
+            message = "Only one field should be specified if the dataset is used for "
+            message += "tracking. Instead, created grouped objects. See thuner.option."
+            raise ValueError(message)
+        return values
 
 
 def camel_to_snake(name):

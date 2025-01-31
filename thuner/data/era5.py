@@ -11,10 +11,9 @@ import cdsapi
 from typing import Any, Literal
 from pydantic import Field, model_validator
 import thuner.log as log
-from thuner.utils import get_hour_interval
+from thuner.utils import get_hour_interval, BaseDatasetOptions
 import thuner.data.utils as utils
 from thuner.config import get_outputs_directory
-import thuner.option as option
 
 
 logger = log.setup_logger(__name__)
@@ -26,20 +25,20 @@ _summary = {
     "data_format": "Data format, e.g. pressure-levels.",
     "pressure_levels": "Pressure levels; required if data_format is pressure-levels.",
     "storage": "Storage format of the data, e.g. monthly.",
+    "start_buffer": "Minutes before interval start time to include.",
 }
 
 
-class ERA5Options(option.data.BaseDatasetOptions):
+class ERA5Options(BaseDatasetOptions):
     """Options for ERA5 datasets."""
 
     # Overwrite the default values from the base class. Note these objects are still
     # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
     name: str = "era5_pl"
-    type: str = "ERA5Options"
     parent_remote: str = "/g/data/rt52"
     use: Literal["track", "tag"] = "tag"
     # Redefine refault start buffer to -120 minutes
-    start_buffer: int = Field(-120, description=option.data._summary["start_buffer"])
+    start_buffer: int = Field(-120, description=_summary["start_buffer"])
 
     # Define additional fields for era5
     latitude_range: list[float] = Field(

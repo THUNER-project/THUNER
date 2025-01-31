@@ -10,19 +10,17 @@ from pydantic import Field, model_validator
 import thuner.data.utils as utils
 from thuner.log import setup_logger
 import thuner.grid as grid
-import thuner.option as option
-
+from thuner.utils import BaseDatasetOptions
 
 logger = setup_logger(__name__)
 
 
-class GridRadSevereOptions(option.data.BaseDatasetOptions):
+class GridRadSevereOptions(BaseDatasetOptions):
     """Options for GridRad Severe datasets."""
 
     # Overwrite the default values from the base class. Note these objects are still
     # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
     name: str = "gridrad"
-    type: str = "GridRadSevereOptions"
     fields: list[str] = ["reflectivity"]
     parent_remote: str = "https://data.rda.ucar.edu"
 

@@ -15,7 +15,7 @@ import thuner.analyze.utils as utils
 import thuner.write as write
 import thuner.attribute as attribute
 import thuner.log as log
-from thuner.option.utils import BaseOptions
+from thuner.utils import BaseOptions
 from thuner.option.attribute import Attribute, AttributeType
 
 logger = log.setup_logger(__name__)

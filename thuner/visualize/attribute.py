@@ -229,6 +229,9 @@ def mcs_horizontal(
     fig, axes, colorbar_axes, legend_axes = horizontal.grouped_mask(*args, **kwargs)
 
     try:
+        filepath = output_directory / "attributes/mcs/core.csv"
+        columns = ["latitude", "longitude"]
+        core = read_attribute_csv(filepath, times=[time], columns=columns).loc[time]
         filepath = output_directory / "attributes/mcs/group.csv"
         group = read_attribute_csv(filepath, times=[time]).loc[time]
         filepath = output_directory / "analysis/velocities.csv"
@@ -241,7 +244,7 @@ def mcs_horizontal(
         ellipse = ellipse.rename(columns=new_names)
         filepath = output_directory / "analysis/quality.csv"
         quality = read_attribute_csv(filepath, times=[time]).loc[time]
-        attributes = pd.concat([ellipse, group, velocities, quality], axis=1)
+        attributes = pd.concat([core, ellipse, group, velocities, quality], axis=1)
         objs = group.reset_index()["universal_id"].values
     except KeyError:
         # If no attributes, set objs=[]

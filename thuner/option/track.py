@@ -5,7 +5,7 @@ from typing import Dict, List, Annotated
 from pydantic import Field, field_validator, model_validator
 from thuner.log import setup_logger
 from thuner.option.attribute import Attributes
-from thuner.option.utils import BaseOptions
+from thuner.utils import BaseOptions
 
 
 logger = setup_logger(__name__)

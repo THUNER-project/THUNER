@@ -107,6 +107,21 @@ def velocities_from_object_record(
     return dict(zip(names, [v_list, u_list]))
 
 
+def get_ids(object_tracks, matched, member_object):
+    """Get object ids from the object record to avoid recalculating."""
+    current_attributes = object_tracks["current_attributes"]
+    name = object_tracks["name"]
+    if matched:
+        id_name = "universal_id"
+    else:
+        id_name = "id"
+    if member_object is not None:
+        ids = current_attributes["member_objects"][member_object]["core"][id_name]
+    else:
+        ids = current_attributes[name]["core"][id_name]
+    return ids
+
+
 def coordinates_from_mask(
     attribute_group: AttributeGroup,
     object_tracks,
@@ -120,7 +135,8 @@ def coordinates_from_mask(
     if member_object is not None and isinstance(mask, xr.Dataset):
         mask = mask[f"{member_object}_mask"]
     gridcell_area = object_tracks["gridcell_area"]
-    ids = ids_from_mask(object_tracks, member_object, matched)
+
+    ids = get_ids(object_tracks, matched, member_object)
 
     latitude, longitude = [], []
     for obj_id in ids:
@@ -139,15 +155,15 @@ def coordinates_from_mask(
     return {"latitude": latitude, "longitude": longitude}
 
 
-def areas_from_mask(object_tracks, attribute, grid_options, member_object):
+def areas_from_mask(object_tracks, attribute, grid_options, member_object, matched):
     """Get object area from mask."""
-    mask = utils.get_previous_mask(attribute, object_tracks)
+    mask = utils.get_previous_mask(object_tracks, matched)
     # If examining just a member of a grouped object, get masks for that object
     if member_object is not None and isinstance(mask, xr.Dataset):
         mask = mask[f"{member_object}_mask"]
 
     gridcell_area = object_tracks["gridcell_area"]
-    ids = ids_from_mask(object_tracks, attribute, member_object)
+    ids = get_ids(object_tracks, matched, member_object)
 
     areas = []
     for obj_id in ids:
@@ -199,7 +215,7 @@ ids_record = Attribute(retrieval=retrieval, **kwargs)
 
 description = "id taken from object mask."
 kwargs.update({"description": description})
-retrieval_kwargs = {"matched": False}
+retrieval_kwargs = {"matched": True}
 retrieval = Retrieval(function=ids_from_mask, keyword_arguments=retrieval_kwargs)
 kwargs.update({"retrieval": retrieval})
 ids_mask = Attribute(**kwargs)
@@ -235,7 +251,7 @@ kwargs.update({"attributes": [latitude, longitude]})
 kwargs.update({"retrieval": Retrieval(function=coordinates_from_object_record)})
 coordinates_record = AttributeGroup(**kwargs)
 
-keyword_arguments = {"matched": False}
+keyword_arguments = {"matched": True}
 retrieval_kwargs = {"function": coordinates_from_mask}
 retrieval_kwargs.update({"keyword_arguments": keyword_arguments})
 kwargs.update({"retrieval": Retrieval(**retrieval_kwargs)})
@@ -266,7 +282,8 @@ kwargs.update({"retrieval": Retrieval(function=areas_from_object_record)})
 areas_record = Attribute(**kwargs)
 
 kwargs.update({"description": "Area taken from the object mask."})
-kwargs.update({"retrieval": Retrieval(function=areas_from_mask)})
+retrieval = Retrieval(function=areas_from_mask, keyword_arguments={"matched": True})
+kwargs.update({"retrieval": retrieval})
 areas_mask = Attribute(**kwargs)
 
 kwargs = {"data_type": np.datetime64, "precision": None}
@@ -277,22 +294,19 @@ kwargs.update({"name": "time", "retrieval": retrieval})
 time = Attribute(**kwargs)
 
 
-# Convenience function for creating default core attribute type
-def default(matched=True, tracked=True, grouped=False):
-    """Create the default core attribute type."""
-    attributes_list = [time]
-    if matched:
-        # If the object is matched, take core properties from the object record
-        attributes_list += [universal_ids_record, coordinates_record, parents]
-        if not grouped:
-            attributes_list += [areas_record]
-    else:
-        # If the object is not matched, take core properties from the object mask
-        attributes_list += [ids_mask, coordinates_mask]
-        if not grouped:
-            attributes_list += [areas_mask]
-    if tracked:
-        attributes_list += [flow_velocity, displacement_velocity]
+def default_tracked():
+    """Create the default core attribute type for grouped objects."""
+    attributes_list = [time, universal_ids_record, parents, coordinates_record]
+    attributes_list += [areas_record, flow_velocity, displacement_velocity]
+    description = "Core attributes of the object, e.g. position and velocities."
+    kwargs = {"name": "core", "attributes": attributes_list, "description": description}
+    return AttributeType(**kwargs)
+
+
+def default_member():
+    """Create the default core attribute type for member objects."""
+    attributes_list = [time, universal_ids_record, coordinates_mask]
+    attributes_list += [areas_mask, flow_velocity, displacement_velocity]
     description = "Core attributes of the object, e.g. position and velocities."
     kwargs = {"name": "core", "attributes": attributes_list, "description": description}
     return AttributeType(**kwargs)

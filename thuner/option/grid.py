@@ -1,6 +1,6 @@
 import numpy as np
 from pydantic import Field, model_validator
-from thuner.option.utils import BaseOptions
+from thuner.utils import BaseOptions
 from thuner.log import setup_logger
 
 logger = setup_logger(__name__)

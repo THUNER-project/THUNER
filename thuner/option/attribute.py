@@ -2,10 +2,9 @@
 
 import importlib
 import numpy as np
-from numpy import datetime64
 from typing import Callable
 from pydantic import Field, model_validator
-from thuner.option.utils import BaseOptions
+from thuner.utils import BaseOptions
 
 
 _summary = {

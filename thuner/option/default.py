@@ -39,8 +39,8 @@ def mcs(tracking_dataset="cpol", profile_dataset="era5_pl", tag_dataset="era5_sl
     grouping = option.track.GroupingOptions(**kwargs)
     tracking = option.track.MintOptions(matched_object="convective")
 
-    core_tracked = core.default(tracked=True)
-    core_untracked = core.default(tracked=False)
+    core_tracked = core.default_tracked()
+    core_member = core.default_member()
 
     # Assume the first member object is used for tracking.
     obj = member_objects[0]
@@ -50,7 +50,7 @@ def mcs(tracking_dataset="cpol", profile_dataset="era5_pl", tag_dataset="era5_sl
     attributes = option.track.Attributes(**kwargs)
     member_attributes = {obj: attributes}
     for obj in member_objects[1:]:
-        attribute_types = [core_untracked, quality.default(member_object=obj)]
+        attribute_types = [core_member, quality.default(member_object=obj)]
         kwargs = {"name": obj, "attribute_types": attribute_types}
         member_attributes[obj] = option.track.Attributes(**kwargs)
 

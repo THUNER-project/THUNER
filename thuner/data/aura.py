@@ -12,7 +12,7 @@ from thuner.log import setup_logger
 from thuner.data.odim import convert_odim
 import thuner.data.utils as utils
 import thuner.grid as grid
-import thuner.option as option
+from thuner.utils import BaseDatasetOptions
 
 
 logger = setup_logger(__name__)
@@ -28,7 +28,7 @@ _summary = {
 }
 
 
-class AURAOptions(option.data.BaseDatasetOptions):
+class AURAOptions(BaseDatasetOptions):
     """Base options class for AURA datasets."""
 
     # Overwrite the default values from the base class. Note these objects are still
@@ -50,7 +50,6 @@ class CPOLOptions(AURAOptions):
     # Overwrite the default values from the base class. Note these objects are still
     # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
     name: str = "cpol"
-    type: str = "CPOLOptions"
     fields: list[str] = ["reflectivity"]
     parent_remote: str = "https://dapds00.nci.org.au/thredds/fileServer/hj10"
 
@@ -150,7 +149,6 @@ class OperationalOptions(AURAOptions):
     # Overwrite the default values from the base class. Note these objects are still
     # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
     name: str = "operational"
-    type: str = "OperationalOptions"
     parent_remote: str = "https://dapds00.nci.org.au/thredds/fileServer/rq0"
 
     # Define additional fields for the operational radar
