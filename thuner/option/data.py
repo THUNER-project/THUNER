@@ -4,9 +4,9 @@ from typing import Dict, Union
 from pydantic import Field, model_validator
 from thuner.log import setup_logger
 from thuner.utils import BaseOptions, BaseDatasetOptions
-from thuner.data.gridrad import GridRadSevereOptions
-from thuner.data.aura import CPOLOptions, OperationalOptions
-from thuner.data.era5 import ERA5Options
+import thuner.data.gridrad as gridrad
+import thuner.data.aura as aura
+import thuner.data.era5 as era5
 
 logger = setup_logger(__name__)
 
@@ -16,10 +16,10 @@ _summary = {"datasets": "List of dataset options."}
 
 AnyDatasetOptions = Union[
     BaseDatasetOptions,
-    GridRadSevereOptions,
-    CPOLOptions,
-    OperationalOptions,
-    ERA5Options,
+    gridrad.GridRadSevereOptions,
+    aura.CPOLOptions,
+    aura.OperationalOptions,
+    era5.ERA5Options,
 ]
 
 

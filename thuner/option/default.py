@@ -1,7 +1,9 @@
 """Default options configurations."""
 
 import thuner.option as option
-from thuner.attribute import core, ellipse, quality, tag, profile, group
+import thuner.attribute as attribute
+
+# from thuner.attribute import core, ellipse, quality, tag, profile, group
 
 
 def convective(dataset="cpol"):
@@ -39,23 +41,24 @@ def mcs(tracking_dataset="cpol", profile_dataset="era5_pl", tag_dataset="era5_sl
     grouping = option.track.GroupingOptions(**kwargs)
     tracking = option.track.MintOptions(matched_object="convective")
 
-    core_tracked = core.default_tracked()
-    core_member = core.default_member()
+    core_tracked = attribute.core.default_tracked()
+    core_member = attribute.core.default_member()
 
     # Assume the first member object is used for tracking.
     obj = member_objects[0]
-    attribute_types = [core_tracked, quality.default(member_object=obj)]
-    attribute_types += [ellipse.default()]
+    attribute_types = [core_tracked, attribute.quality.default(member_object=obj)]
+    attribute_types += [attribute.ellipse.default()]
     kwargs = {"name": member_objects[0], "attribute_types": attribute_types}
     attributes = option.track.Attributes(**kwargs)
     member_attributes = {obj: attributes}
     for obj in member_objects[1:]:
-        attribute_types = [core_member, quality.default(member_object=obj)]
+        attribute_types = [core_member, attribute.quality.default(member_object=obj)]
         kwargs = {"name": obj, "attribute_types": attribute_types}
         member_attributes[obj] = option.track.Attributes(**kwargs)
 
-    attribute_types = [core_tracked, group.default()]
-    attribute_types += [profile.default(profile_dataset), tag.default(tag_dataset)]
+    attribute_types = [core_tracked, attribute.group.default()]
+    attribute_types += [attribute.profile.default(profile_dataset)]
+    attribute_types += [attribute.tag.default(tag_dataset)]
     kwargs = {"name": "mcs", "attribute_types": attribute_types}
     kwargs.update({"member_attributes": member_attributes})
     attributes = option.attribute.Attributes(**kwargs)

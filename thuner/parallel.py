@@ -2,18 +2,20 @@
 
 import shutil
 import gc
-import multiprocessing
+import os
+import multiprocessing as mp
+import time
 import glob
 from pathlib import Path
 import pandas as pd
 import numpy as np
 import xarray as xr
-from thuner.log import setup_logger
+from thuner.log import setup_logger, logging_listener
 import thuner.attribute as attribute
 import thuner.write as write
 import thuner.analyze as analyze
 import thuner.data as data
-import thuner.track as track
+import thuner.track as thuner_track
 import thuner.option as option
 
 logger = setup_logger(__name__)
@@ -33,7 +35,52 @@ def initialize_process():
     This will ensure that all processes in the pool are non-daemonic, and avoid the
     associated errors.
     """
-    multiprocessing.current_process().daemon = False
+    mp.current_process().daemon = False
+
+
+def track(
+    times,
+    data_options,
+    grid_options,
+    track_options,
+    visualize_options=None,
+    output_directory=None,
+    num_processes=4,
+    cleanup=True,
+):
+    if num_processes > os.cpu_count():
+        raise ValueError("Number of processes cannot exceed number of cpus.")
+    elif num_processes > 3 / 4 * os.cpu_count():
+        logger.warning("Number of processes over 3/4 of available CPUs.")
+
+    if num_processes == 1:
+        args = [times, data_options, grid_options, track_options, visualize_options]
+        args += [output_directory]
+        thuner_track.track(*args)
+        return
+
+    times = list(times)
+    start, end = times[0], times[-1]
+    period = get_period(start, end)
+    intervals = get_time_intervals(start, end, period)
+
+    kwargs = {"initializer": initialize_process, "processes": num_processes}
+    with logging_listener(), mp.get_context("spawn").Pool(**kwargs) as pool:
+        results = []
+        for i, time_interval in enumerate(intervals):
+            time.sleep(1)
+            args = [i, time_interval, data_options.model_copy(deep=True)]
+            args += [grid_options.model_copy(deep=True)]
+            args += [track_options.model_copy(deep=True)]
+            args += [visualize_options, output_directory]
+            args += ["gridrad"]
+            args = tuple(args)
+            results.append(pool.apply_async(track_interval, args))
+        pool.close()
+        pool.join()
+        check_results(results)
+
+    stitch_run(output_directory, intervals, cleanup=cleanup)
 
 
 def track_interval(
@@ -46,6 +93,10 @@ def track_interval(
     output_parent,
     dataset_name,
 ):
+
+    # Silence the welcome message
+    os.environ["THUNER_QUIET"] = "1"
+
     output_directory = output_parent / f"interval_{i}"
     output_directory.mkdir(parents=True, exist_ok=True)
     options_directory = output_directory / "options"
@@ -64,7 +115,7 @@ def track_interval(
     )
     args = [times, interval_data_options, grid_options, track_options]
     args += [visualize_options, output_directory]
-    track.simultaneous_track(*args)
+    thuner_track.track(*args)
     gc.collect()
 
 
@@ -338,7 +389,6 @@ def stitch_mask(intervals, masks, id_dicts, filepaths, obj):
     mask.to_zarr(filepath, mode="w")
 
 
-# @profile
 def stitch_masks(mask_file_dict, intervals, id_dicts):
     """Stitch together all mask files."""
     logger.info("Stitching mask files.")
@@ -353,7 +403,6 @@ def stitch_masks(mask_file_dict, intervals, id_dicts):
         stitch_mask(intervals, masks, id_dicts, filepaths, obj)
 
 
-# @profile
 def stitch_attribute(
     dfs,
     obj,

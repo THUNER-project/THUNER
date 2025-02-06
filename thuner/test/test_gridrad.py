@@ -8,7 +8,6 @@ import numpy as np
 import thuner.data as data
 import thuner.data.dispatch as dispatch
 import thuner.grid as grid
-import thuner.option as option
 import thuner.analyze as analyze
 import thuner.parallel as parallel
 import thuner.visualize as visualize

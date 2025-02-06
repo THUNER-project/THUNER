@@ -178,7 +178,7 @@ def consolidate_options(data_options, grid_options, track_options, visualize_opt
     return consolidated_options
 
 
-def simultaneous_track(
+def track(
     times,
     data_options,
     grid_options,
@@ -208,8 +208,7 @@ def simultaneous_track(
         The xarray dataset containing the object masks.
 
     """
-    logger.info("Beginning thuner run. Saving output to %s.", output_directory)
-    logger.info("Beginning simultaneous tracking.")
+    logger.info("Beginning thuner tracking. Saving output to %s.", output_directory)
     tracks = initialise_tracks(track_options)
     input_records = initialise_input_records(data_options)
 

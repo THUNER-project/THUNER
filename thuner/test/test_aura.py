@@ -8,7 +8,6 @@ import thuner.data as data
 import thuner.data.dispatch as dispatch
 import thuner.grid as grid
 import thuner.track as track
-import thuner.option as option
 import thuner.visualize as visualize
 from thuner.log import setup_logger
 import thuner.analyze as analyze
@@ -86,7 +85,7 @@ def test_cpol_with_runtime_figures_geographic():
 
     # Test in geographic coordinates
     times = data.utils.generate_times(data_options.dataset_by_name("cpol"))
-    track.simultaneous_track(
+    track.track(
         times,
         data_options,
         grid_options,
@@ -116,7 +115,7 @@ def test_cpol_with_runtime_figures_cartesian():
     data_options, grid_options, track_options, visualize_options = options
 
     times = data.utils.generate_times(data_options.dataset_by_name("cpol"))
-    track.simultaneous_track(
+    track.track(
         times,
         data_options,
         grid_options,
@@ -147,7 +146,7 @@ def test_cpol_geographic():
 
     # Test tracking in geographic coordinates
     times = data.utils.generate_times(data_options.dataset_by_name("cpol"))
-    track.simultaneous_track(
+    track.track(
         times,
         data_options,
         grid_options,
@@ -189,7 +188,7 @@ def test_cpol_cartesian():
     visualize_options = None
 
     times = data.utils.generate_times(data_options.dataset_by_name("cpol"))
-    track.simultaneous_track(
+    track.track(
         times,
         data_options,
         grid_options,

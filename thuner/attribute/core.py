@@ -366,8 +366,7 @@ def default_tracked():
 
 def default_member():
     """Create the default core attribute type for member objects."""
-    attributes_list = [Time(), RecordUniversalID(), CoordinatesRecord()]
-    attributes_list += [AreasMask(), FlowVelocity(), DisplacementVelocity()]
+    attributes_list = [Time(), RecordUniversalID(), CoordinatesMask(), AreasMask()]
     description = "Core attributes of a member object, e.g. position and velocities."
     kwargs = {"name": "core", "attributes": attributes_list, "description": description}
     return AttributeType(**kwargs)

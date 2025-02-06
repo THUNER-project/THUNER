@@ -8,10 +8,8 @@ import thuner.data as data
 import thuner.data.dispatch as dispatch
 import thuner.grid as grid
 import thuner.track as track
-import thuner.option as option
 import thuner.visualize as visualize
 import thuner.data.synthetic as synthetic
-import thuner.analyze as analyze
 
 # Suppress the "wayland" plugin warning
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
@@ -87,7 +85,7 @@ def test_synthetic():
         np.datetime64(end) + np.timedelta64(10, "m"),
         +np.timedelta64(10, "m"),
     )
-    track.simultaneous_track(
+    track.track(
         times,
         data_options,
         grid_options,
@@ -126,7 +124,7 @@ def test_synthetic():
         np.datetime64(end) + np.timedelta64(10, "m"),
         +np.timedelta64(10, "m"),
     )
-    track.simultaneous_track(
+    track.track(
         times,
         data_options,
         grid_options,

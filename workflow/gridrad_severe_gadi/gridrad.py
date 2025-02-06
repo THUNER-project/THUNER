@@ -7,7 +7,6 @@ import time
 from pathlib import Path
 import shutil
 import thuner.data as data
-import thuner.data.dispatch as dispatch
 import thuner.grid as grid
 import thuner.option as option
 import thuner.analyze as analyze
