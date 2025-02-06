@@ -1,36 +1,11 @@
+import numpy as np
 from thuner.log import setup_logger
 import thuner.attribute.core as core
+from thuner.attribute.utils import setup_interp, TimeOffset
 import xarray as xr
 from thuner.option.attribute import Retrieval, Attribute, AttributeGroup, AttributeType
 
 logger = setup_logger(__name__)
-
-
-def setup_interp(
-    attribute_group: AttributeGroup,
-    input_records,
-    object_tracks,
-    dataset,
-    member_object=None,
-):
-    name = object_tracks["name"]
-    excluded = ["time", "id", "universal_id", "latitude", "longitude", "altitude"]
-    excluded += ["time_offset"]
-    attributes = attribute_group.attributes
-    names = [attr.name for attr in attributes if attr.name not in excluded]
-    tag_input_records = input_records["tag"]
-    previous_time = object_tracks["previous_times"][-1]
-
-    # Get object centers
-    if member_object is None:
-        core_attributes = object_tracks["current_attributes"][name]["core"]
-    else:
-        core_attributes = object_tracks["current_attributes"]["member_objects"]
-        core_attributes = core_attributes[member_object]["core"]
-
-    ds = tag_input_records[dataset]["dataset"]
-    ds["longitude"] = ds["longitude"] % 360
-    return name, names, ds, core_attributes, previous_time
 
 
 # Functions for obtaining and recording attributes
@@ -39,6 +14,7 @@ def from_centers(
     input_records,
     object_tracks,
     dataset,
+    time_offsets,
     member_object=None,
 ):
     """
@@ -57,48 +33,86 @@ def from_centers(
     tags = ds[names]
     lats_da = xr.DataArray(core_attributes["latitude"], dims="points")
     lons_da = xr.DataArray(core_attributes["longitude"], dims="points")
+    lons_da = lons_da % 360
     previous_time = object_tracks["previous_times"][-1]
 
     # Convert object lons to 0-360
-    lons_da = lons_da % 360
-    kwargs = {"latitude": lats_da, "longitude": lons_da}
-    kwargs.update({"time": previous_time.astype("datetime64[ns]")})
-    kwargs.update({"method": "linear"})
-    tags = tags.interp(**kwargs)
+    if "id" in core_attributes.keys():
+        id_name = "id"
+    elif "universal_id" in core_attributes.keys():
+        id_name = "universal_id"
+    else:
+        message = "No id or universal_id found in core attributes."
+        raise ValueError(message)
+    ids = core_attributes[id_name]
 
     tag_dict = {name: [] for name in names}
-    for name in names:
-        tag_dict[name] += list(tags[name].values)
+    coordinates = ["time", "time_offset", id_name, "latitude", "longitude"]
+    tag_dict.update({name: [] for name in coordinates})
+    # Setup interp kwargs
+    kwargs = {"latitude": lats_da, "longitude": lons_da, "method": "linear"}
+    for offset in time_offsets:
+        interp_time = previous_time + np.timedelta64(offset, "m")
+        kwargs.update({"time": interp_time.astype("datetime64[ns]")})
+        tags_time = tags.interp(**kwargs)
+        for name in names:
+            tag_dict[name] += list(tags_time[name].values)
+        tag_dict["time_offset"] += [offset] * len(core_attributes["latitude"])
+        tag_dict["latitude"] += core_attributes["latitude"]
+        tag_dict["longitude"] += core_attributes["longitude"]
+        tag_dict["time"] += [previous_time] * len(core_attributes["latitude"])
+        tag_dict[id_name] += ids
     return tag_dict
 
 
-kwargs = {"name": "cape", "data_type": float, "precision": 1, "units": "J/kg"}
-description = "Convective available potential energy at the object center."
-kwargs.update({"description": description})
-cape = Attribute(**kwargs)
+class CAPE(Attribute):
+    name: str = "cape"
+    data_type: type = float
+    precision: int = 1
+    units: str = "J/kg"
+    description: str = "Convective available potential energy."
 
-description = "Convective inhibition at the object center."
-kwargs.update({"description": description, "name": "cin"})
-cin = Attribute(**kwargs)
 
-kwargs = {"name": "tags_center", "attributes": [cape, cin]}
-description = "Tag attributes associated with object centers, e.g. cape and cin."
-kwargs.update({"description": description})
-keyword_arguments = {"center_type": "area_weighted"}
-retrieval = Retrieval(function=from_centers, keyword_arguments=keyword_arguments)
-kwargs.update({"retrieval": retrieval})
-tag_center = AttributeGroup(**kwargs)
+class CIN(Attribute):
+    name: str = "cin"
+    data_type: type = float
+    precision: int = 1
+    units: str = "J/kg"
+    description: str = "Convective inhibition."
+
+
+class TagCenter(AttributeGroup):
+    name: str = "tags_center"
+    retrieval: Retrieval = Retrieval(
+        function=from_centers,
+        keyword_arguments={
+            "center_type": "area_weighted",
+            "time_offsets": [-120, -60, 0],
+        },
+    )
+    attributes: list[Attribute] = [
+        core.Time(retrieval=None),
+        TimeOffset(),
+        core.Latitude(retrieval=None),
+        core.Longitude(retrieval=None),
+        CAPE(),
+        CIN(),
+    ]
+    description: str = "Tags at object centers, e.g. cape and cin."
 
 
 def default(dataset, matched=True):
     """Create the default tag attribute type."""
 
-    attributes_list = core.retrieve_core(matched=matched)
-    new_tag_center = tag_center.model_copy(deep=True)
-    new_tag_center.retrieval.keyword_arguments.update({"dataset": dataset})
-    attributes_list += [new_tag_center]
-    description = "Tag attributes, e.g. cape and cin."
-    kwargs = {"name": f"{dataset}_tag", "attributes": attributes_list}
+    tag_center = TagCenter()
+    # Add the appropriate ID attribute
+    if matched:
+        tag_center.attributes.insert(2, core.RecordUniversalID(retrieval=None))
+    else:
+        tag_center.attributes.insert(2, core.RecordID(retrieval=None))
+    # Add the appropriate dataset attribute
+    tag_center.retrieval.keyword_arguments.update({"dataset": dataset})
+    description = "Tag attributes, e.g. cape and cin, at object center."
+    kwargs = {"name": f"{dataset}_tag", "attributes": [tag_center]}
     kwargs.update({"description": description})
-
     return AttributeType(**kwargs)

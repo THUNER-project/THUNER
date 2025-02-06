@@ -51,13 +51,17 @@ def initialize_attributes(object_options):
 def retrieve_attribute(general_kwargs, attribute, member_object=None):
     # Get the retrieval function and arguments for the attribute
     func_kwargs = general_kwargs.copy()
-
     keyword_arguments = attribute.retrieval.keyword_arguments
     func_kwargs.update(keyword_arguments)
     # Retrieval functions expect either "attribute" or "attribute_group"
     # keyword arguments. Infer correct argument name from attribute type.
-    var_name = camel_to_snake(attribute.type)
-    func_kwargs.update({var_name: attribute, "member_object": member_object})
+    if isinstance(attribute, Attribute):
+        func_kwargs.update({"attribute": attribute})
+    elif isinstance(attribute, AttributeGroup):
+        func_kwargs.update({"attribute_group": attribute})
+    else:
+        raise ValueError(f"attribute must be instance of Attribute or AttributeGroup.")
+    func_kwargs.update({"member_object": member_object})
     func = attribute.retrieval.function
     # Filter out arguments not expected by the function
     # Doing this here avoids cluttering retrieval function definitions

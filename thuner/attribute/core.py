@@ -14,7 +14,7 @@ from thuner.option.attribute import Retrieval, Attribute, AttributeGroup, Attrib
 logger = setup_logger(__name__)
 
 
-def time_from_tracks(object_tracks, attribute: Attribute):
+def time_from_tracks(attribute: Attribute, object_tracks):
     """Get time from object tracks."""
 
     previous_time = object_tracks["previous_times"][-1]
@@ -206,123 +206,180 @@ def ids_from_object_record(attribute: Attribute, object_tracks):
 
 
 # Define convenience attributes
-retrieval_kwargs = {"function": ids_from_object_record}
-retrieval_kwargs.update({"keyword_arguments": {"matched": False}})
-retrieval = Retrieval(**retrieval_kwargs)
-description = "id taken from object record."
-kwargs = {"name": "id", "data_type": int, "description": description}
-ids_record = Attribute(retrieval=retrieval, **kwargs)
+class RecordID(Attribute):
+    name: str = "id"
+    data_type: type = int
+    description: str = "id taken from object record."
+    retrieval: Retrieval | None = Retrieval(
+        function=ids_from_object_record, keyword_arguments={"matched": False}
+    )
 
-description = "id taken from object mask."
-kwargs.update({"description": description})
-retrieval_kwargs = {"matched": True}
-retrieval = Retrieval(function=ids_from_mask, keyword_arguments=retrieval_kwargs)
-kwargs.update({"retrieval": retrieval})
-ids_mask = Attribute(**kwargs)
 
-description = "universal_id taken from object record."
-retrieval = Retrieval(
-    function=ids_from_object_record, keyword_arguments={"matched": True}
-)
-kwargs.update({"name": "universal_id", "description": description})
-kwargs.update({"retrieval": retrieval})
-universal_ids_record = Attribute(**kwargs)
+class MaskID(Attribute):
+    name: str = "id"
+    data_type: type = int
+    description: str = "id taken from object mask."
+    retrieval: Retrieval | None = Retrieval(
+        function=ids_from_mask, keyword_arguments={"matched": True}
+    )
 
-description = "universal_id taken from object mask."
-retrieval_kwargs = {"matched": True}
-retrieval = Retrieval(function=ids_from_mask, keyword_arguments=retrieval_kwargs)
-kwargs.update({"description": description, "retrieval": retrieval})
-universal_ids_mask = Attribute(**kwargs)
 
-parent_description = "parent objects as space separated list of universal_ids."
-kwargs = {"name": "parents", "data_type": str, "description": parent_description}
-parents = Attribute(retrieval=Retrieval(function=parents_from_object_record), **kwargs)
+class RecordUniversalID(Attribute):
+    name: str = "universal_id"
+    data_type: type = int
+    description: str = "universal_id taken from object record."
+    retrieval: Retrieval | None = Retrieval(
+        function=ids_from_object_record, keyword_arguments={"matched": True}
+    )
 
-kwargs = {"data_type": float, "precision": 4, "retrieval": None, "name": "latitude"}
-kwargs.update({"description": "Latitude position of the object."})
-kwargs.update({"units": "degrees_north"})
-latitude = Attribute(**kwargs)
-kwargs.update({"name": "longitude", "units": "degrees_east"})
-kwargs.update({"description": "Longitude position of the object."})
-longitude = Attribute(**kwargs)
-description = f"Coordinates taken from the object_record or object mask; "
-description += f"usually a gridcell area weighted mean over the object mask."
-kwargs = {"name": "coordinate", "description": description}
-kwargs.update({"attributes": [latitude, longitude]})
-kwargs.update({"retrieval": Retrieval(function=coordinates_from_object_record)})
-coordinates_record = AttributeGroup(**kwargs)
 
-keyword_arguments = {"matched": True}
-retrieval_kwargs = {"function": coordinates_from_mask}
-retrieval_kwargs.update({"keyword_arguments": keyword_arguments})
-kwargs.update({"retrieval": Retrieval(**retrieval_kwargs)})
-coordinates_mask = AttributeGroup(**kwargs)
+class MaskUniversalID(Attribute):
+    name: str = "universal_id"
+    data_type: type = int
+    description: str = "universal_id taken from object mask."
+    retrieval: Retrieval | None = Retrieval(
+        function=ids_from_mask, keyword_arguments={"matched": True}
+    )
 
-kwargs = {"data_type": float, "precision": 1, "retrieval": None, "units": "m/s"}
-description = "velocity from cross correlation."
-u_flow = Attribute(name="u_flow", description="Zonal " + description, **kwargs)
-v_flow = Attribute(name="v_flow", description="Meridional " + description, **kwargs)
-retrieval = Retrieval(function=velocities_from_object_record)
-kwargs = {"name": "flow_velocity", "description": "Flow velocities from object record."}
-kwargs.update({"attributes": [u_flow, v_flow], "retrieval": retrieval})
-flow_velocity = AttributeGroup(**kwargs)
 
-kwargs = {"data_type": float, "precision": 1, "retrieval": None, "units": "m/s"}
-description = " centroid displacement velocity."
-kwargs.update({"description": "Zonal " + description})
-u_displacement = Attribute(name="u_displacement", **kwargs)
-kwargs.update({"description": "Meridional " + description})
-v_displacement = Attribute(name="v_displacement", **kwargs)
-kwargs = {"name": "displacement_velocity", "description": "Displacement velocities."}
-kwargs.update({"attributes": [u_displacement, v_displacement], "retrieval": retrieval})
-displacement_velocity = AttributeGroup(**kwargs)
+class Parents(Attribute):
+    name: str = "parents"
+    data_type: type = str
+    description: str = "parent objects as space separated list of universal_ids."
+    retrieval: Retrieval | None = Retrieval(function=parents_from_object_record)
 
-kwargs = {"name": "area", "data_type": float, "precision": 1, "units": "km^2"}
-kwargs.update({"description": "Area taken from the object record."})
-kwargs.update({"retrieval": Retrieval(function=areas_from_object_record)})
-areas_record = Attribute(**kwargs)
 
-kwargs.update({"description": "Area taken from the object mask."})
-retrieval = Retrieval(function=areas_from_mask, keyword_arguments={"matched": True})
-kwargs.update({"retrieval": retrieval})
-areas_mask = Attribute(**kwargs)
+class Latitude(Attribute):
+    name: str = "latitude"
+    data_type: type = float
+    precision: int = 4
+    description: str = "Latitude position of the object."
+    units: str = "degrees_north"
 
-kwargs = {"data_type": np.datetime64, "precision": None}
-kwargs.update({"units": "yyyy-mm-dd hh:mm:ss"})
-kwargs.update({"description": "Time taken from the tracking process."})
-retrieval = Retrieval(function=time_from_tracks)
-kwargs.update({"name": "time", "retrieval": retrieval})
-time = Attribute(**kwargs)
+
+class Longitude(Attribute):
+    name: str = "longitude"
+    data_type: type = float
+    precision: int = 4
+    description: str = "Longitude position of the object."
+    units: str = "degrees_east"
+
+
+class CoordinatesRecord(AttributeGroup):
+    name: str = "coordinate"
+    description: str = "Coordinates taken from the object_record."
+    attributes: list = [Latitude(), Longitude()]
+    retrieval: Retrieval | None = Retrieval(function=coordinates_from_object_record)
+
+
+class CoordinatesMask(AttributeGroup):
+    name: str = "coordinate"
+    description: str = "Coordinates taken from the object mask."
+    attributes: list = [Latitude(), Longitude()]
+    retrieval: Retrieval | None = Retrieval(
+        function=coordinates_from_mask, keyword_arguments={"matched": True}
+    )
+
+
+class UFlow(Attribute):
+    name: str = "u_flow"
+    data_type: type = float
+    precision: int = 1
+    description: str = "Zonal velocity from cross correlation."
+    units: str = "m/s"
+
+
+class VFlow(Attribute):
+    name: str = "v_flow"
+    data_type: type = float
+    precision: int = 1
+    description: str = "Meridional velocity from cross correlation."
+    units: str = "m/s"
+
+
+class FlowVelocity(AttributeGroup):
+    name: str = "flow_velocity"
+    description: str = "Flow velocities from object record."
+    attributes: list = [UFlow(), VFlow()]
+    retrieval: Retrieval | None = Retrieval(function=velocities_from_object_record)
+
+
+class UDisplacement(Attribute):
+    name: str = "u_displacement"
+    data_type: type = float
+    precision: int = 1
+    description: str = "Zonal centroid displacement velocity."
+    units: str = "m/s"
+
+
+class VDisplacement(Attribute):
+    name: str = "v_displacement"
+    data_type: type = float
+    precision: int = 1
+    description: str = "Meridional centroid displacement velocity."
+    units: str = "m/s"
+
+
+class DisplacementVelocity(AttributeGroup):
+    name: str = "displacement_velocity"
+    description: str = "Displacement velocities."
+    attributes: list = [UDisplacement(), VDisplacement()]
+    retrieval: Retrieval | None = Retrieval(function=velocities_from_object_record)
+
+
+class AreasRecord(Attribute):
+    name: str = "area"
+    data_type: type = float
+    precision: int = 1
+    units: str = "km^2"
+    description: str = "Area taken from the object record."
+    retrieval: Retrieval | None = Retrieval(function=areas_from_object_record)
+
+
+class AreasMask(Attribute):
+    name: str = "area"
+    data_type: type = float
+    precision: int = 1
+    units: str = "km^2"
+    description: str = "Area taken from the object mask."
+    retrieval: Retrieval | None = Retrieval(
+        function=areas_from_mask, keyword_arguments={"matched": True}
+    )
+
+
+class Time(Attribute):
+    name: str = "time"
+    data_type: type = np.datetime64
+    units: str = "yyyy-mm-dd hh:mm:ss"
+    description: str = "Time taken from the tracking process."
+    retrieval: Retrieval | None = Retrieval(function=time_from_tracks)
 
 
 def default_tracked():
     """Create the default core attribute type for grouped objects."""
-    attributes_list = [time, universal_ids_record, parents, coordinates_record]
-    attributes_list += [areas_record, flow_velocity, displacement_velocity]
-    description = "Core attributes of the object, e.g. position and velocities."
+    attributes_list = [Time(), RecordUniversalID(), Parents(), CoordinatesRecord()]
+    attributes_list += [AreasRecord(), FlowVelocity(), DisplacementVelocity()]
+    description = "Core attributes of tracked object, e.g. position and velocities."
     kwargs = {"name": "core", "attributes": attributes_list, "description": description}
     return AttributeType(**kwargs)
 
 
 def default_member():
     """Create the default core attribute type for member objects."""
-    attributes_list = [time, universal_ids_record, coordinates_mask]
-    attributes_list += [areas_mask, flow_velocity, displacement_velocity]
-    description = "Core attributes of the object, e.g. position and velocities."
+    attributes_list = [Time(), RecordUniversalID(), CoordinatesRecord()]
+    attributes_list += [AreasMask(), FlowVelocity(), DisplacementVelocity()]
+    description = "Core attributes of a member object, e.g. position and velocities."
     kwargs = {"name": "core", "attributes": attributes_list, "description": description}
     return AttributeType(**kwargs)
 
 
-def retrieve_core(attributes_list=[time, latitude, longitude], matched=True):
+def retrieve_core(attributes_list=[Time(), Latitude(), Longitude()], matched=True):
     """Get core attributes list for use with other attribute types."""
     if matched:
-        attributes_list += [universal_ids_record]
+        attributes_list += [RecordUniversalID()]
     else:
-        attributes_list += [ids_record]
+        attributes_list += [RecordID()]
     # Replace retrieval for the core attributes with attribute_from_core function
-    new_attributes_list = []
     for attribute in attributes_list:
-        new_attribute = attribute.model_copy(deep=True)
-        new_attribute.retrieval = Retrieval(function=utils.attribute_from_core)
-        new_attributes_list.append(new_attribute)
-    return new_attributes_list
+        attribute.retrieval = Retrieval(function=utils.attribute_from_core)
+    return attributes_list

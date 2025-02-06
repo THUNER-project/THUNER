@@ -50,21 +50,22 @@ def overlap_from_mask(
     return {"boundary_overlap": overlaps}
 
 
-kwargs = {"name": "boundary_overlap", "data_type": float, "precision": 4}
-kwargs.update({"description": "Fraction of object area comprised of boundary pixels."})
-kwargs.update({"retrieval": Retrieval(function=overlap_from_mask)})
-boundary_overlap = Attribute(**kwargs)
+class BoundaryOverlap(Attribute):
+    name: str = "boundary_overlap"
+    data_type: type = float
+    precision: int = 4
+    description: str = "Fraction of object area comprised of boundary gridcells."
+    retrieval: Retrieval = Retrieval(function=overlap_from_mask)
 
 
 # Convenience functions for creating default ellipse attribute type
 def default(matched=True, member_object=None):
     """Create the default quality attribute type."""
 
-    # Copy boundary overlap and add the appropriate member object argument
-    new_boundary_overlap = boundary_overlap.model_copy(deep=True)
-    new_boundary_overlap.retrieval.keyword_arguments["member_object"] = member_object
-    attributes_list = core.retrieve_core(attributes_list=[core.time], matched=matched)
-    attributes_list.append(new_boundary_overlap)
+    attributes_list = core.retrieve_core(attributes_list=[core.Time()], matched=matched)
+    boundary_overlap = BoundaryOverlap()
+    boundary_overlap.retrieval.keyword_arguments["member_object"] = member_object
+    attributes_list.append(boundary_overlap)
     description = "Attributes associated with quality control, e.g. boundary overlap."
     kwargs = {"name": "quality", "attributes": attributes_list}
     kwargs.update({"description": description})

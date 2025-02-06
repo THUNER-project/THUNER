@@ -4,7 +4,7 @@ import yaml
 from pathlib import Path
 import pandas as pd
 import numpy as np
-from thuner.option.attribute import AttributeGroup, AttributeType
+from thuner.option.attribute import Attribute, AttributeGroup, AttributeType
 from thuner.log import setup_logger
 
 logger = setup_logger(__name__)
@@ -17,6 +17,40 @@ string_to_data_type = {
     "bool": bool,
     "str": str,
 }
+
+
+class TimeOffset(Attribute):
+    name: str = "time_offset"
+    data_type: type = int
+    units: str = "min"
+    description: str = "Time offset in minutes from object detection time."
+
+
+def setup_interp(
+    attribute_group: AttributeGroup,
+    input_records,
+    object_tracks,
+    dataset,
+    member_object=None,
+):
+    name = object_tracks["name"]
+    excluded = ["time", "id", "universal_id", "latitude", "longitude", "altitude"]
+    excluded += ["time_offset"]
+    attributes = attribute_group.attributes
+    names = [attr.name for attr in attributes if attr.name not in excluded]
+    tag_input_records = input_records["tag"]
+    previous_time = object_tracks["previous_times"][-1]
+
+    # Get object centers
+    if member_object is None:
+        core_attributes = object_tracks["current_attributes"][name]["core"]
+    else:
+        core_attributes = object_tracks["current_attributes"]["member_objects"]
+        core_attributes = core_attributes[member_object]["core"]
+
+    ds = tag_input_records[dataset]["dataset"]
+    ds["longitude"] = ds["longitude"] % 360
+    return name, names, ds, core_attributes, previous_time
 
 
 def get_previous_mask(object_tracks, matched=False):
@@ -50,7 +84,10 @@ def attributes_dataframe(recorded_attributes, attribute_type):
 
     data_types = get_data_type_dict(attribute_type)
     data_types.pop("time")
-    df = pd.DataFrame(recorded_attributes).astype(data_types)
+    try:
+        df = pd.DataFrame(recorded_attributes).astype(data_types)
+    except:
+        pass
     multi_index = ["time"]
     if "time_offset" in recorded_attributes.keys():
         multi_index.append("time_offset")

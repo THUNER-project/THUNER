@@ -108,8 +108,8 @@ def process_velocities(
         kwargs.update({"precision": precision, "description": description})
         kwargs.update({"units": units})
         attributes.append(Attribute(**kwargs))
-    attributes.append(attribute.core.time)
-    attributes.append(attribute.core.universal_ids_record)
+    attributes.append(attribute.core.Time())
+    attributes.append(attribute.core.RecordUniversalID())
     attribute_type = AttributeType(name="velocities", attributes=attributes)
     filepath = analysis_directory / "velocities.csv"
     all_velocities = write.attribute.write_csv(filepath, all_velocities, attribute_type)
@@ -315,8 +315,8 @@ def quality_control(
         kwargs.update({"units": units})
         attributes.append(Attribute(**kwargs))
 
-    attributes.append(attribute.core.time)
-    attributes.append(attribute.core.universal_ids_record)
+    attributes.append(attribute.core.Time())
+    attributes.append(attribute.core.RecordUniversalID())
     attribute_type = AttributeType(name="quality", attributes=attributes)
     filepath = analysis_directory / "quality.csv"
     quality = [convective_check, anvil_check, initial_check, velocity_check, area_check]
@@ -398,8 +398,8 @@ def classify_all(
         kwargs.update({"precision": precision, "description": description})
         kwargs.update({"units": units})
         attributes.append(Attribute(**kwargs))
-    attributes.append(attribute.core.time)
-    attributes.append(attribute.core.universal_ids_record)
+    attributes.append(attribute.core.Time())
+    attributes.append(attribute.core.RecordUniversalID())
     attribute_type = AttributeType(name="velocities", attributes=attributes)
 
     data_type, precision, units, retrieval = str, None, None, None
@@ -409,8 +409,8 @@ def classify_all(
         kwargs.update({"precision": precision, "description": description})
         kwargs.update({"units": units})
         attributes.append(Attribute(**kwargs))
-    attributes.append(attribute.core.time)
-    attributes.append(attribute.core.universal_ids_record)
+    attributes.append(attribute.core.Time())
+    attributes.append(attribute.core.RecordUniversalID())
     attribute_type = AttributeType(name="classification", attributes=attributes)
 
     labels = [["leading", "right", "trailing", "left"]]

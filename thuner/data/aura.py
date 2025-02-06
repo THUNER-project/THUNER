@@ -52,10 +52,10 @@ class CPOLOptions(AURAOptions):
     name: str = "cpol"
     fields: list[str] = ["reflectivity"]
     parent_remote: str = "https://dapds00.nci.org.au/thredds/fileServer/hj10"
-
-    # Define additional fields for CPOL
     level: str = "1b"
     data_format: str = "grid_150km_2500m"
+
+    # Define additional fields for CPOL
     version: str = Field("v2020", description="Data version.")
 
     @model_validator(mode="after")

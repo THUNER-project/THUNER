@@ -1,12 +1,8 @@
-"""
-Functions for defining attribute options associated with vertical profile attributes.
-"""
-
 import numpy as np
 import xarray as xr
 from thuner.log import setup_logger
 import thuner.attribute.core as core
-from thuner.attribute.tag import setup_interp
+from thuner.attribute.utils import setup_interp, TimeOffset
 from thuner.option.attribute import Retrieval, Attribute, AttributeGroup, AttributeType
 
 
@@ -90,67 +86,92 @@ def from_centers(
     return profile_dict
 
 
-kwargs = {"name": "altitude", "data_type": float, "precision": 1, "units": "m"}
-kwargs.update({"description": "Altitude coordinate of profile."})
-altitude = Attribute(**kwargs)
+class Altitude(Attribute):
+    name: str = "altitude"
+    data_type: type = float
+    precision: int = 1
+    units: str = "m"
+    description: str = "Altitude coordinate of profile."
 
-kwargs = {"name": "time_offset", "data_type": int, "units": "min"}
-description = "Time offset in minutes of tagging dataset from object detection time."
-kwargs.update({"description": description})
-time_offset = Attribute(**kwargs)
 
-kwargs = {"name": "u", "data_type": float, "precision": 1, "units": "m/s"}
-description = " profile taken at the object center."
-kwargs.update({"description": "u " + description})
-u = Attribute(**kwargs)
-kwargs.update({"name": "v", "description": "v " + description})
-v = Attribute(**kwargs)
+class U(Attribute):
+    name: str = "u"
+    data_type: type = float
+    precision: int = 1
+    units: str = "m/s"
+    description: str = "u component of wind."
 
-kwargs = {"name": "temperature", "data_type": float, "precision": 2, "units": "K"}
-kwargs.update({"description": "temperature" + description})
-temperature = Attribute(**kwargs)
 
-kwargs = {"name": "pressure", "data_type": float, "precision": 1, "units": "hPa"}
-kwargs.update({"description": "pressure" + description})
-pressure = Attribute(**kwargs)
+class V(Attribute):
+    name: str = "v"
+    data_type: type = float
+    precision: int = 1
+    units: str = "m/s"
+    description: str = "v component of wind."
 
-kwargs = {"name": "relative_humidity", "data_type": float, "precision": 1, "units": "%"}
-kwargs.update({"description": "relative humidity" + description})
-relative_humidity = Attribute(**kwargs)
+
+class Temperature(Attribute):
+    name: str = "temperature"
+    data_type: type = float
+    precision: int = 2
+    units: str = "K"
+    description: str = "Temperature profile."
+
+
+class Pressure(Attribute):
+    name: str = "pressure"
+    data_type: type = float
+    precision: int = 1
+    units: str = "hPa"
+    description: str = "Pressure profile."
+
+
+class RelativeHumidity(Attribute):
+    name: str = "relative_humidity"
+    data_type: type = float
+    precision: int = 1
+    units: str = "%"
+    description: str = "Relative humidity profile."
+
 
 # Create a convenience attribute group, as they are typically all retrieved at once
-keyword_arguments = {"center_type": "area_weighted", "time_offsets": [-120, -60, 0]}
-retrieval = Retrieval(function=from_centers, keyword_arguments=keyword_arguments)
-
-attribute_list = [
-    core.time.model_copy(deep=True),
-    time_offset,
-    core.universal_ids_record.model_copy(deep=True),
-    core.latitude.model_copy(deep=True),
-    core.longitude.model_copy(deep=True),
-]
-attribute_list += [altitude, u, v, temperature, pressure, relative_humidity]
-for attr in attribute_list:
-    attr.retrieval = None
-kwargs = {"name": "profiles", "attributes": attribute_list, "retrieval": retrieval}
-kwargs.update({"description": "Environmental profiles at object center."})
-profile_center_matched = AttributeGroup(**kwargs)
-attribute_list[1] = core.ids_record.model_copy(deep=True)
-attribute_list[1].retrieval = None
-kwargs.update({"attributes": attribute_list})
-profile_center_unmatched = AttributeGroup(**kwargs)
+class ProfileCenter(AttributeGroup):
+    name: str = "profiles"
+    attributes: list[Attribute] = [
+        core.Time(retrieval=None),
+        TimeOffset(),
+        core.Latitude(retrieval=None),
+        core.Longitude(retrieval=None),
+        Altitude(),
+        U(),
+        V(),
+        Temperature(),
+        Pressure(),
+        RelativeHumidity(),
+    ]
+    retrieval: Retrieval = Retrieval(
+        function=from_centers,
+        keyword_arguments={
+            "center_type": "area_weighted",
+            "time_offsets": [-120, -60, 0],
+        },
+    )
+    description: str = "Environmental profiles at object center."
 
 
 def default(dataset, matched=True):
     """Create the default profile attribute type."""
+
+    profile_center = ProfileCenter()
+    # Add the appropriate ID attribute
     if matched:
-        profile_center = profile_center_matched.model_copy(deep=True)
+        profile_center.attributes.insert(2, core.RecordUniversalID(retrieval=None))
     else:
-        profile_center = profile_center_unmatched.model_copy(deep=True)
+        profile_center.attributes.insert(2, core.RecordID(retrieval=None))
+    # Add the appropriate dataset attribute
     profile_center.retrieval.keyword_arguments.update({"dataset": dataset})
     description = "Attributes corresponding to profiles taken from a tagging dataset, "
     description += "e.g. ambient winds, temperature and humidity."
     kwargs = {"name": f"{dataset}_profile", "attributes": [profile_center]}
     kwargs.update({"description": description, "dataset": dataset})
-
     return AttributeType(**kwargs)

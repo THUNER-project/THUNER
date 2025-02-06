@@ -10,7 +10,6 @@ from thuner.log import setup_logger
 import thuner.attribute.core as core
 import numpy as np
 import thuner.grid as grid
-import thuner.attribute.utils as utils
 from thuner.option.attribute import Retrieval, Attribute, AttributeType, AttributeGroup
 
 logger = setup_logger(__name__)
@@ -53,29 +52,40 @@ def offset_from_centers(object_tracks, attribute_group: AttributeGroup, objects)
     return {"y_offset": y_offsets, "x_offset": x_offsets}
 
 
-kwargs = {"name": "x_offset", "data_type": float, "precision": 1, "units": "km"}
-description = " offset of one object from another in km."
-kwargs.update({"description": "x " + description})
-x_offset = Attribute(**kwargs)
-kwargs.update({"name": "y_offset", "description": "y " + description})
-y_offset = Attribute(**kwargs)
-
-keyword_arguments = {"objects": ["convective", "anvil"]}
-retrieval = Retrieval(function=offset_from_centers, keyword_arguments=keyword_arguments)
-kwargs = {"name": "offset", "description": "Offset of one object from another"}
-kwargs.update({"retrieval": retrieval, "attributes": [x_offset, y_offset]})
-offset = AttributeGroup(**kwargs)
+class XOffset(Attribute):
+    name: str = "x_offset"
+    data_type: type = float
+    precision: int = 1
+    units: str = "km"
+    description: str = "x offset of one object from another in km."
 
 
-# Convenience functions for creating default ellipse attribute type
+class YOffset(Attribute):
+    name: str = "y_offset"
+    data_type: type = float
+    precision: int = 1
+    units: str = "km"
+    description: str = "y offset of one object from another in km."
+
+
+class Offset(AttributeGroup):
+    name: str = "offset"
+    description: str = "Offset of one object from another."
+    attributes: list[Attribute] = [XOffset(), YOffset()]
+    retrieval: Retrieval = Retrieval(
+        function=offset_from_centers,
+        keyword_arguments={"objects": ["convective", "anvil"]},
+    )
+
+
+# Convenience functions for creating default group attribute type
 def default(matched=True):
     """Create the default group attribute type."""
 
-    attributes_list = core.retrieve_core(attributes_list=[core.time], matched=matched)
-    attributes_list.append(offset)
+    attributes_list = core.retrieve_core(attributes_list=[core.Time()], matched=matched)
+    attributes_list.append(Offset())
     description = "Attributes associated with grouped objects, e.g. offset of "
     description += "stratiform echo from convective echo."
     kwargs = {"name": "group", "attributes": attributes_list}
     kwargs.update({"description": description})
-
     return AttributeType(**kwargs)

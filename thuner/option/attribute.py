@@ -78,9 +78,7 @@ class AttributeGroup(BaseOptions):
     """
 
     name: str = Field(..., description=_summary["name"])
-    attributes: list[Attribute] = Field(
-        ..., description="Attributes comprising the group."
-    )
+    attributes: list[Attribute] = Field(..., description="Attributes in the group.")
     retrieval: Retrieval | None = Field(None, description=_summary["retrieval"])
     description: str | None = Field(None, description=_summary["description"])
 
@@ -93,7 +91,10 @@ class AttributeGroup(BaseOptions):
         """
         retrievals = []
         for attribute in values.attributes:
-            retrievals.append(attribute.retrieval)
+            try:
+                retrievals.append(attribute.retrieval)
+            except:
+                print("none")
         if np.all(np.array(retrievals) == None):
             # If retrieval for all attributes is None, do nothing
             return values
