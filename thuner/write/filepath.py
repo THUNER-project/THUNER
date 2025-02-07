@@ -14,7 +14,7 @@ logger = setup_logger(__name__)
 def write(input_record, output_directory):
     """Write the track input record filepaths and times to a file."""
 
-    if "filepath_list" not in input_record.keys():
+    if "filepaths" not in input_record.keys():
         return
 
     name = input_record["name"]
@@ -34,7 +34,7 @@ def write(input_record, output_directory):
     csv_filepath = csv_filepath / f"{name}/{last_write_str}.csv"
     csv_filepath.parent.mkdir(parents=True, exist_ok=True)
 
-    filepaths = input_record["filepath_list"]
+    filepaths = input_record["filepaths"]
     times = input_record["time_list"]
     filepaths_df = pd.DataFrame({"time": times, name: filepaths})
     filepaths_df = filepaths_df.sort_index()
@@ -49,14 +49,14 @@ def write(input_record, output_directory):
 
     # Empty mask_list after writing
     input_record["time_list"] = []
-    input_record["filepath_list"] = []
+    input_record["filepaths"] = []
 
 
 def write_final(track_input_records, output_directory):
     """Write the track input record filepaths and times to a file."""
 
     for input_record in track_input_records.values():
-        if "filepath_list" not in input_record.keys():
+        if "filepaths" not in input_record.keys():
             continue
         write(input_record, output_directory)
 
@@ -67,7 +67,7 @@ def aggregate(track_input_records, output_directory, clean_up=True):
     logger.info("Aggregating filepath records.")
 
     for input_record in track_input_records.values():
-        if "filepath_list" not in input_record.keys():
+        if "filepaths" not in input_record.keys():
             continue
         name = input_record["name"]
         directory = output_directory / f"records/filepaths/{name}"

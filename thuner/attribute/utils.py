@@ -38,7 +38,7 @@ def setup_interp(
     excluded += ["time_offset"]
     attributes = attribute_group.attributes
     names = [attr.name for attr in attributes if attr.name not in excluded]
-    tag_input_records = input_records["tag"]
+    tag_input_records = input_records.tag
     previous_time = object_tracks["previous_times"][-1]
 
     # Get object centers

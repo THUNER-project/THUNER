@@ -3,7 +3,6 @@
 import shutil
 from collections import deque
 import copy
-import numpy as np
 from thuner.log import setup_logger
 import thuner.data.dispatch as dispatch
 import thuner.detect.detect as detect
@@ -11,86 +10,107 @@ import thuner.group.group as group
 import thuner.visualize as visualize
 import thuner.match.match as match
 from thuner.config import get_outputs_directory
-from thuner.utils import now_str, hash_dictionary, format_time, BaseDatasetOptions
+import thuner.utils as utils
 import thuner.write as write
 import thuner.attribute as attribute
 from thuner.option.data import DataOptions
+from thuner.option.track import TrackOptions
 
 logger = setup_logger(__name__)
+
+
+# def initialise_input_records(data_options: DataOptions):
+#     """
+#     Initialise the input datasets dictionary.
+#     """
+#     input_records = {"track": {}, "tag": {}}
+#     for name in data_options._dataset_lookup.keys():
+#         use = data_options.dataset_by_name(name).use
+#         init_input_record = initialise_input_record_dispatcher.get(use)
+#         if init_input_record is None:
+#             raise KeyError(f"Initialisation function for {use} not found.")
+#         input_record = init_input_record(name, data_options.dataset_by_name(name))
+#         input_records[use][name] = input_record
+
+#     return input_records
 
 
 def initialise_input_records(data_options: DataOptions):
     """
     Initialise the input datasets dictionary.
     """
-    input_records = {"track": {}, "tag": {}}
+    input_records = utils.InputRecords()
     for name in data_options._dataset_lookup.keys():
-        use = data_options.dataset_by_name(name).use
-        init_input_record = initialise_input_record_dispatcher.get(use)
-        if init_input_record is None:
-            raise KeyError(f"Initialisation function for {use} not found.")
-        input_record = init_input_record(name, data_options.dataset_by_name(name))
-        input_records[use][name] = input_record
-
+        dataset_options = data_options.dataset_by_name(name)
+        kwargs = {"name": name, "filepaths": dataset_options.filepaths}
+        if dataset_options.use == "track":
+            kwargs["deque_length"] = dataset_options.deque_length
+            input_records.track[name] = utils.TrackInputRecord(**kwargs)
+        elif dataset_options.use == "tag":
+            input_records.tag[name] = utils.BaseInputRecord(**kwargs)
+        else:
+            raise ValueError(f"Use must be 'tag' or 'track'.")
     return input_records
 
 
-def initialise_boilerplate_input_record(name, dataset_options: BaseDatasetOptions):
-    """
-    Initialise the tag input record dictionary.
-    """
+# def initialise_boilerplate_input_record(
+#     name, dataset_options: utils.BaseDatasetOptions
+# ):
+#     """
+#     Initialise the tag input record dictionary.
+#     """
 
-    input_record = {}
-    input_record["name"] = name
-    input_record["current_file_index"] = -1
-    input_record["dataset"] = None
-    input_record["last_write_time"] = None
-    if dataset_options.filepaths is not None:
-        input_record["filepath_list"] = []
-        input_record["time_list"] = []
-        input_record["write_interval"] = np.timedelta64(1, "h")
+#     input_record = {}
+#     input_record["name"] = name
+#     input_record["current_file_index"] = -1
+#     input_record["dataset"] = None
+#     input_record["last_write_time"] = None
+#     if dataset_options.filepaths is not None:
+#         input_record["filepaths"] = []
+#         input_record["time_list"] = []
+#         input_record["write_interval"] = np.timedelta64(1, "h")
 
-    return input_record
-
-
-def initialise_track_input_record(name, dataset_options):
-    """
-    Initialise the track input record dictionary.
-    """
-
-    input_record = initialise_boilerplate_input_record(name, dataset_options)
-    input_record["current_grid"] = None
-    deque_length = dataset_options.deque_length
-    input_record["previous_grids"] = deque([None] * deque_length, deque_length)
-
-    # Initialize deques of domain masks and boundary coordinates. For datasets like
-    # gridrad the domain mask is different for objects identified at different levels.
-    input_record["current_domain_mask"] = None
-    input_record["previous_domain_masks"] = deque([None] * deque_length, deque_length)
-    input_record["current_boundary_mask"] = None
-    input_record["previous_boundary_masks"] = deque([None] * deque_length, deque_length)
-    input_record["current_boundary_coordinates"] = None
-    input_record["previous_boundary_coordinates"] = deque(
-        [None] * deque_length, deque_length
-    )
-
-    return input_record
+#     return input_record
 
 
-def initialise_tag_input_record(name, dataset_options):
-    """
-    Initialise the track input record dictionary.
-    """
+# def initialise_track_input_record(name, dataset_options):
+#     """
+#     Initialise the track input record dictionary.
+#     """
 
-    input_record = initialise_boilerplate_input_record(name, dataset_options)
+#     input_record = initialise_boilerplate_input_record(name, dataset_options)
+#     input_record["current_grid"] = None
+#     deque_length = dataset_options.deque_length
+#     input_record["previous_grids"] = deque([None] * deque_length, deque_length)
 
-    return input_record
+#     # Initialize deques of domain masks and boundary coordinates. For datasets like
+#     # gridrad the domain mask is different for objects identified at different levels.
+#     input_record["current_domain_mask"] = None
+#     input_record["previous_domain_masks"] = deque([None] * deque_length, deque_length)
+#     input_record["current_boundary_mask"] = None
+#     input_record["previous_boundary_masks"] = deque([None] * deque_length, deque_length)
+#     input_record["current_boundary_coordinates"] = None
+#     input_record["previous_boundary_coordinates"] = deque(
+#         [None] * deque_length, deque_length
+#     )
+
+#     return input_record
 
 
-initialise_input_record_dispatcher = {
-    "track": initialise_track_input_record,
-    "tag": initialise_tag_input_record,
-}
+# def initialise_tag_input_record(name, dataset_options):
+#     """
+#     Initialise the track input record dictionary.
+#     """
+
+#     input_record = initialise_boilerplate_input_record(name, dataset_options)
+
+#     return input_record
+
+
+# initialise_input_record_dispatcher = {
+#     "track": initialise_track_input_record,
+#     "tag": initialise_tag_input_record,
+# }
 
 
 def initialise_object_tracks(object_options):
@@ -227,16 +247,16 @@ def track(
 
         if output_directory is None:
             consolidated_options["start_time"] = str(time)
-            hash_str = hash_dictionary(consolidated_options)
+            hash_str = utils.hash_dictionary(consolidated_options)
             output_directory = (
-                get_outputs_directory() / f"runs/{now_str()}_{hash_str[:8]}"
+                get_outputs_directory() / f"runs/{utils.now_str()}_{hash_str[:8]}"
             )
 
-        logger.info(f"Processing {format_time(time, filename_safe=False)}.")
-        args = [time, input_records["track"], track_options, data_options, grid_options]
+        logger.info(f"Processing {utils.format_time(time, filename_safe=False)}.")
+        args = [time, input_records.track, track_options, data_options, grid_options]
         args += [output_directory]
         dispatch.update_track_input_records(*args)
-        args = [previous_time, input_records["tag"], track_options, data_options]
+        args = [previous_time, input_records.tag, track_options, data_options]
         args += [grid_options]
         dispatch.update_tag_input_records(*args)
         # loop over levels
@@ -252,11 +272,11 @@ def track(
     # Write final data to file
     # write.mask.write_final(tracks, track_options, output_directory)
     write.attribute.write_final(tracks, track_options, output_directory)
-    write.filepath.write_final(input_records["track"], output_directory)
+    write.filepath.write_final(input_records.track, output_directory)
     # Aggregate files previously written to file
     # write.mask.aggregate(track_options, output_directory)
     write.attribute.aggregate(track_options, output_directory)
-    write.filepath.aggregate(input_records["track"], output_directory)
+    write.filepath.aggregate(input_records.track, output_directory)
     # Animate the relevant figures
     visualize.visualize.animate_all(visualize_options, output_directory)
 
@@ -266,9 +286,9 @@ def track_level(
     level_index,
     tracks,
     input_records,
-    data_options,
+    data_options: DataOptions,
     grid_options,
-    track_options,
+    track_options: TrackOptions,
     visualize_options,
     output_directory,
 ):
@@ -311,7 +331,7 @@ def track_object(
     # Get the object options
     object_options = track_options.levels[level_index].options_by_name(obj)
     object_tracks = tracks[level_index][obj]
-    track_input_records = input_records["track"]
+    track_input_records = input_records.track
 
     # Update current and previous time
     if object_tracks["current_time"] is not None:

@@ -137,7 +137,7 @@ def update_track_input_records(
         filepath = data_options.dataset_by_name(name).filepaths[
             input_record["current_file_index"]
         ]
-        input_record["filepath_list"].append(filepath)
+        input_record["filepaths"].append(filepath)
 
         args = [time, input_record, input_record]
         if write.utils.write_interval_reached(*args):

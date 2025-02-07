@@ -1,6 +1,5 @@
 """Functions for creating and modifying default tracking configurations."""
 
-import numpy as np
 from typing import Dict, List, Annotated
 from pydantic import Field, field_validator, model_validator
 from thuner.log import setup_logger

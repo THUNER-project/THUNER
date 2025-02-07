@@ -1,5 +1,6 @@
 "General utilities for the thuner package."
 import inspect
+from collections import deque
 from datetime import datetime
 import yaml
 from pathlib import Path
@@ -20,6 +21,108 @@ from thuner.config import get_outputs_directory
 
 
 logger = setup_logger(__name__)
+
+
+# def initialise_input_records(data_options: DataOptions):
+#     """
+#     Initialise the input datasets dictionary.
+#     """
+#     input_records = {"track": {}, "tag": {}}
+#     for name in data_options._dataset_lookup.keys():
+#         use = data_options.dataset_by_name(name).use
+#         init_input_record = initialise_input_record_dispatcher.get(use)
+#         if init_input_record is None:
+#             raise KeyError(f"Initialisation function for {use} not found.")
+#         input_record = init_input_record(name, data_options.dataset_by_name(name))
+#         input_records[use][name] = input_record
+
+#     return input_records
+
+
+class BaseInputRecord(BaseModel):
+    """
+    Base input record class. An input record will be defined for each dataset, and store
+    the appropriate grids and files during tracking or tagging.
+    """
+
+    name: str = Field(..., description="Name of the dataset being recorded.")
+    filepaths: list[str] | dict | None = Field(
+        None, description="List or dict of filepaths."
+    )
+    write_interval: np.timedelta64 = Field(
+        np.timedelta64(1, "h"), description="Write interval."
+    )
+
+    # Initialize private attributes to None
+    current_file_index = -1
+    last_write_time = None
+    time_list = []
+
+
+class TrackInputRecord(BaseInputRecord):
+    """
+    input record class for datasets used for tracking.
+    """
+
+    deque_length: int = Field(2, description="Number of previous grids to keep.")
+
+    current_grid = None
+    previous_grids = deque([None] * deque_length, deque_length)
+    current_domain_mask = None
+    previous_domain_masks = deque([None] * deque_length, deque_length)
+    current_boundary_mask = None
+    previous_boundary_masks = deque([None] * deque_length, deque_length)
+    current_boundary_coordinates = None
+    previous_boundary_coordinates = deque([None] * deque_length, deque_length)
+
+
+class InputRecords(BaseModel):
+    """
+    Class for managing the input records for all the datasets of a given run.
+    """
+
+    track: Dict[str, TrackInputRecord] = {}
+    tag: Dict[str, BaseInputRecord] = {}
+
+
+# def initialise_track_input_record(name, dataset_options):
+#     """
+#     Initialise the track input record dictionary.
+#     """
+
+#     input_record = initialise_boilerplate_input_record(name, dataset_options)
+#     input_record["current_grid"] = None
+#     deque_length = dataset_options.deque_length
+#     input_record["previous_grids"] = deque([None] * deque_length, deque_length)
+
+#     # Initialize deques of domain masks and boundary coordinates. For datasets like
+#     # gridrad the domain mask is different for objects identified at different levels.
+#     input_record["current_domain_mask"] = None
+#     input_record["previous_domain_masks"] = deque([None] * deque_length, deque_length)
+#     input_record["current_boundary_mask"] = None
+#     input_record["previous_boundary_masks"] = deque([None] * deque_length, deque_length)
+#     input_record["current_boundary_coordinates"] = None
+#     input_record["previous_boundary_coordinates"] = deque(
+#         [None] * deque_length, deque_length
+#     )
+
+#     return input_record
+
+
+# def initialise_tag_input_record(name, dataset_options):
+#     """
+#     Initialise the track input record dictionary.
+#     """
+
+#     input_record = initialise_boilerplate_input_record(name, dataset_options)
+
+#     return input_record
+
+
+# initialise_input_record_dispatcher = {
+#     "track": initialise_track_input_record,
+#     "tag": initialise_tag_input_record,
+# }
 
 
 def convert_value(value: Any) -> Any:
