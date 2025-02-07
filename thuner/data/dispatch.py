@@ -114,28 +114,22 @@ def update_track_input_records(
     """Update the input record, i.e. grids and datasets."""
     for name in track_input_records.keys():
         input_record = track_input_records[name]
-        boilerplate_update(
-            time,
-            input_record,
-            track_options,
-            data_options.dataset_by_name(name),
-            grid_options,
-        )
+        dataset_options = data_options.dataset_by_name(name)
+        args = [time, input_record, track_options, dataset_options, grid_options]
+        boilerplate_update(*args)
         if input_record.current_grid is not None:
             input_record.previous_grids.append(input_record.current_grid)
         grid_from_dataset = grid_from_dataset_dispatcher.get(name)
-        if len(data_options.dataset_by_name(name).fields) > 1:
+        if len(dataset_options.fields) > 1:
             raise ValueError("Only one field allowed for track datasets.")
         else:
-            field = data_options.dataset_by_name(name).fields[0]
+            field = dataset_options.fields[0]
         input_record.current_grid = grid_from_dataset(input_record.dataset, field, time)
-        if data_options.dataset_by_name(name).filepaths is None:
+        if dataset_options.filepaths is None:
             return
         input_record._time_list.append(time)
-        filepath = data_options.dataset_by_name(name).filepaths[
-            input_record._current_file_index
-        ]
-        input_record.filepaths.append(filepath)
+        filepath = dataset_options.filepaths[input_record._current_file_index]
+        input_record._filepath_list.append(filepath)
 
         args = [time, input_record, input_record]
         if write.utils.write_interval_reached(*args):

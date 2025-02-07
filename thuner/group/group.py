@@ -20,7 +20,7 @@ def group(
 ):
     """Group objects into new objects."""
 
-    dataset = track_input_records[object_options.dataset]["dataset"]
+    dataset = track_input_records[object_options.dataset].dataset
     if "gridcell_area" not in tracks[level_index][obj].keys():
         tracks[level_index][obj]["gridcell_area"] = dataset["gridcell_area"]
     member_objects = object_options.grouping.member_objects

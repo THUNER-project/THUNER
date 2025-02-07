@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 from thuner.option.attribute import Attribute, AttributeGroup, AttributeType
 from thuner.log import setup_logger
+from thuner.utils import InputRecords
 
 logger = setup_logger(__name__)
 
@@ -28,10 +29,10 @@ class TimeOffset(Attribute):
 
 def setup_interp(
     attribute_group: AttributeGroup,
-    input_records,
+    input_records: InputRecords,
     object_tracks,
-    dataset,
-    member_object=None,
+    dataset: str,
+    member_object: str = None,
 ):
     name = object_tracks["name"]
     excluded = ["time", "id", "universal_id", "latitude", "longitude", "altitude"]
@@ -48,7 +49,7 @@ def setup_interp(
         core_attributes = object_tracks["current_attributes"]["member_objects"]
         core_attributes = core_attributes[member_object]["core"]
 
-    ds = tag_input_records[dataset]["dataset"]
+    ds = tag_input_records[dataset].dataset
     ds["longitude"] = ds["longitude"] % 360
     return name, names, ds, core_attributes, previous_time
 

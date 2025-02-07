@@ -53,6 +53,8 @@ def track(
     elif num_processes > 3 / 4 * os.cpu_count():
         logger.warning("Number of processes over 3/4 of available CPUs.")
 
+    logger.info(f"Beginning parallel tracking with {num_processes} processes.")
+
     if num_processes == 1:
         args = [times, data_options, grid_options, track_options, visualize_options]
         args += [output_directory]

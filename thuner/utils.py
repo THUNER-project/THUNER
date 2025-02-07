@@ -67,6 +67,7 @@ class BaseInputRecord(BaseModel):
     _current_file_index: int = -1
     _last_write_time: np.datetime64 | None = None
     _time_list: list = []
+    _filepath_list: list = []
 
 
 class TrackInputRecord(BaseInputRecord):
@@ -105,6 +106,28 @@ class InputRecords(BaseModel):
 
     track: Dict[str, TrackInputRecord] = {}
     tag: Dict[str, BaseInputRecord] = {}
+
+
+class ObjectTracks(BaseModel):
+    """
+    Class for recording the attributes and grids etc for tracking a particular object.
+    """
+
+    # Allow arbitrary types in the class.
+    class Config:
+        arbitrary_types_allowed = True
+
+    name: str
+    object_count: int = 0
+    current_grid: xr.DataArray | xr.Dataset | None = None
+    current_time_interval: np.timedelta64 | None = None
+    deque_length: int = 2
+    previous_time_interval: deque | None = None
+    current_time: np.datetime64 | None = None
+    previous_times: deque | None = None
+    previous_grids: deque | None = None
+    current_mask: xr.DataArray | xr.Dataset | None = None
+    previous_masks: deque | None = None
 
 
 # def initialise_object_tracks(object_options):
