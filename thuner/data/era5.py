@@ -437,4 +437,4 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
         ds = xr.open_mfdataset(f"{tmp}/*.nc")
         logger.debug("Converting")
         ds = convert_era5(ds)
-        input_record["dataset"] = ds.load()
+        input_record.dataset = ds.load()

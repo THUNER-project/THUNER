@@ -519,7 +519,7 @@ def get_color_angle_df(output_parent):
     for i, time in enumerate(times):
         df_time = df.xs(time, level="time")
         universal_ids = sorted(np.unique(df_time.reset_index().universal_id))
-        time_list, universal_id_list, angle_list = [], [], []
+        _time_list, universal_id_list, angle_list = [], [], []
         if i > 0:
             previous_time = times[i - 1]
         for j, universal_id in enumerate(universal_ids):

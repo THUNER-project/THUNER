@@ -122,12 +122,12 @@ def detect(
     object_tracks["previous_grids"].append(previous_grid)
     input_record = track_input_records[object_options.dataset]
 
-    grid = input_record["current_grid"]
+    grid = input_record.current_grid
     object_tracks["previous_time_interval"] = copy.deepcopy(
         object_tracks["current_time_interval"]
     )
     object_tracks["current_time_interval"] = get_time_interval(grid, previous_grid)
-    dataset = input_record["dataset"]
+    dataset = input_record.dataset
     if "gridcell_area" not in object_tracks.keys():
         object_tracks["gridcell_area"] = dataset["gridcell_area"]
 

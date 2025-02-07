@@ -26,8 +26,8 @@ proj = ccrs.PlateCarree()
 
 def get_boundaries(input_record, num_previous=1):
     """Get the appropriate current and previous masks for matching."""
-    current_boundaries = input_record["current_boundary_coordinates"]
-    previous_boundaries = input_record["previous_boundary_coordinates"]
+    current_boundaries = input_record.current_boundary_coordinates
+    previous_boundaries = input_record.previous_boundary_coordinates
     previous_boundaries = [previous_boundaries[-i] for i in range(1, num_previous + 1)]
     boundaries = [current_boundaries] + previous_boundaries
     return boundaries
@@ -47,7 +47,7 @@ def detected_mask(
     else:
         mask = object_tracks["current_matched_mask"]
 
-    boundary_coordinates = input_record["current_boundary_coordinates"]
+    boundary_coordinates = input_record.current_boundary_coordinates
     args = [grid, mask, grid_options, figure_options, boundary_coordinates]
     fig, ax = horizontal.detected_mask(*args)
 
@@ -79,7 +79,7 @@ def grouped_mask(
     grid = object_tracks["current_grid"]
     extent, scale = get_extent(grid_options)
 
-    boundary_coordinates = input_record["current_boundary_coordinates"]
+    boundary_coordinates = input_record.current_boundary_coordinates
     args = [grid, mask, grid_options, figure_options, member_objects]
     args += [boundary_coordinates]
     fig, subplot_axes = horizontal.grouped_mask(*args)[:2]
@@ -214,7 +214,7 @@ def visualize_match(
             pcm = horizontal.show_grid(*args)
             if masks[j] is not None:
                 horizontal.show_mask(masks[j], axes[i], grid_options)
-            if input_record["current_boundary_coordinates"] is not None:
+            if input_record.current_boundary_coordinates is not None:
                 horizontal.domain_boundary(axes[i], all_boundaries[j], grid_options)
         axes[i].set_extent(extent)
     unique_global_flow = object_options.tracking.unique_global_flow
@@ -301,7 +301,7 @@ def visualize(
             )
             if not object_visualize_options["save"]:
                 return
-            grid_time = input_record["current_grid"].time.values
+            grid_time = input_record.current_grid.time.values
             filename = f"{format_time(grid_time)}.png"
             obj_name = object_visualize_options["name"]
             filepath = output_directory / "visualize" / figure / obj_name / filename

@@ -8,14 +8,15 @@ import json
 import hashlib
 import numpy as np
 import pandas as pd
+import xarray as xr
 from numba import njit, int32, float32
 from numba.typed import List
 from scipy.interpolate import interp1d
 import re
 import os
 import platform
-from typing import Any, Dict, Literal
-from pydantic import Field, model_validator, BaseModel
+from typing import Any, Dict, Literal, Union
+from pydantic import Field, model_validator, BaseModel, model_validator, PrivateAttr
 from thuner.log import setup_logger
 from thuner.config import get_outputs_directory
 
@@ -39,24 +40,33 @@ logger = setup_logger(__name__)
 #     return input_records
 
 
+_summary = {
+    "dataset": "Dataset from which to draw grids. This is updated periodically."
+}
+
+
 class BaseInputRecord(BaseModel):
     """
     Base input record class. An input record will be defined for each dataset, and store
     the appropriate grids and files during tracking or tagging.
     """
 
-    name: str = Field(..., description="Name of the dataset being recorded.")
-    filepaths: list[str] | dict | None = Field(
-        None, description="List or dict of filepaths."
-    )
-    write_interval: np.timedelta64 = Field(
-        np.timedelta64(1, "h"), description="Write interval."
+    # Allow arbitrary types in the input record classes.
+    class Config:
+        arbitrary_types_allowed = True
+
+    name: str
+    filepaths: list[str] | dict | None = None
+    write_interval: np.timedelta64 = np.timedelta64(1, "h")
+    dataset: xr.Dataset | xr.DataArray | None = Field(
+        None, description=_summary["dataset"]
     )
 
-    # Initialize private attributes to None
-    current_file_index = -1
-    last_write_time = None
-    time_list = []
+    # Initialize attributes not to be set during object creation.
+    # In pydantic these attributes begin with an underscore.
+    _current_file_index: int = -1
+    _last_write_time: np.datetime64 | None = None
+    _time_list: list = []
 
 
 class TrackInputRecord(BaseInputRecord):
@@ -66,14 +76,22 @@ class TrackInputRecord(BaseInputRecord):
 
     deque_length: int = Field(2, description="Number of previous grids to keep.")
 
-    current_grid = None
-    previous_grids = deque([None] * deque_length, deque_length)
-    current_domain_mask = None
-    previous_domain_masks = deque([None] * deque_length, deque_length)
-    current_boundary_mask = None
-    previous_boundary_masks = deque([None] * deque_length, deque_length)
-    current_boundary_coordinates = None
-    previous_boundary_coordinates = deque([None] * deque_length, deque_length)
+    current_grid: xr.DataArray | xr.Dataset | None = None
+    previous_grids: deque | None = None
+    current_domain_mask: xr.DataArray | xr.Dataset | None = None
+    previous_domain_masks: deque | None = None
+    current_boundary_mask: xr.DataArray | xr.Dataset | None = None
+    previous_boundary_masks: deque | None = None
+    current_boundary_coordinates: xr.DataArray | xr.Dataset | None = None
+    previous_boundary_coordinates: deque | None = None
+
+    @model_validator(mode="after")
+    def initialize_deques(cls, values):
+        names = ["previous_grids", "previous_domain_masks"]
+        names += ["previous_boundary_masks", "previous_boundary_coordinates"]
+        for name in names:
+            new_deque = deque([None] * values.deque_length, values.deque_length)
+            setattr(values, name, new_deque)
 
 
 class InputRecords(BaseModel):
@@ -81,8 +99,53 @@ class InputRecords(BaseModel):
     Class for managing the input records for all the datasets of a given run.
     """
 
+    # Allow arbitrary types in the input records class.
+    class Config:
+        arbitrary_types_allowed = True
+
     track: Dict[str, TrackInputRecord] = {}
     tag: Dict[str, BaseInputRecord] = {}
+
+
+# def initialise_object_tracks(object_options):
+#     """
+#     Initialise the object tracks dictionary.
+
+#     parent_ds holds the xarray metadata associated with the current file.
+#     current_ds holds the loaded xarray dataset from which grids are extracted.
+#     current_grid holds the current grid on which objects at a given time are detected.
+
+#     """
+#     object_tracks = {}
+#     object_tracks["name"] = object_options.name
+#     object_tracks["object_count"] = 0
+#     object_tracks["tracks"] = []
+#     object_tracks["current_grid"] = None
+#     object_tracks["current_time_interval"] = None
+#     deque_length = object_options.deque_length
+#     object_tracks["previous_time_interval"] = deque([None] * deque_length, deque_length)
+#     object_tracks["current_time"] = None
+#     object_tracks["previous_times"] = deque([None] * deque_length, deque_length)
+#     object_tracks["previous_grids"] = deque([None] * deque_length, deque_length)
+#     object_tracks["current_mask"] = None
+#     object_tracks["previous_masks"] = deque([None] * deque_length, deque_length)
+
+#     if object_options.tracking is not None:
+#         match.initialise_match_records(object_tracks, object_options)
+
+#     # Initialize attributes dictionaries
+#     if object_options.attributes is not None:
+#         # The current_attributes dict holds the attributes associated with matching the
+#         # "previous" grid to the "current" grid. It is reset at the start of each time
+#         # step.
+#         current_attributes = attribute.attribute.initialize_attributes(object_options)
+#         object_tracks["current_attributes"] = current_attributes
+#         attributes = attribute.attribute.initialize_attributes(object_options)
+#         object_tracks["attributes"] = attributes
+
+#     object_tracks["_last_write_time"] = None
+
+#     return object_tracks
 
 
 # def initialise_track_input_record(name, dataset_options):
@@ -91,18 +154,18 @@ class InputRecords(BaseModel):
 #     """
 
 #     input_record = initialise_boilerplate_input_record(name, dataset_options)
-#     input_record["current_grid"] = None
+#     input_record.current_grid = None
 #     deque_length = dataset_options.deque_length
-#     input_record["previous_grids"] = deque([None] * deque_length, deque_length)
+#     input_record.previous_grids = deque([None] * deque_length, deque_length)
 
 #     # Initialize deques of domain masks and boundary coordinates. For datasets like
 #     # gridrad the domain mask is different for objects identified at different levels.
-#     input_record["current_domain_mask"] = None
-#     input_record["previous_domain_masks"] = deque([None] * deque_length, deque_length)
-#     input_record["current_boundary_mask"] = None
-#     input_record["previous_boundary_masks"] = deque([None] * deque_length, deque_length)
-#     input_record["current_boundary_coordinates"] = None
-#     input_record["previous_boundary_coordinates"] = deque(
+#     input_record.current_domain_mask = None
+#     input_record.previous_domain_masks = deque([None] * deque_length, deque_length)
+#     input_record.current_boundary_mask = None
+#     input_record.previous_boundary_masks = deque([None] * deque_length, deque_length)
+#     input_record.current_boundary_coordinates = None
+#     input_record.previous_boundary_coordinates = deque(
 #         [None] * deque_length, deque_length
 #     )
 

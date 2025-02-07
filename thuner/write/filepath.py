@@ -17,11 +17,11 @@ def write(input_record, output_directory):
     if "filepaths" not in input_record.keys():
         return
 
-    name = input_record["name"]
-    write_interval = input_record["write_interval"]
-    last_write_time = input_record["last_write_time"]
-    last_write_str = format_time(last_write_time, filename_safe=False, day_only=False)
-    next_write_time = last_write_time + write_interval
+    name = input_record.name
+    write_interval = input_record.write_interval
+    _last_write_time = input_record._last_write_time
+    last_write_str = format_time(_last_write_time, filename_safe=False, day_only=False)
+    next_write_time = _last_write_time + write_interval
     current_str = format_time(next_write_time, filename_safe=False, day_only=False)
 
     message = f"Writing {name} filepaths from {last_write_str} to "
@@ -29,13 +29,13 @@ def write(input_record, output_directory):
     message += "respectively."
     logger.info(message)
 
-    last_write_str = format_time(last_write_time, filename_safe=True, day_only=False)
+    last_write_str = format_time(_last_write_time, filename_safe=True, day_only=False)
     csv_filepath = output_directory / "records/filepaths"
     csv_filepath = csv_filepath / f"{name}/{last_write_str}.csv"
     csv_filepath.parent.mkdir(parents=True, exist_ok=True)
 
-    filepaths = input_record["filepaths"]
-    times = input_record["time_list"]
+    filepaths = input_record.filepaths
+    times = input_record._time_lis
     filepaths_df = pd.DataFrame({"time": times, name: filepaths})
     filepaths_df = filepaths_df.sort_index()
     # Make filepath parent directory if it doesn't exist
@@ -45,11 +45,11 @@ def write(input_record, output_directory):
     filepaths_df.set_index("time", inplace=True)
     filepaths_df.sort_index(inplace=True)
     filepaths_df.to_csv(csv_filepath, na_rep="NA")
-    input_record["last_write_time"] = last_write_time + write_interval
+    input_record._last_write_time = _last_write_time + write_interval
 
     # Empty mask_list after writing
-    input_record["time_list"] = []
-    input_record["filepaths"] = []
+    input_record._time_lis = []
+    input_record.filepaths = []
 
 
 def write_final(track_input_records, output_directory):
@@ -69,7 +69,7 @@ def aggregate(track_input_records, output_directory, clean_up=True):
     for input_record in track_input_records.values():
         if "filepaths" not in input_record.keys():
             continue
-        name = input_record["name"]
+        name = input_record.name
         directory = output_directory / f"records/filepaths/{name}"
 
         description = "Time taken from the tracking process."

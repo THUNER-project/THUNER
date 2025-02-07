@@ -29,11 +29,11 @@ def write_setup(object_tracks, object_options, output_directory):
     object_name = object_options.name
     base_directory = output_directory / f"attributes/{object_name}/"
 
-    last_write_time = object_tracks["last_write_time"]
+    _last_write_time = object_tracks["_last_write_time"]
     write_interval = np.timedelta64(object_options.write_interval, "h")
 
-    last_write_str = format_time(last_write_time, filename_safe=False, day_only=False)
-    next_write_time = last_write_time + write_interval
+    last_write_str = format_time(_last_write_time, filename_safe=False, day_only=False)
+    next_write_time = _last_write_time + write_interval
     current_str = format_time(next_write_time, filename_safe=False, day_only=False)
     message = f"Writing {object_name} attributes from {last_write_str} to "
     message += f"{current_str}, inclusive and non-inclusive, respectively."

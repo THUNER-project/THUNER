@@ -473,8 +473,8 @@ def mask_from_input_record(
     """
 
     input_record = track_input_records[dataset_options.name]
-    domain_mask = input_record["domain_mask"]
-    boundary_coords = input_record["boundary_coordinates"]
+    domain_mask = input_record.domain_mask
+    boundary_coords = input_record.boundary_coordinates
 
     return domain_mask, boundary_coords
 

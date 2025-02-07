@@ -61,14 +61,14 @@ def initialise_input_records(data_options: DataOptions):
 #     """
 
 #     input_record = {}
-#     input_record["name"] = name
-#     input_record["current_file_index"] = -1
-#     input_record["dataset"] = None
-#     input_record["last_write_time"] = None
+#     input_record.name = name
+#     input_record._current_file_index = -1
+#     input_record.dataset = None
+#     input_record._last_write_time = None
 #     if dataset_options.filepaths is not None:
-#         input_record["filepaths"] = []
-#         input_record["time_list"] = []
-#         input_record["write_interval"] = np.timedelta64(1, "h")
+#         input_record.filepaths = []
+#         input_record._time_list = []
+#         input_record.write_interval = np.timedelta64(1, "h")
 
 #     return input_record
 
@@ -79,18 +79,18 @@ def initialise_input_records(data_options: DataOptions):
 #     """
 
 #     input_record = initialise_boilerplate_input_record(name, dataset_options)
-#     input_record["current_grid"] = None
+#     input_record.current_grid = None
 #     deque_length = dataset_options.deque_length
-#     input_record["previous_grids"] = deque([None] * deque_length, deque_length)
+#     input_record.previous_grids = deque([None] * deque_length, deque_length)
 
 #     # Initialize deques of domain masks and boundary coordinates. For datasets like
 #     # gridrad the domain mask is different for objects identified at different levels.
-#     input_record["current_domain_mask"] = None
-#     input_record["previous_domain_masks"] = deque([None] * deque_length, deque_length)
-#     input_record["current_boundary_mask"] = None
-#     input_record["previous_boundary_masks"] = deque([None] * deque_length, deque_length)
-#     input_record["current_boundary_coordinates"] = None
-#     input_record["previous_boundary_coordinates"] = deque(
+#     input_record.current_domain_mask = None
+#     input_record.previous_domain_masks = deque([None] * deque_length, deque_length)
+#     input_record.current_boundary_mask = None
+#     input_record.previous_boundary_masks = deque([None] * deque_length, deque_length)
+#     input_record.current_boundary_coordinates = None
+#     input_record.previous_boundary_coordinates = deque(
 #         [None] * deque_length, deque_length
 #     )
 
@@ -149,7 +149,7 @@ def initialise_object_tracks(object_options):
         attributes = attribute.attribute.initialize_attributes(object_options)
         object_tracks["attributes"] = attributes
 
-    object_tracks["last_write_time"] = None
+    object_tracks["_last_write_time"] = None
 
     return object_tracks
 
@@ -345,7 +345,7 @@ def track_object(
     # Write existing data to file if necessary
     if write.utils.write_interval_reached(time, object_tracks, object_options):
         write.attribute.write(object_tracks, object_options, output_directory)
-        object_tracks["last_write_time"] = time
+        object_tracks["_last_write_time"] = time
 
     # Detect objects at time
     if "grouping" in object_options.model_fields:

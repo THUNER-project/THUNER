@@ -244,7 +244,7 @@ def setup_operational(data_options, grid_options, url, directory):
 
 def get_cpol(time, input_record, dataset_options, grid_options):
     """Update the CPOL input_record for tracking."""
-    filepath = dataset_options.filepaths[input_record["current_file_index"]]
+    filepath = dataset_options.filepaths[input_record._current_file_index]
     ds, boundary_coords, simple_boundary_coords = convert_cpol(
         time, filepath, dataset_options, grid_options
     )
@@ -255,16 +255,16 @@ def get_cpol(time, input_record, dataset_options, grid_options):
     if any(input_record[k] is None for k in keys):
         # Get the domain mask and domain boundary. Note this is the region where data
         # exists, not the detected object masks from the detect module.
-        input_record["current_domain_mask"] = ds["domain_mask"]
-        input_record["current_boundary_coordinates"] = boundary_coords
-        input_record["current_boundary_mask"] = ds["boundary_mask"]
+        input_record.current_domain_mask = ds["domain_mask"]
+        input_record.current_boundary_coordinates = boundary_coords
+        input_record.current_boundary_mask = ds["boundary_mask"]
     else:
-        domain_mask = copy.deepcopy(input_record["current_domain_mask"])
-        boundary_mask = copy.deepcopy(input_record["current_boundary_mask"])
-        boundary_coords = copy.deepcopy(input_record["current_boundary_coordinates"])
-        input_record["previous_domain_masks"].append(domain_mask)
-        input_record["previous_boundary_coordinates"].append(boundary_coords)
-        input_record["previous_boundary_masks"].append(boundary_mask)
+        domain_mask = copy.deepcopy(input_record.current_domain_mask)
+        boundary_mask = copy.deepcopy(input_record.current_boundary_mask)
+        boundary_coords = copy.deepcopy(input_record.current_boundary_coordinates)
+        input_record.previous_domain_masks.append(domain_mask)
+        input_record.previous_boundary_coordinates.append(boundary_coords)
+        input_record.previous_boundary_masks.append(boundary_mask)
         # Note for AURA data the domain mask is calculated using a fixed range
         # (e.g. 150 km), which is constant for all times. Therefore, the mask is not
         # updated for each new file. Contrast this with, for instance, GridRad, where a
@@ -393,7 +393,7 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
     utils.log_dataset_update(logger, dataset_options.name, time)
     conv_options = dataset_options.converted_options
 
-    input_record["current_file_index"] += 1
+    input_record._current_file_index += 1
     if conv_options.load is False:
         if dataset_options.name == "cpol":
             dataset = get_cpol(time, input_record, dataset_options, grid_options)
@@ -403,12 +403,12 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
             )
     else:
         dataset = xr.open_dataset(
-            dataset_options.filepaths[input_record["current_file_index"]]
+            dataset_options.filepaths[input_record._current_file_index]
         )
     if conv_options.save:
         utils.save_converted_dataset(dataset, dataset_options)
 
-    input_record["dataset"] = dataset
+    input_record.dataset = dataset
 
 
 def cpol_grid_from_dataset(dataset, variable, time):

@@ -363,7 +363,7 @@ def remove_clutter(ds, variables=None, low_level=True, below_anvil=False):
 
 
 def get_gridrad(time, input_record, track_options, dataset_options, grid_options):
-    filepath = dataset_options.filepaths[input_record["current_file_index"]]
+    filepath = dataset_options.filepaths[input_record._current_file_index]
     utils.log_convert(logger, dataset_options.name, filepath)
     args = [time, filepath, track_options, dataset_options, grid_options]
     ds, boundary_coords = convert_gridrad(*args)[:2]
@@ -464,19 +464,17 @@ def get_domain_mask(ds, track_options, dataset_options):
 
 
 def update_boundary_data(dataset, boundary_coords, input_record):
-    previous_domain_mask = copy.deepcopy(input_record["current_domain_mask"])
-    previous_boundary_coords = copy.deepcopy(
-        input_record["current_boundary_coordinates"]
-    )
-    previous_boundary_mask = copy.deepcopy(input_record["current_boundary_mask"])
+    previous_domain_mask = copy.deepcopy(input_record.current_domain_mask)
+    previous_boundary_coords = copy.deepcopy(input_record.current_boundary_coordinates)
+    previous_boundary_mask = copy.deepcopy(input_record.current_boundary_mask)
 
-    input_record["previous_domain_masks"].append(previous_domain_mask)
-    input_record["previous_boundary_coordinates"].append(previous_boundary_coords)
-    input_record["previous_boundary_masks"].append(previous_boundary_mask)
+    input_record.previous_domain_masks.append(previous_domain_mask)
+    input_record.previous_boundary_coordinates.append(previous_boundary_coords)
+    input_record.previous_boundary_masks.append(previous_boundary_mask)
 
-    input_record["current_domain_mask"] = dataset["domain_mask"]
-    input_record["current_boundary_coordinates"] = boundary_coords
-    input_record["current_boundary_mask"] = dataset["boundary_mask"]
+    input_record.current_domain_mask = dataset["domain_mask"]
+    input_record.current_boundary_coordinates = boundary_coords
+    input_record.current_boundary_mask = dataset["boundary_mask"]
 
 
 def update_dataset(time, input_record, track_options, dataset_options, grid_options):
@@ -502,8 +500,8 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
     utils.log_dataset_update(logger, dataset_options.name, time)
     conv_options = dataset_options.converted_options
 
-    input_record["current_file_index"] += 1
-    filepath = dataset_options.filepaths[input_record["current_file_index"]]
+    input_record._current_file_index += 1
+    filepath = dataset_options.filepaths[input_record._current_file_index]
     if conv_options.load is False:
         args = [time, input_record, track_options, dataset_options, grid_options]
         dataset = get_gridrad(*args)
@@ -515,7 +513,7 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
 
     if conv_options.save:
         utils.save_converted_dataset(dataset, dataset_options)
-    input_record["dataset"] = dataset
+    input_record.dataset = dataset
 
 
 dataset_id_converter = {"ds841.6": "d841006"}

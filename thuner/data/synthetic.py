@@ -178,19 +178,19 @@ def update_dataset(time, input_record, tracks, dataset_options, grid_options):
         grid_options.y = Y
 
     if "objects" not in input_record.keys():
-        input_record["objects"] = dataset_options.starting_objects
+        input_record.objects = dataset_options.starting_objects
 
-    updated_objects = copy.deepcopy(input_record["objects"])
-    for i in range(len(input_record["objects"])):
-        updated_objects[i] = update_object(time, input_record["objects"][i])
-    input_record["objects"] = updated_objects
+    updated_objects = copy.deepcopy(input_record.objects)
+    for i in range(len(input_record.objects)):
+        updated_objects[i] = update_object(time, input_record.objects[i])
+    input_record.objects = updated_objects
 
     ds = create_dataset(time, grid_options)
 
-    for object in input_record["objects"]:
+    for object in input_record.objects:
         ds = add_reflectivity(ds, **object)
 
-    input_record["dataset"] = ds
+    input_record.dataset = ds
 
 
 def update_object(time, obj):

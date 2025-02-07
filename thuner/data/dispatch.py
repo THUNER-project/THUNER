@@ -97,8 +97,8 @@ def boilerplate_update(
 
     earliest_time = time + dataset_options.start_buffer
     latest_time = time + dataset_options.end_buffer
-    cond = not time_in_dataset_range(earliest_time, input_record["dataset"])
-    cond = cond or not time_in_dataset_range(latest_time, input_record["dataset"])
+    cond = not time_in_dataset_range(earliest_time, input_record.dataset)
+    cond = cond or not time_in_dataset_range(latest_time, input_record.dataset)
     if cond:
         update_dataset(time, input_record, track_options, dataset_options, grid_options)
 
@@ -121,23 +121,21 @@ def update_track_input_records(
             data_options.dataset_by_name(name),
             grid_options,
         )
-        if input_record["current_grid"] is not None:
-            input_record["previous_grids"].append(input_record["current_grid"])
+        if input_record.current_grid is not None:
+            input_record.previous_grids.append(input_record.current_grid)
         grid_from_dataset = grid_from_dataset_dispatcher.get(name)
         if len(data_options.dataset_by_name(name).fields) > 1:
             raise ValueError("Only one field allowed for track datasets.")
         else:
             field = data_options.dataset_by_name(name).fields[0]
-        input_record["current_grid"] = grid_from_dataset(
-            input_record["dataset"], field, time
-        )
+        input_record.current_grid = grid_from_dataset(input_record.dataset, field, time)
         if data_options.dataset_by_name(name).filepaths is None:
             return
-        input_record["time_list"].append(time)
+        input_record._time_list.append(time)
         filepath = data_options.dataset_by_name(name).filepaths[
-            input_record["current_file_index"]
+            input_record._current_file_index
         ]
-        input_record["filepaths"].append(filepath)
+        input_record.filepaths.append(filepath)
 
         args = [time, input_record, input_record]
         if write.utils.write_interval_reached(*args):
