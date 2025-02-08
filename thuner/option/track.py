@@ -89,6 +89,7 @@ _summary.update(
         "detect_method": "Method used to detect the object.",
         "altitudes": "Altitudes over which to detect objects.",
         "flatten_method": "Method used to flatten the object.",
+        "attributes": "Options for object attributes.",
     }
 )
 
@@ -110,6 +111,7 @@ class BaseObjectOptions(BaseOptions):
         1, description=_summary["write_interval"], gt=0, lt=24 * 60
     )
     allowed_gap: int = Field(30, description=_summary["allowed_gap"], gt=0, lt=6 * 60)
+    attributes: Attributes | None = Field(None, description=_summary["attributes"])
 
     # Check method is either detect or group.
     @field_validator("method")
@@ -148,7 +150,6 @@ class DetectionOptions(BaseOptions):
 
 _summary["variable"] = "Variable to use for detection."
 _summary["detection"] = "Method used to detect the object."
-_summary["attributes"] = "Options for object attributes."
 
 
 class DetectedObjectOptions(BaseObjectOptions):
@@ -159,7 +160,6 @@ class DetectedObjectOptions(BaseObjectOptions):
         DetectionOptions(method="steiner"), description=_summary["detection"]
     )
     tracking: BaseOptions | None = Field(TintOptions(), description="Tracking options.")
-    attributes: Attributes | None = Field(None, description=_summary["attributes"])
 
 
 # Define a custom type with constraints
@@ -206,7 +206,6 @@ class GroupedObjectOptions(BaseObjectOptions):
         GroupingOptions(), description=_summary["grouping"]
     )
     tracking: AnyTrackingOptions = Field(MintOptions(), description="Tracking options.")
-    attributes: Attributes | None = Field(None, description=_summary["attributes"])
 
 
 AnyObjectOptions = DetectedObjectOptions | GroupedObjectOptions

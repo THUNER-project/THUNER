@@ -1,10 +1,9 @@
 """Functions for getting object attributes."""
 
-import inspect
 from thuner.log import setup_logger
 from thuner.option.track import AnyObjectOptions
 from thuner.option.attribute import Attribute, AttributeGroup, AttributeType
-from thuner.utils import camel_to_snake, filter_arguments
+from thuner.utils import filter_arguments
 
 logger = setup_logger(__name__)
 

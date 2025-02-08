@@ -19,98 +19,45 @@ from thuner.option.track import TrackOptions
 logger = setup_logger(__name__)
 
 
-# def initialise_input_records(data_options: DataOptions):
+# def initialise_object_tracks(object_options):
 #     """
-#     Initialise the input datasets dictionary.
+#     Initialise the object tracks dictionary.
+
+#     parent_ds holds the xarray metadata associated with the current file.
+#     current_ds holds the loaded xarray dataset from which grids are extracted.
+#     current_grid holds the current grid on which objects at a given time are detected.
+
 #     """
-#     input_records = {"track": {}, "tag": {}}
-#     for name in data_options._dataset_lookup.keys():
-#         use = data_options.dataset_by_name(name).use
-#         init_input_record = initialise_input_record_dispatcher.get(use)
-#         if init_input_record is None:
-#             raise KeyError(f"Initialisation function for {use} not found.")
-#         input_record = init_input_record(name, data_options.dataset_by_name(name))
-#         input_records[use][name] = input_record
+#     object_tracks = {}
+#     object_tracks["name"] = object_options.name
+#     object_tracks["object_count"] = 0
+#     object_tracks["tracks"] = []
+#     object_tracks["current_grid"] = None
+#     object_tracks["current_time_interval"] = None
+#     deque_length = object_options.deque_length
+#     object_tracks["previous_time_interval"] = deque([None] * deque_length, deque_length)
+#     object_tracks["current_time"] = None
+#     object_tracks["previous_times"] = deque([None] * deque_length, deque_length)
+#     object_tracks["previous_grids"] = deque([None] * deque_length, deque_length)
+#     object_tracks["current_mask"] = None
+#     object_tracks["previous_masks"] = deque([None] * deque_length, deque_length)
 
-#     return input_records
+#     if object_options.tracking is not None:
+#         match.initialise_match_records(object_tracks, object_options)
 
+#     # Initialize attributes dictionaries
+#     if object_options.attributes is not None:
+#         # The current_attributes dict holds the attributes associated with matching the
+#         # "previous" grid to the "current" grid. It is reset at the start of each time
+#         # step.
+#         current_attributes = attribute.attribute.initialize_attributes(object_options)
+#         object_tracks["current_attributes"] = current_attributes
+#         attributes = attribute.attribute.initialize_attributes(object_options)
+#         object_tracks["attributes"] = attributes
 
-def initialise_input_records(data_options: DataOptions):
-    """
-    Initialise the input datasets dictionary.
-    """
-    input_records = utils.InputRecords()
-    for name in data_options._dataset_lookup.keys():
-        dataset_options = data_options.dataset_by_name(name)
-        kwargs = {"name": name, "filepaths": dataset_options.filepaths}
-        if dataset_options.use == "track":
-            kwargs["deque_length"] = dataset_options.deque_length
-            input_records.track[name] = utils.TrackInputRecord(**kwargs)
-        elif dataset_options.use == "tag":
-            input_records.tag[name] = utils.BaseInputRecord(**kwargs)
-        else:
-            raise ValueError(f"Use must be 'tag' or 'track'.")
-    return input_records
+#     object_tracks["_last_write_time"] = None
 
-
-# def initialise_boilerplate_input_record(
-#     name, dataset_options: utils.BaseDatasetOptions
-# ):
-#     """
-#     Initialise the tag input record dictionary.
-#     """
-
-#     input_record = {}
-#     input_record.name = name
-#     input_record._current_file_index = -1
-#     input_record.dataset = None
-#     input_record._last_write_time = None
-#     if dataset_options.filepaths is not None:
-#         input_record.filepaths = []
-#         input_record._time_list = []
-#         input_record.write_interval = np.timedelta64(1, "h")
-
-#     return input_record
-
-
-# def initialise_track_input_record(name, dataset_options):
-#     """
-#     Initialise the track input record dictionary.
-#     """
-
-#     input_record = initialise_boilerplate_input_record(name, dataset_options)
-#     input_record.current_grid = None
-#     deque_length = dataset_options.deque_length
-#     input_record.previous_grids = deque([None] * deque_length, deque_length)
-
-#     # Initialize deques of domain masks and boundary coordinates. For datasets like
-#     # gridrad the domain mask is different for objects identified at different levels.
-#     input_record.current_domain_mask = None
-#     input_record.previous_domain_masks = deque([None] * deque_length, deque_length)
-#     input_record.current_boundary_mask = None
-#     input_record.previous_boundary_masks = deque([None] * deque_length, deque_length)
-#     input_record.current_boundary_coordinates = None
-#     input_record.previous_boundary_coordinates = deque(
-#         [None] * deque_length, deque_length
-#     )
-
-#     return input_record
-
-
-# def initialise_tag_input_record(name, dataset_options):
-#     """
-#     Initialise the track input record dictionary.
-#     """
-
-#     input_record = initialise_boilerplate_input_record(name, dataset_options)
-
-#     return input_record
-
-
-# initialise_input_record_dispatcher = {
-#     "track": initialise_track_input_record,
-#     "tag": initialise_tag_input_record,
-# }
+#     return object_tracks
 
 
 def initialise_object_tracks(object_options):
@@ -122,22 +69,7 @@ def initialise_object_tracks(object_options):
     current_grid holds the current grid on which objects at a given time are detected.
 
     """
-    object_tracks = {}
-    object_tracks["name"] = object_options.name
-    object_tracks["object_count"] = 0
-    object_tracks["tracks"] = []
-    object_tracks["current_grid"] = None
-    object_tracks["current_time_interval"] = None
-    deque_length = object_options.deque_length
-    object_tracks["previous_time_interval"] = deque([None] * deque_length, deque_length)
-    object_tracks["current_time"] = None
-    object_tracks["previous_times"] = deque([None] * deque_length, deque_length)
-    object_tracks["previous_grids"] = deque([None] * deque_length, deque_length)
-    object_tracks["current_mask"] = None
-    object_tracks["previous_masks"] = deque([None] * deque_length, deque_length)
-
-    if object_options.tracking is not None:
-        match.initialise_match_records(object_tracks, object_options)
+    object_tracks = utils.ObjectTracks(object_options=object_options)
 
     # Initialize attributes dictionaries
     if object_options.attributes is not None:
@@ -145,11 +77,9 @@ def initialise_object_tracks(object_options):
         # "previous" grid to the "current" grid. It is reset at the start of each time
         # step.
         current_attributes = attribute.attribute.initialize_attributes(object_options)
-        object_tracks["current_attributes"] = current_attributes
+        object_tracks.current_attributes = current_attributes
         attributes = attribute.attribute.initialize_attributes(object_options)
-        object_tracks["attributes"] = attributes
-
-    object_tracks["_last_write_time"] = None
+        object_tracks.attributes = attributes
 
     return object_tracks
 
@@ -226,11 +156,10 @@ def track(
         The pandas dataframe containing the object tracks.
     xarray.Dataset
         The xarray dataset containing the object masks.
-
     """
     logger.info("Beginning thuner tracking. Saving output to %s.", output_directory)
     tracks = initialise_tracks(track_options)
-    input_records = initialise_input_records(data_options)
+    input_records = utils.InputRecords(data_options=data_options)
 
     consolidated_options = consolidate_options(
         track_options, data_options, grid_options, visualize_options
