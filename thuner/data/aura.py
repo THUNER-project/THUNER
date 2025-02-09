@@ -250,21 +250,21 @@ def get_cpol(time, input_record, dataset_options, grid_options):
     )
 
     # Set data outside instrument range to NaN
-    keys = ["current_domain_mask", "current_boundary_coordinates"]
-    keys += ["current_boundary_mask"]
+    keys = ["next_domain_mask", "next_boundary_coordinates"]
+    keys += ["next_boundary_mask"]
     if any(input_record[k] is None for k in keys):
         # Get the domain mask and domain boundary. Note this is the region where data
         # exists, not the detected object masks from the detect module.
-        input_record.current_domain_mask = ds["domain_mask"]
-        input_record.current_boundary_coordinates = boundary_coords
-        input_record.current_boundary_mask = ds["boundary_mask"]
+        input_record.next_domain_mask = ds["domain_mask"]
+        input_record.next_boundary_coordinates = boundary_coords
+        input_record.next_boundary_mask = ds["boundary_mask"]
     else:
-        domain_mask = copy.deepcopy(input_record.current_domain_mask)
-        boundary_mask = copy.deepcopy(input_record.current_boundary_mask)
-        boundary_coords = copy.deepcopy(input_record.current_boundary_coordinates)
-        input_record.previous_domain_masks.append(domain_mask)
-        input_record.previous_boundary_coordinates.append(boundary_coords)
-        input_record.previous_boundary_masks.append(boundary_mask)
+        domain_mask = copy.deepcopy(input_record.next_domain_mask)
+        boundary_mask = copy.deepcopy(input_record.next_boundary_mask)
+        boundary_coords = copy.deepcopy(input_record.next_boundary_coordinates)
+        input_record.domain_masks.append(domain_mask)
+        input_record.boundary_coodinates.append(boundary_coords)
+        input_record.boundary_masks.append(boundary_mask)
         # Note for AURA data the domain mask is calculated using a fixed range
         # (e.g. 150 km), which is constant for all times. Therefore, the mask is not
         # updated for each new file. Contrast this with, for instance, GridRad, where a

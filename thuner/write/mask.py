@@ -17,10 +17,11 @@ def write(object_tracks, object_options, output_directory):
     """Write masks to file."""
 
     if object_options.tracking is None:
-        mask_type = "current_mask"
+        mask_type = "next_mask"
     else:
-        mask_type = "current_matched_mask"
-    mask = object_tracks[mask_type]
+        mask_type = "next_matched_mask"
+    mask = getattr(object_tracks, mask_type)
+
     if mask is None:
         return
     else:

@@ -64,109 +64,102 @@ def find_objects(box, mask):
     return objects[objects != 0]
 
 
-def empty_object_record():
+def empty_match_record():
     # Store records in "pixel" coordinates. Reconstruct flows in cartesian or geographic
     # coordinates as required.
-    object_record = {
-        "previous_ids": [],
-        "matched_current_ids": [],
+    match_record = {
+        "ids": [],
+        "next_ids": [],
         "universal_ids": [],
-        "previous_parents": [],
-        "current_parents": [],
-        "previous_areas": [],
+        "parents": [],
+        "next_parents": [],
+        "areas": [],
         "flow_boxes": [],  # Extract box centers as required
         "search_boxes": [],  # Extract box centers as required
         "flows": [],
         "corrected_flows": [],
         "global_flows": [],
         "global_flow_boxes": [],
-        "current_displacements": [],
-        "previous_displacements": [],
-        "previous_centers": [],  # These are gridcell area area weighted centers
-        "matched_current_centers": [],  # These are gridcell area weighted centers
-        "previous_weighted_centers": [],  # These are gridcell area and field weighted centers
-        "matched_current_weighted_centers": [],  # These are gridcell area and field weighted centers
+        "next_displacements": [],
+        "displacements": [],
+        "centers": [],  # These are gridcell area area weighted centers
+        "next_centers": [],  # These are gridcell area weighted centers
         "costs": [],  # Cost function in units of km
     }
-    return object_record
+    return match_record
 
 
-def initialize_object_record(match_data, object_tracks, object_options):
-    """Initialize record of object properties in previous and current masks."""
+def initialize_match_record(match_data, object_tracks, object_options):
+    """Initialize record of object properties in current and next masks."""
 
     previous_mask = utils.get_masks(object_tracks, object_options)[1]
     total_previous_objects = np.max(previous_mask)
-    previous_ids = np.arange(1, total_previous_objects + 1)
+    ids = np.arange(1, total_previous_objects + 1)
 
     universal_ids = np.arange(
-        object_tracks["object_count"] + 1,
-        object_tracks["object_count"] + total_previous_objects + 1,
+        object_tracks.object_count + 1,
+        object_tracks.object_count + total_previous_objects + 1,
     )
-    object_tracks["object_count"] += total_previous_objects
-    object_record = match_data.copy()
+    object_tracks.object_count += total_previous_objects
+    match_record = match_data.copy()
 
-    # Get the parents obtained during the previous step
-    current_parents = match_data["current_parents"]
-    parents = relabel_parents(previous_ids, current_parents, universal_ids)
-    # If object record new, initialize previous parents as empty list for each object
-    object_record["previous_parents"] = [[] for i in range(len(previous_ids))]
-    object_record["current_parents"] = parents
+    # Get the parents obtained during the previous iteration
+    current_parents = match_data["next_parents"]
+    parents = relabel_parents(ids, current_parents, universal_ids)
+    # If match record new, initialize parents as empty list for each object
+    match_record["parents"] = [[] for i in range(len(ids))]
+    match_record["next_parents"] = parents
 
-    object_record["previous_ids"] = previous_ids
-    object_record["universal_ids"] = universal_ids
-    object_tracks["object_record"] = object_record
+    match_record["ids"] = ids
+    match_record["universal_ids"] = universal_ids
+    object_tracks.match_record = match_record
 
 
-def relabel_parents(previous_ids, parents, universal_ids):
+def relabel_parents(ids, parents, universal_ids):
     """Relabel parents with universal id."""
     new_parents = []
     for object_parents in parents:
         new_object_parents = []
         for obj_id in object_parents:
-            universal_obj_id = universal_ids[previous_ids == obj_id][0]
+            universal_obj_id = universal_ids[ids == obj_id][0]
             new_object_parents.append(universal_obj_id)
         new_parents.append(new_object_parents)
     return new_parents
 
 
-def update_object_record(match_data, object_tracks, object_options):
+def update_match_record(match_data, object_tracks, object_options):
     """
-    Update record of object properties in previous and current masks after matching.
+    Update record of object properties in current and next masks after matching.
     """
 
-    previous_object_record = copy.deepcopy(object_tracks["object_record"])
+    previous_match_record = copy.deepcopy(object_tracks.match_record)
     previous_mask = utils.get_masks(object_tracks, object_options)[1]
 
     total_previous_objects = np.max(previous_mask.values)
-    previous_ids = np.arange(1, total_previous_objects + 1)
+    ids = np.arange(1, total_previous_objects + 1)
     universal_ids = np.array([], dtype=int)
 
-    for previous_id in previous_ids:
+    for previous_id in ids:
         # Check if object was matched in previous iteration
-        if previous_id in previous_object_record["matched_current_ids"]:
-            cond = previous_object_record["matched_current_ids"] == previous_id
+        if previous_id in previous_match_record["next_ids"]:
+            cond = previous_match_record["next_ids"] == previous_id
             index = np.argwhere(cond)
             index = index[0, 0]
             # Append the previously created universal id corresponding to previous_id
-            universal_id = previous_object_record["universal_ids"][index]
+            universal_id = previous_match_record["universal_ids"][index]
             universal_ids = np.append(universal_ids, universal_id)
         else:
-            universal_id = object_tracks["object_count"] + 1
-            object_tracks["object_count"] += 1
+            universal_id = object_tracks.object_count + 1
+            object_tracks.object_count += 1
             universal_ids = np.append(universal_ids, universal_id)
-            # The object is new, so remove from parents of other objects
-            # current_parents = match_data["current_parents"]
-            # for object_parents in current_parents:
-            #     if previous_id in object_parents:
-            #         object_parents.remove(previous_id)
 
-    object_record = match_data.copy()
-    object_record["universal_ids"] = universal_ids
+    match_record = match_data.copy()
+    match_record["universal_ids"] = universal_ids
     # Update parents
-    object_record["previous_parents"] = previous_object_record["current_parents"]
-    current_parents = object_record["current_parents"]
-    current_parents = relabel_parents(previous_ids, current_parents, universal_ids)
+    match_record["parents"] = previous_match_record["next_parents"]
+    current_parents = match_record["next_parents"]
+    current_parents = relabel_parents(ids, current_parents, universal_ids)
 
-    object_record["current_parents"] = current_parents
-    object_record["previous_ids"] = previous_ids
-    object_tracks["object_record"] = object_record
+    match_record["next_parents"] = current_parents
+    match_record["ids"] = ids
+    object_tracks.match_record = match_record

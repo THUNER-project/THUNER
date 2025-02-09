@@ -3,12 +3,67 @@
 import yaml
 from pathlib import Path
 import pandas as pd
+from pydantic import BaseModel, model_validator
 import numpy as np
-from thuner.option.attribute import Attribute, AttributeGroup, AttributeType
+from thuner.option.attribute import Attribute, AttributeGroup, AttributeType, Attributes
 from thuner.log import setup_logger
-from thuner.utils import InputRecords
 
 logger = setup_logger(__name__)
+
+
+def _init_attr_type(attribute_type: AttributeType):
+    """Initialize attributes lists for a given attribute type."""
+    attributes = {}
+    for attr in attribute_type.attributes:
+        if isinstance(attr, AttributeGroup):
+            for attr_attr in attr.attributes:
+                attributes[attr_attr.name] = []
+        elif isinstance(attr, Attribute):
+            attributes[attr.name] = []
+        else:
+            raise ValueError(f"Unknown type {attr.type}.")
+    return attributes
+
+
+class AttributesRecord(BaseModel):
+    """
+    Class for storing attributes recorded during the tracking process
+    """
+
+    # Allow arbitrary types in the class.
+    class Config:
+        arbitrary_types_allowed = True
+
+    attribute_options: Attributes
+    name: str = None
+    attribute_types: dict | None = None
+    member_attributes: dict | None = None
+
+    @model_validator(mode="after")
+    def _check_name(cls, values):
+        if values.name is None:
+            values.name = values.attribute_options.name
+        elif values.name != values.attribute_options.name:
+            raise ValueError("Name must match attribute_options name.")
+        return values
+
+    @model_validator(mode="after")
+    def _initialize_attributes(cls, values):
+        options = values.attribute_options
+        if options is None:
+            return values
+        values.attribute_types = {}
+        for attr_type in options.attribute_types:
+            values.attribute_types[attr_type.name] = _init_attr_type(attr_type)
+        if options.member_attributes is not None:
+            values.member_attributes = {}
+            for obj, obj_attributes in options.member_attributes.items():
+                obj_attr = {}
+                for attr_type in obj_attributes.attribute_types:
+                    obj_attr[attr_type.name] = _init_attr_type(attr_type)
+                values.member_attributes[obj] = obj_attr
+        return values
+
 
 # Mapping of string representations to actual data types
 string_to_data_type = {
@@ -29,54 +84,51 @@ class TimeOffset(Attribute):
 
 def setup_interp(
     attribute_group: AttributeGroup,
-    input_records: InputRecords,
+    input_records,
     object_tracks,
     dataset: str,
     member_object: str = None,
 ):
-    name = object_tracks["name"]
+    name = object_tracks.name
     excluded = ["time", "id", "universal_id", "latitude", "longitude", "altitude"]
     excluded += ["time_offset"]
     attributes = attribute_group.attributes
     names = [attr.name for attr in attributes if attr.name not in excluded]
     tag_input_records = input_records.tag
-    previous_time = object_tracks["previous_times"][-1]
+    current_time = object_tracks.times[-1]
 
     # Get object centers
     if member_object is None:
-        core_attributes = object_tracks["current_attributes"][name]["core"]
+        core_attributes = object_tracks.current_attributes.attribute_types["core"]
     else:
-        core_attributes = object_tracks["current_attributes"]["member_objects"]
+        core_attributes = object_tracks.current_attributes.member_attributes
         core_attributes = core_attributes[member_object]["core"]
 
     ds = tag_input_records[dataset].dataset
     ds["longitude"] = ds["longitude"] % 360
-    return name, names, ds, core_attributes, previous_time
+    return name, names, ds, core_attributes, current_time
 
 
-def get_previous_mask(object_tracks, matched=False):
+def get_current_mask(object_tracks, matched=False):
     """Get the appropriate previous mask."""
     if matched:
-        mask_type = "previous_matched_masks"
+        mask_type = "matched_masks"
     else:
-        mask_type = "previous_masks"
-    mask = object_tracks[mask_type][-1]
+        mask_type = "masks"
+    mask = getattr(object_tracks, mask_type)[-1]
     return mask
 
 
 def attribute_from_core(attribute, object_tracks, member_object):
     """Get attribute from core object properties."""
     # Check if grouped object
-    object_name = object_tracks["name"]
-    if object_name in object_tracks["current_attributes"]:
-        if member_object is not None and member_object is not object_name:
-            member_attr = object_tracks["current_attributes"]["member_objects"]
-            attr = member_attr[member_object]["core"][attribute.name]
-        else:
-            core_attr = object_tracks["current_attributes"][object_name]["core"]
-            attr = core_attr[attribute.name]
+    current_attributes = object_tracks.current_attributes
+    if member_object is not None and member_object is not object_tracks.name:
+        member_attr = current_attributes.member_attributes
+        attr = member_attr[member_object]["core"][attribute.name]
     else:
-        attr = object_tracks["current_attributes"]["core"][attribute.name]
+        core_attr = current_attributes.attribute_types["core"]
+        attr = core_attr[attribute.name]
     return {attribute.name: attr}
 
 

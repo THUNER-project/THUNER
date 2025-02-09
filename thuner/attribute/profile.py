@@ -29,10 +29,8 @@ def from_centers(
         Names of attributes to calculate.
     """
 
-    # Note the attributes being recorded correspond to objects identified in the
-    # previous timestep.
     args = [attribute_group, input_records, object_tracks, dataset, member_object]
-    name, names, ds, core_attributes, previous_time = setup_interp(*args)
+    name, names, ds, core_attributes, current_time = setup_interp(*args)
 
     if "pressure" not in ds.coords or "geopotential" not in ds.data_vars:
         raise ValueError("Dataset must contain pressure levels and geopotential.")
@@ -62,7 +60,7 @@ def from_centers(
     kwargs = {"latitude": lats_da, "longitude": lons_da, "method": "linear"}
     for offset in time_offsets:
         # Interp to given time
-        interp_time = previous_time + np.timedelta64(offset, "m")
+        interp_time = current_time + np.timedelta64(offset, "m")
         kwargs.update({"time": interp_time.astype("datetime64[ns]")})
         profile_time = profiles.interp(**kwargs)
 
@@ -81,7 +79,7 @@ def from_centers(
             profile_dict["time_offset"] += [offset] * len(profile["altitude"])
             profile_dict["latitude"] += [latitude[i]] * len(profile["altitude"])
             profile_dict["longitude"] += [longitude[i]] * len(profile["altitude"])
-            profile_dict["time"] += [previous_time] * len(profile["altitude"])
+            profile_dict["time"] += [current_time] * len(profile["altitude"])
             profile_dict[id_name] += [ids[i]] * len(profile["altitude"])
     return profile_dict
 

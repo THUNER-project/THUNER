@@ -464,17 +464,17 @@ def get_domain_mask(ds, track_options, dataset_options):
 
 
 def update_boundary_data(dataset, boundary_coords, input_record):
-    previous_domain_mask = copy.deepcopy(input_record.current_domain_mask)
-    previous_boundary_coords = copy.deepcopy(input_record.current_boundary_coordinates)
-    previous_boundary_mask = copy.deepcopy(input_record.current_boundary_mask)
+    previous_domain_mask = copy.deepcopy(input_record.next_domain_mask)
+    previous_boundary_coords = copy.deepcopy(input_record.next_boundary_coordinates)
+    previous_boundary_mask = copy.deepcopy(input_record.next_boundary_mask)
 
-    input_record.previous_domain_masks.append(previous_domain_mask)
-    input_record.previous_boundary_coordinates.append(previous_boundary_coords)
-    input_record.previous_boundary_masks.append(previous_boundary_mask)
+    input_record.domain_masks.append(previous_domain_mask)
+    input_record.boundary_coodinates.append(previous_boundary_coords)
+    input_record.boundary_masks.append(previous_boundary_mask)
 
-    input_record.current_domain_mask = dataset["domain_mask"]
-    input_record.current_boundary_coordinates = boundary_coords
-    input_record.current_boundary_mask = dataset["boundary_mask"]
+    input_record.next_domain_mask = dataset["domain_mask"]
+    input_record.next_boundary_coordinates = boundary_coords
+    input_record.next_boundary_mask = dataset["boundary_mask"]
 
 
 def update_dataset(time, input_record, track_options, dataset_options, grid_options):

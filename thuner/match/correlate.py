@@ -16,20 +16,20 @@ from thuner.match.utils import get_grids
 def get_flow(bounding_box, object_tracks, object_options, grid_options, flow_margin):
     """Get the optical flow within bounding_box."""
 
-    current_grid, previous_grid = get_grids(object_tracks, object_options)
+    next_grid, previous_grid = get_grids(object_tracks, object_options)
     flow_margin_row, flow_margin_col = box.get_margins_pixels(
         bounding_box, flow_margin, grid_options
     )
     flow_box = bounding_box.copy()
     flow_box = box.expand_box(flow_box, flow_margin_row, flow_margin_col)
-    flow_box = box.clip_box(flow_box, current_grid.shape)
+    flow_box = box.clip_box(flow_box, next_grid.shape)
 
     box_previous = previous_grid[
         flow_box["row_min"] : flow_box["row_max"] + 1,
         flow_box["col_min"] : flow_box["col_max"] + 1,
     ]
 
-    box_current = current_grid[
+    box_current = next_grid[
         flow_box["row_min"] : flow_box["row_max"] + 1,
         flow_box["col_min"] : flow_box["col_max"] + 1,
     ]

@@ -100,8 +100,8 @@ _summary = {
     "converted_options": "Options for converted data.",
     "filepaths": "List of filepaths to used for tracking.",
     "attempt_download": "Whether to attempt to download the data.",
-    "deque_length": """Number of previous grids from this dataset to keep in memory. 
-    Most tracking algorithms require at least two previous grids.""",
+    "deque_length": """Number of current/previous grids from this dataset to keep in memory. 
+    Most tracking algorithms require at least two current/previous grids.""",
     "use": "Whether this dataset will be used for tagging or tracking.",
     "parent_converted": "Parent directory for converted data.",
     "fields": """List of dataset fields, i.e. variables, to use. Fields should be given 
@@ -168,187 +168,6 @@ class BaseDatasetOptions(BaseOptions):
             message = "Only one field should be specified if the dataset is used for "
             message += "tracking. Instead, created grouped objects. See thuner.option."
             raise ValueError(message)
-        return values
-
-
-_summary = {
-    "dataset": "Dataset from which to draw grids. This is updated periodically."
-}
-
-
-class BaseInputRecord(BaseModel):
-    """
-    Base input record class. An input record will be defined for each dataset, and store
-    the appropriate grids and files during tracking or tagging.
-    """
-
-    # Allow arbitrary types in the input record classes.
-    class Config:
-        arbitrary_types_allowed = True
-
-    name: str
-    filepaths: list[str] | dict | None = None
-    write_interval: np.timedelta64 = np.timedelta64(1, "h")
-    dataset: xr.Dataset | xr.DataArray | None = Field(
-        None, description=_summary["dataset"]
-    )
-
-    # Initialize attributes not to be set during object creation.
-    # In pydantic these attributes begin with an underscore.
-    _current_file_index: int = -1
-    _last_write_time: np.datetime64 | None = None
-    _time_list: list = []
-    _filepath_list: list = []
-
-
-def _init_deques(values, names):
-    """Convenience function for initializing deques from names."""
-    for name in names:
-        new_deque = deque([None] * values.deque_length, values.deque_length)
-        setattr(values, name, new_deque)
-    return values
-
-
-class TrackInputRecord(BaseInputRecord):
-    """
-    input record class for datasets used for tracking.
-    """
-
-    deque_length: int = Field(2, description="Number of previous grids to keep.")
-
-    current_grid: xr.DataArray | xr.Dataset | None = None
-    previous_grids: deque | None = None
-    current_domain_mask: xr.DataArray | xr.Dataset | None = None
-    previous_domain_masks: deque | None = None
-    current_boundary_mask: xr.DataArray | xr.Dataset | None = None
-    previous_boundary_masks: deque | None = None
-    current_boundary_coordinates: xr.DataArray | xr.Dataset | None = None
-    previous_boundary_coordinates: deque | None = None
-
-    @model_validator(mode="after")
-    def _initialize_deques(cls, values):
-        names = ["previous_grids", "previous_domain_masks"]
-        names += ["previous_boundary_masks", "previous_boundary_coordinates"]
-        return _init_deques(values, names)
-
-
-class InputRecords(BaseModel):
-    """
-    Class for managing the input records for all the datasets of a given run.
-    """
-
-    # Allow arbitrary types in the input records class.
-    class Config:
-        arbitrary_types_allowed = True
-
-    data_options: BaseOptions
-
-    track: Dict[str, TrackInputRecord] = {}
-    tag: Dict[str, BaseInputRecord] = {}
-
-    @model_validator(mode="after")
-    def _initialize_input_records(cls, values):
-        data_options = values.data_options
-        for name in data_options._dataset_lookup.keys():
-            dataset_options = data_options.dataset_by_name(name)
-            kwargs = {"name": name, "filepaths": dataset_options.filepaths}
-            if dataset_options.use == "track":
-                kwargs["deque_length"] = dataset_options.deque_length
-                values.track[name] = TrackInputRecord(**kwargs)
-            elif dataset_options.use == "tag":
-                values.tag[name] = BaseInputRecord(**kwargs)
-            else:
-                raise ValueError(f"Use must be 'tag' or 'track'.")
-        return values
-
-
-_summary = {
-    "object_options": "Options for the object to be tracked.",
-    "name": "Name of the object to be tracked.",
-    "deque_length": "Number of previous grids/masks to keep in memory.",
-    "object_count": "Running count of the number of objects tracked.",
-    "current_grid": "Current grid for tracking.",
-    "previous_grids": "Deque of previous grids.",
-    "current_time_interval": "Current time interval for tracking.",
-    "previous_time_interval": "Deque of previous time intervals.",
-    "current_time": "Current time for tracking.",
-    "previous_times": "Deque of previous times.",
-    "current_mask": "Current mask for tracking.",
-    "previous_masks": "Deque of previous masks.",
-    "current_matched_mask": "Current matched mask for tracking.",
-    "previous_matched_masks": "Deque of previous matched masks.",
-    "object_record": "Current object record.",
-    "previous_object_records": "Deque of previous object records.",
-    "attributes": "Attributes for the object.",
-    "current_attributes": "Current attributes for the object.",
-    "_last_write_time": "Time of last write to disk.",
-}
-
-
-class ObjectTracks(BaseModel):
-    """
-    Class for recording the attributes and grids etc for tracking a particular object.
-    """
-
-    # Allow arbitrary types in the class.
-    class Config:
-        arbitrary_types_allowed = True
-
-    object_options: BaseOptions
-    name: str | None = None
-    deque_length: int = 2
-    object_count: int = 0
-
-    _kwargs = {"description": _summary["object_options"]}
-    current_grid: xr.DataArray | xr.Dataset | None = Field(None, **_kwargs)
-    _kwargs = {"description": _summary["previous_grids"]}
-    previous_grids: deque | None = Field(None, description=_summary["previous_grids"])
-
-    _kwargs = {"description": _summary["current_time_interval"]}
-    current_time_interval: np.timedelta64 | None = Field(None, **_kwargs)
-    _kwargs = {"description": _summary["previous_time_interval"]}
-    previous_time_interval: deque | None = Field(None, **_kwargs)
-
-    _kwargs = {"description": _summary["current_time"]}
-    current_time: np.datetime64 | None = Field(None, **_kwargs)
-    _kwargs = {"description": _summary["previous_times"]}
-    previous_times: deque | None = Field(None, **_kwargs)
-
-    _kwargs = {"description": _summary["current_mask"]}
-    current_mask: xr.DataArray | xr.Dataset | None = Field(None, **_kwargs)
-    _kwargs = {"description": _summary["previous_masks"]}
-    previous_masks: deque | None = Field(None, **_kwargs)
-
-    _kwargs = {"description": _summary["current_matched_mask"]}
-    current_matched_mask: xr.DataArray | xr.Dataset | None = Field(None, **_kwargs)
-    _kwargs = {"description": _summary["previous_matched_masks"]}
-    previous_matched_masks: deque | None = Field(None, **_kwargs)
-
-    _kwargs = {"description": _summary["object_record"]}
-    object_record: dict | None = Field(None, **_kwargs)
-    _kwargs = {"description": _summary["previous_object_records"]}
-    previous_object_records: deque | None = Field(None, **_kwargs)
-
-    _kwargs = {"description": _summary["attributes"]}
-    attributes: dict | None = Field(None, **_kwargs)
-    _kwargs = {"description": _summary["current_attributes"]}
-    current_attributes: dict | None = Field(None, **_kwargs)
-
-    _kwargs = {"description": _summary["_last_write_time"]}
-    _last_write_time: np.datetime64 | None = Field(None, **_kwargs)
-
-    @model_validator(mode="after")
-    def _initialize_deques(cls, values):
-        names = ["previous_grids", "previous_time_interval", "previous_times"]
-        names += ["previous_masks", "previous_matched_masks", "previous_object_records"]
-        return _init_deques(values, names)
-
-    @model_validator(mode="after")
-    def _check_name(cls, values):
-        if values.name is None:
-            values.name = values.object_options.name
-        elif values.name != values.object_options.name:
-            raise ValueError("Name must match object_options name.")
         return values
 
 
@@ -524,10 +343,10 @@ def now_str(filename_safe=True):
     return format_time(datetime.now(), filename_safe=filename_safe, day_only=False)
 
 
-def get_time_interval(current_grid, previous_grid):
+def get_time_interval(next_grid, current_grid):
     """Get the time interval between two grids."""
-    if previous_grid is not None:
-        time_interval = current_grid.time.values - previous_grid.time.values
+    if current_grid is not None:
+        time_interval = next_grid.time.values - current_grid.time.values
         time_interval = time_interval.astype("timedelta64[s]").astype(int)
         return time_interval
     else:

@@ -5,7 +5,6 @@ import numpy as np
 import xarray as xr
 import networkx as nx
 from networkx.algorithms.components.connected import connected_components
-import thuner.detect.preprocess as preprocess
 from thuner.utils import get_time_interval
 
 
@@ -21,34 +20,32 @@ def group(
     """Group objects into new objects."""
 
     dataset = track_input_records[object_options.dataset].dataset
-    if "gridcell_area" not in tracks[level_index][obj].keys():
-        tracks[level_index][obj]["gridcell_area"] = dataset["gridcell_area"]
+    if tracks[level_index][obj].gridcell_area is None:
+        tracks[level_index][obj].gridcell_area = dataset["gridcell_area"]
     member_objects = object_options.grouping.member_objects
     member_levels = object_options.grouping.member_levels
 
     grid_dict = {}
     for member_obj, member_level in zip(member_objects, member_levels):
-        member_grid = tracks[member_level][member_obj]["current_grid"]
+        member_grid = tracks[member_level][member_obj].next_grid
         grid_dict[f"{member_obj}_grid"] = member_grid
 
     # Store the domain boundaries associated with the consituent masks
     grid = xr.Dataset(grid_dict)
     mask = get_connected_components(tracks, object_options)
 
-    previous_mask = copy.deepcopy(tracks[level_index][obj]["current_mask"])
-    tracks[level_index][obj]["previous_masks"].append(previous_mask)
-    tracks[level_index][obj]["current_mask"] = mask
+    previous_mask = copy.deepcopy(tracks[level_index][obj].next_mask)
+    tracks[level_index][obj].masks.append(previous_mask)
+    tracks[level_index][obj].next_mask = mask
 
-    previous_grid = copy.deepcopy(tracks[level_index][obj]["current_grid"])
-    tracks[level_index][obj]["previous_grids"].append(previous_grid)
-    tracks[level_index][obj]["current_grid"] = grid
+    previous_grid = copy.deepcopy(tracks[level_index][obj].next_grid)
+    tracks[level_index][obj].grids.append(previous_grid)
+    tracks[level_index][obj].next_grid = grid
 
-    tracks[level_index][obj]["previous_time_interval"] = copy.deepcopy(
-        tracks[level_index][obj]["current_time_interval"]
+    tracks[level_index][obj].previous_time_interval = copy.deepcopy(
+        tracks[level_index][obj].next_time_interval
     )
-    tracks[level_index][obj]["current_time_interval"] = get_time_interval(
-        grid, previous_grid
-    )
+    tracks[level_index][obj].next_time_interval = get_time_interval(grid, previous_grid)
 
 
 def get_connected_components(tracks, object_options):
@@ -61,7 +58,7 @@ def get_connected_components(tracks, object_options):
     current_max = 0
     masks = []
     for obj, level in zip(member_objects, member_levels):
-        mask = tracks[level][obj]["current_mask"]
+        mask = tracks[level][obj].next_mask
         new_mask = mask.copy()
         new_mask = new_mask.where(mask == 0, mask + current_max)
         masks.append(new_mask.values)
@@ -88,7 +85,7 @@ def get_connected_components(tracks, object_options):
     # Initialize a new mask ds to represent the grouped object.
     mask_da_list = []
     for obj, level in zip(member_objects, member_levels):
-        mask_da = xr.full_like(tracks[level][obj]["current_mask"], 0, dtype=int)
+        mask_da = xr.full_like(tracks[level][obj].next_mask, 0, dtype=int)
         mask_da_list.append(mask_da)
 
     # Create new objects based on connected components
@@ -120,7 +117,7 @@ def check_areas(masks, tracks, object_options, objs):
     member_levels = object_options.grouping.member_levels
     member_min_areas = object_options.grouping.member_min_areas
     for j in range(len(masks)):
-        gridcell_area = tracks[member_levels[j]][member_objects[j]]["gridcell_area"]
+        gridcell_area = tracks[member_levels[j]][member_objects[j]].gridcell_area
         mask_j = np.isin(masks[j], objs)
         if gridcell_area.where(mask_j).sum() < member_min_areas[j]:
             return False

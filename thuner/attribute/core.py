@@ -17,18 +17,18 @@ logger = setup_logger(__name__)
 def time_from_tracks(attribute: Attribute, object_tracks):
     """Get time from object tracks."""
 
-    previous_time = object_tracks["previous_times"][-1]
-    array_length = len(object_tracks["object_record"]["previous_ids"])
-    time = np.array([previous_time for i in range(array_length)])
+    current_time = object_tracks.times[-1]
+    array_length = len(object_tracks.match_record["ids"])
+    time = np.array([current_time for i in range(array_length)])
     return {"time": list(time.astype(attribute.data_type))}
 
 
 # Functions for obtaining and recording attributes
-def coordinates_from_object_record(
+def coordinates_from_match_record(
     attribute_group: AttributeGroup, object_tracks, grid_options
 ):
     """
-    Get coordinate from object record created by the matching process to avoid
+    Get coordinate from match record created by the matching process to avoid
     redundant calculation.
     """
 
@@ -36,7 +36,7 @@ def coordinates_from_object_record(
     if "latitude" not in names or "longitude" not in names:
         raise ValueError("Attribute names should be 'latitude' and 'longitude'.")
 
-    pixel_coordinates = object_tracks["object_record"]["previous_centers"]
+    pixel_coordinates = object_tracks.match_record["centers"]
     latitude, longitude = grid_options.latitude, grid_options.longitude
     latitudes, longitudes = [], []
     for pixel_coordinate in pixel_coordinates:
@@ -49,20 +49,20 @@ def coordinates_from_object_record(
     return {"latitude": list(latitudes), "longitude": list(longitudes)}
 
 
-def areas_from_object_record(attribute: Attribute, object_tracks):
+def areas_from_match_record(attribute: Attribute, object_tracks):
     """
-    Get area from object record created by the matching process to avoid redundant
+    Get area from match record created by the matching process to avoid redundant
     calculation.
     """
 
-    areas = np.array(object_tracks["object_record"]["previous_areas"])
+    areas = np.array(object_tracks.match_record["areas"])
     return {attribute.name: list(areas.astype(attribute.data_type))}
 
 
-def parents_from_object_record(attribute: Attribute, object_tracks):
-    """Get parent ids from the object record to avoid recalculating."""
+def parents_from_match_record(attribute: Attribute, object_tracks):
+    """Get parent ids from the match record to avoid recalculating."""
 
-    parents = object_tracks["object_record"]["previous_parents"]
+    parents = object_tracks.match_record["parents"]
     parents_str = []
     for obj_parents in parents:
         if len(obj_parents) == 0:
@@ -75,22 +75,22 @@ def parents_from_object_record(attribute: Attribute, object_tracks):
     return {attribute.name: list(parents_str)}
 
 
-def velocities_from_object_record(
+def velocities_from_match_record(
     attribute_group: AttributeGroup, object_tracks, grid_options
 ):
-    """Get velocity from object record created by the matching process."""
+    """Get velocity from match record created by the matching process."""
     names = sorted([attr.name for attr in attribute_group.attributes], reverse=True)
-    centers = object_tracks["object_record"]["previous_centers"]
-    # Get the "shift" vectors, i.e. the distance vector between the object's previous and
-    # current centers in pixel units.
+    centers = object_tracks.match_record["centers"]
+    # Get the "shift" vectors, i.e. the distance vector between the object's current and
+    # next centers in pixel units.
     if "u_flow" in names:
-        shifts = object_tracks["object_record"]["corrected_flows"]
+        shifts = object_tracks.match_record["corrected_flows"]
     elif "u_displacement" in names:
-        shifts = object_tracks["object_record"]["current_displacements"]
+        shifts = object_tracks.match_record["next_displacements"]
     else:
         raise ValueError(f"Attributes {', '.join(names)} not recognised.")
     v_list, u_list = [[] for i in range(2)]
-    time_interval = object_tracks["current_time_interval"]
+    time_interval = object_tracks.next_time_interval
     for i, shift in enumerate(shifts):
         if np.any(np.isnan(np.array(shift))):
             v_list.append(np.nan), u_list.append(np.nan)
@@ -108,17 +108,17 @@ def velocities_from_object_record(
 
 
 def get_ids(object_tracks, matched, member_object):
-    """Get object ids from the object record to avoid recalculating."""
-    current_attributes = object_tracks["current_attributes"]
-    name = object_tracks["name"]
+    """Get object ids from the match record to avoid recalculating."""
+    current_attributes = object_tracks.current_attributes
+    name = object_tracks.name
     if matched:
         id_name = "universal_id"
     else:
         id_name = "id"
     if member_object is not None:
-        ids = current_attributes["member_objects"][member_object]["core"][id_name]
+        ids = current_attributes.member_attributes[member_object]["core"][id_name]
     else:
-        ids = current_attributes[name]["core"][id_name]
+        ids = current_attributes.attribute_types["core"][id_name]
     return ids
 
 
@@ -130,11 +130,11 @@ def coordinates_from_mask(
     member_object,
 ):
     """Get object coordinate from mask."""
-    mask = utils.get_previous_mask(object_tracks, matched)
+    mask = utils.get_current_mask(object_tracks, matched)
     # If examining just a member of a grouped object, get masks for that object
     if member_object is not None and isinstance(mask, xr.Dataset):
         mask = mask[f"{member_object}_mask"]
-    gridcell_area = object_tracks["gridcell_area"]
+    gridcell_area = object_tracks.gridcell_area
 
     ids = get_ids(object_tracks, matched, member_object)
 
@@ -157,12 +157,12 @@ def coordinates_from_mask(
 
 def areas_from_mask(object_tracks, attribute, grid_options, member_object, matched):
     """Get object area from mask."""
-    mask = utils.get_previous_mask(object_tracks, matched)
+    mask = utils.get_current_mask(object_tracks, matched)
     # If examining just a member of a grouped object, get masks for that object
     if member_object is not None and isinstance(mask, xr.Dataset):
         mask = mask[f"{member_object}_mask"]
 
-    gridcell_area = object_tracks["gridcell_area"]
+    gridcell_area = object_tracks.gridcell_area
     ids = get_ids(object_tracks, matched, member_object)
 
     areas = []
@@ -179,28 +179,28 @@ def ids_from_mask(
     attribute: Attribute, object_tracks, member_object: str, matched: bool
 ):
     """Get object ids from a labelled mask."""
-    previous_mask = utils.get_previous_mask(object_tracks, matched)
-    if previous_mask is None:
+    current_mask = utils.get_current_mask(object_tracks, matched)
+    if current_mask is None:
         return None
     if member_object is not None:
-        previous_mask = previous_mask[f"{member_object}_mask"]
-    if isinstance(previous_mask, xr.Dataset):
+        current_mask = current_mask[f"{member_object}_mask"]
+    if isinstance(current_mask, xr.Dataset):
         ids = []
-        for variable in list(previous_mask.data_vars):
-            ids += np.unique(previous_mask[variable].values).tolist()
+        for variable in list(current_mask.data_vars):
+            ids += np.unique(current_mask[variable].values).tolist()
         ids = np.unique(ids)
         ids = sorted(ids[ids != 0])
-    elif isinstance(previous_mask, xr.DataArray):
-        ids = np.unique(previous_mask)
+    elif isinstance(current_mask, xr.DataArray):
+        ids = np.unique(current_mask)
         ids = sorted(list(ids[ids != 0]))
     ids = list(np.array(ids).astype(attribute.data_type))
     return {attribute.name: ids}
 
 
-def ids_from_object_record(attribute: Attribute, object_tracks):
-    """Get object ids from the object record to avoid recalculating."""
-    object_record_names = {"universal_id": "universal_ids", "id": "previous_ids"}
-    ids = object_tracks["object_record"][object_record_names[attribute.name]]
+def ids_from_match_record(attribute: Attribute, object_tracks):
+    """Get object ids from the match record to avoid recalculating."""
+    match_record_names = {"universal_id": "universal_ids", "id": "ids"}
+    ids = object_tracks.match_record[match_record_names[attribute.name]]
     ids = np.array(ids).astype(attribute.data_type).tolist()
     return {attribute.name: ids}
 
@@ -209,9 +209,9 @@ def ids_from_object_record(attribute: Attribute, object_tracks):
 class RecordID(Attribute):
     name: str = "id"
     data_type: type = int
-    description: str = "id taken from object record."
+    description: str = "id taken from match record."
     retrieval: Retrieval | None = Retrieval(
-        function=ids_from_object_record, keyword_arguments={"matched": False}
+        function=ids_from_match_record, keyword_arguments={"matched": False}
     )
 
 
@@ -227,9 +227,9 @@ class MaskID(Attribute):
 class RecordUniversalID(Attribute):
     name: str = "universal_id"
     data_type: type = int
-    description: str = "universal_id taken from object record."
+    description: str = "universal_id taken from match record."
     retrieval: Retrieval | None = Retrieval(
-        function=ids_from_object_record, keyword_arguments={"matched": True}
+        function=ids_from_match_record, keyword_arguments={"matched": True}
     )
 
 
@@ -246,7 +246,7 @@ class Parents(Attribute):
     name: str = "parents"
     data_type: type = str
     description: str = "parent objects as space separated list of universal_ids."
-    retrieval: Retrieval | None = Retrieval(function=parents_from_object_record)
+    retrieval: Retrieval | None = Retrieval(function=parents_from_match_record)
 
 
 class Latitude(Attribute):
@@ -267,9 +267,9 @@ class Longitude(Attribute):
 
 class CoordinatesRecord(AttributeGroup):
     name: str = "coordinate"
-    description: str = "Coordinates taken from the object_record."
+    description: str = "Coordinates taken from the match_record."
     attributes: list = [Latitude(), Longitude()]
-    retrieval: Retrieval | None = Retrieval(function=coordinates_from_object_record)
+    retrieval: Retrieval | None = Retrieval(function=coordinates_from_match_record)
 
 
 class CoordinatesMask(AttributeGroup):
@@ -299,9 +299,9 @@ class VFlow(Attribute):
 
 class FlowVelocity(AttributeGroup):
     name: str = "flow_velocity"
-    description: str = "Flow velocities from object record."
+    description: str = "Flow velocities from match record."
     attributes: list = [UFlow(), VFlow()]
-    retrieval: Retrieval | None = Retrieval(function=velocities_from_object_record)
+    retrieval: Retrieval | None = Retrieval(function=velocities_from_match_record)
 
 
 class UDisplacement(Attribute):
@@ -324,7 +324,7 @@ class DisplacementVelocity(AttributeGroup):
     name: str = "displacement_velocity"
     description: str = "Displacement velocities."
     attributes: list = [UDisplacement(), VDisplacement()]
-    retrieval: Retrieval | None = Retrieval(function=velocities_from_object_record)
+    retrieval: Retrieval | None = Retrieval(function=velocities_from_match_record)
 
 
 class AreasRecord(Attribute):
@@ -332,8 +332,8 @@ class AreasRecord(Attribute):
     data_type: type = float
     precision: int = 1
     units: str = "km^2"
-    description: str = "Area taken from the object record."
-    retrieval: Retrieval | None = Retrieval(function=areas_from_object_record)
+    description: str = "Area taken from the match record."
+    retrieval: Retrieval | None = Retrieval(function=areas_from_match_record)
 
 
 class AreasMask(Attribute):
@@ -372,13 +372,17 @@ def default_member():
     return AttributeType(**kwargs)
 
 
-def retrieve_core(attributes_list=[Time(), Latitude(), Longitude()], matched=True):
+def retrieve_core(
+    attributes_list=[Time(), Latitude(), Longitude()], matched=True, member_object=None
+):
     """Get core attributes list for use with other attribute types."""
     if matched:
         attributes_list += [RecordUniversalID()]
     else:
         attributes_list += [RecordID()]
     # Replace retrieval for the core attributes with attribute_from_core function
+    kwargs = {"function": utils.attribute_from_core}
+    kwargs.update({"keyword_arguments": {"member_object": member_object}})
     for attribute in attributes_list:
-        attribute.retrieval = Retrieval(function=utils.attribute_from_core)
+        attribute.retrieval = Retrieval(**kwargs)
     return attributes_list

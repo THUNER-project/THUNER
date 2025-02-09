@@ -54,16 +54,16 @@ def cv2_ellipse(mask, id, grid_options):
     if grid_options.name == "cartesian":
         lats = xr.DataArray(lats, dims=("row", "column"))
         lons = xr.DataArray(lons, dims=("row", "column"))
-        latitude = lats.interp(row=row, column=column, method="linear")
-        longitude = lons.interp(row=row, column=column, method="linear")
+        latitude = lats.interp(row=row, column=column, method="linear").values
+        longitude = lons.interp(row=row, column=column, method="linear").values
         spacing = grid_options.cartesian_spacing
         axis_1 = cartesian_pixel_to_distance(spacing, axis_1, orientation)
         axis_2 = cartesian_pixel_to_distance(spacing, axis_2, orientation)
     elif grid_options.name == "geographic":
         lats = xr.DataArray(lats, dims=("row"))
         lons = xr.DataArray(lons, dims=("column"))
-        latitude = lats.interp(row=row, method="linear")
-        longitude = lons.interp(column=column, method="linear")
+        latitude = lats.interp(row=row, method="linear").values
+        longitude = lons.interp(column=column, method="linear").values
         spacing = grid_options.geographic_spacing
         args = [latitude, longitude, spacing, axis_1, orientation]
         axis_1 = geographic_pixel_to_distance(*args)
@@ -94,15 +94,15 @@ def from_mask(
     """
     Get ellipse properties from object mask.
     """
-    mask = utils.get_previous_mask(object_tracks, matched=matched)
+    mask = utils.get_current_mask(object_tracks, matched=matched)
     # If examining just a member of a grouped object, get masks for that object
     if member_object is not None and isinstance(mask, xr.Dataset):
         mask = mask[f"{member_object}_mask"]
 
     if matched:
-        ids = object_tracks["object_record"]["universal_ids"]
+        ids = object_tracks.match_record["universal_ids"]
     else:
-        ids = object_tracks["object_record"]["previous_ids"]
+        ids = object_tracks.match_record["ids"]
 
     all_names = ["latitude", "longitude", "major", "minor", "orientation"]
     all_names += ["eccentricity"]

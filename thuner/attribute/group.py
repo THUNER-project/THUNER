@@ -17,11 +17,10 @@ logger = setup_logger(__name__)
 
 def offset_from_centers(object_tracks, attribute_group: AttributeGroup, objects):
     """Calculate offset between object centers."""
-    member_attributes = object_tracks["current_attributes"]["member_objects"]
-    grouped_object = object_tracks["name"]
+    member_attributes = object_tracks.current_attributes.member_attributes
     if len(objects) != 2:
         raise ValueError("Offset calculation requires two objects.")
-    core_attributes = object_tracks["current_attributes"][grouped_object]["core"]
+    core_attributes = object_tracks.current_attributes.attribute_types["core"]
     if "universal_id" in core_attributes.keys():
         id_type = "universal_id"
     else:

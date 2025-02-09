@@ -118,22 +118,22 @@ def detect(
     """Detect objects in the given grid."""
 
     object_tracks = tracks[level_index][obj]
-    previous_grid = copy.deepcopy(object_tracks["current_grid"])
-    object_tracks["previous_grids"].append(previous_grid)
+    previous_grid = copy.deepcopy(object_tracks.next_grid)
+    object_tracks.grids.append(previous_grid)
     input_record = track_input_records[object_options.dataset]
 
-    grid = input_record.current_grid
-    object_tracks["previous_time_interval"] = copy.deepcopy(
-        object_tracks["current_time_interval"]
+    grid = input_record.next_grid
+    object_tracks.previous_time_interval = copy.deepcopy(
+        object_tracks.next_time_interval
     )
-    object_tracks["current_time_interval"] = get_time_interval(grid, previous_grid)
+    object_tracks.next_time_interval = get_time_interval(grid, previous_grid)
     dataset = input_record.dataset
-    if "gridcell_area" not in object_tracks.keys():
-        object_tracks["gridcell_area"] = dataset["gridcell_area"]
+    if object_tracks.gridcell_area is None:
+        object_tracks.gridcell_area = dataset["gridcell_area"]
 
     processed_grid = process_grid(grid, object_options)
 
-    object_tracks["current_grid"] = processed_grid
+    object_tracks.next_grid = processed_grid
 
     detecter = detecter_dispatcher.get(object_options.detection.method)
     if detecter is None:
@@ -147,9 +147,9 @@ def detect(
         args = [mask, object_options.detection.min_area, dataset["gridcell_area"]]
         mask = clear_small_area_objects(*args)
 
-    current_mask = copy.deepcopy(object_tracks["current_mask"])
-    object_tracks["previous_masks"].append(current_mask)
-    object_tracks["current_mask"] = mask
+    next_mask = copy.deepcopy(object_tracks.next_mask)
+    object_tracks.masks.append(next_mask)
+    object_tracks.next_mask = mask
 
 
 def clear_small_area_objects(mask, min_area, gridcell_area):

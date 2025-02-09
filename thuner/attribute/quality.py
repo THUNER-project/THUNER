@@ -23,19 +23,19 @@ def overlap_from_mask(
         raise ValueError("Dataset must be specified in object_options.")
     object_dataset = object_options.dataset
     input_record = input_records.track[object_dataset]
-    boundary_mask = input_record.previous_boundary_masks[-1]
+    boundary_mask = input_record.boundary_masks[-1]
 
-    mask = utils.get_previous_mask(object_tracks, matched=matched)
+    mask = utils.get_current_mask(object_tracks, matched=matched)
     # If examining just a member of a grouped object, get masks for that object
     if member_object is not None and isinstance(mask, xr.Dataset):
         mask = mask[f"{member_object}_mask"]
 
-    areas = object_tracks["gridcell_area"]
+    areas = object_tracks.gridcell_area
 
     if matched:
-        ids = object_tracks["object_record"]["universal_ids"]
+        ids = object_tracks.match_record["universal_ids"]
     else:
-        ids = object_tracks["object_record"]["previous_ids"]
+        ids = object_tracks.match_record["ids"]
 
     overlaps = []
     for obj_id in ids:

@@ -117,14 +117,14 @@ def update_track_input_records(
         dataset_options = data_options.dataset_by_name(name)
         args = [time, input_record, track_options, dataset_options, grid_options]
         boilerplate_update(*args)
-        if input_record.current_grid is not None:
-            input_record.previous_grids.append(input_record.current_grid)
+        if input_record.next_grid is not None:
+            input_record.grids.append(input_record.next_grid)
         grid_from_dataset = grid_from_dataset_dispatcher.get(name)
         if len(dataset_options.fields) > 1:
             raise ValueError("Only one field allowed for track datasets.")
         else:
             field = dataset_options.fields[0]
-        input_record.current_grid = grid_from_dataset(input_record.dataset, field, time)
+        input_record.next_grid = grid_from_dataset(input_record.dataset, field, time)
         if dataset_options.filepaths is None:
             return
         input_record._time_list.append(time)

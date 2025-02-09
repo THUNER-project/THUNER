@@ -11,34 +11,35 @@ logger = setup_logger(__name__)
 
 
 def get_masks(object_tracks, object_options, matched=False, num_previous=1):
-    """Get the appropriate current and previous masks for matching."""
-    mask_type = matched * "_matched" + "_mask"
-    current_mask = object_tracks[f"current{mask_type}"]
-    previous_masks = [
-        object_tracks[f"previous{mask_type}s"][-i] for i in range(1, num_previous + 1)
-    ]
-    masks = [current_mask] + previous_masks
+    """
+    Get the appropriate current and next masks for matching and visualization.
+    """
+    mask_type = matched * "_matched_" + "mask"
+    next_mask = getattr(object_tracks, f"next_{mask_type}")
+    pre_masks = getattr(object_tracks, f"{mask_type}s")
+    masks = [pre_masks[-i] for i in range(1, num_previous + 1)]
+    all_masks = [next_mask] + masks
     if "grouping" in object_options.model_fields:
         matched_object = object_options.tracking.matched_object
-        for i in range(len(masks)):
-            if masks[i] is not None:
-                masks[i] = masks[i][f"{matched_object}_mask"]
-    return masks
+        for i in range(len(all_masks)):
+            if all_masks[i] is not None:
+                all_masks[i] = all_masks[i][f"{matched_object}_mask"]
+    return all_masks
 
 
 def get_grids(object_tracks, object_options, num_previous=1):
-    """Get the appropriate current and previous grids for matching."""
-    current_grid = object_tracks["current_grid"]
-    previous_grids = [
-        object_tracks["previous_grids"][-i] for i in range(1, num_previous + 1)
-    ]
-    grids = [current_grid] + previous_grids
+    """
+    Get the appropriate current and next grids for matching and visualization.
+    """
+    next_grid = object_tracks.next_grid
+    grids = [object_tracks.grids[-i] for i in range(1, num_previous + 1)]
+    all_grids = [next_grid] + grids
     if "grouping" in object_options.model_fields:
         matched_object = object_options.tracking.matched_object
-        for i in range(len(grids)):
-            if grids[i] is not None:
-                grids[i] = grids[i][f"{matched_object}_grid"]
-    return grids
+        for i in range(len(all_grids)):
+            if all_grids[i] is not None:
+                all_grids[i] = all_grids[i][f"{matched_object}_grid"]
+    return all_grids
 
 
 def parents_to_list(parents_str):
@@ -71,11 +72,11 @@ def get_parent_graph(df):
         previous_time = times[i - 1]
         universal_ids = df.xs(time, level="time").reset_index()["universal_id"]
         universal_ids = universal_ids.values
-        previous_ids = df.xs(previous_time, level="time").reset_index()
-        previous_ids = previous_ids["universal_id"].values
+        ids = df.xs(previous_time, level="time").reset_index()
+        ids = ids["universal_id"].values
         for obj_id in universal_ids:
             node = tuple([time, obj_id])
-            if obj_id in previous_ids:
+            if obj_id in ids:
                 # Add edge to same object at previous time
                 previous_node = tuple([previous_time, obj_id])
                 parent_graph.add_edge(previous_node, node)

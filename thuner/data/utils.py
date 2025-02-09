@@ -61,8 +61,8 @@ class DownloadState(utils.SingletonBase):
         """Handle the case where the lock file already exists."""
         lock_file.seek(0)
         last_request_time = float(lock_file.read() or 0)
-        current_time = time.time()
-        elapsed_time = current_time - last_request_time
+        next_time = time.time()
+        elapsed_time = next_time - last_request_time
         if elapsed_time < self.wait_time:
             logger.info(f"Recent download Request. Waiting {self.wait_time} seconds.")
             time.sleep(self.wait_time - elapsed_time)

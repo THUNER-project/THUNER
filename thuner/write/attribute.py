@@ -3,15 +3,13 @@
 import yaml
 import glob
 import shutil
-import copy
 from pathlib import Path
 import numpy as np
 import pandas as pd
 from thuner.utils import format_time
 from thuner.log import setup_logger
 import thuner.attribute.utils as utils
-from thuner.attribute.attribute import initialize_attributes
-from thuner.option.track import AnyObjectOptions
+from thuner.option.track import BaseObjectOptions
 from thuner.option.attribute import AttributeType
 
 logger = setup_logger(__name__)
@@ -29,7 +27,7 @@ def write_setup(object_tracks, object_options, output_directory):
     object_name = object_options.name
     base_directory = output_directory / f"attributes/{object_name}/"
 
-    _last_write_time = object_tracks["_last_write_time"]
+    _last_write_time = object_tracks._last_write_time
     write_interval = np.timedelta64(object_options.write_interval, "h")
 
     last_write_str = format_time(_last_write_time, filename_safe=False, day_only=False)
@@ -52,7 +50,7 @@ def write_attributes(directory, last_write_str, attributes, attribute_options):
     df.to_csv(filepath, na_rep="NA")
 
 
-def write(object_tracks, object_options: AnyObjectOptions, output_directory):
+def write(object_tracks, object_options: BaseObjectOptions, output_directory):
     """Write attributes to file."""
 
     if object_options.attributes is None:
@@ -63,21 +61,22 @@ def write(object_tracks, object_options: AnyObjectOptions, output_directory):
     member_attribute_options = object_options.attributes.member_attributes
     if member_attribute_options is not None:
         # Write member object attributes
-        recorded_member_attr = object_tracks["attributes"]["member_objects"]
+        recorded_member_attr = object_tracks.attributes.member_attributes
         for obj in member_attribute_options.keys():
             for attribute_type in member_attribute_options[obj].attribute_types:
                 directory = base_directory / f"{obj}" / f"{attribute_type.name}/"
                 rec_attr = recorded_member_attr[obj][attribute_type.name]
                 write_attributes(directory, last_write_str, rec_attr, attribute_type)
     # Write object attributes
-    obj_attr = object_tracks["attributes"][object_options.name]
+    obj_attr = object_tracks.attributes.attribute_types
     for attribute_type in object_options.attributes.attribute_types:
         attributes = obj_attr[attribute_type.name]
         directory = base_directory / f"{attribute_type.name}"
         write_attributes(directory, last_write_str, attributes, attribute_type)
 
     # Reset attributes lists after writing
-    object_tracks["attributes"] = initialize_attributes(object_options)
+    attr_options = object_options.attributes
+    object_tracks.attributes = utils.AttributesRecord(attribute_options=attr_options)
 
 
 def write_final(tracks, track_options, output_directory):

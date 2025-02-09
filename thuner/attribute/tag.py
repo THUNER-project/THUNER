@@ -26,15 +26,13 @@ def from_centers(
         Names of attributes to calculate.
     """
 
-    # Note the attributes being recorded correspond to objects identified in the
-    # previous timestep.
     args = [attribute_group, input_records, object_tracks, dataset, member_object]
-    name, names, ds, core_attributes, previous_time = setup_interp(*args)
+    name, names, ds, core_attributes, current_time = setup_interp(*args)
     tags = ds[names]
     lats_da = xr.DataArray(core_attributes["latitude"], dims="points")
     lons_da = xr.DataArray(core_attributes["longitude"], dims="points")
     lons_da = lons_da % 360
-    previous_time = object_tracks["previous_times"][-1]
+    current_time = object_tracks.times[-1]
 
     # Convert object lons to 0-360
     if "id" in core_attributes.keys():
@@ -52,7 +50,7 @@ def from_centers(
     # Setup interp kwargs
     kwargs = {"latitude": lats_da, "longitude": lons_da, "method": "linear"}
     for offset in time_offsets:
-        interp_time = previous_time + np.timedelta64(offset, "m")
+        interp_time = current_time + np.timedelta64(offset, "m")
         kwargs.update({"time": interp_time.astype("datetime64[ns]")})
         tags_time = tags.interp(**kwargs)
         for name in names:
@@ -60,7 +58,7 @@ def from_centers(
         tag_dict["time_offset"] += [offset] * len(core_attributes["latitude"])
         tag_dict["latitude"] += core_attributes["latitude"]
         tag_dict["longitude"] += core_attributes["longitude"]
-        tag_dict["time"] += [previous_time] * len(core_attributes["latitude"])
+        tag_dict["time"] += [current_time] * len(core_attributes["latitude"])
         tag_dict[id_name] += ids
     return tag_dict
 
