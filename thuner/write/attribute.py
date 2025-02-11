@@ -85,7 +85,9 @@ def write_final(tracks, track_options, output_directory):
     for index, level_options in enumerate(track_options.levels):
         for object_options in level_options.objects:
             obj_name = object_options.name
-            write(tracks[index][obj_name], object_options, output_directory)
+            write(
+                tracks.levels[index].objects[obj_name], object_options, output_directory
+            )
 
 
 def write_metadata(filepath, attribute_type: AttributeType):

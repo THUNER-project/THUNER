@@ -19,7 +19,8 @@ import thuner.write as write
 import thuner.attribute as attribute
 from thuner.attribute.utils import AttributesRecord
 from thuner.option.data import DataOptions
-from thuner.option.track import TrackOptions, BaseObjectOptions
+from thuner.option.grid import GridOptions
+from thuner.option.track import TrackOptions, BaseObjectOptions, LevelOptions
 
 logger = setup_logger(__name__)
 
@@ -110,29 +111,6 @@ class InputRecords(BaseModel):
         return values
 
 
-_summary = {
-    "object_options": "Options for the object to be tracked.",
-    "name": "Name of the object to be tracked.",
-    "deque_length": "Number of current/previous objects to keep in memory.",
-    "object_count": "Running count of the number of objects tracked.",
-    "next_grid": "Current grid for tracking.",
-    "grids": "Deque of current/previous grids.",
-    "next_time_interval": "Current time interval for tracking.",
-    "previous_time_interval": "Deque of current/previous time intervals.",
-    "next_time": "Current time for tracking.",
-    "times": "Deque of current/previous times.",
-    "next_mask": "Current mask for tracking.",
-    "masks": "Deque of current/previous masks.",
-    "next_matched_mask": "Current matched mask for tracking.",
-    "matched_masks": "Deque of current/previous matched masks.",
-    "match_record": "Current match record.",
-    "previous_match_records": "Deque of previous match records.",
-    "attributes": "Attributes for the object.",
-    "current_attributes": "Current attributes for the object.",
-    "gridcell_area": "Area of each grid cell in km^2.",
-}
-
-
 class ObjectTracks(BaseModel):
     """
     Class for recording the attributes and grids etc for tracking a particular object.
@@ -142,48 +120,52 @@ class ObjectTracks(BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
-    object_options: BaseObjectOptions
-    name: str | None = None
-    deque_length: int = 2
-    object_count: int = 0
+    _desc = "Options for the object to be tracked."
+    object_options: BaseObjectOptions = Field(..., description=_desc)
+    _desc = "Name of the object to be tracked."
+    name: str | None = Field(None, description=_desc)
+    _desc = "Number of current/previous objects to keep in memory."
+    deque_length: int = Field(2, description=_desc)
+    _desc = "Running count of the number of objects tracked."
+    object_count: int = Field(0, description=_desc)
 
-    _kwargs = {"description": _summary["object_options"]}
-    next_grid: xr.DataArray | xr.Dataset | None = Field(None, **_kwargs)
-    _kwargs = {"description": _summary["grids"]}
-    grids: deque | None = Field(None, **_kwargs)
+    _desc = "Next grid for tracking."
+    next_grid: xr.DataArray | xr.Dataset | None = Field(None, description=_desc)
+    _desc = "Deque of current/previous grids."
+    grids: deque | None = Field(None, description=_desc)
 
-    _kwargs = {"description": _summary["next_time_interval"]}
-    next_time_interval: np.timedelta64 | None = Field(None, **_kwargs)
-    _kwargs = {"description": _summary["previous_time_interval"]}
-    previous_time_interval: deque | None = Field(None, **_kwargs)
+    _desc = "Interval between current and next grids."
+    next_time_interval: np.timedelta64 | None = Field(None, description=_desc)
+    _desc = "Interval between current and previous grids."
+    previous_time_interval: deque | None = Field(None, description=_desc)
 
-    _kwargs = {"description": _summary["next_time"]}
-    next_time: np.datetime64 | None = Field(None, **_kwargs)
-    _kwargs = {"description": _summary["times"]}
-    times: deque | None = Field(None, **_kwargs)
+    _desc = "Next time for tracking."
+    next_time: np.datetime64 | None = Field(None, description=_desc)
+    _desc = "Deque of current/previous times."
+    times: deque | None = Field(None, description=_desc)
 
-    _kwargs = {"description": _summary["next_mask"]}
-    next_mask: xr.DataArray | xr.Dataset | None = Field(None, **_kwargs)
-    _kwargs = {"description": _summary["masks"]}
-    masks: deque | None = Field(None, **_kwargs)
+    _desc = "Next mask for tracking."
+    next_mask: xr.DataArray | xr.Dataset | None = Field(None, description=_desc)
+    _desc = "Deque of current/previous masks."
+    masks: deque | None = Field(None, description=_desc)
 
-    _kwargs = {"description": _summary["next_matched_mask"]}
-    next_matched_mask: xr.DataArray | xr.Dataset | None = Field(None, **_kwargs)
-    _kwargs = {"description": _summary["matched_masks"]}
-    matched_masks: deque | None = Field(None, **_kwargs)
+    _desc = "Next matched mask for tracking."
+    next_matched_mask: xr.DataArray | xr.Dataset | None = Field(None, description=_desc)
+    _desc = "Deque of current/previous matched masks."
+    matched_masks: deque | None = Field(None, description=_desc)
 
-    _kwargs = {"description": _summary["match_record"]}
-    match_record: dict | None = Field(None, **_kwargs)
-    _kwargs = {"description": _summary["previous_match_records"]}
-    previous_match_records: deque | None = Field(None, **_kwargs)
+    _desc = "Current match record."
+    match_record: dict | None = Field(None, description=_desc)
+    _desc = "Deque of previous match records."
+    previous_match_records: deque | None = Field(None, description=_desc)
 
-    _kwargs = {"description": _summary["attributes"]}
-    attributes: AttributesRecord | None = Field(None, **_kwargs)
-    _kwargs = {"description": _summary["current_attributes"]}
-    current_attributes: AttributesRecord | None = Field(None, **_kwargs)
+    _desc = "Attributes for the object."
+    attributes: AttributesRecord | None = Field(None, description=_desc)
+    _desc = "Attributes for the object collected during current iteration."
+    current_attributes: AttributesRecord | None = Field(None, description=_desc)
 
-    _kwargs = {"description": _summary["gridcell_area"]}
-    gridcell_area: xr.DataArray | xr.Dataset | None = Field(None, **_kwargs)
+    _desc = "Area of each grid cell in km^2."
+    gridcell_area: xr.DataArray | xr.Dataset | None = Field(None, description=_desc)
 
     _last_write_time: np.datetime64 | None = None
 
@@ -210,55 +192,59 @@ class ObjectTracks(BaseModel):
         return values
 
 
-def initialise_tracks(track_options):
+class LevelTracks(BaseModel):
     """
-    Initialise the tracks dictionary.
-
-    Parameters
-    ----------
-    track_options : dict
-        Dictionary containing the track options.
-
-    Returns
-    -------
-    dict
-        Dictionary that will contain the tracks of each object.
-
+    Class for recording the attributes and grids etc for tracking a particular hierachy
+    level.
     """
 
-    tracks = []
-    for level_options in track_options.levels:
-        level_tracks = {obj.name: {} for obj in level_options.objects}
-        for obj in level_tracks.keys():
-            object_options = level_options.options_by_name(obj)
-            # dataset = object_options.dataset
-            # # This should become a model validator on options
-            # if dataset is not None and dataset not in data_options._dataset_lookup.keys():
-            #     raise ValueError(f"{dataset} dataset not in data_options.")
-            obj_tracks = ObjectTracks(object_options=object_options)
-            level_tracks[obj] = obj_tracks
-        tracks.append(level_tracks)
-    return tracks
+    # Allow arbitrary types in the class.
+    class Config:
+        arbitrary_types_allowed = True
+
+    _desc = "Options for the given level of the hierachy."
+    level_options: LevelOptions = Field(..., description=_desc)
+    objects: dict[str, ObjectTracks] = Field({}, description="Objects to be tracked.")
+
+    @model_validator(mode="after")
+    def _initialize_objects(cls, values):
+        for obj_options in values.level_options.objects:
+            values.objects[obj_options.name] = ObjectTracks(object_options=obj_options)
+        return values
+
+
+class Tracks(BaseModel):
+    """
+    Class for recording tracks of all hierachy levels.
+    """
+
+    # Allow arbitrary types in the class.
+    class Config:
+        arbitrary_types_allowed = True
+
+    levels: list[LevelTracks] = Field([], description="Tracks for each hierachy level.")
+    track_options: TrackOptions = Field(..., description="Options for tracking.")
+
+    @model_validator(mode="after")
+    def _initialize_levels(cls, values):
+        for level_options in values.track_options.levels:
+            values.levels.append(LevelTracks(level_options=level_options))
+        return values
 
 
 def consolidate_options(data_options, grid_options, track_options, visualize_options):
     """Consolidate the options for a given run."""
-
-    consolidated_options = {
-        "data_options": data_options,
-        "grid_options": grid_options,
-        "track_options": track_options,
-        "visualize_options": visualize_options,
-    }
-
-    return consolidated_options
+    options = {"data_options": data_options, "grid_options": grid_options}
+    options.update({"track_options": track_options})
+    options.update({"visualize_options": visualize_options})
+    return options
 
 
 def track(
     times,
-    data_options,
-    grid_options,
-    track_options,
+    data_options: DataOptions,
+    grid_options: GridOptions,
+    track_options: TrackOptions,
     visualize_options=None,
     output_directory=None,
 ):
@@ -284,7 +270,7 @@ def track(
         The xarray dataset containing the object masks.
     """
     logger.info("Beginning thuner tracking. Saving output to %s.", output_directory)
-    tracks = initialise_tracks(track_options)
+    tracks = Tracks(track_options=track_options)
     input_records = InputRecords(data_options=data_options)
 
     consolidated_options = consolidate_options(
@@ -348,7 +334,7 @@ def track_level(
     output_directory,
 ):
     """Track a hierarchy level."""
-    level_tracks = tracks[level_index]
+    level_tracks = tracks.levels[level_index]
     level_options = track_options.levels[level_index]
 
     def get_track_object_args(obj, level_options):
@@ -363,7 +349,7 @@ def track_level(
         track_object_args += [visualize_options, output_directory]
         return track_object_args
 
-    for obj in level_tracks.keys():
+    for obj in level_tracks.objects.keys():
         track_object_args = get_track_object_args(obj, level_options)
         track_object(*track_object_args)
 
@@ -385,7 +371,7 @@ def track_object(
     """Track the given object."""
     # Get the object options
     object_options = track_options.levels[level_index].options_by_name(obj)
-    object_tracks = tracks[level_index][obj]
+    object_tracks = tracks.levels[level_index].objects[obj]
     track_input_records = input_records.track
 
     # Update current and previous next_time

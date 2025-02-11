@@ -53,4 +53,6 @@ def write_final(tracks, track_options, output_directory):
             if not object_options.mask_options.save:
                 continue
             obj_name = object_options.name
-            write(tracks[index][obj_name], object_options, output_directory)
+            write(
+                tracks.levels[index].objects[obj_name], object_options, output_directory
+            )

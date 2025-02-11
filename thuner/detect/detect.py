@@ -117,7 +117,7 @@ def detect(
 ):
     """Detect objects in the given grid."""
 
-    object_tracks = tracks[level_index][obj]
+    object_tracks = tracks.levels[level_index].objects[obj]
     previous_grid = copy.deepcopy(object_tracks.next_grid)
     object_tracks.grids.append(previous_grid)
     input_record = track_input_records[object_options.dataset]

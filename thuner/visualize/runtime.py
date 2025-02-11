@@ -38,7 +38,7 @@ def detected_mask(
 ):
     """Plot masks for a detected object."""
 
-    object_tracks = tracks[level_index][obj]
+    object_tracks = tracks.levels[level_index].objects[obj]
     object_options = track_options.levels[level_index].options_by_name(obj)
     grid = object_tracks.next_grid
 
@@ -65,7 +65,7 @@ def grouped_mask(
 ):
     """Plot masks for a grouped object."""
     object_options = track_options.levels[level_index].options_by_name(obj)
-    object_tracks = tracks[level_index][obj]
+    object_tracks = tracks.levels[level_index].objects[obj]
     if "tracking" in object_options.model_fields:
         mask = object_tracks.next_mask
     else:
@@ -189,7 +189,7 @@ def visualize_match(
 ):
     """Visualize the matching process."""
 
-    object_tracks = tracks[level_index][obj]
+    object_tracks = tracks.levels[level_index].objects[obj]
     match_record = object_tracks.match_record
     object_options = track_options.levels[level_index].options_by_name(obj)
     grids = get_grids(object_tracks, object_options, num_previous=2)
