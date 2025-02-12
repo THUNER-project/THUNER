@@ -51,9 +51,12 @@ and OSX systems. Future versions will explore alternative regridding packages.
 The examples below illustrate the tracking of convective systems in 
 [GridRad Severe](https://gridrad.org/) radar data. Object merge events are visualized
 through the "mixing" of the colours associated with each merging object. Objects that 
-split off from existing objects retain the colour of their parent object. 
+split off from existing objects retain the colour of their parent object. The first example
+below depicts multiple [trailing-stratiform](https://doi.org/10.1175/1520-0493(2001)129<3413:OMOMMC>2.0.CO;2) type systems.
 
 ![GridRad Demo](./gallery/mcs_gridrad_20100804.gif)
+
+The second example below depicts multiple [leading-stratiform](https://doi.org/10.1175/1520-0493(2001)129<3413:OMOMMC>2.0.CO;2) type systems.
 
 ![GridRad Demo](./gallery/mcs_gridrad_20100120.gif)
 
