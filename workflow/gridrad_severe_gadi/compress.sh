@@ -1,7 +1,8 @@
 #!/bin/bash
 #PBS -q copyq
 #PBS -l ncpus=1,mem=4GB,walltime=10:00:00
-#PBS -l scratch/w40
+#PBS -l storage=gdata/w40+scratch/w40
+
 #PBS -P w40
 
 DIR=/scratch/w40/esh563/THUNER_output/input_data/raw/d841006/volumes
