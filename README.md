@@ -55,11 +55,13 @@ split off from existing objects retain the colour of their parent object. Object
 intersect the domain boundary have their [stratiform-offsets](https://doi.org/10.1175/MWR-D-22-0146.1) and velocities masked, as these cannot be measured accurately when the object is partially 
 outside the domain. 
 
-The first example below depicts multiple [trailing-stratiform](https://doi.org/10.1175/1520-0493(2001)129<3413:OMOMMC>2.0.CO;2) type systems.
+The example below depicts multiple [trailing-stratiform](https://doi.org/10.1175/1520-0493(2001)129<3413:OMOMMC>2.0.CO;2) type systems.
 
 ![GridRad Demo](./gallery/mcs_gridrad_20100804.gif)
 
-The second example below depicts multiple [leading-stratiform](https://doi.org/10.1175/1520-0493(2001)129<3413:OMOMMC>2.0.CO;2) type systems.
+
+
+The example below depicts multiple [leading-stratiform](https://doi.org/10.1175/1520-0493(2001)129<3413:OMOMMC>2.0.CO;2) type systems.
 
 ![GridRad Demo](./gallery/mcs_gridrad_20100120.gif)
 
