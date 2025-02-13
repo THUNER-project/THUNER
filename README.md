@@ -31,7 +31,7 @@ sensitivity tests using these competitors.
 The THUNER repository can be cloned from github in the usual ways. Cloning the 
 repository is the easiest way to access the demo, workflow and gallery folders. 
 
-The thuner package can also be installed via conda
+The thuner package ~~can also be installed~~ [soon will be installable](https://github.com/conda-forge/staged-recipes/pull/28762) via conda
 ```sh
 conda install -c conda-forge thuner
 ```

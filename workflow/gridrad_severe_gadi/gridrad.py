@@ -67,7 +67,7 @@ def gridrad(start, end, event_start, base_local=None):
     grid.save_grid_options(grid_options, options_directory=options_directory)
 
     # Create the track_options dictionary
-    track_options = track.default_track_options(dataset="gridrad")
+    track_options = option.track.default_track_options(dataset="gridrad")
     track_options.levels[1].objects[0].tracking.global_flow_margin = 70
     track_options.levels[1].objects[0].tracking.unique_global_flow = False
     track_options.to_yaml(options_directory / "track.yml")
@@ -78,27 +78,9 @@ def gridrad(start, end, event_start, base_local=None):
     # 8 processes a good choice for a GADI job with 32 GB of memory, 7 cores
     # Each tracking process can use up to 4 GB of memory - mainly storing gridrad data
     num_processes = 8
-    kwargs = {"initializer": parallel.initialize_process, "processes": num_processes}
-    with logging_listener(), get_context("spawn").Pool(**kwargs) as pool:
-        results = []
-        for i, time_interval in enumerate(intervals):
-            args = [
-                i,
-                time_interval,
-                data_options.model_copy(deep=True),
-                grid_options.copy(),
-            ]
-            args += [track_options.model_copy(deep=True), visualize_options]
-            args += [output_parent, "gridrad"]
-            args = tuple(args)
-            # Stagger job for smoother execution
-            time.sleep(1)
-            results.append(pool.apply_async(parallel.track_interval, args))
-        pool.close()
-        pool.join()
-        parallel.check_results(results)
-
-    parallel.stitch_run(output_parent, intervals, cleanup=True)
+    times = data.utils.generate_times(data_options.dataset_by_name("gridrad"))
+    args = [times, data_options, grid_options, track_options, visualize_options]
+    parallel.track(*args, output_directory=output_parent, num_processes=num_processes)
 
     analysis_options = analyze.mcs.AnalysisOptions()
     analyze.mcs.process_velocities(output_parent)
