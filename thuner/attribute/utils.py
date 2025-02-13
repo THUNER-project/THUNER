@@ -3,12 +3,47 @@
 import yaml
 from pathlib import Path
 import pandas as pd
+import xarray as xr
 from pydantic import BaseModel, model_validator
 import numpy as np
 from thuner.option.attribute import Attribute, AttributeGroup, AttributeType, Attributes
 from thuner.log import setup_logger
 
 logger = setup_logger(__name__)
+
+
+def get_nearest_points(
+    stacked_mask: xr.DataArray | xr.Dataset,
+    id_number: int,
+    ds: xr.Dataset | xr.DataArray,
+):
+    """
+    Get the nearest points in a tagging dataset to a given object id.
+
+    Parameters
+    ----------
+    stacked_mask : xarray.DataArray
+        mask containing object ids with latitude and longitude stacked into a new
+        dimension called 'points'.
+    id_number : int
+        Object ID number to get from stacked_mask.
+    ds : xarray.Dataset | xarray.DataArray
+        Tagging dataset containing latitude and longitude.
+
+    Returns
+    -------
+    list[tuple]
+        List of tuples containing the latitude and longitude of the nearest points.
+    """
+    points = stacked_mask.where(stacked_mask == id_number, drop=True).points.values
+    lats, lons = zip(*points)
+    lats_da = xr.DataArray(list(lats), dims="points")
+    lons_da = xr.DataArray(list(lons), dims="points") % 360
+    ds_grid = ds[["latitude", "longitude"]]
+    ds_points = ds_grid.sel(latitude=lats_da, longitude=lons_da, method="nearest")
+    ds_lats = ds_points.latitude.values.tolist()
+    ds_lons = ds_points["longitude"].values.tolist()
+    return list(set(zip(ds_lats, ds_lons)))
 
 
 def _init_attr_type(attribute_type: AttributeType):

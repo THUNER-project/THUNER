@@ -52,7 +52,7 @@ def process_velocities(
     if profile_dataset is not None:
         filepath = output_directory / f"attributes/mcs/{profile_dataset}_profile.csv"
         winds = read_attribute_csv(filepath, columns=["u", "v"])
-        winds = winds.xs(0, level="time_offset")
+        winds = winds.xs(0, level="time_offset").sort_index()
 
         indexer = pd.IndexSlice[:, :, altitudes[0] : altitudes[1]]
         mean_winds = winds.loc[indexer].groupby(["time", "universal_id"]).mean()

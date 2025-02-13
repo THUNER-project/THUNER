@@ -2,9 +2,10 @@ import numpy as np
 import xarray as xr
 from thuner.log import setup_logger
 import thuner.attribute.core as core
-from thuner.attribute.utils import setup_interp, TimeOffset
+import thuner.attribute.utils as utils
 from thuner.option.attribute import Retrieval, Attribute, AttributeGroup, AttributeType
-
+from thuner.track.utils import InputRecords, ObjectTracks
+from thuner.option.grid import GridOptions
 
 logger = setup_logger(__name__)
 
@@ -12,12 +13,12 @@ logger = setup_logger(__name__)
 # Functions for obtaining and recording attributes
 def from_centers(
     attribute_group: AttributeGroup,
-    input_records,
-    object_tracks,
-    grid_options,
-    dataset,
-    time_offsets,
-    member_object=None,
+    input_records: InputRecords,
+    object_tracks: ObjectTracks,
+    grid_options: GridOptions,
+    dataset: str,
+    time_offsets: list[int],
+    member_object: str | None = None,
 ):
     """
     Calculate profile from object centers. Lookup core attributes, and extend to match
@@ -30,7 +31,7 @@ def from_centers(
     """
 
     args = [attribute_group, input_records, object_tracks, dataset, member_object]
-    name, names, ds, core_attributes, current_time = setup_interp(*args)
+    name, names, ds, core_attributes, current_time = utils.setup_interp(*args)
 
     if "pressure" not in ds.coords or "geopotential" not in ds.data_vars:
         raise ValueError("Dataset must contain pressure levels and geopotential.")
@@ -69,19 +70,108 @@ def from_centers(
 
         for i in range(len(profile_time.points)):
             profile = profile_time.isel(points=i)
-            profile = profile.swap_dims({"pressure": "altitude"})
-            profile = profile.drop_vars(["geopotential"])
-            profile = profile.interp(altitude=new_altitudes)
-            profile = profile.reset_coords("pressure")
-            for name in names:
-                profile_dict[name] += list(profile[name].values)
-            profile_dict["altitude"] += list(profile["altitude"].values)
-            profile_dict["time_offset"] += [offset] * len(profile["altitude"])
-            profile_dict["latitude"] += [latitude[i]] * len(profile["altitude"])
-            profile_dict["longitude"] += [longitude[i]] * len(profile["altitude"])
-            profile_dict["time"] += [current_time] * len(profile["altitude"])
-            profile_dict[id_name] += [ids[i]] * len(profile["altitude"])
+            profile = _interp_profile(profile, new_altitudes)
+            args = [names, profile, profile_dict, offset, current_time, id_name]
+            args += [ids[i], latitude[i], longitude[i]]
+            profile_dict = _append_profile_dict(*args)
+
     return profile_dict
+
+
+def from_masks(
+    attribute_group: AttributeGroup,
+    input_records: InputRecords,
+    object_tracks: ObjectTracks,
+    grid_options: GridOptions,
+    dataset: str,
+    time_offsets: list[int],
+    member_object: str | None = None,
+):
+    """
+    Calculate profile from object centers. Lookup core attributes, and extend to match
+    length of profile attributes.
+
+    Parameters
+    ----------
+    names : list of str
+        Names of attributes to calculate.
+    """
+
+    args = [attribute_group, input_records, object_tracks, dataset, member_object]
+    name, names, ds, core_attributes, current_time = utils.setup_interp(*args)
+
+    latitude, longitude = core_attributes["latitude"], core_attributes["longitude"]
+
+    if "pressure" not in ds.coords or "geopotential" not in ds.data_vars:
+        raise ValueError("Dataset must contain pressure levels and geopotential.")
+
+    logger.debug(f"Interpolating from pressure levels to altitude using geopotential.")
+    ds["longitude"] = ds["longitude"] % 360
+    profiles = ds[names + ["geopotential"]]
+
+    if "id" in core_attributes.keys():
+        matched = False
+        id_name = "id"
+    elif "universal_id" in core_attributes.keys():
+        id_name = "universal_id"
+        matched = True
+    else:
+        message = "No id or universal_id found in core attributes."
+        raise ValueError(message)
+    ids = core_attributes[id_name]
+    mask = utils.get_current_mask(object_tracks, matched=matched)
+    stacked_mask = mask.stack(points=["latitude", "longitude"])
+
+    profile_dict = {name: [] for name in names}
+    coordinates = ["time", "time_offset", id_name, "altitude", "latitude", "longitude"]
+    profile_dict.update({name: [] for name in coordinates})
+    # Setup interp kwargs
+    for offset in time_offsets:
+        # Interp to given time
+        interp_time = current_time + np.timedelta64(offset, "m")
+        profile_time = profiles.interp(time=interp_time.astype("datetime64[ns]"))
+        profile_time = profile_time.stack(points=["latitude", "longitude"])
+
+        profile_time["altitude"] = profile_time["geopotential"] / 9.80665
+        new_altitudes = np.array(grid_options.altitude)
+
+        for i in range(len(ids)):
+            points = utils.get_nearest_points(stacked_mask, ids[i], ds)
+            profile_list = []
+            for j in range(len(points)):
+                profile = profile_time.sel(points=points[j])
+                profile = _interp_profile(profile, new_altitudes).drop("points")
+                profile_list.append(profile)
+            all_profiles = xr.concat(profile_list, dim="profiles")
+            profile = all_profiles.mean(dim="profiles")
+            args = [names, profile, profile_dict, offset, current_time, id_name]
+            args += [ids[i], latitude[i], longitude[i]]
+            profile_dict = _append_profile_dict(*args)
+    return profile_dict
+
+
+def _append_profile_dict(
+    names, profile, profile_dict, offset, current_time, id_name, id_number, lat, lon
+):
+    """Append profile values to profile dictionary."""
+    for name in names:
+        profile_dict[name] += list(profile[name].values)
+    profile_dict["altitude"] += list(profile["altitude"].values)
+    profile_dict["time_offset"] += [offset] * len(profile["altitude"])
+    profile_dict["latitude"] += [lat] * len(profile["altitude"])
+    profile_dict["longitude"] += [lon] * len(profile["altitude"])
+    profile_dict["time"] += [current_time] * len(profile["altitude"])
+    profile_dict[id_name] += [id_number] * len(profile["altitude"])
+    return profile_dict
+
+
+def _interp_profile(profile: xr.DataArray | xr.Dataset, new_altitudes: np.ndarray):
+    """Interpolate a profile to new altitudes."""
+    profile = profile.swap_dims({"pressure": "altitude"})
+    profile = profile.drop_vars(["geopotential"])
+    profile = profile.interp(altitude=new_altitudes)
+    profile = profile.reset_coords("pressure")
+    return profile
 
 
 class Altitude(Attribute):
@@ -137,7 +227,7 @@ class ProfileCenter(AttributeGroup):
     name: str = "profiles"
     attributes: list[Attribute] = [
         core.Time(retrieval=None),
-        TimeOffset(),
+        utils.TimeOffset(),
         core.Latitude(retrieval=None),
         core.Longitude(retrieval=None),
         Altitude(),
@@ -148,7 +238,7 @@ class ProfileCenter(AttributeGroup):
         RelativeHumidity(),
     ]
     retrieval: Retrieval = Retrieval(
-        function=from_centers,
+        function=from_masks,
         keyword_arguments={
             "center_type": "area_weighted",
             "time_offsets": [-120, -60, 0],

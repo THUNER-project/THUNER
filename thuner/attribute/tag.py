@@ -4,6 +4,7 @@ import thuner.attribute.core as core
 from thuner.attribute.utils import setup_interp, TimeOffset
 import xarray as xr
 from thuner.option.attribute import Retrieval, Attribute, AttributeGroup, AttributeType
+from thuner.track.utils import InputRecords, ObjectTracks
 
 logger = setup_logger(__name__)
 
@@ -11,11 +12,11 @@ logger = setup_logger(__name__)
 # Functions for obtaining and recording attributes
 def from_centers(
     attribute_group: AttributeGroup,
-    input_records,
-    object_tracks,
-    dataset,
-    time_offsets,
-    member_object=None,
+    input_records: InputRecords,
+    object_tracks: ObjectTracks,
+    dataset: str,
+    time_offsets: list[int],
+    member_object: str | None = None,
 ):
     """
     Calculate profile from object centers.
@@ -99,7 +100,7 @@ class TagCenter(AttributeGroup):
     description: str = "Tags at object centers, e.g. cape and cin."
 
 
-def default(dataset, matched=True):
+def default(dataset: str, matched=True):
     """Create the default tag attribute type."""
 
     tag_center = TagCenter()

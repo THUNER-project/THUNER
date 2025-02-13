@@ -15,7 +15,7 @@ import thuner.attribute as attribute
 import thuner.write as write
 import thuner.analyze as analyze
 import thuner.data as data
-import thuner.track as thuner_track
+import thuner.track.track as thuner_track
 import thuner.option as option
 
 logger = setup_logger(__name__)

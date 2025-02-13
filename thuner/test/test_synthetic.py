@@ -7,7 +7,7 @@ import numpy as np
 import thuner.data as data
 import thuner.data.dispatch as dispatch
 import thuner.grid as grid
-import thuner.track as track
+import thuner.track.track as track
 import thuner.visualize as visualize
 import thuner.data.synthetic as synthetic
 

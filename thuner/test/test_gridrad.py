@@ -12,7 +12,7 @@ import thuner.analyze as analyze
 import thuner.parallel as parallel
 import thuner.visualize as visualize
 import thuner.log as log
-import thuner.track as track
+import thuner.track.track as track
 
 notebook_name = "gridrad_demo.ipynb"
 
