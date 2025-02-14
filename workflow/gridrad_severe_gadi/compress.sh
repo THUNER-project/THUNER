@@ -4,12 +4,16 @@
 #PBS -l storage=gdata/w40+scratch/w40
 #PBS -P v46
 
+module load parallel
 DIR=/scratch/w40/esh563/THUNER_output/input_data/raw/d841006/volumes
 days=$(ls $DIR/$year)
 
 create_tar() {
     day=$1
-    tar -czvf ${DIR}/${year}/${day}.tar.gz -C $DIR/${year} ${DIR}/${year}/${day}
+    echo $day
+    echo ${DIR}/${year}/${day}.tar.gz
+    tar -czvf ${DIR}/${year}/${day}.tar.gz -C ${DIR}/${year} ${DIR}/${year}/${day}
 }
+export -f create_tar
 
-echo $days | parallel -j 32 create_tar {}
+echo $days | parallel -j 32 create_tar
