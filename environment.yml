@@ -39,3 +39,4 @@ dependencies:
   - metpy=1.6
   - graphviz=12.2
   - pygraphviz=1.14
+  - nbconvert=7.16

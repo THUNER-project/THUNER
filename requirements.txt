@@ -32,3 +32,4 @@ windrose
 pydot
 graphviz
 metpy
+nbconvert
