@@ -252,7 +252,7 @@ def get_cpol(time, input_record, dataset_options, grid_options):
     # Set data outside instrument range to NaN
     keys = ["next_domain_mask", "next_boundary_coordinates"]
     keys += ["next_boundary_mask"]
-    if any(input_record[k] is None for k in keys):
+    if any(getattr(input_record, k) is None for k in keys):
         # Get the domain mask and domain boundary. Note this is the region where data
         # exists, not the detected object masks from the detect module.
         input_record.next_domain_mask = ds["domain_mask"]

@@ -154,10 +154,10 @@ def get_filepaths_dates(directory):
 def animate_all(visualize_options, output_directory):
     if visualize_options is None:
         return
-    for obj in visualize_options.keys():
-        for fig_type in visualize_options[obj]["figures"].keys():
-            if visualize_options[obj]["figures"][fig_type]["animate"]:
-                animate_object(fig_type, obj, output_directory)
+    for obj_options in visualize_options.objects.values():
+        for fig_options in obj_options.figures:
+            if fig_options.animate:
+                animate_object(fig_options.name, obj_options.name, output_directory)
 
 
 def animate_object(

@@ -69,7 +69,7 @@ def test_synthetic():
     data.data.save_data_options(data_options, options_directory)
 
     # Create the track_options dictionary
-    track_options = track.synthetic_track_options()
+    track_options = track.synthetic_track()
     track_options.to_yaml(options_directory / "track.yml")
 
     # Create the display_options dictionary
@@ -115,7 +115,7 @@ def test_synthetic():
     )
     grid.check_options(grid_options)
     grid.save_grid_options(grid_options, options_directory)
-    track_options = track.synthetic_track_options()
+    track_options = track.synthetic_track()
     track_options.to_yaml(options_directory / "track.yml")
     data.data.save_data_options(data_options, options_directory)
 

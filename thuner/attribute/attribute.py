@@ -91,11 +91,12 @@ def append(object_tracks):
     member_attributes = object_tracks.attributes.member_attributes
     current_member_attributes = object_tracks.current_attributes.member_attributes
     # First append attributes for member objects
-    for obj in member_attributes.keys():
-        for attribute_type in member_attributes[obj].keys():
-            attr = member_attributes[obj]
-            current_attr = current_member_attributes[obj]
-            append_attribute_type(current_attr, attr, attribute_type)
+    if member_attributes is not None:
+        for obj in member_attributes.keys():
+            for attribute_type in member_attributes[obj].keys():
+                attr = member_attributes[obj]
+                current_attr = current_member_attributes[obj]
+                append_attribute_type(current_attr, attr, attribute_type)
     # Now append attributes for grouped object
     attributes = object_tracks.attributes.attribute_types
     current_attributes = object_tracks.current_attributes.attribute_types

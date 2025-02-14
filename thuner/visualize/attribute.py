@@ -117,7 +117,7 @@ def mcs_series(
             args += [options, track_options, dataset_name, dt, color_angle_df]
             visualize_mcs(*args)
     if animate:
-        figure_name = figure_options["name"]
+        figure_name = figure_options.name
         save_directory = output_directory / f"visualize"
         figure_directory = output_directory / f"visualize/{figure_name}"
         args = [figure_name, "mcs", output_directory, save_directory]
@@ -128,7 +128,6 @@ def mcs_series(
     matplotlib.use(original_backend)
 
 
-# # @profile
 def visualize_mcs(
     time,
     filepaths,
@@ -179,8 +178,8 @@ def visualize_mcs(
     mask = mask.load()
     args = [output_directory, processed_grid, mask, simple_boundary_coords]
     args += [figure_options, options["grid"]]
-    figure_name = figure_options["name"]
-    style = figure_options["style"]
+    figure_name = figure_options.name
+    style = figure_options.style
     with plt.style.context(visualize.styles[style]), visualize.set_style(style):
         fig, ax = mcs_horizontal(*args, dt=dt, object_colors=object_colors)
         # Remove mask and processed_grid from memory after generating the figure
@@ -260,7 +259,7 @@ def mcs_horizontal(
         if object_quality[obj_id]:
             text_attributes_horizontal(*args, object_quality=object_quality)
 
-    style = figure_options["style"]
+    style = figure_options.style
     scale = utils.get_extent(grid_options)[1]
 
     key_color = visualize.figure_colors[style]["key"]
@@ -277,10 +276,10 @@ def mcs_horizontal(
     handle = horizontal.domain_boundary_legend_artist()
     handles += [handle]
     labels += ["Domain Boundary"]
-    handle = horizontal.ellipse_legend_artist("Major Axis", figure_options["style"])
+    handle = horizontal.ellipse_legend_artist("Major Axis", figure_options.style)
     handles += [handle]
     labels += ["Major Axis"]
-    attribute_names = figure_options["attributes"]
+    attribute_names = figure_options.attributes
     for name in [attr for attr in attribute_names if attr != "id"]:
         color = colors_dispatcher[name]
         label = label_dispatcher[name]
@@ -291,7 +290,7 @@ def mcs_horizontal(
     handle, handler = horizontal.mask_legend_artist()
     handles += [handle]
     labels += ["Object Masks"]
-    legend_color = visualize.figure_colors[figure_options["style"]]["legend"]
+    legend_color = visualize.figure_colors[figure_options.style]["legend"]
     handles, labels = handles[::-1], labels[::-1]
 
     args = [handles, labels]
@@ -349,7 +348,7 @@ def velocity_attributes_horizontal(axes, figure_options, object_attributes, dt=3
     """
 
     velocity_attributes = ["ambient", "relative_velocity", "velocity", "shear"]
-    attribute_names = figure_options["attributes"]
+    attribute_names = figure_options.attributes
     velocity_attributes = [v for v in attribute_names if v in velocity_attributes]
     latitude = object_attributes["latitude"]
     longitude = object_attributes["longitude"]
@@ -373,7 +372,7 @@ def text_attributes_horizontal(
 ):
     """Add object ID attributes."""
 
-    if "id" in figure_options["attributes"]:
+    if "id" in figure_options.attributes:
         latitude = object_attributes["latitude"]
         longitude = object_attributes["longitude"]
         args = [axes[0], str(object_attributes.name), longitude, latitude]
@@ -403,7 +402,7 @@ def ellipse_attributes(axes, figure_options, object_attributes):
     latitude = object_attributes["ellipse_latitude"]
     longitude = object_attributes["ellipse_longitude"]
     major, orientation = object_attributes["major"], object_attributes["orientation"]
-    style = figure_options["style"]
+    style = figure_options.style
     args = [axes[0], latitude, longitude, major, orientation, "Major Axis", style]
     args += [quality]
     legend_handles = []
@@ -417,7 +416,7 @@ def displacement_attributes_horizontal(axes, figure_options, object_attributes):
     """Add displacement attributes."""
 
     displacement_attributes = ["offset"]
-    attribute_names = figure_options["attributes"]
+    attribute_names = figure_options.attributes
     displacement_attributes = [
         v for v in attribute_names if v in displacement_attributes
     ]

@@ -1,88 +1,34 @@
 """
-Module for generating synthetic reflectivity data for testing. 
+Module for generating synthetic reflectivity data for testing. This module a work in 
+progress; core functions are very slow. 
+
 """
 
 import numpy as np
 import copy
 import xarray as xr
 from pyproj import Geod
-import inspect
-from scipy.stats import vonmises
 from thuner.log import setup_logger
-from thuner.config import get_outputs_directory
-import thuner.option.data as data
+from pydantic import Field
 import thuner.data.utils as utils
 import thuner.grid as grid
-
+from thuner.option.data import BaseDatasetOptions
 
 logger = setup_logger(__name__)
 geod = Geod(ellps="WGS84")
 
 
-def synthetic_data_options(
-    start="2005-11-13T00:00:00",
-    end="2005-11-14T00:00:00",
-    use="track",
-    fields=None,
-    deque_length=2,
-    starting_objects=None,
-    regeneration_options=None,
-):
+class SyntheticOptions(BaseDatasetOptions):
     """
-    Generate CPOL radar data options dictionary.
-
-    Parameters
-    ----------
-    name : str, optional
-        The name of the dataset; default is "cpol".
-    start : str, optional
-        The start time of the dataset; default is "2005-11-13T00:00:00".
-    end : str, optional
-        The end time of the dataset; default is "2005-11-14T00:00:00".
-    save_options : bool, optional
-        Whether to save the data options; default is False.
-    **kwargs
-        Additional keyword arguments.
-
-    Returns
-    -------
-    options : dict
-        Dictionary containing the input options.
+    Class for managing the options for the synthetic dataset.
     """
 
-    if fields is None:
-        fields = ["reflectivity"]
-
-    options = {
-        "name": "synthetic",
-        "start": start,
-        "end": end,
-        "deque_length": deque_length,
-        "fields": fields,
-        "use": use,
-        "starting_objects": starting_objects,
-        "regeneration_options": regeneration_options,
-    }
-
-    return options
-
-
-def check_data_options(options):
-    """
-    Check the data options.
-
-    Parameters
-    ----------
-    options : dict
-        Dictionary containing the data options.
-    """
-
-    required_options = inspect.getfullargspec(synthetic_data_options).args
-
-    for key in required_options:
-        if key not in options.keys():
-            raise ValueError(f"Missing required key {key}")
-    return options
+    name: str = Field("synthetic")
+    start: str = Field("2005-11-13T00:00:00")
+    end: str = Field("2005-11-14T00:00:00")
+    fields: list[str] = Field(["reflectivity"])
+    use: str = Field("track")
+    starting_objects: list[dict] | None = Field(None)
 
 
 def create_object(
@@ -177,17 +123,20 @@ def update_dataset(time, input_record, tracks, dataset_options, grid_options):
         grid_options.x = X
         grid_options.y = Y
 
-    if "objects" not in input_record.keys():
-        input_record.objects = dataset_options.starting_objects
+    if input_record.synthetic_objects is None:
+        input_record.synthetic_objects = dataset_options.starting_objects
 
-    updated_objects = copy.deepcopy(input_record.objects)
-    for i in range(len(input_record.objects)):
-        updated_objects[i] = update_object(time, input_record.objects[i])
-    input_record.objects = updated_objects
+    updated_objects = copy.deepcopy(input_record.synthetic_objects)
+    for i in range(len(input_record.synthetic_objects)):
+        updated_objects[i] = update_object(time, input_record.synthetic_objects[i])
+    input_record.synthetic_objects = updated_objects
 
-    ds = create_dataset(time, grid_options)
+    if input_record.synthetic_base_dataset is None:
+        input_record.synthetic_base_dataset = create_dataset(time, grid_options)
+    ds = copy.deepcopy(input_record.synthetic_base_dataset)
+    ds["time"] = np.array([np.datetime64(time)])
 
-    for object in input_record.objects:
+    for object in input_record.synthetic_objects:
         ds = add_reflectivity(ds, **object)
 
     input_record.dataset = ds
@@ -200,12 +149,9 @@ def update_object(time, obj):
     time_diff = np.datetime64(time) - np.datetime64(obj["time"])
     time_diff = time_diff.astype("timedelta64[s]").astype(float)
     distance = time_diff * obj["speed"]
-    new_lon, new_lat = geod.fwd(
-        obj["center_longitude"],
-        obj["center_latitude"],
-        np.rad2deg(obj["direction"]),
-        distance,
-    )[0:2]
+    args = [obj["center_longitude"], obj["center_latitude"]]
+    args += [np.rad2deg(obj["direction"]), distance]
+    new_lon, new_lat = geod.fwd(*args)[0:2]
     obj["center_latitude"] = new_lat
     obj["center_longitude"] = new_lon
     obj["time"] = time
@@ -230,15 +176,15 @@ def create_dataset(time, grid_options):
 
     dims = grid.get_coordinate_names(grid_options)
     if dims == ["latitude", "longitude"]:
-        alternative_dims = ["y", "x"]
+        alt_dims = ["y", "x"]
     elif dims == ["y", "x"]:
-        alternative_dims = ["latitude", "longitude"]
+        alt_dims = ["latitude", "longitude"]
     else:
         raise ValueError("Invalid grid options")
 
     time = np.array([np.datetime64(time)]).astype("datetime64[ns]")
-    meridional_dim = np.array(grid_options[dims[0]])
-    zonal_dim = np.array(grid_options[dims[1]])
+    meridional_dim = np.array(getattr(grid_options, dims[0]))
+    zonal_dim = np.array(getattr(grid_options, dims[1]))
     alt = np.array(grid_options.altitude)
 
     # Create ds
@@ -247,8 +193,8 @@ def create_dataset(time, grid_options):
     coords.update({dims[0]: meridional_dim, dims[1]: zonal_dim})
     variables_dict = {
         "reflectivity": (["time", "altitude", dims[0], dims[1]], ds_values),
-        alternative_dims[0]: ([dims[0], dims[1]], grid_options[alternative_dims[0]]),
-        alternative_dims[1]: ([dims[0], dims[1]], grid_options[alternative_dims[1]]),
+        alt_dims[0]: ([dims[0], dims[1]], getattr(grid_options, alt_dims[0])),
+        alt_dims[1]: ([dims[0], dims[1]], getattr(grid_options, alt_dims[1])),
     }
     ds = xr.Dataset(variables_dict, coords=coords)
     ds["reflectivity"].attrs.update({"long_name": "reflectivity", "units": "dBZ"})
@@ -258,6 +204,8 @@ def create_dataset(time, grid_options):
     ds["gridcell_area"].attrs.update(
         {"units": "km^2", "standard_name": "area", "valid_min": 0}
     )
+    LON, LAT, ALT = xr.broadcast(ds.time, ds.longitude, ds.latitude, ds.altitude)[1:]
+    ds["LON"], ds["LAT"], ds["ALT"] = LON, LAT, ALT
     return ds
 
 
@@ -275,6 +223,7 @@ def add_reflectivity(
 ):
     """
     Add elliptical/gaussian synthetic reflectivity data to emulate cells, anvils etc.
+    This needs to be made much more efficient.
 
     Parameters
     ----------
@@ -289,7 +238,7 @@ def add_reflectivity(
         radius, as the object dimenensions are defined in geographic coordinates.
     """
 
-    LON, LAT, ALT = xr.broadcast(ds.time, ds.longitude, ds.latitude, ds.altitude)[1:]
+    LON, LAT, ALT = ds.LON, ds.LAT, ds.ALT
 
     # lon, lat, alt = xr.broadcast(ds.time, ds.longitude, ds.latitude, ds.altitude)[1:]
 
@@ -323,33 +272,3 @@ def add_reflectivity(
 
 def convert_synthetic():
     pass
-
-
-# from scipy.stats import vonmises
-
-# # Parameters
-# mean_direction = np.pi / 2  # Mean direction (mu)
-# sigma = 2*np.pi/1e3
-# concentration = 1 / sigma  # Concentration parameter (kappa)
-
-# # Create a von Mises distribution
-# distribution = vonmises(kappa=concentration, loc=mean_direction)
-
-# # Sample from the distribution
-# samples = distribution.rvs(size=1000)
-# samples = samples % (2 * np.pi)
-
-# # Plot the distribution
-# theta = np.linspace(0, 2 * np.pi, 1000)
-# pdf = distribution.pdf(theta)
-
-# plt.figure(figsize=(8, 4))
-# plt.plot(theta, pdf, label='von Mises PDF')
-# plt.hist(samples, bins=50, density=True, alpha=0.6, label='Samples')
-# plt.axvline(mean_direction, color='r', linestyle='--', label='Mean Direction')
-# plt.xticks(np.linspace(0, 2 * np.pi, 9), labels=['0', r'$\frac{\pi}{4}$', r'$\frac{\pi}{2}$', r'$\frac{3\pi}{4}$', r'$\pi$', r'$\frac{5\pi}{4}$', r'$\frac{3\pi}{2}$', r'$\frac{7\pi}{4}$', r'$2\pi$'])
-# plt.xlabel('Direction (radians)')
-# plt.ylabel('Density')
-# plt.title('von Mises Distribution')
-# plt.legend()
-# plt.show()

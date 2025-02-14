@@ -6,3 +6,4 @@ from . import nexrad
 from . import odim
 from . import utils
 from . import wrf
+from . import synthetic

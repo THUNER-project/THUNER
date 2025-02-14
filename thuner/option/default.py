@@ -2,8 +2,7 @@
 
 import thuner.option as option
 import thuner.attribute as attribute
-
-# from thuner.attribute import core, ellipse, quality, tag, profile, group
+import thuner.visualize as visualize
 
 
 def convective(dataset="cpol"):
@@ -90,9 +89,52 @@ def track(dataset="cpol"):
     return track_options
 
 
-def synthetic_track_options():
+def runtime(visualize_directory):
+    """Build default options for runtime visualization."""
+
+    # kwargs = {"name": "mask", "function": visualize.runtime.visualize_mask}
+    # mask_figure = option.visualize.FigureOptions(**kwargs)
+    kwargs = {"name": "match", "function": visualize.runtime.visualize_match}
+    match_figure = option.visualize.FigureOptions(**kwargs)
+    kwargs = {"name": "mcs", "parent_local": visualize_directory}
+    kwargs.update({"figures": [match_figure]})
+    mcs_figures = option.visualize.ObjectRuntimeOptions(**kwargs)
+
+    # kwargs = {"name": "mask", "function": visualize.runtime.visualize_mask}
+    # mask_figure = option.visualize.FigureOptions(**kwargs)
+    # kwargs.update({"name": "convective", "figures": [mask_figure]})
+    # convective_figures = option.visualize.ObjectRuntimeOptions(**kwargs)
+    # objects_dict = {convective_figures.name: convective_figures}
+    objects_dict = {mcs_figures.name: mcs_figures}
+    visualize_options = option.visualize.RuntimeOptions(objects=objects_dict)
+    return visualize_options
+
+
+def synthetic_track():
+    """Build default options for tracking synthetic MCS."""
+
     convective_options = convective(dataset="synthetic")
+    attribute_types = [attribute.core.default_tracked()]
+    kwargs = {"name": "convective", "attribute_types": attribute_types}
+    attributes = option.track.Attributes(**kwargs)
+    convective_options.attributes = attributes
     kwargs = {"global_flow_margin": 70, "unique_global_flow": False}
     convective_options.tracking = option.track.MintOptions(**kwargs)
     levels = [option.track.LevelOptions(objects=[convective_options])]
     return option.track.TrackOptions(levels=levels)
+
+
+def synthetic_runtime(visualize_directory):
+    """Build default options for runtime visualization."""
+
+    # kwargs = {"name": "mask", "function": visualize.runtime.visualize_mask}
+    # mask_figure = option.visualize.FigureOptions(**kwargs)
+    kwargs = {"name": "match", "function": visualize.runtime.visualize_match}
+    match_figure = option.visualize.FigureOptions(**kwargs)
+    kwargs = {"name": "convective", "parent_local": visualize_directory}
+    kwargs.update({"figures": [match_figure]})
+    convective_figures = option.visualize.ObjectRuntimeOptions(**kwargs)
+
+    objects_dict = {convective_figures.name: convective_figures}
+    visualize_options = option.visualize.RuntimeOptions(objects=objects_dict)
+    return visualize_options

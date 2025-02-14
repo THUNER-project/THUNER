@@ -60,6 +60,10 @@ def track(
         args += [output_directory]
         thuner_track.track(*args)
         return
+    if visualize_options is not None:
+        message = "Runtime visualizations are not supported during parallel tracking."
+        message += " Setting visualize_options to None."
+        logger.warning(message)
 
     times = list(times)
     start, end = times[0], times[-1]
@@ -74,7 +78,7 @@ def track(
             args = [i, time_interval, data_options.model_copy(deep=True)]
             args += [grid_options.model_copy(deep=True)]
             args += [track_options.model_copy(deep=True)]
-            args += [visualize_options, output_directory]
+            args += [None, output_directory]
             args += ["gridrad"]
             args = tuple(args)
             results.append(pool.apply_async(track_interval, args))
@@ -107,7 +111,7 @@ def track_interval(
     grid_options = grid_options.copy()
     track_options = track_options.model_copy(deep=True)
     if visualize_options is not None:
-        visualize_options = visualize_options.copy()
+        visualize_options = None
     interval_data_options = get_interval_data_options(data_options, time_interval)
     interval_data_options.to_yaml(options_directory / "data.yml")
     grid_options.to_yaml(options_directory / "grid.yml")

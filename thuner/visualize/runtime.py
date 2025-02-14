@@ -42,7 +42,7 @@ def detected_mask(
     object_options = track_options.levels[level_index].options_by_name(obj)
     grid = object_tracks.next_grid
 
-    if "tracking" not in object_options.model_fields:
+    if object_options.tracking is None:
         mask = object_tracks.next_mask
     else:
         mask = object_tracks.next_matched_mask
@@ -66,18 +66,13 @@ def grouped_mask(
     """Plot masks for a grouped object."""
     object_options = track_options.levels[level_index].options_by_name(obj)
     object_tracks = tracks.levels[level_index].objects[obj]
-    if "tracking" in object_options.model_fields:
+    if object_options.tracking is None:
         mask = object_tracks.next_mask
     else:
         mask = object_tracks.next_matched_mask
 
-    try:
-        member_objects = figure_options["member_objects"]
-    except KeyError:
-        member_objects = object_options.grouping.member_objects
-
+    member_objects = object_options.grouping.member_objects
     grid = object_tracks.next_grid
-    extent, scale = get_extent(grid_options)
 
     boundary_coordinates = input_record.next_boundary_coordinates
     args = [grid, mask, grid_options, figure_options, member_objects]
@@ -141,7 +136,7 @@ def match_features(grid, match_record, axes, grid_options, unique_global_flow=Tr
             # If global flow not unique, plot for current object
             global_flow = match_record["global_flows"][i]
             global_flow_box = match_record["global_flow_boxes"][i]
-            # horizontal.plot_box(axes[1], global_flow_box, grid_options, alpha=0.8)
+            horizontal.plot_box(axes[1], global_flow_box, grid_options, alpha=0.8)
             horizontal.pixel_vector(
                 axes[1], row, col, global_flow, grid_options, color="tab:red"
             )
@@ -193,16 +188,20 @@ def visualize_match(
     match_record = object_tracks.match_record
     object_options = track_options.levels[level_index].options_by_name(obj)
     grids = get_grids(object_tracks, object_options, num_previous=2)
-    masks = get_masks(object_tracks, object_options, matched=True, num_previous=2)
+    if object_options.tracking is not None:
+        matched = True
+    else:
+        matched = False
+    masks = get_masks(object_tracks, object_options, matched=matched, num_previous=2)
     all_boundaries = get_boundaries(input_record, num_previous=2)
 
     extent, scale = get_extent(grid_options)
 
-    if figure_options["template"] is None:
+    if figure_options.template is None:
         fig, ax, cbar_ax = match_template(grids[0], figure_options, extent)
-        figure_options["template"] = fig
+        figure_options.template = fig
 
-    fig = copy.deepcopy(figure_options["template"])
+    fig = copy.deepcopy(figure_options.template)
     axes = fig.axes[:-1]
     cbar_ax = fig.axes[-1]
 
@@ -245,19 +244,10 @@ def visualize_mask(
         message = "create_mask_figure function for object detection option not found."
         raise KeyError(message)
 
-    fig, ax = create_figure(
-        input_record,
-        tracks,
-        level_index,
-        obj,
-        track_options,
-        grid_options,
-        figure_options,
-    )
+    args = [input_record, tracks, level_index, obj, track_options]
+    args += [grid_options, figure_options]
+    fig, ax = create_figure(*args)
     return fig, ax
-
-
-create_figure_dispatcher = {"mask": visualize_mask, "match": visualize_match}
 
 
 def visualize(
@@ -267,48 +257,37 @@ def visualize(
     obj,
     track_options,
     grid_options,
-    visualize_options,
+    runtime_options,
     output_directory,
 ):
     # Close all current figures
     plt.close("all")
 
     object_options = track_options.levels[level_index].options_by_name(obj)
+    object_runtime_options = runtime_options.objects.get(object_options.name)
 
-    if not visualize_options or not visualize_options.get(object_options.name):
+    if not runtime_options or not object_runtime_options:
         return
     input_record = track_input_records[object_options.dataset]
-    object_visualize_options = visualize_options.get(object_options.name)
-    logger.info("Generating runtime visualizations.")
-    for figure in object_visualize_options["figures"].keys():
-        create_figure = create_figure_dispatcher.get(figure)
-        if not create_figure:
-            message = "create_figure function for figure type "
-            message += f"{figure} not found."
+    logger.info("Creating runtime visualization figures.")
+    for figure_options in object_runtime_options.figures:
+        if not figure_options.function:
+            message = f"{object_options.name} {figure_options.name} figure "
+            message += f"function undefined."
             raise KeyError(message)
-
-        figure_options = object_visualize_options["figures"][figure]
-        style = figure_options["style"]
+        style = figure_options.style
         with plt.style.context(styles[style]), set_style(style):
-            fig, ax = create_figure(
-                input_record,
-                tracks,
-                level_index,
-                obj,
-                track_options,
-                grid_options,
-                figure_options,
-            )
-            if not object_visualize_options["save"]:
-                return
+            args = [input_record, tracks, level_index, obj, track_options]
+            args += [grid_options, figure_options]
+            fig, ax = figure_options.function(*args)
+
             grid_time = input_record.next_grid.time.values
             filename = f"{format_time(grid_time)}.png"
-            obj_name = object_visualize_options["name"]
-            filepath = output_directory / "visualize" / figure / obj_name / filename
+            figure_name = figure_options.name
+            filepath = output_directory / "visualize" / figure_name
+            filepath = filepath / obj / filename
             filepath.parent.mkdir(parents=True, exist_ok=True)
-            logger.debug(
-                f"Saving {figure} figure for {object_visualize_options['name']}."
-            )
+            logger.debug(f"Saving {figure_name} figure for {obj}.")
             fig.savefig(filepath, bbox_inches="tight")
             utils.reduce_color_depth(filepath)
             plt.close(fig)

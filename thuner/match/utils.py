@@ -14,7 +14,7 @@ def get_masks(object_tracks, object_options, matched=False, num_previous=1):
     """
     Get the appropriate current and next masks for matching and visualization.
     """
-    mask_type = matched * "_matched_" + "mask"
+    mask_type = matched * "matched_" + "mask"
     next_mask = getattr(object_tracks, f"next_{mask_type}")
     pre_masks = getattr(object_tracks, f"{mask_type}s")
     masks = [pre_masks[-i] for i in range(1, num_previous + 1)]

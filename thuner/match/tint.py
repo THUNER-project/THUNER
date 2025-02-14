@@ -32,7 +32,7 @@ import thuner.object.object as thuner_object
 import thuner.object.box as box
 from thuner.log import setup_logger
 import thuner.grid as grid
-import thuner.option as option
+
 
 logger = setup_logger(__name__)
 
@@ -443,7 +443,7 @@ def determine_case(
             case = 3
             corrected_flow = local_flow.astype(int)
     else:
-        if type(tracking_options) is option.track.MintOptions:
+        if tracking_options._name is "mint":
             # In the MINT method, we are typically matching large objects, and
             # center velocities (calculated from the displacement of object centers)
             # are often unreliable. We also want to use the local flow for object
@@ -461,7 +461,7 @@ def determine_case(
                 # Otherwise, trust the local flow.
                 case = 5
                 corrected_flow = local_flow.astype(int)
-        elif type(tracking_options) is option.track.TintOptions:
+        elif tracking_options._name is "tint":
             # In the TINT method, when the local flow velocity agrees with the center
             # velocity, average the local flow and displacement.
             case = 6

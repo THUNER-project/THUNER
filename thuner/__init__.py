@@ -22,12 +22,12 @@ convective weather events. For examples and instructions, see
 github.com/THUNER-project/THUNER. If you use this package in your research, consider 
 citing the following papers;
 
-Short et al. (2023), MWR, doi: 10.1175/MWR-D-22-0146.1
-Raut et al. (2021), JAMC, doi: 10.1175/JAMC-D-20-0119.1
-Fridlind et al. (2019), AMT, doi: 10.5194/amt-12-2979-2019
-Whitehall et al. (2015), Earth Sci. Inform., doi: 10.1007/s12145-014-0181-3
-Dixon and Wiener (1993), JTECH, doi: 10.1175/1520-0426(1993)010<0785:TTITAA>2.0.CO;2
-Leese et al. (1971), JAMC, doi: 10.1175/1520-0450(1971)010<0118:AATFOC>2.0.CO;2
+Short et al. (2023), doi: 10.1175/MWR-D-22-0146.1
+Raut et al. (2021), doi: 10.1175/JAMC-D-20-0119.1
+Fridlind et al. (2019), doi: 10.5194/amt-12-2979-2019
+Whitehall et al. (2015), doi: 10.1007/s12145-014-0181-3
+Dixon and Wiener (1993), doi: 10.1175/1520-0426(1993)010<0785:TTITAA>2.0.CO;2
+Leese et al. (1971), doi: 10.1175/1520-0450(1971)010<0118:AATFOC>2.0.CO;2
 """
 
 if "THUNER_QUIET" not in os.environ:

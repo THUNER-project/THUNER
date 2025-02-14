@@ -56,6 +56,12 @@ class TrackInputRecord(BaseInputRecord):
     boundary_masks: deque | None = None
     next_boundary_coordinates: xr.DataArray | xr.Dataset | None = None
     boundary_coodinates: deque | None = None
+    _desc = "Dictionaries descibing synthetic objects. See thuner.data.synthetic."
+    synthetic_objects: list[dict] | None = Field(None, description=_desc)
+    _desc = "Synthetic base dataset. See thuner.data.synthetic."
+    synthetic_base_dataset: xr.DataArray | xr.Dataset | None = Field(
+        None, description=_desc
+    )
 
     @model_validator(mode="after")
     def _initialize_deques(cls, values):

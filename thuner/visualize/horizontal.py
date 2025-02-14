@@ -552,11 +552,11 @@ def detected_mask(grid, mask, grid_options, figure_options, boundary_coordinates
     """Plot masks for a detected object."""
 
     extent, scale = get_extent(grid_options)
-    single_color = figure_options["single_color"]
-    if figure_options["template"] is None:
+    single_color = figure_options.single_color
+    if figure_options.template is None:
         fig, ax = detected_mask_template(grid, figure_options, extent)
-        figure_options["template"] = fig
-    fig = copy.deepcopy(figure_options["template"])
+        figure_options.template = fig
+    fig = copy.deepcopy(figure_options.template)
     ax = fig.axes[0]
     if grid is not None:
         pcm = show_grid(grid, ax, grid_options, add_colorbar=False)
@@ -616,13 +616,13 @@ def grouped_mask(
     """Plot masks for a grouped object."""
 
     extent, scale = get_extent(grid_options)
-    single_color = figure_options["single_color"]
+    single_color = figure_options.single_color
 
-    if figure_options["template"] is None:
+    if figure_options.template is None:
         args = [grid, extent, member_objects, scale]
-        figure_options["template"] = grouped_mask_template(*args)
+        figure_options.template = grouped_mask_template(*args)
 
-    template = copy.deepcopy(figure_options["template"])
+    template = copy.deepcopy(figure_options.template)
     [fig, subplot_axes, colorbar_axes, legend_axes, layout] = template
     pcm = None
     colorbar_label = None

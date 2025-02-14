@@ -6,6 +6,7 @@ the points within the background and convective radii using the Haversine distan
 Note these radii are at most 11 km, so Haversine is accurate enough.
 """
 
+import inspect
 import numpy as np
 from thuner.log import setup_logger
 from numba import int32, float32, njit
@@ -41,6 +42,26 @@ def conditional_jit(*jit_args, use_numba=True, **jit_kwargs):
     return decorator
 
 
+def logging_jit(func):
+    """
+    A decorator that logs a message before a function is compiled with Numba. This
+    decorator should only be applied to the outermost function in a call stack that is
+    being compiled with Numba.
+    """
+
+    def inner(*args, **kwargs):
+        if getattr(func, "signatures", None) == []:
+            module = inspect.getmodule(func)
+            message = f"Compiling {module.__name__}.{func.__name__} with Numba."
+            message += " Please wait."
+            logger.info(message)
+        result = func(*args, **kwargs)
+        return result
+
+    return inner
+
+
+@logging_jit
 @conditional_jit(use_numba=use_numba)
 def steiner_scheme(
     reflectivity,
