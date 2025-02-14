@@ -6,7 +6,6 @@
 
 module load parallel
 DIR=/scratch/w40/esh563/THUNER_output/input_data/raw/d841006/volumes
-days=$(ls $DIR/$year)
 
 create_tar() {
     day=$1
@@ -16,4 +15,4 @@ create_tar() {
 }
 export -f create_tar
 
-echo $days | parallel -j 32 create_tar
+find $DIR/$year -mindepth 1 -maxdepth 1 -type d | parallel -j 32 create_tar
