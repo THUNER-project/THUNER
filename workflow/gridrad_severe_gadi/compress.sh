@@ -5,4 +5,11 @@
 #PBS -P v46
 
 DIR=/scratch/w40/esh563/THUNER_output/input_data/raw/d841006/volumes
-tar -czvf ${DIR}/${year}.tar.gz -C $DIR ${DIR}/${year}
+days=$(ls $DIR/$year)
+
+create_tar() {
+    day=$1
+    tar -czvf ${DIR}/${year}/${day}.tar.gz -C $DIR/${year} ${DIR}/${year}/${day}
+}
+
+echo $days | parallel -j 32 create_tar {}

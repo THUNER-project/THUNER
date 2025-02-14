@@ -238,7 +238,7 @@ class ProfileCenter(AttributeGroup):
         RelativeHumidity(),
     ]
     retrieval: Retrieval = Retrieval(
-        function=from_centers,
+        function=from_masks,
         keyword_arguments={
             "center_type": "area_weighted",
             "time_offsets": [-120, -60, 0],
