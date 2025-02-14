@@ -1,138 +1,87 @@
-"""Test synthetic data generation and tracking."""
-
 from pathlib import Path
 import shutil
-import os
 import numpy as np
 import thuner.data as data
-import thuner.data.dispatch as dispatch
-import thuner.grid as grid
+import thuner.option.default as default
 import thuner.track.track as track
-import thuner.visualize as visualize
+import thuner.option as option
 import thuner.data.synthetic as synthetic
 
-# Suppress the "wayland" plugin warning
-os.environ["QT_QPA_PLATFORM"] = "offscreen"
+notebook_name = "synthetic_demo.ipynb"
 
+# Parent directory for saving outputs
+base_local = Path.home() / "THUNER_output"
+start = "2005-11-13T00:00:00"
+end = "2005-11-13T02:00:00"
 
-def test_synthetic():
-    # Parent directory for saving outputs
-    base_local = Path.home() / "THUNER_output"
-    start = "2005-11-13T00:00:00"
-    end = "2005-11-13T01:00:00"
+output_parent = base_local / "runs/synthetic/geographic"
+if output_parent.exists():
+    shutil.rmtree(output_parent)
+options_directory = output_parent / "options"
+options_directory.mkdir(parents=True, exist_ok=True)
 
-    output_directory = base_local / "runs/synthetic_demo_geographic"
-    if output_directory.exists():
-        shutil.rmtree(output_directory)
-    options_directory = output_directory / "options"
+# Create a grid
+lat = np.arange(-14, -6 + 0.025, 0.025).tolist()
+lon = np.arange(128, 136 + 0.025, 0.025).tolist()
+grid_options = option.grid.GridOptions(name="geographic", latitude=lat, longitude=lon)
+grid_options.to_yaml(options_directory / "grid.yml")
 
-    # Create a grid
-    lat = np.arange(-14.0, -10.0 + 0.025 / 2, 0.025).round(3).tolist()
-    lon = np.arange(129.0, 133.0 + 0.025 / 2, 0.025).round(3).tolist()
-    grid_options = grid.create_options(name="geographic", latitude=lat, longitude=lon)
-    grid.check_options(grid_options)
-    grid.save_grid_options(grid_options, options_directory)
-
-    # Initialize synthetic objects
-    synthetic_object = synthetic.create_object(
+# Initialize synthetic objects
+starting_objects = []
+for i in range(5):
+    obj = synthetic.create_object(
         time=start,
         center_latitude=np.mean(lat),
-        center_longitude=np.mean(lon),
-        direction=np.pi / 2,
-        speed=10,
+        center_longitude=lon[(i + 1) * len(lon) // 6],
+        direction=-np.pi / 4 + i * np.pi / 6,
+        speed=30 - 4 * i,
+        horizontal_radius=5 + 4 * i,
     )
-    starting_objects = [synthetic_object]
-    # Create data options dictionary
-    synthetic_options = synthetic.synthetic_data_options(
-        starting_objects=starting_objects
-    )
+    starting_objects.append(obj)
+# Create data options dictionary
+synthetic_options = data.synthetic.SyntheticOptions(starting_objects=starting_objects)
+data_options = option.data.DataOptions(datasets=[synthetic_options])
+data_options.to_yaml(options_directory / "data.yml")
 
-    # Restrict the ERA5 data to a smaller region containing the CPOL radar
-    era5_pl_options = data.era5.data_options(
-        start=start,
-        end=end,
-        latitude_range=[lat[0], lat[-1]],
-        longitude_range=[lon[0], lon[-1]],
-    )
-    era5_sl_options = data.era5.data_options(
-        start=start,
-        end=end,
-        data_format="single-levels",
-        latitude_range=[lat[0], lat[-1]],
-        longitude_range=[lon[0], lon[-1]],
-    )
+track_options = default.synthetic_track()
+track_options.to_yaml(options_directory / "track.yml")
 
-    data_options = track.consolidate_options(
-        [synthetic_options, era5_pl_options, era5_sl_options]
-    )
-    dispatch.check_data_options(data_options)
-    data.data.save_data_options(data_options, options_directory)
+# Create the display_options dictionary
+visualize_options = default.synthetic_runtime(options_directory / "visualize.yml")
+visualize_options.to_yaml(options_directory / "visualize.yml")
 
-    # Create the track_options dictionary
-    track_options = track.synthetic_track()
-    track_options.to_yaml(options_directory / "track.yml")
+times = np.arange(
+    np.datetime64(start),
+    np.datetime64(end) + np.timedelta64(10, "m"),
+    np.timedelta64(10, "m"),
+)
+args = [times, data_options, grid_options, track_options, visualize_options]
+track.track(*args, output_directory=output_parent)
 
-    # Create the display_options dictionary
-    visualize_options = {
-        "cell": visualize.option.runtime_options(
-            "cell", save=True, style="presentation"
-        )
-    }
-    visualize.option.save_display_options(visualize_options, options_directory)
+central_latitude = -10
+central_longitude = 132
 
-    times = np.arange(
-        np.datetime64(start),
-        np.datetime64(end) + np.timedelta64(10, "m"),
-        +np.timedelta64(10, "m"),
-    )
-    track.track(
-        times,
-        data_options,
-        grid_options,
-        track_options,
-        visualize_options,
-        output_directory=output_directory,
-    )
+y = np.arange(-400e3, 400e3 + 2.5e3, 2.5e3).tolist()
+x = np.arange(-400e3, 400e3 + 2.5e3, 2.5e3).tolist()
 
-    # Test cartesian grid tracking
-    output_directory = base_local / "runs/synthetic_demo_cartesian"
-    if output_directory.exists():
-        shutil.rmtree(output_directory)
-    options_directory = output_directory / "options"
+grid_options = option.grid.GridOptions(
+    name="cartesian",
+    x=x,
+    y=y,
+    central_latitude=central_latitude,
+    central_longitude=central_longitude,
+)
+grid_options.to_yaml(options_directory / "grid.yml")
 
-    central_latitude = -10
-    central_longitude = 132
+output_parent = base_local / "runs/synthetic/cartesian"
+if output_parent.exists():
+    shutil.rmtree(output_parent)
 
-    y = np.arange(-400e3, 400e3 + 2.5e3, 2.5e3).tolist()
-    x = np.arange(-400e3, 400e3 + 2.5e3, 2.5e3).tolist()
+times = np.arange(
+    np.datetime64(start),
+    np.datetime64(end) + np.timedelta64(10, "m"),
+    +np.timedelta64(10, "m"),
+)
 
-    grid_options = grid.create_options(
-        name="cartesian",
-        x=x,
-        y=y,
-        central_latitude=central_latitude,
-        central_longitude=central_longitude,
-    )
-    grid.check_options(grid_options)
-    grid.save_grid_options(grid_options, options_directory)
-    track_options = track.synthetic_track()
-    track_options.to_yaml(options_directory / "track.yml")
-    data.data.save_data_options(data_options, options_directory)
-
-    times = np.arange(
-        np.datetime64(start),
-        np.datetime64(end) + np.timedelta64(10, "m"),
-        +np.timedelta64(10, "m"),
-    )
-    track.track(
-        times,
-        data_options,
-        grid_options,
-        track_options,
-        visualize_options,
-        output_directory=output_directory,
-    )
-
-
-if __name__ == "__main__":
-    test_synthetic()
+args = [times, data_options, grid_options, track_options, visualize_options]
+track.track(*args, output_directory=output_parent)

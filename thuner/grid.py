@@ -5,7 +5,6 @@ from pyproj import Geod, Proj, Transformer
 from thuner.utils import almost_equal, pad
 from thuner.log import setup_logger
 
-
 logger = setup_logger(__name__)
 
 grid_name_message = "Grid name must be 'cartesian' or 'geographic'."

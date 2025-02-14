@@ -1,11 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[8]:
-
-
-get_ipython().run_line_magic("load_ext", "autoreload")
-get_ipython().run_line_magic("autoreload", "2")
 from pathlib import Path
 import shutil
 import numpy as np
@@ -16,10 +8,6 @@ import thuner.option as option
 import thuner.data.synthetic as synthetic
 
 notebook_name = "synthetic_demo.ipynb"
-
-
-# In[10]:
-
 
 # Parent directory for saving outputs
 base_local = Path.home() / "THUNER_output"
@@ -62,10 +50,6 @@ track_options.to_yaml(options_directory / "track.yml")
 visualize_options = default.synthetic_runtime(options_directory / "visualize.yml")
 visualize_options.to_yaml(options_directory / "visualize.yml")
 
-
-# In[11]:
-
-
 times = np.arange(
     np.datetime64(start),
     np.datetime64(end) + np.timedelta64(10, "m"),
@@ -73,10 +57,6 @@ times = np.arange(
 )
 args = [times, data_options, grid_options, track_options, visualize_options]
 track.track(*args, output_directory=output_parent)
-
-
-# In[5]:
-
 
 central_latitude = -10
 central_longitude = 132
@@ -92,10 +72,6 @@ grid_options = option.grid.GridOptions(
     central_longitude=central_longitude,
 )
 grid_options.to_yaml(options_directory / "grid.yml")
-
-
-# In[7]:
-
 
 output_parent = base_local / "runs/synthetic/cartesian"
 if output_parent.exists():
