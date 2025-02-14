@@ -12,6 +12,9 @@ import thuner.option.default as default
 
 notebook_name = "cpol_demo.ipynb"
 
+# asdfasdfasdfasdf#
+# asdfasdfasdf
+
 # Parent directory for saving outputs
 base_local = Path.home() / "THUNER_output"
 start = "2005-11-13T18:00:00"
