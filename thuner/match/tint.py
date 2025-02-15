@@ -119,10 +119,12 @@ def get_costs_data(object_tracks, object_options, grid_options):
         # Get the corrected flow
         args = [flow_box, flow, current_center, displacement, global_flow, grid_options]
         args += [object_tracks, object_options]
+        logger.debug(f"Correcting flow for object {current_id}.")
         corrected_flow, case = correct_local_flow(*args)
         corrected_flows.append(corrected_flow)
         cases.append(case)
         # Get the search box, objects in search box, and evaluate cost function
+        logger.debug(f"Getting search box for object {current_id}.")
         int_corrected_flow = np.ceil(corrected_flow).astype(int)
         search_box = box.get_search_box(
             bounding_box, int_corrected_flow, search_margin, grid_options
@@ -225,6 +227,7 @@ def get_matches(object_tracks, object_options, grid_options):
     bad matches. Bad matches have a cost greater than the maximum
     cost."""
 
+    logger.debug("Getting tint matches.")
     max_cost = object_options.tracking.max_cost
     costs_data = get_costs_data(object_tracks, object_options, grid_options)
     costs_matrix = costs_data["costs_matrix"]
@@ -311,6 +314,7 @@ def correct_local_flow(
 ):
     """Correct the local flow vector."""
 
+    logger.debug("Correcting local flow.")
     next_time_interval = object_tracks.next_time_interval
     previous_time_interval = object_tracks.previous_time_interval
     flow_box_center = box.get_center(flow_box)
@@ -385,9 +389,7 @@ def determine_case(
         and np.sqrt((center_velocity**2).sum()) > max_velocity_mag
     )
     if bad_global and not bad_local:
-        logger.debug(
-            "Bad global flow. " "Setting global to local while correcting local flow."
-        )
+        logger.debug("Bad global flow. Setting global to local while correcting.")
         global_flow = local_flow
         global_flow_velocity = local_flow_velocity
     elif (
@@ -396,20 +398,18 @@ def determine_case(
         and not bad_center_velocity
         and center_velocity is not None
     ):
-        logger.debug(
-            "Bad global and local flow. "
-            "Setting both to center while correcting local flow."
-        )
+        message = "Bad global and local flow. "
+        message += "Setting global to center while correcting."
+        logger.debug(message)
         global_flow = displacement
         global_flow_velocity = center_velocity
         local_flow = displacement
         local_flow_velocity = center_velocity
     elif bad_local and bad_global and (bad_center_velocity or center_velocity is None):
-        logger.debug(
-            "Bad local, global, and center velocities. "
-            "Setting local and global to zero, and center to None, "
-            "while correcting local flow."
-        )
+        message = "Bad local, global, and center velocities. "
+        message += "Setting local and global to zero, and center to None, "
+        message += "while correcting local flow."
+        logger.debug(message)
         global_flow = np.array([0, 0])
         global_flow_velocity = np.array([0, 0])
         local_flow = np.array([0, 0])
@@ -443,7 +443,8 @@ def determine_case(
             case = 3
             corrected_flow = local_flow.astype(int)
     else:
-        if tracking_options._name is "mint":
+        if tracking_options.name == "mint":
+            logger.debug("Using mint method.")
             # In the MINT method, we are typically matching large objects, and
             # center velocities (calculated from the displacement of object centers)
             # are often unreliable. We also want to use the local flow for object
@@ -461,7 +462,9 @@ def determine_case(
                 # Otherwise, trust the local flow.
                 case = 5
                 corrected_flow = local_flow.astype(int)
-        elif tracking_options._name is "tint":
+        elif tracking_options.name == "tint":
+            logger.debug("Using tint method.")
+
             # In the TINT method, when the local flow velocity agrees with the center
             # velocity, average the local flow and displacement.
             case = 6

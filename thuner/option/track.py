@@ -28,7 +28,7 @@ class TintOptions(BaseOptions):
     Options for the TINT tracking algorithm. See the following publications
     """
 
-    _name: str = "tint"
+    name: str = "tint"
     search_margin: float = Field(10, description=_summary["search_margin"], gt=0)
     local_flow_margin: float = Field(
         10, description=_summary["local_flow_margin"], gt=0
@@ -53,7 +53,7 @@ class MintOptions(TintOptions):
     Options for the MINT tracking algorithm.
     """
 
-    _name: str = "mint"
+    name: str = "mint"
     search_margin: int = Field(25, description=_summary["search_margin"], gt=0)
     local_flow_margin: int = Field(35, description=_summary["local_flow_margin"], gt=0)
     max_velocity_diff_alt: int = Field(

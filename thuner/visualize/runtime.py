@@ -263,11 +263,10 @@ def visualize(
     # Close all current figures
     plt.close("all")
 
-    object_options = track_options.levels[level_index].options_by_name(obj)
-    object_runtime_options = runtime_options.objects.get(object_options.name)
-
-    if not runtime_options or not object_runtime_options:
+    if not runtime_options or not runtime_options.objects.get(obj):
         return
+    object_options = track_options.levels[level_index].options_by_name(obj)
+    object_runtime_options = runtime_options.objects.get(obj)
     input_record = track_input_records[object_options.dataset]
     logger.info("Creating runtime visualization figures.")
     for figure_options in object_runtime_options.figures:

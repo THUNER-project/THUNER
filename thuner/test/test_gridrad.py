@@ -19,16 +19,16 @@ year = 2010
 event_directories = data.gridrad.get_event_directories(year, base_local=base_local)
 event_directory = event_directories[0]
 start, end, event_start = data.gridrad.get_event_times(event_directory)
-start = "2010-01-20T22:00:00"
-end = "2010-01-21T01:00:00"
+start = "2010-01-20T21:00:00"
+end = "2010-01-21T03:30:00"
 
 period = parallel.get_period(start, end)
 intervals = parallel.get_time_intervals(start, end, period=period)
 
 output_parent = base_local / f"runs/gridrad_demo"
 
-# if output_parent.exists():
-# shutil.rmtree(output_parent)
+if output_parent.exists():
+    shutil.rmtree(output_parent)
 options_directory = output_parent / "options"
 
 # Create and save the dataset options
@@ -55,17 +55,14 @@ track_options = default.track(dataset="gridrad")
 # global flow box for each object.
 track_options.levels[1].objects[0].tracking.global_flow_margin = 70
 track_options.levels[1].objects[0].tracking.unique_global_flow = False
-# If testing, remove the profile and tag attributes
-# track_options.levels[1].objects[0].attributes["mcs"].pop("profile")
-# track_options.levels[1].objects[0].attributes["mcs"].pop("tag")
 track_options.to_yaml(options_directory / "track.yml")
 
 visualize_options = None
 
 times = data.utils.generate_times(data_options.dataset_by_name("gridrad"))
 args = [times, data_options, grid_options, track_options, visualize_options]
-# parallel.track(*args, output_directory=output_parent)
-track.track(*args, output_directory=output_parent)
+parallel.track(*args, output_directory=output_parent, dataset_name="gridrad")
+# track.track(*args, output_directory=output_parent)
 
 analysis_options = analyze.mcs.AnalysisOptions()
 analyze.mcs.process_velocities(output_parent, profile_dataset="era5_pl")
@@ -73,8 +70,9 @@ analyze.mcs.quality_control(output_parent, analysis_options)
 # analyze.mcs.classify_all(output_parent, analysis_options)
 
 figure_name = f"mcs_gridrad_{event_start.replace('-', '')}"
-kwargs = {"style": "presentation", "attributes": ["velocity", "offset", "ambient"]}
-figure_options = visualize.option.horizontal_attribute_options(figure_name, **kwargs)
+kwargs = {"style": "presentation", "attributes": ["velocity", "offset"]}
+figure_options = option.visualize.HorizontalAttributeOptions(name=figure_name, **kwargs)
+
 start_time = np.datetime64(start)
 end_time = np.datetime64(end)
 args = [output_parent, start_time, end_time, figure_options]

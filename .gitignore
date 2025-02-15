@@ -13,7 +13,7 @@ thuner/test/runtime_visualization
 thuner/options
 dist
 kitchen_sink
-.coverage
+.coverage*
 htmlcov
 .pre-commit-config.yaml
 .readthedocs.yml

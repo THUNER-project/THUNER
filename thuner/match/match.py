@@ -43,6 +43,7 @@ def match(object_tracks, object_options, grid_options):
         reset_match_record()
         return
 
+    logger.debug("Getting matches.")
     match_data = tint.get_matches(object_tracks, object_options, grid_options)
     # Get the ids from the previous mask, i.e. the current mask of
     # the last matching iteration, to see whether objects detected in the current

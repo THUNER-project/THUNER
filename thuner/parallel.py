@@ -47,6 +47,7 @@ def track(
     output_directory=None,
     num_processes=4,
     cleanup=True,
+    dataset_name="gridrad",
 ):
     if num_processes > os.cpu_count():
         raise ValueError("Number of processes cannot exceed number of cpus.")
@@ -63,6 +64,7 @@ def track(
     if visualize_options is not None:
         message = "Runtime visualizations are not supported during parallel tracking."
         message += " Setting visualize_options to None."
+        visualize_options = None
         logger.warning(message)
 
     times = list(times)
@@ -79,7 +81,7 @@ def track(
             args += [grid_options.model_copy(deep=True)]
             args += [track_options.model_copy(deep=True)]
             args += [None, output_directory]
-            args += ["gridrad"]
+            args += [dataset_name]
             args = tuple(args)
             results.append(pool.apply_async(track_interval, args))
         pool.close()
@@ -108,7 +110,7 @@ def track_interval(
     options_directory = output_directory / "options"
     options_directory.mkdir(parents=True, exist_ok=True)
     data_options = data_options.model_copy(deep=True)
-    grid_options = grid_options.copy()
+    grid_options = grid_options.model_copy(deep=True)
     track_options = track_options.model_copy(deep=True)
     if visualize_options is not None:
         visualize_options = None

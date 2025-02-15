@@ -12,9 +12,6 @@ import thuner.option.default as default
 
 notebook_name = "cpol_demo.ipynb"
 
-# asdfasdfasdfasdf#
-# asdfasdfasdf
-
 # Parent directory for saving outputs
 base_local = Path.home() / "THUNER_output"
 start = "2005-11-13T18:00:00"
@@ -55,20 +52,14 @@ args = [times, data_options, grid_options, track_options, visualize_options]
 # parallel.track(*args, output_directory=output_parent)
 track.track(*args, output_directory=output_parent)
 
-# # Cartesian Coordinates
-
-output_directory = base_local / "runs/cpol/cpol_demo_cartesian"
-options_directory = output_directory / "options"
+output_parent = base_local / "runs/cpol/cartesian"
+options_directory = output_parent / "options"
 options_directory.mkdir(parents=True, exist_ok=True)
 
-if output_directory.exists():
-    shutil.rmtree(output_directory)
+if output_parent.exists():
+    shutil.rmtree(output_parent)
 
-# grid_options = grid.create_options(name="cartesian", regrid=False, altitude=altitude)
-# grid.check_options(grid_options)
-# grid.save_grid_options(grid_options, options_directory)
-
-grid_options = grid.GridOptions(name="cartesian", regrid=False)
+grid_options = option.grid.GridOptions(name="cartesian", regrid=False)
 grid_options.to_yaml(options_directory / "grid.yml")
 data_options.to_yaml(options_directory / "data.yml")
 track_options.to_yaml(options_directory / "track.yml")
@@ -76,23 +67,15 @@ track_options.to_yaml(options_directory / "track.yml")
 # visualize.option.save_display_options(visualize_options, options_directory)
 
 times = data.utils.generate_times(data_options.dataset_by_name("cpol"))
-tracks = track.track(
-    times,
-    data_options,
-    grid_options,
-    track_options,
-    visualize_options,
-    output_directory=output_directory,
-)
-
-# # Analysis
+args = [times, data_options, grid_options, track_options, visualize_options]
+track.track(*args, output_directory=output_parent)
 
 analysis_options = analyze.mcs.AnalysisOptions()
 analysis_options.to_yaml(options_directory / "analysis.yml")
 # utils.save_options(analysis_options, filename="analysis", options_directory=output_directory / "options")
-analyze.mcs.process_velocities(output_directory)
-analyze.mcs.quality_control(output_directory, analysis_options)
-analyze.mcs.classify_all(output_directory, analysis_options)
+analyze.mcs.process_velocities(output_parent)
+analyze.mcs.quality_control(output_parent, analysis_options)
+analyze.mcs.classify_all(output_parent, analysis_options)
 
 figure_options = visualize.option.horizontal_attribute_options(
     "cpol_20051113", style="presentation", attributes=["velocity", "offset"]

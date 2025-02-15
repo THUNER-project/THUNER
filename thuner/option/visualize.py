@@ -29,8 +29,8 @@ class VisualizeOptions(BaseOptions):
 class FigureOptions(BaseOptions):
     """Base class for figure options."""
 
-    _name = "The base name of the figure."
-    name: str = Field(..., description=_name)
+    _desc = "The base name of the figure."
+    name: str = Field(..., description=_desc)
     _desc = "The function used to generate the figure."
     function: Callable | str | None = Field(..., description=_desc)
     _desc = "The style of the figure."
@@ -71,86 +71,59 @@ class RuntimeOptions(BaseOptions):
     objects: dict[str, ObjectRuntimeOptions] = Field({}, description=_desc)
 
 
-# def runtime_options(
-#     name,
-#     save=False,
-#     parent_local=None,
-#     figure_types=["mask", "match"],
-#     style="paper",
-#     animate=True,
-#     single_color=False,
-#     template=None,
-# ):
-#     """
-#     Generate dataset display dictionary.
+class HorizontalAttributeOptions(VisualizeOptions):
+    """Class for horizontal attribute visualization options."""
 
-#     Parameters
-#     ----------
-#     object : str
-#         The name of the object.
-#     save : bool, optional
-#         Whether to save the raw data locally; default is False.
-#     parent_local : str, optional
-#         The local parent directory; default is None.
-
-#     Returns
-#     -------
-#     options : dict
-#         Dictionary containing the display options.
-#     """
-
-#     figures = {
-#         fig_type: {
-#             "style": style,
-#             "animate": animate,
-#             "single_color": single_color,
-#             "template": template,
-#         }
-#         for fig_type in figure_types
-#     }
-
-#     options = {
-#         **boilerplate_options(name, save, parent_local),
-#         "figures": figures,
-#         "single_color": single_color,
-#         "template": template,
-#     }
-
-#     return options
+    _desc = "The base name of the figure."
+    name: str = Field(..., description=_desc)
+    _desc = "The attributes to display."
+    attributes: list[str] = Field(
+        ["ambient", "relative_velocity", "velocity", "offset"], description=_desc
+    )
+    _desc = "Whether to perform quality control."
+    quality_control: bool = Field(True, description=_desc)
+    _desc = "The fields to display."
+    fields: list[str] = Field(["reflectivity"], description=_desc)
+    _desc = "The extent of the figure."
+    extent: list[float] | None = Field(None, description=_desc)
+    _desc = "The template for the figure. This is typically created during runtime."
+    template: Any = Field(None, description=_desc)
+    _desc = "Whether to use a single color for the object masks."
+    single_color: bool = Field(False, description=_desc)
 
 
-# def horizontal_attribute_options(
-#     name,
-#     save=True,
-#     parent_local=None,
-#     attributes=None,
-#     quality_control=True,
-#     fields=None,
-#     extent=None,
-#     template=None,
-#     single_color=False,
-#     style="paper",
-# ):
-#     """Default options for horizontal attribute visualization."""
+def horizontal_attribute_options(
+    name,
+    save=True,
+    parent_local=None,
+    attributes=None,
+    quality_control=True,
+    fields=None,
+    extent=None,
+    template=None,
+    single_color=False,
+    style="paper",
+):
+    """Default options for horizontal attribute visualization."""
 
-#     # Set the default object attributes to display
-#     if attributes is None:
-#         attributes = ["ambient", "relative_velocity", "velocity", "offset"]
-#     # Set the default dataset fields to display
-#     if fields is None:
-#         fields = ["reflectivity"]
+    # Set the default object attributes to display
+    if attributes is None:
+        attributes = ["ambient", "relative_velocity", "velocity", "offset"]
+    # Set the default dataset fields to display
+    if fields is None:
+        fields = ["reflectivity"]
 
-#     options = {
-#         **boilerplate_options(name, save, parent_local),
-#         "attributes": attributes,
-#         "quality_control": quality_control,
-#         "fields": fields,
-#         "extent": extent,
-#         "template": template,
-#         "style": style,
-#         "single_color": single_color,
-#     }
-#     return options
+    options = {
+        **boilerplate_options(name, save, parent_local),
+        "attributes": attributes,
+        "quality_control": quality_control,
+        "fields": fields,
+        "extent": extent,
+        "template": template,
+        "style": style,
+        "single_color": single_color,
+    }
+    return options
 
 
 # def save_display_options(
