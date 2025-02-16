@@ -75,18 +75,14 @@ analysis_options.to_yaml(options_directory / "analysis.yml")
 # utils.save_options(analysis_options, filename="analysis", options_directory=output_directory / "options")
 analyze.mcs.process_velocities(output_parent)
 analyze.mcs.quality_control(output_parent, analysis_options)
-analyze.mcs.classify_all(output_parent, analysis_options)
+# analyze.mcs.classify_all(output_parent, analysis_options)
 
-figure_options = visualize.option.horizontal_attribute_options(
-    "cpol_20051113", style="presentation", attributes=["velocity", "offset"]
-)
-start_time = np.datetime64("2005-11-13T18:00")
-end_time = np.datetime64("2005-11-13T19:50")
-visualize.attribute.mcs_series(
-    output_directory,
-    start_time,
-    end_time,
-    figure_options,
-    parallel_figure=True,
-    by_date=False,
-)
+figure_name = "mcs_attributes"
+kwargs = {"style": "presentation", "attributes": ["velocity", "offset"]}
+figure_options = option.visualize.HorizontalAttributeOptions(name=figure_name, **kwargs)
+
+start_time = np.datetime64(start)
+end_time = np.datetime64(end)
+args = [output_parent, start_time, end_time, figure_options]
+args_dict = {"parallel_figure": True, "by_date": False, "num_processes": 4}
+visualize.attribute.mcs_series(*args, **args_dict)
