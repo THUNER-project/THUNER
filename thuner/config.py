@@ -52,7 +52,11 @@ def set_outputs_directory(outputs_directory):
     Path(outputs_directory).mkdir(parents=True, exist_ok=True)
 
     config_path = get_config_path()
-    config = read_config(config_path)
+    try:
+        config = read_config(config_path)
+    except FileNotFoundError:
+        create_user_config(outputs_directory)
+        config = read_config(config_path)
     config["outputs_directory"] = str(outputs_directory)
     write_config(config)
 

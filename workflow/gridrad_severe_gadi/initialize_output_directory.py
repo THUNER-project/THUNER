@@ -1,5 +1,4 @@
 import os
-from pathlib import Path
 import thuner.config as config
 
 if __name__ == "__main__":
