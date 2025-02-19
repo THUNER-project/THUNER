@@ -1,5 +1,6 @@
 """General utilities for object attributes."""
 
+from pydantic import ValidationError
 import yaml
 from pathlib import Path
 import pandas as pd
@@ -240,6 +241,8 @@ def read_attribute_csv(filepath, attribute_type=None, columns=None, times=None):
             data_types = get_data_type_dict(attribute_type)
         except FileNotFoundError:
             logger.warning("No metadata file found for %s.", filepath)
+        except ValidationError:
+            logger.warning("Invalid metadata file found for %s.", filepath)
 
     if attribute_type is None:
         message = "No metadata; loading entire dataframe and data types not enforced."
