@@ -36,6 +36,7 @@ def get_config_path():
 
 
 def read_config(config_path):
+    config_path = Path(config_path)
     if config_path.exists():
         with config_path.open() as f:
             config = json.load(f)
