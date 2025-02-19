@@ -16,5 +16,4 @@ kitchen_sink
 .coverage*
 htmlcov
 .pre-commit-config.yaml
-.readthedocs.yml
 conda_init_out.out
