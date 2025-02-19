@@ -20,14 +20,14 @@ or conda
 Creating recipes
 ----------------
 
-The core tracking function is ``thuner.track.track()``:
+The core tracking function is ``thuner.track.track.track()``:
 
-.. autofunction:: thuner.track.track
+.. autofunction:: thuner.track.track.track
 
 This function takes a series of options objects as input.
 
 For example:
 
 >>> import thuner
->>> thuner.track.track()
+>>> thuner.track.track.track()
 
