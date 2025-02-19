@@ -2,7 +2,7 @@
 
 # -- Project information
 
-project = "THUNER-project"
+project = "THUNER"
 copyright = "2025, THUNER-project"
 author = "Ewan Short"
 
