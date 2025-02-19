@@ -1,3 +1,4 @@
 # Python dependencies
 sphinx
 docutils
+sphinx-rtd-theme
