@@ -13,12 +13,13 @@ To use THUNER, first install it using pip
    (THUNER) $ pip install thuner
 
 or conda
+
 .. code-block:: console
 
    (THUNER) $ conda install thuner
 
-Creating recipes
-----------------
+Tracking
+--------
 
 The core tracking function is ``thuner.track.track.track()``:
 

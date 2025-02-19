@@ -4,9 +4,6 @@
 THUNER - Thunderstorm Hierachical Object Reconoitrer
 -------------------------------------------------------
 
-**THUNER** 
-
-
 Welcome to THUNER's documentation!
 ===================================
 
