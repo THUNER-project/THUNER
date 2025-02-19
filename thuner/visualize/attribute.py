@@ -1,6 +1,7 @@
 """Functions for visualizing object attributes and classifications."""
 
 import gc
+from pathlib import Path
 from time import sleep
 import multiprocessing
 import numpy as np
@@ -49,7 +50,7 @@ def get_altitude_labels(track_options, mcs_name="mcs", mcs_level=1):
 
 
 def mcs_series(
-    output_directory,
+    output_directory: str | Path,
     start_time,
     end_time,
     figure_options,

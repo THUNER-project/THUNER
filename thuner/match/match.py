@@ -11,6 +11,7 @@ logger = setup_logger(__name__)
 
 
 def initialise_match_records(object_tracks, object_options):
+    """Initialise the match records dictionary for the object tracks."""
     object_tracks.next_matched_mask = None
     deque_length = object_options.deque_length
     object_tracks.matched_masks = deque([None] * deque_length, maxlen=deque_length)

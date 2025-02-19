@@ -2,6 +2,9 @@
 
 import shutil
 import copy
+from typing import Iterable
+import numpy as np
+from pathlib import Path
 from thuner.log import setup_logger
 import thuner.data.dispatch as dispatch
 import thuner.detect.detect as detect
@@ -15,6 +18,7 @@ import thuner.attribute as attribute
 from thuner.option.data import DataOptions
 from thuner.option.grid import GridOptions
 from thuner.option.track import TrackOptions
+from thuner.option.visualize import VisualizeOptions
 from thuner.track.utils import InputRecords, Tracks
 
 logger = setup_logger(__name__)
@@ -29,33 +33,34 @@ def consolidate_options(data_options, grid_options, track_options, visualize_opt
 
 
 def track(
-    times,
+    times: Iterable[np.datetime64],
     data_options: DataOptions,
     grid_options: GridOptions,
     track_options: TrackOptions,
-    visualize_options=None,
-    output_directory=None,
+    visualize_options: VisualizeOptions = None,
+    output_directory: str | Path = None,
 ):
     """
-    Track objects across the hierachy simultaneously.
+    Track objects described in track_options, in the datasets described in
+    data_options, using the grid described in grid_options.
 
     Parameters
     ----------
-    filenames : list of str
-        List of filepaths to the netCDF files that need to be consolidated.
-    data_options : dict
-        Dictionary containing the data options.
-    grid_options : dict
-        Dictionary containing the grid options.
-    track_options : dict
-        Dictionary containing the track options.
-
-    Returns
-    -------
-    pandas.DataFrame
-        The pandas dataframe containing the object tracks.
-    xarray.Dataset
-        The xarray dataset containing the object masks.
+    times : Iterable[np.datetime64]
+        The times to track the objects.
+    data_options : DataOptions
+        The data options.
+    grid_options : GridOptions
+        The grid options.
+    track_options : TrackOptions
+        The track options.
+    visualize_options : VisualizeOptions, optional
+        The runtime visualization options for visualizing the tracking process.
+        Defaults to None.
+    output_directory : str | Path, optional
+        The directory in which to save the output. If None, use the output directory
+        specified in the THUNER config file. See thuner.config.get_outputs_directory.
+        Defaults to None.
     """
     logger.info("Beginning thuner tracking. Saving output to %s.", output_directory)
     tracks = Tracks(track_options=track_options)
