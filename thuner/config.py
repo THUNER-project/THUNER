@@ -71,6 +71,10 @@ def write_config(config):
 def get_outputs_directory():
     """Load the THUNER outputs directory from the configuration file."""
 
-    config_path = get_config_path()
-    config = read_config(config_path)
+    try:
+        config_path = get_config_path()
+        config = read_config(config_path)
+    except FileNotFoundError:
+        config_path = create_user_config()
+        config = read_config(config_path)
     return Path(config["outputs_directory"])
