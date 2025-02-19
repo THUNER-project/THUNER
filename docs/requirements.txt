@@ -23,7 +23,6 @@ arm_pyart
 tqdm
 cdsapi
 xesmf
-esmpy
 opencv-python
 tables
 memory_profiler
