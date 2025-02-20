@@ -1,3 +1,8 @@
+"""
+A package for detecting, tracking, and analyzing meteorological events in gridded 
+datasets.
+"""
+
 import sys
 import os
 import thuner.config as config
@@ -43,3 +48,6 @@ from . import parallel
 from . import option
 from . import default
 from . import track
+from . import data
+from . import analyze
+from . import visualize
