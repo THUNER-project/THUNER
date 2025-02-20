@@ -413,17 +413,17 @@ def call_ncks(input_filepath, output_filepath, start, end, lat_range, lon_range)
     """Call ncks to subset a large netcdf file."""
     # Read metadata using xr with lazy loading.
     ds = xr.open_dataset(input_filepath, chunks={})
+    # Check if time variable "time" or "valid_time". If "valid_time" convert to "time".
+    if "valid_time" in ds:
+        time_var = "valid_time"
+    else:
+        time_var = "time"
     # Ensure start and end times are within the dataset time range.
     time = ds[time_var].values
     if start < time[0]:
         start = time[0]
     if end > time[-1]:
         end = time[-1]
-    # Check if time variable "time" or "valid_time". If "valid_time" convert to "time".
-    if "valid_time" in ds:
-        time_var = "valid_time"
-    else:
-        time_var = "time"
 
     lon_range = [(lon + 180) % 360 - 180 for lon in lon_range]
     command = (
