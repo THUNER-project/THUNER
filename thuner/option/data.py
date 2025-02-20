@@ -25,6 +25,9 @@ AnyDatasetOptions = Union[
 ]
 
 
+__all__ = ["DataOptions"]
+
+
 class DataOptions(BaseOptions):
     """Class for managing the options for all the datasets of a given run."""
 
