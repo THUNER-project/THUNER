@@ -220,7 +220,10 @@ def recalculate_duration_check(dfs, analysis_options):
     # First get the duration of each object from the velocity dataframe
     dummy_df = pd.DataFrame(index=velocities.index)
     dummy_df.index.names = velocities.index.names
-    time_group = velocities.reset_index().groupby("universal_id")["time"]
+    times = velocities.reset_index()["time"].astype("datetime64[s]")
+
+    time_group = times.groupby("universal_id")
+
     duration = time_group.agg(lambda x: x.max() - x.min())
     duration_check = duration >= np.timedelta64(analysis_options.min_duration, "m")
 

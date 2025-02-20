@@ -60,7 +60,7 @@ def mcs_series(
     parallel_figure=False,
     dt=3600,
     by_date=True,
-    num_processes=6,
+    num_processes=4,
 ):
     """Visualize mcs attributes at specified times."""
     plt.close("all")

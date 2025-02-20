@@ -1,6 +1,6 @@
 #!/bin/bash
 #PBS -q normalbw
-#PBS -P w40
+#PBS -P v46
 #PBS -l ncpus=16
 #PBS -l mem=128GB
 #PBS -l jobfs=2GB
@@ -36,5 +36,5 @@ parallel_log="${LOG_DIR}/${year}_${start}_parallel.log"
 
 # Run multiple days concurrently with gnu-parallel
 # Approx 8 cores and 32GB per event
-parallel --jobs 4 --timeout 7200 --joblog ${parallel_log} \
+parallel --jobs 4 --timeout 14400 --joblog ${parallel_log} \
     "python3 ${SCRIPT_DIR}/gridrad.py {} > ${LOG_DIR}/thuner_${start}_{#}.out 2> ${LOG_DIR}/thuner_${start}_{#}.err" ::: "${directories_slice[@]}"

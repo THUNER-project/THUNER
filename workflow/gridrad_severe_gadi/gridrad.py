@@ -2,17 +2,15 @@
 
 import subprocess
 import argparse
-from multiprocessing import get_context
-import time
 from pathlib import Path
 import shutil
 import thuner.data as data
-import thuner.grid as grid
+import thuner.option.default as default
 import thuner.option as option
 import thuner.analyze as analyze
 import thuner.parallel as parallel
 import thuner.visualize as visualize
-from thuner.log import setup_logger, logging_listener
+from thuner.log import setup_logger
 import thuner.config as config
 
 logger = setup_logger(__name__)
@@ -22,9 +20,6 @@ def gridrad(start, end, event_start, base_local=None):
 
     if base_local is None:
         base_local = config.get_outputs_directory()
-
-    period = parallel.get_period(start, end)
-    intervals = parallel.get_time_intervals(start, end, period=period)
 
     event_start_str = event_start.replace("-", "")
     output_parent = base_local / f"runs/gridrad_severe/gridrad_{event_start_str}"
@@ -48,26 +43,23 @@ def gridrad(start, end, event_start, base_local=None):
     # Create and save the dataset options
     times_dict = {"start": start, "end": end}
     gridrad_dict = {"event_start": event_start, "parent_local": gridrad_parent}
-    gridrad_options = option.data.GridRadSevereOptions(**times_dict, **gridrad_dict)
+    gridrad_options = data.gridrad.GridRadSevereOptions(**times_dict, **gridrad_dict)
     era5_dict = {"data_format": "pressure-levels", "parent_local": era5_parent}
-    era5_pl_options = option.data.ERA5Options(**times_dict, parent_local=era5_parent)
+    era5_pl_options = data.era5.ERA5Options(**times_dict, parent_local=era5_parent)
     era5_dict["data_format"] = "single-levels"
-    era5_sl_options = option.data.ERA5Options(**times_dict, **era5_dict)
-    data_options = option.data.DataOptions(
-        datasets=[gridrad_options, era5_pl_options, era5_sl_options]
-    )
+    era5_sl_options = data.era5.ERA5Options(**times_dict, **era5_dict)
+    datasets = [gridrad_options, era5_pl_options, era5_sl_options]
+    data_options = option.data.DataOptions(datasets=datasets)
     data_options.to_yaml(options_directory / "data.yml")
-    gridrad_options = data_options.dataset_by_name("gridrad")
 
     # Create the grid_options dictionary
-    grid_options = grid.create_options(
-        name="geographic", regrid=False, altitude_spacing=None, geographic_spacing=None
-    )
-    grid.check_options(grid_options)
-    grid.save_grid_options(grid_options, options_directory=options_directory)
+    kwargs = {"name": "geographic", "regrid": False, "altitude_spacing": None}
+    kwargs.update({"geographic_spacing": None})
+    grid_options = option.grid.GridOptions(**kwargs)
+    grid_options.to_yaml(options_directory / "grid.yml")
 
     # Create the track_options dictionary
-    track_options = option.track.default_track_options(dataset="gridrad")
+    track_options = default.track(dataset="gridrad")
     track_options.levels[1].objects[0].tracking.global_flow_margin = 70
     track_options.levels[1].objects[0].tracking.unique_global_flow = False
     track_options.to_yaml(options_directory / "track.yml")
@@ -80,7 +72,8 @@ def gridrad(start, end, event_start, base_local=None):
     num_processes = 8
     times = data.utils.generate_times(data_options.dataset_by_name("gridrad"))
     args = [times, data_options, grid_options, track_options, visualize_options]
-    parallel.track(*args, output_directory=output_parent, num_processes=num_processes)
+    kwargs = {"output_directory": output_parent, "num_processes": num_processes}
+    parallel.track(*args, **kwargs)
 
     analysis_options = analyze.mcs.AnalysisOptions()
     analyze.mcs.process_velocities(output_parent)
@@ -88,9 +81,10 @@ def gridrad(start, end, event_start, base_local=None):
     analyze.mcs.classify_all(output_parent)
 
     figure_name = f"mcs_gridrad_{event_start.replace('-', '')}"
-    figure_options = visualize.option.horizontal_attribute_options(
-        figure_name, style="gadi", attributes=["velocity", "offset"]
-    )
+    kwargs = {"style": "gadi", "attributes": ["velocity", "offset"]}
+    kwargs.update({"name": figure_name})
+    figure_options = option.visualize.HorizontalAttributeOptions(**kwargs)
+
     args = [output_parent, start, end, figure_options]
     kwargs = {"parallel_figure": True, "dt": 7200, "by_date": False}
     # Halving the number of processes used for figure creation appears to be a good

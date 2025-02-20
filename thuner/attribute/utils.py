@@ -196,7 +196,11 @@ def read_metadata_yml(filepath):
     """Read metadata from a yml file."""
     with open(filepath, "r") as file:
         kwargs = yaml.safe_load(file)
-        attribute_type = AttributeType(**kwargs)
+        try:
+            attribute_type = AttributeType(**kwargs)
+        except ValidationError:
+            logger.warning("Invalid metadata file found for %s.", filepath)
+            attribute_type = None
     return attribute_type
 
 
@@ -242,6 +246,8 @@ def read_attribute_csv(filepath, attribute_type=None, columns=None, times=None):
         except FileNotFoundError:
             logger.warning("No metadata file found for %s.", filepath)
         except ValidationError:
+            logger.warning("Invalid metadata file found for %s.", filepath)
+        except AttributeError:
             logger.warning("Invalid metadata file found for %s.", filepath)
 
     if attribute_type is None:
