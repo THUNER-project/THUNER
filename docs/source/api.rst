@@ -4,14 +4,13 @@ API
 .. autosummary::
    :toctree: generated
 
+.. automodule:: thuner.track
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
-.. automodule:: thuner
-   ..rubric:: Modules
-   ..autosummary::
-      thuner.track
-      thuner.data
-      thuner.option
+.. automodule:: thuner.data
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
-   ..rubric:: Functions
-   ..autosummary::
-      thuner.track.track.track
