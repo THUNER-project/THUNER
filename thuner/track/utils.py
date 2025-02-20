@@ -1,3 +1,9 @@
+"""
+Tracking utilities. 
+
+:meta private:
+"""
+
 from collections import deque
 from pydantic import BaseModel, Field, model_validator
 import numpy as np
