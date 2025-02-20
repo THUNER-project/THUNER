@@ -12,7 +12,7 @@ from thuner.log import setup_logger
 from pydantic import Field
 import thuner.data.utils as utils
 import thuner.grid as grid
-from thuner.option.data import BaseDatasetOptions
+from thuner.utils import BaseDatasetOptions
 
 logger = setup_logger(__name__)
 geod = Geod(ellps="WGS84")
