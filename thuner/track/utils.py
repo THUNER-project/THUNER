@@ -1,7 +1,6 @@
 """
 Tracking utilities. 
 
-:meta private:
 """
 
 from collections import deque
