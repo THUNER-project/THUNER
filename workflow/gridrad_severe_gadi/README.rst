@@ -1,1 +1,0 @@
-This folder contains scripts for running analysis of GridRad Severe on Gadi. 

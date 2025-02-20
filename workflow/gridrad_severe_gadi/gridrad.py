@@ -19,7 +19,8 @@ logger = setup_logger(__name__)
 def gridrad(start, end, event_start, base_local=None):
 
     if base_local is None:
-        base_local = config.get_outputs_directory()
+        # base_local = config.get_outputs_directory()
+        base_local = Path("/scratch/w40/esh563/THUNER_output")
 
     event_start_str = event_start.replace("-", "")
     output_parent = base_local / f"runs/gridrad_severe/gridrad_{event_start_str}"
