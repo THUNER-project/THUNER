@@ -1,7 +1,7 @@
 ..
    THUNER homepage
 
-THUNER - Thunderstorm Hierachical Object Reconoitrer
+THUNER - Thunderstorm Event Reconnaissance
 -------------------------------------------------------
 
 Welcome to THUNER's documentation!
@@ -46,6 +46,7 @@ Contents
 
 .. toctree::
 
+   index
    usage
    api
 
