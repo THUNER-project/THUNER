@@ -32,6 +32,7 @@ HDF5_USE_FILE_LOCKING=FALSE
 directories_slice=("${directories[@]:$start:4}")
 
 LOG_DIR="/scratch/w40/esh563/THUNER_output/PBS_log/gridrad_${year}"
+mkdir -p ${LOG_DIR}
 parallel_log="${LOG_DIR}/${year}_$(printf "%03d" ${start})_parallel.log"
 
 # Run multiple days concurrently with gnu-parallel
