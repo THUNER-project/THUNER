@@ -56,8 +56,8 @@ def set_outputs_directory(outputs_directory):
     try:
         config = read_config(config_path)
     except FileNotFoundError:
-        create_user_config(outputs_directory)
-        config = read_config(config_path)
+        message = f"{config_path} not found. Ensure write_config has been run first."
+        raise FileNotFoundError(message)
     config["outputs_directory"] = str(outputs_directory)
     write_config(config)
 
@@ -76,6 +76,6 @@ def get_outputs_directory():
         config_path = get_config_path()
         config = read_config(config_path)
     except FileNotFoundError:
-        config_path = create_user_config()
-        config = read_config(config_path)
+        message = f"{config_path} not found. Ensure write_config has been run first."
+        raise FileNotFoundError(message)
     return Path(config["outputs_directory"])

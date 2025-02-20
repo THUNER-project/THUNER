@@ -77,9 +77,9 @@ def gridrad(start, end, event_start, base_local=None):
     parallel.track(*args, **kwargs)
 
     analysis_options = analyze.mcs.AnalysisOptions()
-    analyze.mcs.process_velocities(output_parent)
+    analyze.mcs.process_velocities(output_parent, profile_dataset="era5_pl")
     analyze.mcs.quality_control(output_parent, analysis_options)
-    analyze.mcs.classify_all(output_parent)
+    analyze.mcs.classify_all(output_parent, analysis_options)
 
     figure_name = f"mcs_gridrad_{event_start.replace('-', '')}"
     kwargs = {"style": "gadi", "attributes": ["velocity", "offset"]}

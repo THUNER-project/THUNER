@@ -37,3 +37,6 @@ dependencies = {file = ["requirements.txt"]}
 
 [tool.setuptools.packages.find]
 where = ["."]
+
+[project.scripts]
+post_install_script = "thuner.config:create_user_config"
