@@ -5,4 +5,10 @@ API
    :toctree: generated
    :recursive:
    
-   thuner
+   thuner.parallel
+   thuner.option
+   thuner.default
+   thuner.track
+   thuner.data
+   thuner.analyze
+   thuner.visualize
