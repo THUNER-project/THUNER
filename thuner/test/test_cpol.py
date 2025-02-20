@@ -8,7 +8,7 @@ import thuner.option as option
 import thuner.visualize as visualize
 import thuner.analyze as analyze
 import thuner.option as option
-import thuner.option.default as default
+import thuner.default as default
 
 notebook_name = "cpol_demo.ipynb"
 

@@ -7,7 +7,7 @@ import thuner.analyze as analyze
 import thuner.parallel as parallel
 import thuner.visualize as visualize
 import thuner.track.track as track
-import thuner.option.default as default
+import thuner.default as default
 
 import thuner.log as log
 

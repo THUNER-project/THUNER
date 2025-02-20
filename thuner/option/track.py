@@ -257,11 +257,3 @@ class TrackOptions(BaseOptions):
 
     def options_by_name(self, obj_name: str) -> BaseObjectOptions:
         return self._object_lookup.get(obj_name)
-
-
-def consolidate_options(options_list):
-    """Consolidate the options into a dictionary."""
-    consolidated_options = {}
-    for options in options_list:
-        consolidated_options[options.name] = options
-    return consolidated_options

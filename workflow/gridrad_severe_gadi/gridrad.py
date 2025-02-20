@@ -5,7 +5,7 @@ import argparse
 from pathlib import Path
 import shutil
 import thuner.data as data
-import thuner.option.default as default
+import thuner.default as default
 import thuner.option as option
 import thuner.analyze as analyze
 import thuner.parallel as parallel

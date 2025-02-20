@@ -2,7 +2,7 @@ from pathlib import Path
 import shutil
 import numpy as np
 import thuner.data as data
-import thuner.option.default as default
+import thuner.default as default
 import thuner.track.track as track
 import thuner.option as option
 import thuner.data.synthetic as synthetic
