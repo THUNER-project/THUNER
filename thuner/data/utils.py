@@ -410,12 +410,17 @@ def log_convert(local_logger, name, filepath):
 
 
 def call_ncks(input_filepath, output_filepath, start, end, lat_range, lon_range):
-
+    """Call ncks to subset a large netcdf file."""
+    # Read metadata using xr with lazy loading.
+    ds = xr.open_dataset(input_filepath, chunks={})
+    # Ensure start and end times are within the dataset time range.
+    time = ds[time_var].values
+    if start < time[0]:
+        start = time[0]
+    if end > time[-1]:
+        end = time[-1]
     # Check if time variable "time" or "valid_time". If "valid_time" convert to "time".
-    check_command = f"ncks -m {input_filepath} | grep 'valid_time'"
-    result = subprocess.run(check_command, shell=True, capture_output=True, text=True)
-
-    if "valid_time" in result.stdout:
+    if "valid_time" in ds:
         time_var = "valid_time"
     else:
         time_var = "time"

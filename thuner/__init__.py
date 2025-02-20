@@ -38,6 +38,3 @@ try:
     config.read_config(config.get_config_path())
 except FileNotFoundError:
     config_path = config.create_user_config()
-
-# Make core functions/classes available at the top level
-from thuner.track.track import track as get_tracks

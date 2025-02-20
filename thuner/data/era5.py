@@ -128,12 +128,10 @@ def get_era5_filepaths(options, start=None, end=None, local=True):
 
     if start is None or end is None:
         start = options.start
-        # Add an hour to the end time to facilitate temporal interpolation
         end = options.end
 
     start = pd.Timestamp(start)
-    # Add an hour to the end time to facilitate temporal interpolation
-    end = pd.Timestamp(end) + pd.Timedelta(hours=1)
+    end = pd.Timestamp(end)
 
     short_data_format = {"pressure-levels": "pl", "single-levels": "sfc"}
 
