@@ -1,10 +1,16 @@
 API
 ===
 
-.. automodule:: thuner.parallel
+thuner.track.track
+------------------
+
+.. automodule:: thuner.track.track
    :members:
    :show-inheritance:
 
-.. automodule:: thuner.track.track
+thuner.parallel
+--------------
+
+.. automodule:: thuner.parallel
    :members:
    :show-inheritance:

@@ -52,6 +52,30 @@ def track(
     cleanup=True,
     dataset_name="gridrad",
 ):
+    """
+    Perform tracking in parallel using multiprocessing by splitting the time domain
+    into intervals, tracking each interval in parallel, and then stitching the results
+    back together.
+
+    Parameters
+    ----------
+    times : Iterable[np.datetime64]
+        The times to track the objects.
+    data_options : :class:`thuner.option.data.DataOptions`
+        The data options.
+    grid_options : GridOptions
+        The grid options.
+    track_options : TrackOptions
+        The track options.
+    visualize_options : VisualizeOptions, optional
+        The runtime visualization options for visualizing the tracking process.
+        Defaults to None.
+    output_directory : str | Path, optional
+        The directory in which to save the output. If None, use the output directory
+        specified in the THUNER config file. See thuner.config.get_outputs_directory.
+        Defaults to None.
+    """
+
     if num_processes > os.cpu_count():
         raise ValueError("Number of processes cannot exceed number of cpus.")
     elif num_processes > 3 / 4 * os.cpu_count():

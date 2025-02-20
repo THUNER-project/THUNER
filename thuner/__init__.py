@@ -17,15 +17,16 @@ if sys.version_info < (3, 10):
 __version__ = "0.0.7"
 
 welcome_message = f"""
-Welcome to the Thunderstorm Event Reconnaissance (THUNER) package v{__version__}! This 
-is a placeholder version of the package and is not yet functional. Please visit 
-github.com/THUNER-project/THUNER for examples, and to report issues or contribute.
+Welcome to the Thunderstorm Event Reconnaissance (THUNER) package 
+v{__version__}! This is a placeholder version of the package and is not
+yet functional. Please visit github.com/THUNER-project/THUNER for 
+examples, and to report issues or contribute.
 
-THUNER is a flexible toolkit for performing multi-feature detection, tracking, tagging
-and analysis of events within meteorological datasets. The intended application is to
-convective weather events. For examples and instructions, see 
-github.com/THUNER-project/THUNER. If you use this package in your research, consider 
-citing the following papers;
+THUNER is a flexible toolkit for performing multi-feature detection, 
+tracking, tagging and analysis of events within meteorological datasets. 
+The intended application is to convective weather events. For examples 
+and instructions, see github.com/THUNER-project/THUNER. If you use this 
+package in your research, consider citing the following papers;
 
 Short et al. (2023), doi: 10.1175/MWR-D-22-0146.1
 Raut et al. (2021), doi: 10.1175/JAMC-D-20-0119.1
