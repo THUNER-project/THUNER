@@ -1,7 +1,7 @@
 API
 ===
 
-.. automodule:: thuner.track
+.. automodule:: thuner.track.track
    :members:
    :undoc-members:
    :show-inheritance:

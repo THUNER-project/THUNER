@@ -24,6 +24,9 @@ from thuner.track.utils import InputRecords, Tracks
 logger = setup_logger(__name__)
 
 
+__all__ = ["track"]
+
+
 def consolidate_options(data_options, grid_options, track_options, visualize_options):
     """Consolidate the options for a given run."""
     options = {"data_options": data_options, "grid_options": grid_options}
