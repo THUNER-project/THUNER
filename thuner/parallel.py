@@ -21,6 +21,9 @@ import thuner.option as option
 logger = setup_logger(__name__)
 
 
+__all__ = ["track"]
+
+
 get_filepaths_dispatcher = {
     "cpol": data.aura.get_cpol_filepaths,
     "era5_pl": data.era5.get_era5_filepaths,
