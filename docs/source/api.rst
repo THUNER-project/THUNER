@@ -4,6 +4,7 @@ API
 .. autosummary::
    :toctree: generated
    
-   .. automodule:: thuner
-   .. automodule:: thuner.track.track
-   .. automodule:: thuner.data.gridrad
+   thuner.track.track
+   thuner.data.gridrad
+   thuner.option.track
+   thuner.track.track.track

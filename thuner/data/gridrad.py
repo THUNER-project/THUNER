@@ -1,3 +1,5 @@
+"""Process GridRad data."""
+
 import copy
 from typing import Union
 from pathlib import Path
