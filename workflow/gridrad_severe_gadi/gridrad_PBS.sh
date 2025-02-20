@@ -32,9 +32,9 @@ HDF5_USE_FILE_LOCKING=FALSE
 directories_slice=("${directories[@]:$start:4}")
 
 LOG_DIR="/scratch/w40/esh563/THUNER_output/PBS_log/gridrad_${year}"
-parallel_log="${LOG_DIR}/${year}_${start}_parallel.log"
+parallel_log="${LOG_DIR}/${year}_$(printf "%03d" ${start})_parallel.log"
 
 # Run multiple days concurrently with gnu-parallel
 # Approx 8 cores and 32GB per event
 parallel --jobs 4 --timeout 14400 --joblog ${parallel_log} \
-    "python3 ${SCRIPT_DIR}/gridrad.py {} > ${LOG_DIR}/thuner_${start}_{#}.out 2> ${LOG_DIR}/thuner_${start}_{#}.err" ::: "${directories_slice[@]}"
+    "python3 ${SCRIPT_DIR}/gridrad.py {} > ${LOG_DIR}/thuner_$(printf "%03d_%03d" ${start} {#}).out 2> ${LOG_DIR}/thuner_$(printf "%03d_%03d" ${start} {#}).err" ::: "${directories_slice[@]}"

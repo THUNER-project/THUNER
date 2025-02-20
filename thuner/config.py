@@ -38,7 +38,7 @@ def get_config_path():
 def read_config(config_path):
     config_path = Path(config_path)
     if config_path.exists():
-        with config_path.open() as f:
+        with open(config_path, "r") as f:
             config = json.load(f)
             return config
     else:
@@ -64,9 +64,9 @@ def set_outputs_directory(outputs_directory):
 
 def write_config(config):
     config_path = get_config_path()
-    with config_path.open("w") as f:
+    with open(config_path, "w") as f:
         json.dump(config, f, indent=4)
-        print(f"Wrote configuration file to {config_path}")
+        print(f"Created THUNER configuration file at {config_path}")
 
 
 def get_outputs_directory():

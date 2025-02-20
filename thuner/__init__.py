@@ -1,5 +1,6 @@
 import sys
 import os
+import thuner.config as config
 
 
 if sys.version_info < (3, 10):
@@ -33,3 +34,8 @@ Leese et al. (1971), doi: 10.1175/1520-0450(1971)010<0118:AATFOC>2.0.CO;2
 if "THUNER_QUIET" not in os.environ:
     print(welcome_message)
     os.environ["THUNER_QUIET"] = "1"
+
+try:
+    config.read_config(config.get_config_path())
+except FileNotFoundError:
+    config_path = config.create_user_config()
