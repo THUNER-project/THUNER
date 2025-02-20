@@ -1,9 +1,8 @@
 API
 ===
 
-.. currentmodule:: thuner
 .. autosummary::
    :toctree: generated
+   :recursive:
    
    thuner
-   thuner.parallel
