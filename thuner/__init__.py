@@ -1,7 +1,7 @@
 import sys
 import os
 import thuner.config as config
-
+from thuner.track.track import track as get_tracks
 
 if sys.version_info < (3, 10):
     message = """
