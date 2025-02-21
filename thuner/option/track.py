@@ -1,10 +1,23 @@
 """Functions for creating and modifying default tracking configurations."""
 
 from typing import Dict, List, Annotated, Literal
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, model_validator
 from thuner.log import setup_logger
 from thuner.option.attribute import Attributes
 from thuner.utils import BaseOptions
+
+__all__ = [
+    "TintOptions",
+    "MintOptions",
+    "MaskOptions",
+    "BaseObjectOptions",
+    "DetectionOptions",
+    "DetectedObjectOptions",
+    "GroupingOptions",
+    "GroupedObjectOptions",
+    "LevelOptions",
+    "TrackOptions",
+]
 
 
 logger = setup_logger(__name__)
@@ -29,23 +42,22 @@ class TintOptions(BaseOptions):
     """
 
     name: str = "tint"
-    search_margin: float = Field(10, description=_summary["search_margin"], gt=0)
-    local_flow_margin: float = Field(
-        10, description=_summary["local_flow_margin"], gt=0
-    )
-    global_flow_margin: float = Field(
-        150, description=_summary["global_flow_margin"], gt=0
-    )
-    unique_global_flow: bool = Field(True, description=_summary["unique_global_flow"])
-    max_cost: float = Field(2e2, description=_summary["max_cost"], gt=0, lt=1e3)
-    max_velocity_mag: float = Field(60, description=_summary["max_velocity_mag"], gt=0)
-    max_velocity_diff: float = Field(
-        60, description=_summary["max_velocity_diff"], gt=0
-    )
-    matched_object: str | None = Field(None, description=_summary["matched_object"])
-
-
-_summary["max_velocity_diff_alt"] = "Alternative max shift difference used by MINT."
+    _desc = "Margin in km for object matching. Does not affect flow vectors."
+    search_margin: float = Field(10, description=_desc, gt=0)
+    _desc = "Margin in km around object for phase correlation."
+    local_flow_margin: float = Field(10, description=_desc, gt=0)
+    _desc = "Margin in km around object for global flow vectors."
+    global_flow_margin: float = Field(150, description=_desc, gt=0)
+    _desc = "If True, create unique global flow vectors for each object."
+    unique_global_flow: bool = Field(True, description=_desc)
+    _desc = "Maximum allowable matching cost. Units of km."
+    max_cost: float = Field(2e2, description=_desc, gt=0, lt=1e3)
+    _desc = "Maximum allowable shift velocity magnitude. Units of m/s."
+    max_velocity_mag: float = Field(60, description=_desc, gt=0)
+    _desc = "Maximum allowable shift difference. Units of m/s."
+    max_velocity_diff: float = Field(60, description=_desc, gt=0)
+    _desc = "Name of object used for matching/tracking."
+    matched_object: str | None = Field(None, description=_desc)
 
 
 class MintOptions(TintOptions):
@@ -54,11 +66,12 @@ class MintOptions(TintOptions):
     """
 
     name: str = "mint"
-    search_margin: int = Field(25, description=_summary["search_margin"], gt=0)
-    local_flow_margin: int = Field(35, description=_summary["local_flow_margin"], gt=0)
-    max_velocity_diff_alt: int = Field(
-        25, description=_summary["max_velocity_diff_alt"], gt=0
-    )
+    _desc = "Margin in km for object matching. Does not affect flow vectors."
+    search_margin: int = Field(25, description=_desc, gt=0)
+    _desc = "Margin in km around object for phase correlation."
+    local_flow_margin: int = Field(35, description=_desc, gt=0)
+    _desc = "Alternative max shift difference used by MINT."
+    max_velocity_diff_alt: int = Field(25, description=_desc, gt=0)
 
 
 class MaskOptions(BaseOptions):

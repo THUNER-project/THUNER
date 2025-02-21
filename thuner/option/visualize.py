@@ -11,6 +11,15 @@ from thuner.config import get_outputs_directory
 logger = setup_logger(__name__)
 
 
+__all__ = [
+    "VisualizeOptions",
+    "FigureOptions",
+    "ObjectRuntimeOptions",
+    "RuntimeOptions",
+    "HorizontalAttributeOptions",
+]
+
+
 class VisualizeOptions(BaseOptions):
     """Base class for visualization options."""
 

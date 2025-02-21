@@ -25,6 +25,7 @@ autodoc_default_options = {"exclude-members": "model_post_init"}
 
 autodoc_pydantic_model_show_json = False
 autodoc_pydantic_settings_show_json = False
+autodoc_pydantic_model_summary_list_order = "bysource"
 
 autodoc_mock_imports = [
     "numba",
