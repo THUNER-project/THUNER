@@ -18,7 +18,11 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
+    "sphinxcontrib.autodoc_pydantic",
 ]
+
+autodoc_pydantic_model_show_json = False
+autodoc_pydantic_settings_show_json = False
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),
