@@ -5,4 +5,5 @@ numpy
 autodoc_pydantic
 ipykernel
 xarray
+pandas
 
