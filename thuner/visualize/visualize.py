@@ -22,6 +22,8 @@ logger = setup_logger(__name__)
 
 style = "presentation"
 
+__all__ = ["discrete_cmap_norm"]
+
 
 def discrete_cmap_norm(
     levels, cmap_name="Reds", pad_start=0, pad_end=0, extend="neither"
