@@ -24,6 +24,37 @@ extensions = [
 autodoc_pydantic_model_show_json = False
 autodoc_pydantic_settings_show_json = False
 
+autodoc_mock_imports = [
+    "numba",
+    "scipy",
+    "scikit-image",
+    "pandas",
+    "matplotlib",
+    "xarray",
+    "cartopy",
+    "typing_extensions",
+    "codecov",
+    "netcdf4",
+    "h5netcdf",
+    "requests",
+    "arm_pyart",
+    "tqdm",
+    "cdsapi",
+    "xesmf",
+    "opencv",
+    "nco",
+    "pytables",
+    "pydantic",
+    "zarr",
+    "windrose",
+    "pydot",
+    "metpy",
+    "graphviz",
+    "pygraphviz",
+    "nbconvert",
+]
+
+
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),
     "sphinx": ("https://www.sphinx-doc.org/en/master/", None),
