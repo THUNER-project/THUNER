@@ -1,6 +1,6 @@
 """Functions for creating and modifying default tracking configurations."""
 
-from typing import Dict, List, Annotated
+from typing import Dict, List, Annotated, Literal
 from pydantic import Field, field_validator, model_validator
 from thuner.log import setup_logger
 from thuner.option.attribute import Attributes
@@ -99,7 +99,7 @@ class BaseObjectOptions(BaseOptions):
 
     name: str = Field(..., description="Name of the object.")
     hierarchy_level: int = Field(0, description=_summary["hierarchy_level"], ge=0)
-    method: str = Field("detect", description=_summary["method"])
+    method: Literal["detect", "group"] = Field("detect", description=_summary["method"])
     dataset: str = Field(
         ..., description=_summary["dataset"], examples=["cpol", "gridrad"]
     )
@@ -113,13 +113,6 @@ class BaseObjectOptions(BaseOptions):
     allowed_gap: int = Field(30, description=_summary["allowed_gap"], gt=0, lt=6 * 60)
     attributes: Attributes | None = Field(None, description=_summary["attributes"])
 
-    # Check method is either detect or group.
-    @field_validator("method")
-    def _check_method(cls, value):
-        if value not in ["detect", "group"]:
-            raise ValueError("Method must be detect or group.")
-        return value
-
 
 _summary["min_area"] = "Minimum area of the object in km squared."
 _summary["threshold"] = "Threshold used for detection if required."
@@ -128,21 +121,17 @@ _summary["threshold"] = "Threshold used for detection if required."
 class DetectionOptions(BaseOptions):
     """Options for object detection."""
 
-    method: str = Field(..., description=_summary["detect_method"])
+    _desc = "Method used to detect the object."
+    method: Literal["steiner", "threshold"] = Field(..., description=_desc)
     altitudes: List[int] = Field([], description=_summary["altitudes"])
 
     flatten_method: str = Field("vertical_max", description=_summary["flatten_method"])
     min_area: int = Field(10, description=_summary["min_area"])
     threshold: int | None = Field(None, description=_summary["threshold"])
 
-    @field_validator("method")
-    def _check_method(cls, value):
-        if value not in ["steiner", "threshold"]:
-            raise ValueError("Detection method must be detect or group.")
-        return value
-
     @model_validator(mode="after")
     def _check_threshold(cls, values):
+        """Check threshold value is provided if applicable."""
         if values.method == "detect" and values.threshold is None:
             raise ValueError("Threshold not provided for detection method.")
         return values
@@ -186,6 +175,7 @@ class GroupingOptions(BaseOptions):
     # Check lists are the same length.
     @model_validator(mode="after")
     def _check_list_length(cls, values):
+        """Check list lengths are consistent."""
         member_objects = values.member_objects
         member_levels = values.member_levels
         member_min_areas = values.member_min_areas
@@ -224,10 +214,12 @@ class LevelOptions(BaseOptions):
 
     @model_validator(mode="after")
     def initialize_object_lookup(cls, values):
+        """Initialize object lookup dictionary."""
         values._object_lookup = {obj.name: obj for obj in values.objects}
         return values
 
     def options_by_name(self, obj_name: str) -> BaseObjectOptions:
+        """Return object options by name."""
         return self._object_lookup.get(obj_name)
 
 
@@ -241,6 +233,7 @@ class TrackOptions(BaseOptions):
 
     @model_validator(mode="after")
     def initialize_object_lookup(cls, values):
+        """Initialize object lookup dictionary."""
         object_names = []
         lookup_dicts = []
         for level in values.levels:
@@ -256,4 +249,5 @@ class TrackOptions(BaseOptions):
         return values
 
     def options_by_name(self, obj_name: str) -> BaseObjectOptions:
+        """Return object options by name."""
         return self._object_lookup.get(obj_name)

@@ -6,6 +6,13 @@ from typing import Callable
 from pydantic import Field, model_validator
 from thuner.utils import BaseOptions
 
+__all__ = [
+    "Attribute",
+    "AttributeGroup",
+    "AttributeType",
+    "Attributes",
+    "Retrieval",
+]
 
 _summary = {
     "name": "Name of the attribute or attribute group.",
@@ -31,6 +38,7 @@ class Retrieval(BaseOptions):
 
     @model_validator(mode="after")
     def check_function(cls, values):
+        """Ensure that the function is callable, and available to thuner."""
         if isinstance(values.function, str):
             module_name, function_name = values.function.rsplit(".", 1)
             try:

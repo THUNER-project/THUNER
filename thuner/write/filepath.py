@@ -44,7 +44,8 @@ def write(input_record, output_directory):
     logger.debug("Writing attribute dataframe to %s", csv_filepath)
     filepaths_df.set_index("time", inplace=True)
     filepaths_df.sort_index(inplace=True)
-    filepaths_df.to_csv(csv_filepath, na_rep="NA")
+    date_format = "%Y-%m-%d %H:%M:%S"
+    filepaths_df.to_csv(csv_filepath, na_rep="NA", date_format=date_format)
     input_record._last_write_time = _last_write_time + write_interval
 
     # Empty mask_list after writing

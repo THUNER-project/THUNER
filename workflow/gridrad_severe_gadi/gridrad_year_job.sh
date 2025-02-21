@@ -12,5 +12,5 @@ total_diectories=$(wc -w ${filepath} | awk '{print $1}')
 
 # Approx 4 events can be run per normalbw node, so submit in chunks of 4
 for start in $(seq 0 4 ${total_diectories}); do 
-    qsub -v filepath=${filepath},year=${year},start=${start} ./gridrad_PBS.sh
+    qsub -v filepath=${filepath},year=${year},start=${start} ./gridrad_parallel_PBS.sh
 done

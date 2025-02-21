@@ -47,7 +47,8 @@ def write_attributes(directory, last_write_str, attributes, attribute_options):
     df = utils.attributes_dataframe(attributes, attribute_options)
     precicion_dict = utils.get_precision_dict(attribute_options)
     df = df.round(precicion_dict)
-    df.to_csv(filepath, na_rep="NA")
+    date_format = "%Y-%m-%d %H:%M:%S"
+    df.to_csv(filepath, na_rep="NA", date_format=date_format)
 
 
 def write(object_tracks, object_options: BaseObjectOptions, output_directory):
@@ -85,9 +86,8 @@ def write_final(tracks, track_options, output_directory):
     for index, level_options in enumerate(track_options.levels):
         for object_options in level_options.objects:
             obj_name = object_options.name
-            write(
-                tracks.levels[index].objects[obj_name], object_options, output_directory
-            )
+            obj_tracks = tracks.levels[index].objects[obj_name]
+            write(obj_tracks, object_options, output_directory)
 
 
 def write_metadata(filepath, attribute_type: AttributeType):
@@ -99,7 +99,8 @@ def write_metadata(filepath, attribute_type: AttributeType):
 def write_csv(filepath, df, attribute_type=None):
     """Write attribute dataframe to csv."""
     if attribute_type is None:
-        df.to_csv(filepath, na_rep="NA")
+        date_format = "%Y-%m-%d %H:%M:%S"
+        df.to_csv(filepath, na_rep="NA", date_format=date_format)
         logger.debug("No attributes metadata provided. Writing csv without metadata.")
         return
     precision_dict = utils.get_precision_dict(attribute_type)
@@ -108,7 +109,8 @@ def write_csv(filepath, df, attribute_type=None):
     # Make filepath parent directory if it doesn't exist
     filepath.parent.mkdir(parents=True, exist_ok=True)
     logger.debug("Writing attribute dataframe to %s", filepath)
-    df.to_csv(filepath, na_rep="NA")
+    date_format = "%Y-%m-%d %H:%M:%S"
+    df.to_csv(filepath, na_rep="NA", date_format=date_format)
     write_metadata(Path(filepath).with_suffix(".yml"), attribute_type)
     return df
 

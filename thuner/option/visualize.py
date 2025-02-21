@@ -21,6 +21,7 @@ class VisualizeOptions(BaseOptions):
 
     @model_validator(mode="after")
     def validate_parent_local(cls, values):
+        """Ensure that the parent_local directory is set."""
         if values.parent_local is None:
             values.parent_local = str(get_outputs_directory() / "visualize")
         return values
@@ -57,6 +58,7 @@ class ObjectRuntimeOptions(VisualizeOptions):
 
     @model_validator(mode="after")
     def initialize_figures(cls, values):
+        """Initialize the figure options."""
         for fig in values.figures:
             fig.style = values.style
             fig.animate = values.animate

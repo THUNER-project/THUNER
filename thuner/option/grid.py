@@ -1,7 +1,11 @@
+"""Classes for grid options."""
+
 import numpy as np
 from pydantic import Field, model_validator
 from thuner.utils import BaseOptions
 from thuner.log import setup_logger
+
+__all__ = ["GridOptions"]
 
 logger = setup_logger(__name__)
 
@@ -66,6 +70,7 @@ class GridOptions(BaseOptions):
 
     @model_validator(mode="after")
     def _check_altitude(cls, values):
+        """Ensure altitudes are initialized."""
         if values.altitude is None and values.altitude_spacing is not None:
             spacing = values.altitude_spacing
             altitude = list(np.arange(0, 20e3 + spacing, spacing))
@@ -80,6 +85,7 @@ class GridOptions(BaseOptions):
 
     @model_validator(mode="after")
     def _check_shape(cls, values):
+        """Ensure shape is initialized."""
         latitude, longitude = values.latitude, values.longitude
         if values.shape is None and (latitude is not None and longitude is not None):
             values.shape = (len(latitude), len(longitude))

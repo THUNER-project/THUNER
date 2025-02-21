@@ -9,11 +9,11 @@ from thuner.data.aura import CPOLOptions, OperationalOptions
 from thuner.data.era5 import ERA5Options
 from thuner.data.synthetic import SyntheticOptions
 
+__all__ = ["DataOptions"]
+
 logger = setup_logger(__name__)
 
-
 _summary = {"datasets": "List of dataset options."}
-
 
 AnyDatasetOptions = Union[
     BaseDatasetOptions,
@@ -23,9 +23,6 @@ AnyDatasetOptions = Union[
     ERA5Options,
     SyntheticOptions,
 ]
-
-
-__all__ = ["DataOptions"]
 
 
 class DataOptions(BaseOptions):

@@ -461,6 +461,7 @@ def stitch_attribute(
         index_columns = list(df.index.names)
         df["interval"] = i
         df = df.reset_index()
+        df["time"] = df["time"].astype("datetime64[s]")
         df["original_id"] = df[id_type]
         unique_ids = df[id_type].unique()
         if len(unique_ids) > 0:
