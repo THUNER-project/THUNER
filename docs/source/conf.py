@@ -30,7 +30,6 @@ autodoc_mock_imports = [
     "scikit-image",
     "pandas",
     "matplotlib",
-    "xarray",
     "cartopy",
     "typing_extensions",
     "codecov",
