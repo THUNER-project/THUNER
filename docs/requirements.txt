@@ -6,4 +6,5 @@ autodoc_pydantic
 ipykernel
 xarray
 pandas
+matplotlib
 

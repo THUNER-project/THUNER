@@ -28,7 +28,6 @@ autodoc_mock_imports = [
     "numba",
     "scipy",
     "scikit-image",
-    "matplotlib",
     "cartopy",
     "typing_extensions",
     "codecov",
