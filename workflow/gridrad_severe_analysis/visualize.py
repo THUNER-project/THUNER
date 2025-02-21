@@ -310,11 +310,13 @@ def field_maps(dfs, analysis_directory=None):
     if analysis_directory is None:
         analysis_directory = utils.get_analysis_directory()
 
-    shear = utils.get_shear(dfs["profile"])
+    profile = dfs["era5_pl_profile"].xs(0, level="time_offset")
+    tag = dfs["era5_sl_tag"].xs(0, level="time_offset")
+    shear = utils.get_shear(profile)
     ake = (1 / 2) * (shear["u"] ** 2 + shear["v"] ** 2)
     ake.name = "ake"
     ake = pd.DataFrame(ake)
-    cape = dfs["tag"][["cape"]]
+    cape = tag[["cape"]]
     R = cape["cape"] / ake["ake"]
     R.name = "R"
     R = pd.DataFrame(R)
@@ -500,7 +502,9 @@ def plot_counts_ratios(
     legend_ax.legend(handles, labels, **kwargs)
 
 
-def plot_attribute(ax, df, quality, name, ylabel=None, circular=False):
+def plot_attribute(
+    ax, df, quality, name, ylabel=None, circular=False, analysis_directory=None
+):
     """Plot counts and ratios of classifications over time."""
 
     plt.close("all")
@@ -662,7 +666,7 @@ def plot_attribute_evolution(dfs, analysis_directory=None):
     for i in range(len(attributes)):
         args = [arr[i] for arr in all_args]
         args.insert(2, quality)
-        plot_attribute(*args)
+        plot_attribute(*args, analysis_directory=analysis_directory)
 
     handles, labels = subplot_axes[5].get_legend_handles_labels()
     kwargs = {"ncol": 2, "loc": "center", "facecolor": "white", "framealpha": 1}
@@ -695,7 +699,7 @@ def wind_profiles(dfs):
     plt.close("all")
     analysis_directory = utils.get_analysis_directory()
 
-    profile = dfs["profile"].copy()
+    profile = dfs["era5_pl_profile"].xs(0, level="time_offset")
     classification = dfs["classification"].copy()
     quality = dfs["quality"].copy()
     winds = profile[["u", "v"]].xs(slice(0, 16e3), level="altitude", drop_level=False)
@@ -737,11 +741,13 @@ def cape_ake_R(dfs):
     plt.close("all")
     analysis_directory = utils.get_analysis_directory()
 
-    shear = utils.get_shear(dfs["profile"])
+    profile = dfs["era5_pl_profile"].xs(0, level="time_offset")
+    tag = dfs["era5_sl_tag"].xs(0, level="time_offset")
+    shear = utils.get_shear(profile)
     ake = (1 / 2) * (shear["u"] ** 2 + shear["v"] ** 2)
     ake.name = "ake"
     ake = pd.DataFrame(ake)
-    cape = dfs["tag"][["cape"]]
+    cape = tag[["cape"]]
     R = cape["cape"] / ake["ake"]
     R.name = "R"
     R = pd.DataFrame(R)

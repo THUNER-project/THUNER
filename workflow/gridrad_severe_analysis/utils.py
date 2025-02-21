@@ -9,7 +9,7 @@ import networkx as nx
 import numpy as np
 import thuner.config as config
 import thuner.attribute as attribute
-import thuner.data as data
+from thuner.option.data import DataOptions
 import thuner.match as match
 import thuner.log as log
 import thuner.analyze as analyze
@@ -76,6 +76,7 @@ def get_shear(profile):
     logger.info("Calculating shears.")
 
     wind = profile[["u", "v"]]
+    wind = wind.reset_index(level="altitude").set_index("altitude", append=True)
     low_wind = wind.xs(1e3, level="altitude")
     index_names = low_wind.index.names
     indices = pd.DataFrame(tropopause_height).reset_index()
@@ -111,15 +112,15 @@ def aggregate_runs(base_local=None):
     attributes_directory = analysis_directory / "attributes/aggregated"
 
     names = ["core", "group", "core", "core", "ellipse"]
-    names += ["profile", "tag", "classification"]
+    names += ["era5_pl_profile", "era5_sl_tag", "classification"]
     names += ["quality", "velocities"]
     dataset_names = ["mcs_core", "group", "convective_core", "anvil_core", "ellipse"]
-    dataset_names += ["profile", "tag", "classification"]
+    dataset_names += ["era5_pl_profile", "era5_sl_tag", "classification"]
     dataset_names += ["quality", "velocities"]
     subdirectories = ["attributes/mcs"] * 2 + ["attributes/mcs/convective"]
     subdirectories += ["attributes/mcs/anvil"]
     subdirectories += ["attributes/mcs/convective"]
-    subdirectories += ["attributes/mcs/era5_pl", "attributes/mcs/era5_sl"]
+    subdirectories += ["attributes/mcs", "attributes/mcs"]
     subdirectories += ["analysis"] * 3
     dfs = {}
     metadata = {}
@@ -133,18 +134,19 @@ def aggregate_runs(base_local=None):
         for directory in run_directories:
             options_filepath = Path(directory) / "options/data.yml"
             with open(options_filepath, "r") as f:
-                data_options = data.data.DataOptions(**yaml.safe_load(f))
+                data_options = DataOptions(**yaml.safe_load(f))
             gridrad_options = data_options.dataset_by_name("gridrad")
             event_start = gridrad_options.event_start
-
             filepath = Path(directory) / subdirectories[i] / f"{name}.csv"
             df = attribute.utils.read_attribute_csv(filepath)
             df["event_start"] = event_start
             df_list.append(df)
 
-        event_start = attr["time"].copy()
-        event_start["description"] = "GridRad Severe event start date."
-        attr["event_start"] = event_start
+        event_start = attribute.core.Time()
+        event_start.name = "event_start"
+        event_start.description = "GridRad Severe event start date."
+        attr.attributes.append(event_start)
+        attr.name = dataset_names[i]
         df = pd.concat(df_list)
         df = df.reset_index().set_index(["time", "universal_id", "event_start"])
         df = df.sort_index()
@@ -220,13 +222,10 @@ def recalculate_duration_check(dfs, analysis_options):
     # First get the duration of each object from the velocity dataframe
     dummy_df = pd.DataFrame(index=velocities.index)
     dummy_df.index.names = velocities.index.names
-    times = velocities.reset_index()["time"].astype("datetime64[s]")
-
-    time_group = times.groupby("universal_id")
-
-    duration = time_group.agg(lambda x: x.max() - x.min())
+    time_group = velocities.reset_index()[["time", "universal_id"]]
+    time_group = time_group.groupby("universal_id")
+    duration = time_group.agg(lambda x: x.max() - x.min())["time"]
     duration_check = duration >= np.timedelta64(analysis_options.min_duration, "m")
-
     duration_check.name = "duration"
     dummy_df = velocities[[]].reset_index()
     duration_check = dummy_df.merge(duration_check, on="universal_id", how="left")
@@ -241,10 +240,10 @@ def aggregate_relabelled(metadata, relabelled_directory, clean_up=False):
     """Aggregate relabelled dfs."""
     for name in metadata.keys():
         md = metadata[name]
-        if "parents" in md:
-            md.pop("parents")
-        args = [relabelled_directory / name, name, md]
-        write.attribute.aggregate_directory(*args, clean_up=clean_up)
+        no_parents = [attr for attr in md.attributes if attr.name != "parents"]
+        md.attributes = no_parents
+        out_dir = relabelled_directory / name
+        write.attribute.aggregate_directory(out_dir, md, clean_up=clean_up)
         # Overwrite metadata to remove parent
         write.attribute.write_metadata(relabelled_directory / f"{name}.yml", md)
 

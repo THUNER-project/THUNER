@@ -4,6 +4,7 @@ REMOTE_DIR=/scratch/w40/esh563/THUNER_output
 GADI_USERNAME=esh563
 REMOTE_RUNS="${GADI_USERNAME}@gadi.nci.org.au:${REMOTE_DIR}/runs/gridrad_severe"
 LOCAL_RUNS="${LOCAL_DIR}/runs/gridrad_severe"
+mkdir -p $LOCAL_RUNS
 # Copy the tar files from the remote directory to the local directory
 rsync -rvP "${REMOTE_RUNS}/*.tar.gz" "${LOCAL_RUNS}/"
 # Get the paths to the tar files
