@@ -7,7 +7,7 @@ Package description
 Welcome to the Thunderstorm Event Reconnaissance (THUNER) package!
 THUNER is a flexible toolkit for multi-feature detection, tracking,
 tagging and analysis of events in meteorological datasets; detailed 
-documentation is `available online<https://thuner.readthedocs.io/en/latest/>`__. 
+documentation is `available online <https://thuner.readthedocs.io/en/latest/>`__. 
 The intended application of the package is to the tracking and analysis 
 of convective weather events. If you use this package in your work, consider citing
 the following papers;
