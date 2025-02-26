@@ -460,6 +460,7 @@ def plot_counts_ratios(
     classifications,
     quality,
     classification_name="stratiform_offset",
+    starting_category="leading",
     legend_formatter=None,
     legend_columns=2,
 ):
@@ -478,8 +479,19 @@ def plot_counts_ratios(
     classifications = classifications[cond]
 
     # For each system, determine the most frequent classification within the first 90 minutes
-    early = classifications.index.get_level_values("minutes") <= 90
-    early_classifications = classifications[early]
+    if starting_category is not None:
+        early = classifications.index.get_level_values("minutes") <= 90
+        early_classifications = classifications[early]
+        group = early_classifications.groupby(["universal_id", classification_name])
+        counts = group[classification_name].apply(lambda x: x.count())
+        mode = group[classification_name].apply(lambda x: x.mode()[0])
+        # Also require at least 3 classifications to be made for each system
+        cond = (counts >= 5) & (mode == starting_category)
+        uids = mode[cond].index.get_level_values("universal_id").values
+
+        # Restrict classifications to uids
+        cond = classifications.index.get_level_values("universal_id").isin(uids)
+        classifications = classifications[cond]
 
     group = classifications.groupby(["minutes", classification_name])
     counts = group[classification_name].apply(lambda x: x.count())
@@ -566,8 +578,15 @@ def plot_attribute(
         ax.set_ylabel(ylabel)
 
 
-def plot_classification_evolution(classifications, quality, analysis_directory=None):
+def plot_classification_evolution(
+    classifications, quality, analysis_directory=None, starting_categories=None
+):
     """Plot the evolution of classifications over time."""
+
+    classification_names = ["stratiform_offset", "relative_stratiform_offset"]
+    classification_names += ["inflow", "tilt", "propagation"]
+    if starting_categories is None:
+        starting_categories = {name: None for name in classification_names}
 
     plt.close("all")
     if analysis_directory is None:
@@ -587,12 +606,12 @@ def plot_classification_evolution(classifications, quality, analysis_directory=N
     panelled_layout = visualize.horizontal.Panelled(**layout_kwargs)
     fig, subplot_axes, colorbar_axes, legend_axes = panelled_layout.initialize_layout()
 
-    classification_names = ["stratiform_offset", "relative_stratiform_offset", "inflow"]
-    for i, classification_name in enumerate(classification_names):
+    for i, name in enumerate(classification_names[:3]):
         args = [subplot_axes[2 * i], subplot_axes[2 * i + 1]]
         args += [legend_axes[i], classifications, quality]
-        kwargs = {"classification_name": classification_name}
-        legend_formatter = formatter_dispatcher[classification_name]
+        kwargs = {"classification_name": name}
+        kwargs.update({"starting_category": starting_categories[name]})
+        legend_formatter = formatter_dispatcher[name]
         kwargs.update({"legend_formatter": legend_formatter})
         plot_counts_ratios(*args, **kwargs, legend_columns=3)
 
@@ -603,12 +622,12 @@ def plot_classification_evolution(classifications, quality, analysis_directory=N
     panelled_layout = visualize.horizontal.Panelled(**layout_kwargs)
     fig, subplot_axes, colorbar_axes, legend_axes = panelled_layout.initialize_layout()
 
-    classification_names = ["tilt", "propagation"]
-    for i, classification_name in enumerate(classification_names):
+    for i, name in enumerate(classification_names[3:]):
         args = [subplot_axes[2 * i], subplot_axes[2 * i + 1]]
         args += [legend_axes[i], classifications, quality]
-        kwargs = {"classification_name": classification_name}
-        legend_formatter = formatter_dispatcher[classification_name]
+        kwargs = {"classification_name": name}
+        kwargs.update({"starting_category": starting_categories[name]})
+        legend_formatter = formatter_dispatcher[name]
         kwargs.update({"legend_formatter": legend_formatter})
         plot_counts_ratios(*args, **kwargs, legend_columns=3)
 

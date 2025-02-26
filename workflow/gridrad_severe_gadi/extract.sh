@@ -1,0 +1,1 @@
+tar -xvf 20110523.tar.gz -C .
