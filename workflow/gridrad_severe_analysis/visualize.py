@@ -1,5 +1,6 @@
 from pathlib import Path
 from scipy.stats import circmean, circstd
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import networkx as nx
@@ -7,7 +8,6 @@ import numpy as np
 import pandas as pd
 import pickle
 import thuner.visualize as visualize
-import thuner.config as config
 from thuner.log import setup_logger
 import utils
 
@@ -477,6 +477,10 @@ def plot_counts_ratios(
     cond = classifications.index.get_level_values("minutes") <= max_minutes
     classifications = classifications[cond]
 
+    # For each system, determine the most frequent classification within the first 90 minutes
+    early = classifications.index.get_level_values("minutes") <= 90
+    early_classifications = classifications[early]
+
     group = classifications.groupby(["minutes", classification_name])
     counts = group[classification_name].apply(lambda x: x.count())
     ratios = counts / counts.groupby("minutes").transform("sum")
@@ -507,7 +511,6 @@ def plot_attribute(
 ):
     """Plot counts and ratios of classifications over time."""
 
-    plt.close("all")
     if analysis_directory is None:
         analysis_directory = utils.get_analysis_directory()
 
@@ -642,11 +645,17 @@ def plot_attribute_evolution(dfs, analysis_directory=None):
     anvil_area = anvil["area"]
     orientation = ellipse["orientation"]
 
+    shear = velocities[["u_shear", "v_shear"]]
+    shear_direction = np.arctan2(shear["v_shear"], shear["u_shear"])
+    angles_1 = np.arccos(np.cos(shear_direction - orientation))
+    angles_2 = np.arccos(np.cos(shear_direction - (orientation + np.pi)))
+    angles = np.minimum(angles_1, angles_2)
+
     layout_kwargs = {"subplot_width": 3.5, "subplot_height": 2.5, "rows": 2}
     layout_kwargs.update({"columns": 3})
     layout_kwargs.update({"colorbar": False, "legend_rows": 2, "vertical_spacing": 0.8})
     layout_kwargs.update({"shared_legends": "all", "horizontal_spacing": 1})
-    layout_kwargs.update({"label_offset_x": -0.2, "label_offset_y": 0.075})
+    layout_kwargs.update({"label_offset_x": -0.25, "label_offset_y": 0.09})
 
     logger.info("Plotting.")
 
@@ -654,12 +663,12 @@ def plot_attribute_evolution(dfs, analysis_directory=None):
     fig, subplot_axes, colorbar_axes, legend_axes = panelled_layout.initialize_layout()
 
     attributes = [ground_relative_speed, flow_relative_speed, offset]
-    attributes += [convective_area, anvil_area, orientation]
+    attributes += [convective_area, anvil_area, angles]
     names = ["velocity", "relative_velocity", "offset_raw", "area", "area"]
     names += ["orientation"]
     ylabels = [r"Ground-Rel. Speed [ms$^{-1}$]", r"Flow-Rel. Speed [ms$^{-1}$]"]
     ylabels += [r"Stratiform Offset [km]", r"Convective Area [km$^2$]"]
-    ylabels += [r"Stratiform Area [km$^2$]", r"Orientation [deg]"]
+    ylabels += [r"Stratiform Area [km$^2$]", r"Shear/Orientation Angle [deg]"]
     circulars = [False] * 5 + [True]
     all_args = [subplot_axes, attributes, names, ylabels, circulars]
 
@@ -771,8 +780,8 @@ def cape_ake_R(dfs):
     all_bins += [np.arange(0, 60 + 2.5, 2.5)]
 
     layout_kwargs = {"subplot_width": 3, "subplot_height": 3.5, "rows": 1, "columns": 3}
-    layout_kwargs.update({"colorbar": False, "vertical_spacing": 0.75})
-    layout_kwargs.update({"legend_rows": 2})
+    layout_kwargs.update({"colorbar": False, "vertical_spacing": 1.3})
+    layout_kwargs.update({"legend_rows": 1})
     layout_kwargs.update({"shared_legends": "all", "horizontal_spacing": 1})
     layout_kwargs.update({"label_offset_x": -0.15, "label_offset_y": 0.075})
     panelled_layout = visualize.horizontal.Panelled(**layout_kwargs)
@@ -797,6 +806,16 @@ def cape_ake_R(dfs):
         set_histogram_grid(subplot_axes[i], all_bins[i], all_labels[i])
 
     filepath = analysis_directory / "visualize/profile/cape_ake_R.png"
+
+    # Create legend handle patch for blue histogram
+    blue_patch = mpl.patches.Patch(color="tab:blue")
+    orange_patch = mpl.patches.Patch(color="tab:orange")
+    patches = [blue_patch, orange_patch]
+    blue_label = f"Trailling Stratiform, Up-Shear Tilted"
+    orange_label = f"Leading Stratiform, Down-Shear Tilted"
+    labels = [blue_label, orange_label]
+    kwargs = {"ncol": 2, "bbox_to_anchor": (0.5, -0.01), "loc": "lower center"}
+    legend_axes[0].legend(patches, labels, framealpha=1, **kwargs)
     save_figure(filepath, fig, subplot_axes, colorbar_axes, legend_axes)
 
 
