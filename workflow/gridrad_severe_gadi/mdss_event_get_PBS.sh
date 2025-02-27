@@ -8,4 +8,4 @@ LOCAL_DIR=/scratch/w40/esh563/THUNER_output/input_data/raw/d841006/volumes/${yea
 DEST_DIR=esh563/d841006/volumes/${year}/${event}
 mdss get -r ${DEST_DIR} ${LOCAL_DIR}
 tar -xzvf ${LOCAL_DIR}
-rm ${LOCAL_DIR}
+# rm ${LOCAL_DIR}
