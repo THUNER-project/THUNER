@@ -7,8 +7,7 @@
 #PBS -l walltime=6:00:00
 #PBS -l wd
 #PBS -l storage=gdata/rt52+gdata/w40+gdata/rq0+scratch/w40
-#PBS -o /scratch/w40/esh563/THUNER_output/PBS_log/gridrad_2010/gridrad_PBS.o
-#PBS -e /scratch/w40/esh563/THUNER_output/PBS_log/gridrad_2010/gridrad_PBS.e
+
 
 # Load gnu-parallel
 module load parallel

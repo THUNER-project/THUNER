@@ -3,12 +3,11 @@ A package for detecting, tracking, and analyzing meteorological events in gridde
 datasets.
 """
 
-import sys
 import os
 import thuner.config as config
 
 # Set version number
-__version__ = "0.0.8"
+__version__ = "0.0.9"
 
 welcome_message = f"""
 Welcome to the Thunderstorm Event Reconnaissance (THUNER) package 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "thuner"
-version = "0.0.8"
+version = "0.0.9"
 description = "Thunderstorm event reconnaissance"
 authors = [
     {name = "Ewan Short", email = "ewan.short@unimelb.edu.au"},

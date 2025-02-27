@@ -1,12 +1,6 @@
 """Functions for writing object masks."""
 
-from memory_profiler import profile
-import glob
-import shutil
 import numpy as np
-import xarray as xr
-import multiprocessing
-from thuner.utils import format_time
 from thuner.log import setup_logger
 
 
