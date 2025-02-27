@@ -128,12 +128,12 @@ def get_gridrad_filepaths(options):
         base_filepath = f"{base_url}/{event_start.year}/"
         base_filepath += f"{event_start.year}{event_start.month:02}{event_start.day:02}"
         for time in times:
-            filepath = (
-                f"{base_filepath}/nexrad_3d_{options.version}_"
-                f"{time.year}{time.month:02}{time.day:02}T"
-                f"{time.hour:02}{time.minute:02}00Z.nc"
-            )
-            filepaths.append(filepath)
+            filepath = f"{base_filepath}/nexrad_3d_{options.version}_"
+            filepath += f"{time.year}{time.month:02}{time.day:02}T"
+            filepath += f"{time.hour:02}{time.minute:02}00Z.nc"
+            # Check if the file exists
+            if Path(filepath).exists():
+                filepaths.append(filepath)
     return sorted(filepaths)
 
 

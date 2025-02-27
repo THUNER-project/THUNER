@@ -7,14 +7,8 @@ import sys
 import os
 import thuner.config as config
 
-if sys.version_info < (3, 10):
-    message = """
-    Requires Python 3.10 or later. Check the dependencies, and consider installing
-    thuner with a package manager like pip or conda."""
-    raise ImportError(message)
-
 # Set version number
-__version__ = "0.0.7"
+__version__ = "0.0.8"
 
 welcome_message = f"""
 Welcome to the Thunderstorm Event Reconnaissance (THUNER) package 

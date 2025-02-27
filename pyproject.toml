@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "thuner"
-version = "0.0.7"
+version = "0.0.8"
 description = "Thunderstorm event reconnaissance"
 authors = [
     {name = "Ewan Short", email = "ewan.short@unimelb.edu.au"},
@@ -22,9 +22,7 @@ classifiers = [
     "Natural Language :: English",
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS :: MacOS X",
-    "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Topic :: Scientific/Engineering :: Atmospheric Science",
 ]
 

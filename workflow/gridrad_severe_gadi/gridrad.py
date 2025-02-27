@@ -4,6 +4,7 @@ import subprocess
 import argparse
 from pathlib import Path
 import shutil
+import pandas as pd
 import thuner.data as data
 import thuner.default as default
 import thuner.option as option
@@ -21,8 +22,10 @@ def gridrad(start, end, event_start, base_local=None):
     if base_local is None:
         base_local = config.get_outputs_directory()
 
+    year = pd.to_datetime(start).year
+
     event_start_str = event_start.replace("-", "")
-    output_parent = base_local / f"runs/gridrad_severe/gridrad_{event_start_str}"
+    output_parent = base_local / f"runs/gridrad_severe/{year}/gridrad_{event_start_str}"
 
     # Check if tar.gz exists; if so return
     tar_file = f"{output_parent}.tar.gz"
