@@ -4,6 +4,7 @@
 #PBS -l storage=gdata/w40+scratch/w40+massdata/v46
 #PBS -P v46
 
-LOCAL_DIR=/scratch/w40/esh563/THUNER_output/input_data/archive/d841006/volumes/${year}/${event}
-DEST_DIR=esh563/d841006/volumes/${year}/${event}
-mdss put -r ${LOCAL_DIR} ${DEST_DIR}
+LOCAL_PARENT=/scratch/w40/esh563/THUNER_output/input_data/archive/d841006/volumes
+LOCAL_PATH=${LOCAL_PARENT}/${year}/${event}
+TAPE_PATH=esh563/d841006/volumes/${year}/${event}
+mdss put -r ${LOCAL_PATH} ${TAPE_PATH}

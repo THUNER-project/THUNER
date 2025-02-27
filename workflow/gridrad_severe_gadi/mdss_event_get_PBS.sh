@@ -4,8 +4,10 @@
 #PBS -l storage=gdata/w40+scratch/w40+massdata/v46
 #PBS -P v46
 
-LOCAL_DIR=/scratch/w40/esh563/THUNER_output/input_data/raw/d841006/volumes/${year}/${event}
-DEST_DIR=esh563/d841006/volumes/${year}/${event}
-mdss get -r ${DEST_DIR} ${LOCAL_DIR}
-tar -xzvf ${LOCAL_DIR}
-# rm ${LOCAL_DIR}
+LOCAL_PARENT=/scratch/w40/esh563/THUNER_output/input_data/raw/d841006/volumes
+LOCAL_PATH=${LOCAL_PARENT}/${year}/${event}
+TAPE_PATH=esh563/d841006/volumes/${year}/${event}
+mdss get -r ${TAPE_PATH} ${LOCAL_PATH}
+LOCAL_DIR=$(dirname ${LOCAL_PATH})
+tar -xzvf ${LOCAL_DIR} -C ${LOCAL_DIR}
+rm ${LOCAL_PATH}
