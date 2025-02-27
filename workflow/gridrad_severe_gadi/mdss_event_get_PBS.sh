@@ -8,6 +8,5 @@ LOCAL_PARENT=/scratch/w40/esh563/THUNER_output/input_data/raw/d841006/volumes
 LOCAL_PATH=${LOCAL_PARENT}/${year}/${event}
 TAPE_PATH=esh563/d841006/volumes/${year}/${event}
 mdss get -r ${TAPE_PATH} ${LOCAL_PATH}
-LOCAL_DIR=$(dirname ${LOCAL_PATH})
-tar -xzvf ${LOCAL_DIR} -C ${LOCAL_DIR}
+tar -xzvf ${LOCAL_PATH} -C $(dirname ${LOCAL_PATH})
 rm ${LOCAL_PATH}
