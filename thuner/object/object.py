@@ -93,7 +93,7 @@ def initialize_match_record(match_data, object_tracks, object_options):
     """Initialize record of object properties in current and next masks."""
 
     previous_mask = utils.get_masks(object_tracks, object_options)[1]
-    total_previous_objects = np.max(previous_mask)
+    total_previous_objects = int(np.max(previous_mask).values)
     ids = np.arange(1, total_previous_objects + 1)
 
     universal_ids = np.arange(

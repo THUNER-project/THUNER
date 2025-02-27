@@ -480,13 +480,13 @@ def plot_counts_ratios(
 
     # For each system, determine the most frequent classification within the first 90 minutes
     if starting_category is not None:
-        early = classifications.index.get_level_values("minutes") <= 90
+        early = classifications.index.get_level_values("minutes") <= 30
         early_classifications = classifications[early]
         group = early_classifications.groupby(["universal_id", classification_name])
         counts = group[classification_name].apply(lambda x: x.count())
         mode = group[classification_name].apply(lambda x: x.mode()[0])
         # Also require at least 3 classifications to be made for each system
-        cond = (counts >= 5) & (mode == starting_category)
+        cond = (counts >= 2) & (mode == starting_category)
         uids = mode[cond].index.get_level_values("universal_id").values
 
         # Restrict classifications to uids

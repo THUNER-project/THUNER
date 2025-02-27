@@ -22,7 +22,10 @@ def overlap_from_mask(
     if "dataset" not in object_options.model_fields:
         raise ValueError("Dataset must be specified in object_options.")
     object_dataset = object_options.dataset
-    input_record = input_records.track[object_dataset]
+    try:
+        input_record = input_records.track[object_dataset]
+    except KeyError:
+        input_record = input_records.tag[object_dataset]
     boundary_mask = input_record.boundary_masks[-1]
 
     mask = utils.get_current_mask(object_tracks, matched=matched)

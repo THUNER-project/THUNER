@@ -42,22 +42,26 @@ def mcs(tracking_dataset="cpol", profile_dataset="era5_pl", tag_dataset="era5_sl
     grouping = track_option.GroupingOptions(**kwargs)
     tracking = track_option.MintOptions(matched_object="convective")
 
-    core_tracked = attribute.core.default_tracked()
-    core_member = attribute.core.default_member()
-
     # Assume the first member object is used for tracking.
     obj = member_objects[0]
-    attribute_types = [core_tracked, attribute.quality.default(member_object=obj)]
+    attribute_types = [attribute.core.default_tracked()]
+    attribute_types += [attribute.quality.default(member_object=obj)]
     attribute_types += [attribute.ellipse.default()]
     kwargs = {"name": member_objects[0], "attribute_types": attribute_types}
     attributes = track_option.Attributes(**kwargs)
     member_attributes = {obj: attributes}
     for obj in member_objects[1:]:
-        attribute_types = [core_member, attribute.quality.default(member_object=obj)]
+        attribute_types = [attribute.core.default_member()]
+        attribute_types += [attribute.quality.default(member_object=obj)]
         kwargs = {"name": obj, "attribute_types": attribute_types}
         member_attributes[obj] = track_option.Attributes(**kwargs)
 
-    attribute_types = [core_tracked, attribute.group.default()]
+    mcs_core = attribute.core.default_tracked()
+    # Add echo top height attribute to the mcs core attributes
+    echo_top_height = attribute.core.EchoTopHeight()
+    mcs_core.attributes += [echo_top_height]
+
+    attribute_types = [mcs_core, attribute.group.default()]
     attribute_types += [attribute.profile.default(profile_dataset)]
     attribute_types += [attribute.tag.default(tag_dataset)]
     kwargs = {"name": "mcs", "attribute_types": attribute_types}

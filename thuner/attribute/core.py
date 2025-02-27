@@ -49,6 +49,40 @@ def coordinates_from_match_record(
     return {"latitude": list(latitudes), "longitude": list(longitudes)}
 
 
+def echo_top_height_from_mask(
+    attribute: Attribute, object_tracks, input_records, object_options, threshold
+):
+    """Get echo top height from the object mask and dataset."""
+    input_records
+    object_dataset = object_options.dataset
+    try:
+        input_record = input_records.track[object_dataset]
+    except KeyError:
+        input_record = input_records.tag[object_dataset]
+    grid = input_record.grids[-1]
+    core_attributes = object_tracks.current_attributes.attribute_types["core"]
+    if "universal_id" in core_attributes.keys():
+        id_type = "universal_id"
+        mask = object_tracks.matched_masks[-1]
+    else:
+        id_type = "id"
+        mask = object_tracks.masks[-1]
+    ids = np.array(core_attributes[id_type])
+    echo_top_heights = []
+    for obj_id in ids:
+        obj_mask = mask == obj_id
+        # If obj_mask is a Dataset, sum over all data variables
+        if isinstance(obj_mask, xr.Dataset):
+            obj_mask = obj_mask.to_array().sum(dim="variable") > 0
+        # Broadcast obj_mask over the altitude dimension of grid
+        obj_mask = obj_mask.broadcast_like(grid)
+        obj_grid = grid.where(obj_mask)
+        echo_top_height = obj_grid.altitude.where(obj_grid >= threshold).max().values
+        echo_top_heights.append(echo_top_height)
+    echo_top_heights = np.array(echo_top_heights).astype(attribute.data_type).tolist()
+    return {attribute.name: echo_top_heights}
+
+
 def areas_from_match_record(attribute: Attribute, object_tracks):
     """
     Get area from match record created by the matching process to avoid redundant
@@ -344,6 +378,17 @@ class AreasMask(Attribute):
     description: str = "Area taken from the object mask."
     retrieval: Retrieval | None = Retrieval(
         function=areas_from_mask, keyword_arguments={"matched": True}
+    )
+
+
+class EchoTopHeight(Attribute):
+    name: str = "echo_top_height"
+    data_type: type = float
+    precision: int = 1
+    units: str = "m"
+    description: str = "Echo top height of the object."
+    retrieval: Retrieval | None = Retrieval(
+        function=echo_top_height_from_mask, keyword_arguments={"threshold": 15}
     )
 
 
