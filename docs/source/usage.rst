@@ -10,6 +10,7 @@ workflow and gallery folders. After cloning, a new conda environment using
 `environment.yml`, then run `pip install .` from the THUNER root directory.
 
 Alternatively, THUNER can be installed using `conda`, ideally into a new environment:
+
 .. code-block:: console
 
    (THUNER) $ conda install -c conda-forge thuner
@@ -18,6 +19,7 @@ While `conda` installation is preferred, `pip` may also be used. First install t
 package manually as detailed
 `here <https://xesmf.readthedocs.io/en/latest/installation.html#notes-about-esmpy>`__.
 THUNER can then be installed using
+
 .. code-block:: console
 
    (THUNER) $ pip install thuner
