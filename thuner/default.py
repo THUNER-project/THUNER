@@ -3,7 +3,12 @@
 import thuner.option.track as track_option
 import thuner.option.visualize as visualize_option
 import thuner.option.attribute as attribute_option
-import thuner.attribute as attribute
+import thuner.attribute.core as core
+import thuner.attribute.group as group
+import thuner.attribute.tag as tag
+import thuner.attribute.profile as profile
+import thuner.attribute.ellipse as ellipse
+import thuner.attribute.quality as quality
 import thuner.visualize as visualize
 
 
@@ -44,26 +49,26 @@ def mcs(tracking_dataset="cpol", profile_dataset="era5_pl", tag_dataset="era5_sl
 
     # Assume the first member object is used for tracking.
     obj = member_objects[0]
-    attribute_types = [attribute.core.default_tracked()]
-    attribute_types += [attribute.quality.default(member_object=obj)]
-    attribute_types += [attribute.ellipse.default()]
+    attribute_types = [core.default_tracked()]
+    attribute_types += [quality.default(member_object=obj)]
+    attribute_types += [ellipse.default()]
     kwargs = {"name": member_objects[0], "attribute_types": attribute_types}
     attributes = track_option.Attributes(**kwargs)
     member_attributes = {obj: attributes}
     for obj in member_objects[1:]:
-        attribute_types = [attribute.core.default_member()]
-        attribute_types += [attribute.quality.default(member_object=obj)]
+        attribute_types = [core.default_member()]
+        attribute_types += [quality.default(member_object=obj)]
         kwargs = {"name": obj, "attribute_types": attribute_types}
         member_attributes[obj] = track_option.Attributes(**kwargs)
 
-    mcs_core = attribute.core.default_tracked()
+    mcs_core = core.default_tracked()
     # Add echo top height attribute to the mcs core attributes
-    echo_top_height = attribute.core.EchoTopHeight()
+    echo_top_height = core.EchoTopHeight()
     mcs_core.attributes += [echo_top_height]
 
-    attribute_types = [mcs_core, attribute.group.default()]
-    attribute_types += [attribute.profile.default(profile_dataset)]
-    attribute_types += [attribute.tag.default(tag_dataset)]
+    attribute_types = [mcs_core, group.default()]
+    attribute_types += [profile.default(profile_dataset)]
+    attribute_types += [tag.default(tag_dataset)]
     kwargs = {"name": "mcs", "attribute_types": attribute_types}
     kwargs.update({"member_attributes": member_attributes})
     attributes = attribute_option.Attributes(**kwargs)
@@ -120,7 +125,7 @@ def synthetic_track():
     """Build default options for tracking synthetic MCS."""
 
     convective_options = convective(dataset="synthetic")
-    attribute_types = [attribute.core.default_tracked()]
+    attribute_types = [core.default_tracked()]
     kwargs = {"name": "convective", "attribute_types": attribute_types}
     attributes = track_option.Attributes(**kwargs)
     convective_options.attributes = attributes

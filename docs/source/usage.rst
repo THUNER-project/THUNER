@@ -27,12 +27,6 @@ THUNER can then be installed using
 Note that THUNER depends on `xesmf`` for regridding, and is therefore currently only
 available on Linux and OSX systems.
 
-Design Philosophy
-------------------
-
-THUNER aspires to provide a stable foundation for exploring complex and diverse 
-tracking and analysis ideas. 
-
 Tracking
 --------
 

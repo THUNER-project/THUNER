@@ -9,12 +9,13 @@ from thuner.log import setup_logger
 import thuner.data.dispatch as dispatch
 import thuner.detect.detect as detect
 import thuner.group.group as group
-import thuner.visualize as visualize
+import thuner.visualize.runtime as runtime
+import thuner.visualize.visualize as visualize
 import thuner.match.match as match
 from thuner.config import get_outputs_directory
 import thuner.utils as utils
 import thuner.write as write
-import thuner.attribute as attribute
+import thuner.attribute.attribute as attribute
 from thuner.option.data import DataOptions
 from thuner.option.grid import GridOptions
 from thuner.option.track import TrackOptions
@@ -115,7 +116,7 @@ def track(
     write.attribute.aggregate(track_options, output_directory)
     write.filepath.aggregate(input_records.track, output_directory)
     # Animate the relevant figures
-    visualize.visualize.animate_all(visualize_options, output_directory)
+    visualize.animate_all(visualize_options, output_directory)
 
 
 def track_level(
@@ -200,11 +201,11 @@ def track_object(
     # Visualize the operation of the algorithm
     visualize_args = [track_input_records, tracks, level_index, obj, track_options]
     visualize_args += [grid_options, visualize_options, output_directory]
-    visualize.runtime.visualize(*visualize_args)
+    runtime.visualize(*visualize_args)
     # Update the lists used to periodically write data to file
     if object_tracks.times[-1] is not None:
         args = [input_records, object_tracks, object_options, grid_options]
-        attribute.attribute.record(*args)
+        attribute.record(*args)
 
 
 get_objects_dispatcher = {

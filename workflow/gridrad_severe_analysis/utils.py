@@ -8,7 +8,8 @@ import glob
 import networkx as nx
 import numpy as np
 import thuner.config as config
-import thuner.attribute as attribute
+import thuner.attribute.utils as utils
+import thuner.attribute.core as core
 from thuner.option.data import DataOptions
 import thuner.match as match
 import thuner.log as log
@@ -130,7 +131,7 @@ def aggregate_runs(base_local=None):
         df_list = []
         # Read the first file to get the metadata
         filepath = Path(run_directories[0]) / subdirectories[i] / f"{name}.csv"
-        attr = attribute.utils.read_metadata_yml(filepath.with_suffix(".yml"))
+        attr = utils.read_metadata_yml(filepath.with_suffix(".yml"))
         for directory in run_directories:
             options_filepath = Path(directory) / "options/data.yml"
             with open(options_filepath, "r") as f:
@@ -138,11 +139,11 @@ def aggregate_runs(base_local=None):
             gridrad_options = data_options.dataset_by_name("gridrad")
             event_start = gridrad_options.event_start
             filepath = Path(directory) / subdirectories[i] / f"{name}.csv"
-            df = attribute.utils.read_attribute_csv(filepath)
+            df = utils.read_attribute_csv(filepath)
             df["event_start"] = event_start
             df_list.append(df)
 
-        event_start = attribute.core.Time()
+        event_start = core.Time()
         event_start.name = "event_start"
         event_start.description = "GridRad Severe event start date."
         attr.attributes.append(event_start)
@@ -166,8 +167,8 @@ def load_aggregated_runs(attributes_directory=None):
         attributes_directory = analysis_directory / "attributes/aggregated"
     dfs, metadata = {}, {}
     for csv in glob.glob(str(attributes_directory / "*.csv")):
-        df = attribute.utils.read_attribute_csv(csv)
-        md = attribute.utils.read_metadata_yml(Path(csv).with_suffix(".yml"))
+        df = utils.read_attribute_csv(csv)
+        md = utils.read_metadata_yml(Path(csv).with_suffix(".yml"))
         dfs[Path(csv).stem] = df
         metadata[Path(csv).stem] = md
     return dfs, metadata
@@ -184,18 +185,19 @@ def relabel_all(dfs, analysis_directory=None):
     for name in dfs.keys():
         (longest_directory / name).mkdir(exist_ok=True, parents=True)
 
-    core = dfs["mcs_core"]
-    event_starts = sorted(core.index.get_level_values("event_start").unique())
+    mcs_core = dfs["mcs_core"]
+    event_starts = sorted(mcs_core.index.get_level_values("event_start").unique())
 
     non_core = [name for name in dfs.keys() if name != "mcs_core"]
     object_count = 0
     for event_start in event_starts:
         logger.info(f"Re-labelling event {event_start}.")
-        core = dfs["mcs_core"].xs(event_start, level="event_start")
-        parent_graph = match.utils.get_parent_graph(core)
+        mcs_core = dfs["mcs_core"].xs(event_start, level="event_start")
+        parent_graph = match.utils.get_parent_graph(mcs_core)
         component_subgraphs = match.utils.get_component_subgraphs(parent_graph)
         paths = [nx.dag_longest_path(c) for c in component_subgraphs]
-        new_core = match.utils.get_new_objects(core, component_subgraphs, object_count)
+        args = [mcs_core, component_subgraphs, object_count]
+        new_core = match.utils.get_new_objects(*args)
         new_core["event_start"] = event_start
         filepath = longest_directory / f"mcs_core/{event_start.strftime('%Y%m%d')}.csv"
         write.attribute.write_csv(filepath, new_core)

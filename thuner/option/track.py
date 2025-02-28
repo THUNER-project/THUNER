@@ -92,8 +92,7 @@ _summary.update(
         "hierarchy_level": """Level of the object in the hierachy. Higher level objects 
     depend on lower level objects.""",
         "method": "Method used to obtain the object, e.g. detect or group.",
-        "dataset": """Name of the dataset used for detection. This field will likely "
-    be moved elsewhere for grouped objects in future.""",
+        "dataset": "Name of the dataset used for detection.",
         "deque_length": "Length of the deque used for tracking.",
         "mask_options": "Options for saving and loading masks.",
         "write_interval": "Interval in hours for writing objects to disk.",

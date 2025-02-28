@@ -11,7 +11,7 @@ import pandas as pd
 import numpy as np
 import xarray as xr
 from thuner.log import setup_logger, logging_listener
-import thuner.attribute as attribute
+import thuner.attribute.utils as utils
 import thuner.write as write
 import thuner.analyze as analyze
 import thuner.data as data
@@ -325,9 +325,9 @@ def stitch_records(record_file_dict, intervals):
     logger.info("Stitching record files.")
     for i in range(len(record_file_dict[0])):
         filepaths = [record_file_dict[j][i] for j in range(len(intervals))]
-        dfs = [attribute.utils.read_attribute_csv(filepath) for filepath in filepaths]
+        dfs = [utils.read_attribute_csv(filepath) for filepath in filepaths]
         metadata_path = Path(filepaths[0]).with_suffix(".yml")
-        attribute_dict = attribute.utils.read_metadata_yml(metadata_path)
+        attribute_dict = utils.read_metadata_yml(metadata_path)
         filepath = Path(filepaths[0])
         filepath = Path(*[part for part in filepath.parts if part != "interval_0"])
         filepath.parent.mkdir(parents=True, exist_ok=True)
@@ -351,9 +351,9 @@ def stitch_run(output_parent, intervals, cleanup=True):
     logger.info("Stitching attribute files.")
     for i in range(number_attributes):
         filepaths = [csv_file_dict[j][i] for j in range(len(intervals))]
-        dfs = [attribute.utils.read_attribute_csv(filepath) for filepath in filepaths]
+        dfs = [utils.read_attribute_csv(filepath) for filepath in filepaths]
         metadata_path = Path(filepaths[0]).with_suffix(".yml")
-        attribute_dict = attribute.utils.read_metadata_yml(metadata_path)
+        attribute_dict = utils.read_metadata_yml(metadata_path)
         example_filepath = Path(filepaths[0])
         attributes_index = example_filepath.parts.index("attributes")
         obj = example_filepath.parts[attributes_index + 1]

@@ -31,8 +31,10 @@ class DataOptions(BaseOptions):
 
     @model_validator(mode="after")
     def initialize_dataset_lookup(cls, values):
+        """Initialize the dataset lookup dictionary."""
         values._dataset_lookup = {d.name: d for d in values.datasets}
         return values
 
     def dataset_by_name(self, dataset_name: str) -> AnyDatasetOptions:
+        """Return the dataset options for a given dataset name."""
         return self._dataset_lookup.get(dataset_name)
