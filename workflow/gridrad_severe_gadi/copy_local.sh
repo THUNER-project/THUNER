@@ -1,9 +1,10 @@
 #!/bin/bash
+year=${1:-2010}
 LOCAL_DIR=/home/ewan/THUNER_output
 REMOTE_DIR=/scratch/w40/esh563/THUNER_output
 GADI_USERNAME=esh563
-REMOTE_RUNS="${GADI_USERNAME}@gadi.nci.org.au:${REMOTE_DIR}/runs/gridrad_severe"
-LOCAL_RUNS="${LOCAL_DIR}/runs/gridrad_severe"
+REMOTE_RUNS="${GADI_USERNAME}@gadi.nci.org.au:${REMOTE_DIR}/runs/gridrad_severe/${year}"
+LOCAL_RUNS="${LOCAL_DIR}/runs/gridrad/gridrad_severe/${year}"
 mkdir -p $LOCAL_RUNS
 # Copy the tar files from the remote directory to the local directory
 rsync -rvP "${REMOTE_RUNS}/*.tar.gz" "${LOCAL_RUNS}/"

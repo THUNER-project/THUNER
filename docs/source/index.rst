@@ -21,9 +21,7 @@ the following papers;
 - Raut et al (2021), doi: 10.1175/JAMC-D-20-0119.1
 - Short et al. (2023), doi: 10.1175/MWR-D-22-0146.1
 
-THUNER represents the consolidation and generalization of my (Ewan's)
-PhD work; before 2024 the core algorithm was called “MINT”. Many
-excellent competitors to THUNER exist, for instance;
+Many excellent alternatives to THUNER exist, for instance;
 
 - https://github.com/FlexTRKR/PyFLEXTRKR
 - https://github.com/kwhitehall/grab-tag-graph
@@ -32,10 +30,10 @@ excellent competitors to THUNER exist, for instance;
 - https://github.com/AndreasPrein/MOAAP
 
 When designing a tracking based research project involving THUNER,
-consider performing sensitivity tests using these competitors.
+consider performing sensitivity tests using these alternatives.
 
-Check out the :doc:`usage` section for further information, including
-how to :ref:`installation` the project.
+Check out the :doc:`usage` section for instructions on installing and running the 
+package.
 
 .. note::
 
@@ -45,8 +43,19 @@ Contents
 --------
 
 .. toctree::
-
+   :maxdepth: 2
    usage
    api
 
-Thuner has its documentation hosted on Read the Docs.
+Acknowledgements
+------------------
+THUNER's documentation is hosted on Read the Docs. THUNER was developed by 
+`Ewan Short <https://orcid.org/0000-0003-2821-8151>`__ while supported by 
+Australian Research Council grants 
+`CE170100023 <https://dataportal.arc.gov.au/NCGP/Web/Grant/Grant/CE170100023>`__.
+and `DP200102516 <https://dataportal.arc.gov.au/NCGP/Web/Grant/Grant/DP200102516>`__. 
+Computational resources during development were provided by the Australian
+`National Computational Infrastructure (NCI) <https://nci.org.au/>`__.
+
+
+

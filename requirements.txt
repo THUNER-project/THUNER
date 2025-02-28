@@ -23,8 +23,6 @@ cdsapi
 xesmf
 opencv-python
 tables
-memory_profiler
-psutil
 pydantic
 zarr
 windrose

@@ -6,11 +6,10 @@ Package description
 
 Welcome to the Thunderstorm Event Reconnaissance (THUNER) package!
 THUNER is a flexible toolkit for multi-feature detection, tracking,
-tagging and analysis of events in meteorological datasets; detailed 
-documentation is `available online <https://thuner.readthedocs.io/en/latest/>`__. 
-The intended application of the package is to the tracking and analysis 
-of convective weather events. If you use this package in your work, consider citing
-the following papers;
+tagging and analysis of events in meteorological datasets; documentation is 
+`available online <https://thuner.readthedocs.io/en/latest/>`__.
+THUNER's intended application is the tracking and analysis convective weather events. 
+If you use THUNER in your work, consider citing the following papers;
 
 - Leese et al. (1971), doi: 10.1175/1520-0450(1971)010<0118:AATFOC>2.0.CO;2
 - Dixon and Wiener (1993), doi: 10.1175/1520-0426(1993)010<0785:TTITAA>2.0.CO;2
@@ -19,9 +18,7 @@ the following papers;
 - Raut et al (2021), doi: 10.1175/JAMC-D-20-0119.1
 - Short et al. (2023), doi: 10.1175/MWR-D-22-0146.1
 
-THUNER represents the consolidation and generalization of my (Ewan's)
-PhD work; before 2024 the core algorithm was called “MINT”. Many
-excellent competitors to THUNER exist, for instance;
+Many excellent alternatives to THUNER exist, for instance;
 
 - https://github.com/FlexTRKR/PyFLEXTRKR
 - https://github.com/kwhitehall/grab-tag-graph
@@ -30,36 +27,31 @@ excellent competitors to THUNER exist, for instance;
 - https://github.com/AndreasPrein/MOAAP
 
 When designing a tracking based research project involving THUNER,
-consider performing sensitivity tests using these competitors.
+consider performing sensitivity tests using these alternatives.
 
 Installation
 ------------
 
-The THUNER repository can be cloned from github in the usual ways.
-Cloning the repository is the easiest way to access the demo, workflow
-and gallery folders.
+The `THUNER repository <https://github.com/THUNER-project/THUNER>`__ can be cloned from 
+GitHub in the usual ways. Cloning the repository is the easiest way to access the demo, 
+workflow and gallery folders. After cloning, a new conda environment using 
+`environment.yml`, then run `pip install .` from the THUNER root directory.
 
-The thuner package `soon will be
-installable <https://github.com/conda-forge/staged-recipes/pull/28762>`__
-via conda
+Alternatively, THUNER can be installed using `conda`, ideally into a new environment:
+.. code-block:: console
 
-.. code:: sh
+   (THUNER) $ conda install -c conda-forge thuner
 
-   conda install -c conda-forge thuner
-
-While installation using conda is preferred, thuner may also be
-installed using pip. To install with pip, the esmpy package must first
-be installed manually as detailed
+While `conda` installation is preferred, `pip` may also be used. First install the `esmpy` 
+package manually as detailed
 `here <https://xesmf.readthedocs.io/en/latest/installation.html#notes-about-esmpy>`__.
 THUNER can then be installed using
+.. code-block:: console
 
-.. code:: sh
+   (THUNER) $ pip install thuner
 
-   pip install thuner
-
-Because thuner depends on xesmf for regridding, it is currently only
-available on Linux and OSX systems. Future versions will explore
-alternative regridding packages.
+Note that THUNER depends on `xesmf`` for regridding, and is therefore currently only
+available on Linux and OSX systems.
 
 Examples
 --------
