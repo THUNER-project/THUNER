@@ -93,3 +93,15 @@ Etymology
 According to `Wikipedia <https://en.wikipedia.org/wiki/Thor>`__, between
 the 8th and 16th centuries the storm god more commonly known as Thor was
 called “Thuner” by the inhabitants of what is now west Germany.
+
+
+Acknowledgements
+------------------
+
+THUNER's documentation is hosted on Read the Docs. THUNER was developed by 
+`Ewan Short <https://orcid.org/0000-0003-2821-8151>`__ while supported by 
+Australian Research Council grants 
+`CE170100023 <https://dataportal.arc.gov.au/NCGP/Web/Grant/Grant/CE170100023>`__.
+and `DP200102516 <https://dataportal.arc.gov.au/NCGP/Web/Grant/Grant/DP200102516>`__. 
+Computational resources during development were provided by the Australian
+`National Computational Infrastructure (NCI) <https://nci.org.au/>`__.
