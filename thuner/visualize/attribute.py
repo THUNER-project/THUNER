@@ -22,6 +22,9 @@ import thuner.visualize.utils as utils
 import thuner.visualize.visualize as visualize
 from thuner.log import setup_logger, logging_listener
 
+
+__all__ = ["mcs_series", "mcs_horizontal"]
+
 logger = setup_logger(__name__)
 proj = ccrs.PlateCarree()
 
