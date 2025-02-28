@@ -11,7 +11,7 @@ import pandas as pd
 import numpy as np
 import xarray as xr
 from thuner.log import setup_logger, logging_listener
-import thuner.attribute.utils as utils
+import thuner.attribute as attribute
 import thuner.write as write
 import thuner.analyze as analyze
 import thuner.data as data
@@ -95,9 +95,7 @@ def track(
         logger.warning(message)
 
     times = list(times)
-    start, end = times[0], times[-1]
-    period = get_period(start, end)
-    intervals = get_time_intervals(start, end, period)
+    intervals, num_processes = get_time_intervals(times, num_processes)
 
     kwargs = {"initializer": initialize_process, "processes": num_processes}
     with logging_listener(), mp.get_context("spawn").Pool(**kwargs) as pool:
@@ -188,32 +186,32 @@ def check_futures(futures):
             print(f"Generated an exception: {exc}")
 
 
-def get_period(start, end, minimum_period=pd.Timedelta(1, "h")):
+def get_time_intervals(times, num_processes):
     """
-    Get a suitable interval period for parallel processing based on number of cpus.
+    Split the times, which have been recovered from the filenames, into intervals.
+    If the intervals are too small, set num_processes to 1.
     """
-    total_interval = pd.Timestamp(end) - pd.Timestamp(start)
-    period = total_interval / 16
-    # Get the interval in units of minimum_period
-    period = period.ceil(minimum_period)
-    period = max(period, minimum_period)
-    return period
-
-
-def get_time_intervals(
-    start, end, period=pd.Timedelta(1, "h"), overlap=pd.Timedelta(10, "m")
-):
-    start = pd.Timestamp(start)
-    end = pd.Timestamp(end)
-    intervals = []
-    previous, next = start, start + period + overlap
-    while next <= end:
-        intervals.append((str(previous), str(next)))
-        previous = next - overlap
-        next = previous + period + overlap
-    if next > end:
-        intervals.append((str(previous), str(end)))
-    return intervals
+    interval_size = int(np.ceil(len(times) / num_processes))
+    if interval_size < 5:
+        start_time = str(pd.Timestamp(times[0]))
+        end_time = str(pd.Timestamp(times[-1]))
+        intervals = [(start_time, end_time)]
+        num_processes = 1
+    else:
+        previous, next = 0, interval_size
+        end = len(times) - 1
+        intervals = []
+        while next <= end:
+            start_time = str(pd.Timestamp(times[previous]))
+            end_time = str(pd.Timestamp(times[next]))
+            intervals.append((start_time, end_time))
+            previous = next - 1
+            next = previous + interval_size
+        if next > end:
+            start_time = str(pd.Timestamp(times[previous]))
+            end_time = str(pd.Timestamp(times[-1]))
+            intervals.append((start_time, end_time))
+    return intervals, num_processes
 
 
 def get_filepath_dicts(output_parent, intervals):
@@ -306,7 +304,15 @@ def get_match_dicts(intervals, mask_file_dict, tracked_objects):
             ds_2 = ds_2.isel(time=0)
             ds_2 = ds_2.load()
             time = ds_2["time"].values
+            interval_time_dicts[obj] = time
             ds_1 = xr.open_mfdataset(filepaths_1[j], chunks={}, engine="zarr")
+            if time not in ds_1.time:
+                if obj not in tracked_objects:
+                    interval_match_dicts[obj] = None
+                else:
+                    # Set the interval match dict to empty dict
+                    interval_match_dicts[obj] = {}
+                continue
             ds_1 = ds_1.sel(time=time)
             ds_1 = ds_1.load()
             time = ds_1["time"].values
@@ -314,7 +320,7 @@ def get_match_dicts(intervals, mask_file_dict, tracked_objects):
                 interval_match_dicts[obj] = None
             else:
                 interval_match_dicts[obj] = match_dataset(ds_1, ds_2)
-            interval_time_dicts[obj] = time
+
         match_dicts[i] = interval_match_dicts
         time_dicts[i] = interval_time_dicts
     return match_dicts, time_dicts
@@ -325,9 +331,9 @@ def stitch_records(record_file_dict, intervals):
     logger.info("Stitching record files.")
     for i in range(len(record_file_dict[0])):
         filepaths = [record_file_dict[j][i] for j in range(len(intervals))]
-        dfs = [utils.read_attribute_csv(filepath) for filepath in filepaths]
+        dfs = [attribute.utils.read_attribute_csv(filepath) for filepath in filepaths]
         metadata_path = Path(filepaths[0]).with_suffix(".yml")
-        attribute_dict = utils.read_metadata_yml(metadata_path)
+        attribute_dict = attribute.utils.read_metadata_yml(metadata_path)
         filepath = Path(filepaths[0])
         filepath = Path(*[part for part in filepath.parts if part != "interval_0"])
         filepath.parent.mkdir(parents=True, exist_ok=True)
@@ -351,9 +357,9 @@ def stitch_run(output_parent, intervals, cleanup=True):
     logger.info("Stitching attribute files.")
     for i in range(number_attributes):
         filepaths = [csv_file_dict[j][i] for j in range(len(intervals))]
-        dfs = [utils.read_attribute_csv(filepath) for filepath in filepaths]
+        dfs = [attribute.utils.read_attribute_csv(filepath) for filepath in filepaths]
         metadata_path = Path(filepaths[0]).with_suffix(".yml")
-        attribute_dict = utils.read_metadata_yml(metadata_path)
+        attribute_dict = attribute.utils.read_metadata_yml(metadata_path)
         example_filepath = Path(filepaths[0])
         attributes_index = example_filepath.parts.index("attributes")
         obj = example_filepath.parts[attributes_index + 1]
@@ -405,13 +411,15 @@ def stitch_mask(intervals, masks, id_dicts, filepaths, obj):
             time = masks[i - 1].time[-1].values
             if time not in np.array(masks[i].time.values):
                 message = "Time intervals have produced non-overlapping time domains "
-                message += "for masks"
-                raise ValueError(message)
-            # Slice new mask, exluding times contained in the previous interval
-            # Note the actual "slice" function doesn't work with high precision
-            # datetime indexes! Use boolean indexing on time dimension instead
-            condition = new_mask.time.values > time
-            new_mask = new_mask.sel(time=condition)
+                message += "for masks. This can occur due to missing files at the "
+                message += " overlap time."
+                logger.warning(message)
+            else:
+                # Slice new mask, exluding times contained in the previous interval
+                # Note the actual "slice" function doesn't work with high precision
+                # datetime indexes! Use boolean indexing on time dimension instead
+                condition = new_mask.time.values > time
+                new_mask = new_mask.sel(time=condition)
         new_masks.append(new_mask)
     mask = xr.concat(new_masks, dim="time")
     mask = mask.astype(np.uint32)
@@ -485,7 +493,7 @@ def stitch_attribute(
     unique_ids = df[id_type].unique()
     mapping = {old_id: new_id + 1 for new_id, old_id in enumerate(sorted(unique_ids))}
     df[id_type] = df[id_type].map(mapping)
-    # Fix parents...
+    # Relabel parents
     if "parents" in df.columns:
         for i in range(len(df)):
             row = df.iloc[i]
@@ -502,9 +510,6 @@ def stitch_attribute(
 
     id_dict = df[[id_type, "original_id", "interval"]].drop_duplicates()
     id_dict = id_dict.set_index(["interval", "original_id"]).sort_index()
-
-    # if "parents" in df.columns:
-    #     df = relabel_parents(df, id_dict)
 
     df = df.set_index(index_columns).sort_index()
     df = df.drop(["original_id", "interval"], axis=1)
