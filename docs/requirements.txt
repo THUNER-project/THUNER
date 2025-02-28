@@ -7,4 +7,4 @@ ipykernel
 xarray
 pandas
 matplotlib
-arm_pyart>=1.19,<1.5
+arm_pyart>=1.19,<2
