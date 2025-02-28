@@ -38,19 +38,19 @@ workflow and gallery folders. After cloning, a new conda environment using
 `environment.yml`, then run `pip install .` from the THUNER root directory.
 
 Alternatively, THUNER can be installed using `conda`, ideally into a new environment:
-.. code-block:: console
+.. code:: sh
 
-   (THUNER) $ conda install -c conda-forge thuner
+   conda install -c conda-forge thuner
 
 While `conda` installation is preferred, `pip` may also be used. First install the `esmpy` 
 package manually as detailed
 `here <https://xesmf.readthedocs.io/en/latest/installation.html#notes-about-esmpy>`__.
 THUNER can then be installed using
-.. code-block:: console
+.. code:: sh
 
-   (THUNER) $ pip install thuner
+   pip install thuner
 
-Note that THUNER depends on `xesmf`` for regridding, and is therefore currently only
+Note that THUNER depends on `xesmf` for regridding, and is therefore currently only
 available on Linux and OSX systems.
 
 Examples
