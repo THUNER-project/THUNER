@@ -38,7 +38,6 @@ autodoc_mock_imports = [
     "netcdf4",
     "h5netcdf",
     "requests",
-    "arm_pyart",
     "tqdm",
     "cdsapi",
     "xesmf",
