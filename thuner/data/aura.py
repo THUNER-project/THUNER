@@ -1,5 +1,13 @@
 """Process AURA data."""
 
+import os
+
+# check if system is windows
+if os.name == "nt":
+    message = "Warning: Windows systems cannot run xESMF for regridding."
+    message += "If you need regridding, consider using a Linux or MacOS system."
+    print(message)
+
 import copy
 from urllib.parse import urlparse
 import xarray as xr

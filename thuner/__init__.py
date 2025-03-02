@@ -22,7 +22,7 @@ if os.name == "nt":
 
 
 # Set version number
-__version__ = "0.0.14"
+__version__ = "0.0.15"
 
 welcome_message = f"""
 Welcome to the Thunderstorm Event Reconnaissance (THUNER) package 

@@ -11,8 +11,8 @@ project = "THUNER"
 copyright = "2025, THUNER-project"
 author = "Ewan Short"
 
-release = "0.0.14"
-version = "0.0.14"
+release = "0.0.15"
+version = "0.0.15"
 
 # -- General configuration
 extensions = [
