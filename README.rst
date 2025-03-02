@@ -1,7 +1,7 @@
 Thunderstorm Event Reconnaissance (THUNER)
 ==========================================
 
-.. figure:: ./gallery/mcs_gridrad_20100804.gif
+.. figure:: https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/mcs_gridrad_20100804.gif
    :alt: GridRad Demo
 
 Package description

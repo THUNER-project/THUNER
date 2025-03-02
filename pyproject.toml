@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "thuner"
-version = "0.0.12"
+version = "0.0.13"
 description = "Multifeature tracking and analysis of meteorological events"
 readme = "README.rst"
 keywords = ["meteorology", "tracking", "analysis", "radar", "convection", "storm"]
