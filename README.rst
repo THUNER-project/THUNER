@@ -11,8 +11,8 @@ tagging and analysis of events in meteorological datasets; documentation is
 THUNER's intended application is the tracking and analysis convective weather events. 
 If you use THUNER in your work, consider citing 
 
-- `Leese et al. (1971) <https://doi.org/10.1175/1520-0450(1971)010<0118:AATFOC>2.0.CO;2>`__
-- `Dixon and Wiener (1993) <https://doi.org/10.1175/1520-0426(1993)010<0785:TTITAA>2.0.CO;2>`__
+- `Leese et al. (1971) <https://doi.org/10.1175/1520-0450\(1971\)010\<0118:AATFOC\>2.0.CO;2>`__
+- `Dixon and Wiener (1993) <https://doi.org/10.1175/1520-0426\(1993\)010\<0785:TTITAA\>2.0.CO;2>`__
 - `Whitehall et al. (2015) <https://doi.org/10.1007/s12145-014-0181-3>`__
 - `Fridlind et al (2019) <https://doi.org/10.5194/amt-12-2979-2019>`__
 - `Raut et al (2021) <https://doi.org/10.1175/JAMC-D-20-0119.1>`__
