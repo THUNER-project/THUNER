@@ -14,8 +14,15 @@ if sys.version_info < (3, 10):
     thuner with a package manager like pip or conda."""
     raise ImportError(message)
 
+
+if os.name == "nt":
+    message = "Warning: Windows systems cannot run xESMF for regridding."
+    message += "If you need regridding, consider using a Linux or MacOS system."
+    print(message)
+
+
 # Set version number
-__version__ = "0.0.10"
+__version__ = "0.0.11"
 
 welcome_message = f"""
 Welcome to the Thunderstorm Event Reconnaissance (THUNER) package 

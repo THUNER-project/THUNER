@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "thuner"
-version = "0.0.10"
+version = "0.0.11"
 description = "Thunderstorm event reconnaissance"
 authors = [
     {name = "Ewan Short", email = "ewan.short@unimelb.edu.au"},
@@ -34,4 +34,4 @@ Issues = "https://github.com/THUNER-project/THUNER/issues"
 dependencies = {file = ["requirements.txt"]}
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = ["thuner"]
