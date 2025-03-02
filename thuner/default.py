@@ -9,7 +9,7 @@ import thuner.attribute.tag as tag
 import thuner.attribute.profile as profile
 import thuner.attribute.ellipse as ellipse
 import thuner.attribute.quality as quality
-import thuner.visualize as visualize
+import thuner.visualize.runtime as vis_runtime
 
 
 def convective(dataset="cpol"):
@@ -103,19 +103,12 @@ def track(dataset="cpol"):
 def runtime(visualize_directory):
     """Build default options for runtime visualization."""
 
-    # kwargs = {"name": "mask", "function": visualize.runtime.visualize_mask}
-    # mask_figure = visualize_option.FigureOptions(**kwargs)
-    kwargs = {"name": "match", "function": visualize.runtime.visualize_match}
+    kwargs = {"name": "match", "function": vis_runtime.visualize_match}
     match_figure = visualize_option.FigureOptions(**kwargs)
     kwargs = {"name": "mcs", "parent_local": visualize_directory}
     kwargs.update({"figures": [match_figure]})
     mcs_figures = visualize_option.ObjectRuntimeOptions(**kwargs)
 
-    # kwargs = {"name": "mask", "function": visualize.runtime.visualize_mask}
-    # mask_figure = visualize_option.FigureOptions(**kwargs)
-    # kwargs.update({"name": "convective", "figures": [mask_figure]})
-    # convective_figures = visualize_option.ObjectRuntimeOptions(**kwargs)
-    # objects_dict = {convective_figures.name: convective_figures}
     objects_dict = {mcs_figures.name: mcs_figures}
     visualize_options = visualize_option.RuntimeOptions(objects=objects_dict)
     return visualize_options
@@ -138,9 +131,7 @@ def synthetic_track():
 def synthetic_runtime(visualize_directory):
     """Build default options for runtime visualization."""
 
-    # kwargs = {"name": "mask", "function": visualize.runtime.visualize_mask}
-    # mask_figure = visualize_option.FigureOptions(**kwargs)
-    kwargs = {"name": "match", "function": visualize.runtime.visualize_match}
+    kwargs = {"name": "match", "function": vis_runtime.visualize_match}
     match_figure = visualize_option.FigureOptions(**kwargs)
     kwargs = {"name": "convective", "parent_local": visualize_directory}
     kwargs.update({"figures": [match_figure]})

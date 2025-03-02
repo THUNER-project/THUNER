@@ -15,7 +15,7 @@ from thuner.match.utils import get_grids, get_masks
 from thuner.log import setup_logger
 from thuner.visualize.utils import make_subplot_labels, get_extent
 from thuner.visualize.visualize import mask_colors, set_style
-from thuner.object.box import get_box_center_coords
+from thuner.match.box import get_box_center_coords
 import thuner.grid as thuner_grid
 import thuner.visualize.utils as utils
 

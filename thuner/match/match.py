@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from thuner.log import setup_logger
-import thuner.object.object as thuner_object
+import thuner.match.object as thuner_object
 import thuner.match.tint as tint
 from thuner.match.utils import get_masks
 

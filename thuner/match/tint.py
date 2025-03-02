@@ -28,8 +28,8 @@ import numpy as np
 from scipy import optimize
 from thuner.match.correlate import get_flow
 from thuner.match.utils import get_masks
-import thuner.object.object as thuner_object
-import thuner.object.box as box
+import thuner.match.object as thuner_object
+import thuner.match.box as box
 from thuner.log import setup_logger
 import thuner.grid as grid
 

@@ -20,7 +20,7 @@ from cartopy import crs as ccrs
 import thuner.visualize.visualize as visualize
 from thuner.visualize.utils import get_extent, make_subplot_labels
 from thuner.log import setup_logger
-from thuner.object.box import get_geographic_box_coords
+from thuner.match.box import get_geographic_box_coords
 import thuner.grid as thuner_grid
 
 logger = setup_logger(__name__)

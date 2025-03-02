@@ -6,7 +6,7 @@ import numpy as np
 import xarray as xr
 from thuner.log import setup_logger
 import thuner.grid as grid
-from thuner.object.object import get_object_center
+from thuner.match.object import get_object_center
 import thuner.grid as grid
 import thuner.attribute.utils as utils
 from thuner.option.attribute import Retrieval, Attribute, AttributeGroup, AttributeType

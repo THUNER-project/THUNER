@@ -9,7 +9,7 @@ https://dx.doi.org/10.1175/1520-0450(1971)010<0118:AATFOC>2.0.CO;2
 
 import numpy as np
 from scipy import ndimage
-import thuner.object.box as box
+import thuner.match.box as box
 from thuner.match.utils import get_grids
 
 

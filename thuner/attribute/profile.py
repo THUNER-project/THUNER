@@ -4,7 +4,6 @@ from thuner.log import setup_logger
 import thuner.attribute.core as core
 import thuner.attribute.utils as utils
 from thuner.option.attribute import Retrieval, Attribute, AttributeGroup, AttributeType
-from thuner.track.utils import InputRecords, ObjectTracks
 from thuner.option.grid import GridOptions
 
 logger = setup_logger(__name__)
@@ -13,8 +12,8 @@ logger = setup_logger(__name__)
 # Functions for obtaining and recording attributes
 def from_centers(
     attribute_group: AttributeGroup,
-    input_records: InputRecords,
-    object_tracks: ObjectTracks,
+    input_records,
+    object_tracks,
     grid_options: GridOptions,
     dataset: str,
     time_offsets: list[int],
@@ -80,8 +79,8 @@ def from_centers(
 
 def from_masks(
     attribute_group: AttributeGroup,
-    input_records: InputRecords,
-    object_tracks: ObjectTracks,
+    input_records,
+    object_tracks,
     grid_options: GridOptions,
     dataset: str,
     time_offsets: list[int],

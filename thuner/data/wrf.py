@@ -5,7 +5,6 @@ import pandas as pd
 from thuner.log import setup_logger
 from thuner.utils import drop_time
 from thuner.config import get_outputs_directory
-from pathlib import Path
 import yaml
 import inspect
 

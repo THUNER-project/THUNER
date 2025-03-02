@@ -4,7 +4,6 @@ import thuner.attribute.core as core
 import thuner.attribute.utils as utils
 import xarray as xr
 from thuner.option.attribute import Retrieval, Attribute, AttributeGroup, AttributeType
-from thuner.track.utils import InputRecords, ObjectTracks
 
 logger = setup_logger(__name__)
 
@@ -12,8 +11,8 @@ logger = setup_logger(__name__)
 # Functions for obtaining and recording attributes
 def from_centers(
     attribute_group: AttributeGroup,
-    input_records: InputRecords,
-    object_tracks: ObjectTracks,
+    input_records,
+    object_tracks,
     dataset: str,
     time_offsets: list[int],
     member_object: str | None = None,
@@ -66,8 +65,8 @@ def from_centers(
 
 def from_masks(
     attribute_group: AttributeGroup,
-    input_records: InputRecords,
-    object_tracks: ObjectTracks,
+    input_records,
+    object_tracks,
     dataset: str,
     time_offsets: list[int],
     member_object: str | None = None,

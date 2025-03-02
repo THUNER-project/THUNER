@@ -16,11 +16,9 @@ from thuner.config import get_outputs_directory
 import thuner.utils as utils
 import thuner.write as write
 import thuner.attribute.attribute as attribute
-from thuner.option.data import DataOptions
-from thuner.option.grid import GridOptions
-from thuner.option.track import TrackOptions
-from thuner.option.visualize import VisualizeOptions
+import thuner.option as option
 from thuner.track.utils import InputRecords, Tracks
+
 
 logger = setup_logger(__name__)
 
@@ -38,10 +36,10 @@ def consolidate_options(data_options, grid_options, track_options, visualize_opt
 
 def track(
     times: Iterable[np.datetime64],
-    data_options: DataOptions,
-    grid_options: GridOptions,
-    track_options: TrackOptions,
-    visualize_options: VisualizeOptions = None,
+    data_options: option.data.DataOptions,
+    grid_options: option.grid.GridOptions,
+    track_options: option.track.TrackOptions,
+    visualize_options: option.visualize.VisualizeOptions = None,
     output_directory: str | Path = None,
 ):
     """
@@ -86,14 +84,20 @@ def track(
         if output_directory is None:
             consolidated_options["start_time"] = str(next_time)
             hash_str = utils.hash_dictionary(consolidated_options)
-            output_directory = (
-                get_outputs_directory() / f"runs/{utils.now_str()}_{hash_str[:8]}"
-            )
+            output_directory = get_outputs_directory() / f"runs/"
+            output_directory = output_directory / f"{utils.now_str()}_{hash_str[:8]}"
 
         logger.info(f"Processing {utils.format_time(next_time, filename_safe=False)}.")
         args = [next_time, input_records.track, track_options, data_options]
         args += [grid_options, output_directory]
         dispatch.update_track_input_records(*args)
+        # Record track input filepaths
+        for name in input_records.track.keys():
+            input_record = input_records.track[name]
+            args = [next_time, input_record, input_record]
+            if write.utils.write_interval_reached(*args):
+                write.filepath.write(input_record, output_directory)
+
         args = [current_time, input_records.tag, track_options, data_options]
         args += [grid_options]
         dispatch.update_tag_input_records(*args)
@@ -124,9 +128,9 @@ def track_level(
     level_index,
     tracks,
     input_records,
-    data_options: DataOptions,
+    data_options: option.data.DataOptions,
     grid_options,
-    track_options: TrackOptions,
+    track_options: option.track.TrackOptions,
     visualize_options,
     output_directory,
 ):
