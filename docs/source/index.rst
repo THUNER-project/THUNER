@@ -11,15 +11,13 @@ Welcome to the Thunderstorm Event Reconnaissance (THUNER) package!
 THUNER is a flexible toolkit for multi-feature detection, tracking,
 tagging and analysis of events in meteorological datasets. The intended
 application of the package is to the tracking and analysis of convective
-weather events. If you use this package in your work, consider citing
-the following papers;
-
-- `Leese et al. (1971) <doi.org/10.1175/1520-0450(1971)010<0118:AATFOC>2.0.CO;2>`__
-- `Dixon and Wiener (1993) <doi.org/10.1175/1520-0426(1993)010<0785:TTITAA>2.0.CO;2>`__
-- `Whitehall et al. (2015) <doi.org/10.1007/s12145-014-0181-3>`__
-- `Fridlind et al (2019) <doi.org/10.5194/amt-12-2979-2019>`__
-- `Raut et al (2021) <doi.org/10.1175/JAMC-D-20-0119.1>`__
-- `Short et al. (2023) <doi.org/10.1175/MWR-D-22-0146.1>`__
+weather events.If you use THUNER in your work, consider citing 
+`Leese et al. (1971) <doi.org/10.1175/1520-0450\(1971\)010<0118:AATFOC>2.0.CO;2>`__,
+`Dixon and Wiener (1993) <doi.org/10.1175/1520-0426\(1993\)010<0785:TTITAA>2.0.CO;2>`__,
+`Whitehall et al. (2015) <doi.org/10.1007/s12145-014-0181-3>`__,
+`Fridlind et al (2019) <doi.org/10.5194/amt-12-2979-2019>`__,
+`Raut et al (2021) <doi.org/10.1175/JAMC-D-20-0119.1>`__ and
+- `Short et al. (2023) <doi.org/10.1175/MWR-D-22-0146.1>`__.
 
 Note many excellent alternatives to THUNER exist, including 
 `PyFLEXTRKR <https://github.com/FlexTRKR/PyFLEXTRKR>`__, 
