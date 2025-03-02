@@ -37,4 +37,4 @@ Documentation = "https://thuner.readthedocs.io/en/latest/"
 dependencies = {file = ["requirements.txt"]}
 
 [tool.setuptools.packages.find]
-where = ["thuner"]
+where = ["."]
