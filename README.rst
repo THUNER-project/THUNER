@@ -76,7 +76,7 @@ The example below depicts multiple
 `trailing-stratiform <https://doi.org/10.1175/1520-0493(2001)129%3C3413:OMOMMC%3E2.0.CO;2>`__
 type systems.
 
-.. figure:: https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/mcs_gridrad_20100120.gif
+.. figure:: https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/mcs_gridrad_20100804.gif
    :alt: GridRad Demo
 
 
@@ -84,7 +84,7 @@ The example below depicts multiple
 `leading-stratiform <https://doi.org/10.1175/1520-0493(2001)129%3C3413:OMOMMC%3E2.0.CO;2>`__
 type systems.
 
-.. figure:: https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/mcs_gridrad_20100804.gif
+.. figure:: https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/mcs_gridrad_20100120.gif
    :alt: GridRad Demo
 
 
