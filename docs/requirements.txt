@@ -1,6 +1,7 @@
 # Python dependencies
 sphinx
 sphinx-rtd-theme
+sphinxcontrib-napoleon
 numpy
 autodoc_pydantic
 ipykernel

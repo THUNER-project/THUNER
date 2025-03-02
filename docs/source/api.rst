@@ -4,42 +4,42 @@ API
 thuner.track.track
 ---------------------
 
-.. automodule:: track.track
+.. automodule:: thuner.track.track
    :members:
    :show-inheritance:
 
 thuner.parallel
 -------------------
 
-.. automodule:: parallel
+.. automodule:: thuner.parallel
    :members:
    :show-inheritance:
 
 thuner.option.attribute
 --------------------------------------
 
-.. automodule:: option.attribute
+.. automodule:: thuner.option.attribute
    :members:
    :show-inheritance:
 
 thuner.option.data
 ------------------------------
 
-.. automodule:: option.data
+.. automodule:: thuner.option.data
    :members:
    :show-inheritance:
 
 thuner.option.grid
 -----------------------
 
-.. automodule:: option.grid
+.. automodule:: thuner.option.grid
    :members:
    :show-inheritance:
 
 thuner.option.track
 ------------------------
 
-.. automodule:: option.track
+.. automodule:: thuner.option.track
    :members:
    :show-inheritance:
 
@@ -47,6 +47,6 @@ thuner.option.track
 thuner.option.visualize
 ---------------------------
 
-.. automodule:: option.visualize
+.. automodule:: thuner.option.visualize
    :members:
    :show-inheritance:
