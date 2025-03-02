@@ -9,6 +9,6 @@ Package Structure
 
 Code has been separated into subpackages as follows.
 
-.. image:: /images/thuner.png
+.. image:: ./images/thuner.png
    :alt: THUNER Package Structure
    :align: center

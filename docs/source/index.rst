@@ -4,6 +4,9 @@
 THUNER - Thunderstorm Event Reconnaissance
 -------------------------------------------------------
 
+.. figure:: ./images/mcs_gridrad_20100804.gif
+   :alt: GridRad Demo
+
 Welcome to THUNER's documentation!
 ===================================
 
