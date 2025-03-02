@@ -11,23 +11,21 @@ tagging and analysis of events in meteorological datasets; documentation is
 THUNER's intended application is the tracking and analysis convective weather events. 
 If you use THUNER in your work, consider citing the following papers;
 
-- Leese et al. (1971), doi: 10.1175/1520-0450(1971)010<0118:AATFOC>2.0.CO;2
-- Dixon and Wiener (1993), doi: 10.1175/1520-0426(1993)010<0785:TTITAA>2.0.CO;2
-- Whitehall et al. (2015), doi: 10.1007/s12145-014-0181-3
-- Fridlind et al (2019), doi: 10.5194/amt-12-2979-2019
-- Raut et al (2021), doi: 10.1175/JAMC-D-20-0119.1
-- Short et al. (2023), doi: 10.1175/MWR-D-22-0146.1
+- `Leese et al. (1971) <doi.org/10.1175/1520-0450(1971)010<0118:AATFOC>2.0.CO;2>`__
+- `Dixon and Wiener (1993) <doi.org/10.1175/1520-0426(1993)010<0785:TTITAA>2.0.CO;2>`__
+- `Whitehall et al. (2015) <doi.org/10.1007/s12145-014-0181-3>`__
+- `Fridlind et al (2019) <doi.org/10.5194/amt-12-2979-2019>`__
+- `Raut et al (2021) <doi.org/10.1175/JAMC-D-20-0119.1>`__
+- `Short et al. (2023) <doi.org/10.1175/MWR-D-22-0146.1>`__
 
-Many excellent alternatives to THUNER exist, for instance;
-
-- https://github.com/FlexTRKR/PyFLEXTRKR
-- https://github.com/kwhitehall/grab-tag-graph
-- https://github.com/knubez/TAMS
-- https://github.com/tobac-project/tobac
-- https://github.com/AndreasPrein/MOAAP
-
-When designing a tracking based research project involving THUNER,
-consider performing sensitivity tests using these alternatives.
+Note many excellent alternatives to THUNER exist, including 
+`PyFLEXTRKR <https://github.com/FlexTRKR/PyFLEXTRKR>`__, 
+`GTG <https://github.com/kwhitehall/grab-tag-graph>`__,
+`TAMS <https://github.com/knubez/TAMS>`__,
+`tobac <https://github.com/tobac-project/tobac>`__ and 
+`MOAAP <https://github.com/AndreasPrein/MOAAP>`__. When designing a tracking based 
+research project involving THUNER, consider performing sensitivity tests using these 
+alternatives.
 
 Installation
 ------------

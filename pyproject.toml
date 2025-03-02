@@ -5,7 +5,9 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "thuner"
 version = "0.0.11"
-description = "Thunderstorm event reconnaissance"
+description = "Multifeature tracking and analysis of meteorological events"
+readme = "README.rst"
+keywords = ["meteorology", "tracking", "analysis", "radar", "convection", "storm"]
 authors = [
     {name = "Ewan Short", email = "ewan.short@unimelb.edu.au"},
     {name = "Mark Picel", email = "mhpicel@gmail.com"},
@@ -27,8 +29,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/THUNER-project/THUNER/tree/main"
+Homepage = "https://github.com/THUNER-project/THUNER"
 Issues = "https://github.com/THUNER-project/THUNER/issues"
+Documentation = "https://thuner.readthedocs.io/en/latest/"
 
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
