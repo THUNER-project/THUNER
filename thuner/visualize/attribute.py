@@ -11,13 +11,12 @@ import matplotlib
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import thuner.visualize.horizontal as horizontal
-
+from thuner.utils import initialize_process, check_results
 from thuner.attribute.utils import read_attribute_csv
 from thuner.analyze.utils import read_options
 import thuner.data.dispatch as dispatch
 import thuner.detect.detect as detect
 from thuner.utils import format_time, new_angle, circular_mean
-import thuner.parallel as parallel
 import thuner.visualize.utils as utils
 import thuner.visualize.visualize as visualize
 from thuner.log import setup_logger, logging_listener
@@ -103,7 +102,7 @@ def mcs_series(
         return
     if parallel_figure:
         with logging_listener(), multiprocessing.get_context("spawn").Pool(
-            initializer=parallel.initialize_process, processes=num_processes
+            initializer=initialize_process, processes=num_processes
         ) as pool:
             results = []
             for time in times[1:]:
@@ -114,7 +113,7 @@ def mcs_series(
                 results.append(pool.apply_async(visualize_mcs, args))
             pool.close()
             pool.join()
-            parallel.check_results(results)
+            check_results(results)
     else:
         for time in times[1:]:
             args = [time, filepaths, masks, output_directory, figure_options]

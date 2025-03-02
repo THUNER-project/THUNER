@@ -1,6 +1,5 @@
 "General utilities for the thuner package."
 import inspect
-from collections import deque
 from datetime import datetime
 import yaml
 from pathlib import Path
@@ -15,8 +14,9 @@ from scipy.interpolate import interp1d
 import re
 import os
 import platform
-from typing import Any, Dict, Literal, Union
+from typing import Any, Dict, Literal
 from pydantic import Field, model_validator, BaseModel, model_validator, PrivateAttr
+import multiprocessing
 from thuner.log import setup_logger
 from thuner.config import get_outputs_directory
 
@@ -526,3 +526,21 @@ def circular_variance(angles, weights=None):
         return np.nan
     complex_sum = np.sum(weights * complex_numbers / total_weight)
     return 1 - np.abs(complex_sum)
+
+
+def check_results(results):
+    """Check pool results for exceptions."""
+    for result in results:
+        try:
+            result.get(timeout=5 * 60)
+        except Exception as exc:
+            print(f"Generated an exception: {exc}")
+
+
+def initialize_process():
+    """
+    Use to set the initializer argument when creating a multiprocessing.Pool object.
+    This will ensure that all processes in the pool are non-daemonic, and avoid the
+    associated errors.
+    """
+    multiprocessing.current_process().daemon = False

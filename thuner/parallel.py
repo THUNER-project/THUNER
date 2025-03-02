@@ -17,6 +17,7 @@ import thuner.analyze as analyze
 import thuner.data as data
 import thuner.track.track as thuner_track
 import thuner.option as option
+import thuner.utils as utils
 
 logger = setup_logger(__name__)
 
@@ -30,15 +31,6 @@ get_filepaths_dispatcher = {
     "era5_sl": data.era5.get_era5_filepaths,
     "gridrad": data.gridrad.get_gridrad_filepaths,
 }
-
-
-def initialize_process():
-    """
-    Use to set the initializer argument when creating a multiprocessing.Pool object.
-    This will ensure that all processes in the pool are non-daemonic, and avoid the
-    associated errors.
-    """
-    mp.current_process().daemon = False
 
 
 def track(
@@ -97,7 +89,7 @@ def track(
     times = list(times)
     intervals, num_processes = get_time_intervals(times, num_processes)
 
-    kwargs = {"initializer": initialize_process, "processes": num_processes}
+    kwargs = {"initializer": utils.initialize_process, "processes": num_processes}
     with logging_listener(), mp.get_context("spawn").Pool(**kwargs) as pool:
         results = []
         for i, time_interval in enumerate(intervals):
@@ -111,7 +103,7 @@ def track(
             results.append(pool.apply_async(track_interval, args))
         pool.close()
         pool.join()
-        check_results(results)
+        utils.check_results(results)
 
     stitch_run(output_directory, intervals, cleanup=cleanup)
 
@@ -166,24 +158,6 @@ def get_interval_data_options(data_options: option.data.DataOptions, interval):
     # Revalidate the model to rebuild the dataset lookup dict
     interval_data_options = interval_data_options.model_validate(interval_data_options)
     return interval_data_options
-
-
-def check_results(results):
-    """Check pool results for exceptions."""
-    for result in results:
-        try:
-            result.get(timeout=5 * 60)
-        except Exception as exc:
-            print(f"Generated an exception: {exc}")
-
-
-def check_futures(futures):
-    """Check futures for exceptions."""
-    for future in futures:
-        try:
-            future.result(timeout=20 * 60)
-        except Exception as exc:
-            print(f"Generated an exception: {exc}")
 
 
 def get_time_intervals(times, num_processes):
