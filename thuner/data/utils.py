@@ -1,9 +1,17 @@
 """Data processing utilities."""
 
+import os
+
+if os.name == "posix":
+    import fcntl
+else:
+    message = "Note fcntl is not available on Windows. If you need to download data "
+    message = "do so before running thuner, or use a unix based system."
+    print(message)
+
 import multiprocessing
 import threading
 import subprocess
-import fcntl
 import zipfile
 import time
 from pathlib import Path

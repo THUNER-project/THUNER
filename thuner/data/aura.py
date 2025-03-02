@@ -3,7 +3,9 @@
 import os
 
 # check if system is windows
-if os.name == "nt":
+if os.name == "posix":
+    import xesmf as xe
+else:
     message = "Warning: Windows systems cannot run xESMF for regridding."
     message += "If you need regridding, consider using a Linux or MacOS system."
     print(message)
@@ -11,7 +13,6 @@ if os.name == "nt":
 import copy
 from urllib.parse import urlparse
 import xarray as xr
-import xesmf as xe
 import numpy as np
 import pandas as pd
 from typing import Literal
