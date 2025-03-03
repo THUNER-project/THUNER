@@ -73,10 +73,9 @@ def track(
     elif num_processes > 3 / 4 * os.cpu_count():
         logger.warning("Number of processes over 3/4 of available CPUs.")
 
-    logger.info(f"Beginning parallel tracking with {num_processes} processes.")
-
     times = list(times)
     intervals, num_processes = get_time_intervals(times, num_processes)
+    logger.info(f"Beginning parallel tracking with {num_processes} processes.")
 
     if num_processes == 1:
         args = [times, data_options, grid_options, track_options, visualize_options]
@@ -170,7 +169,7 @@ def get_time_intervals(times, num_processes):
         start_time = str(pd.Timestamp(times[0]))
         end_time = str(pd.Timestamp(times[-1]))
         intervals = [(start_time, end_time)]
-        logger.debug("Less than 6 times, using one process.")
+        logger.info("Less than 6 times, using one process.")
         num_processes = 1
         return intervals, num_processes
 
@@ -178,12 +177,12 @@ def get_time_intervals(times, num_processes):
     if interval_size < 6:
         # If less than 6 times per interval, recalculate num processes
         message = f"Less than 6 times per interval with {num_processes} processes."
-        logger.debug(message)
+        logger.info(message)
         num_processes = int(np.ceil(len(times) / 6))
         interval_size = int(np.ceil(len(times) / num_processes))
         message = f"Instead using {num_processes} processes, with {interval_size} "
         message += "times per interval."
-        logger.debug(message)
+        logger.info(message)
 
     previous, next = 0, interval_size
     end = len(times) - 1
