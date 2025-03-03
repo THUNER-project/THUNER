@@ -12,6 +12,7 @@ import thuner.analyze as analyze
 import thuner.parallel as parallel
 import thuner.visualize as visualize
 from thuner.log import setup_logger
+from thuner.attribute.utils import read_attribute_csv
 import thuner.config as config
 
 logger = setup_logger(__name__)
@@ -78,23 +79,27 @@ def gridrad(start, end, event_start, base_local=None):
     kwargs = {"output_directory": output_parent, "num_processes": num_processes}
     parallel.track(*args, **kwargs)
 
-    analysis_options = analyze.mcs.AnalysisOptions()
-    analyze.mcs.process_velocities(output_parent, profile_dataset="era5_pl")
-    analyze.mcs.quality_control(output_parent, analysis_options)
-    analyze.mcs.classify_all(output_parent, analysis_options)
+    # If MCS were detected, analyze and visualize them
+    filepath = output_parent / "attributes/mcs/core.csv"
+    core = read_attribute_csv(filepath)
+    if not core.empty:
+        analysis_options = analyze.mcs.AnalysisOptions()
+        analyze.mcs.process_velocities(output_parent, profile_dataset="era5_pl")
+        analyze.mcs.quality_control(output_parent, analysis_options)
+        analyze.mcs.classify_all(output_parent, analysis_options)
 
-    figure_name = f"mcs_gridrad_{event_start.replace('-', '')}"
-    kwargs = {"style": "gadi", "attributes": ["velocity", "offset"]}
-    kwargs.update({"name": figure_name})
-    figure_options = option.visualize.HorizontalAttributeOptions(**kwargs)
+        figure_name = f"mcs_gridrad_{event_start.replace('-', '')}"
+        kwargs = {"style": "gadi", "attributes": ["velocity", "offset"]}
+        kwargs.update({"name": figure_name})
+        figure_options = option.visualize.HorizontalAttributeOptions(**kwargs)
 
-    args = [output_parent, start, end, figure_options]
-    kwargs = {"parallel_figure": True, "dt": 7200, "by_date": False}
-    # Halving the number of processes used for figure creation appears to be a good
-    # rule of thumb. Even with rasterization etc, the largest, most complex figures can
-    # still consume nearly 6 GB during plt.savefig!
-    kwargs.update({"num_processes": int(num_processes / 2)})
-    visualize.attribute.mcs_series(*args, **kwargs)
+        args = [output_parent, start, end, figure_options]
+        kwargs = {"parallel_figure": True, "dt": 7200, "by_date": False}
+        # Halving the number of processes used for figure creation appears to be a good
+        # rule of thumb. Even with rasterization etc, the largest, most complex figures can
+        # still consume nearly 6 GB during plt.savefig!
+        kwargs.update({"num_processes": int(num_processes / 2)})
+        visualize.attribute.mcs_series(*args, **kwargs)
 
     # Tar and compress the output directory
     output_parent = Path(output_parent)

@@ -46,6 +46,7 @@ def process_velocities(
 
     filepath = output_directory / "attributes/mcs/core.csv"
     velocities = read_attribute_csv(filepath, columns=["u_flow", "v_flow"])
+
     velocities = utils.temporal_smooth(velocities, window_size=window_size)
     velocities = velocities.rename(columns={"u_flow": "u", "v_flow": "v"})
 
