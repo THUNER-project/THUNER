@@ -75,6 +75,9 @@ def track(
 
     logger.info(f"Beginning parallel tracking with {num_processes} processes.")
 
+    times = list(times)
+    intervals, num_processes = get_time_intervals(times, num_processes)
+
     if num_processes == 1:
         args = [times, data_options, grid_options, track_options, visualize_options]
         args += [output_directory]
@@ -85,9 +88,6 @@ def track(
         message += " Setting visualize_options to None."
         visualize_options = None
         logger.warning(message)
-
-    times = list(times)
-    intervals, num_processes = get_time_intervals(times, num_processes)
 
     kwargs = {"initializer": utils.initialize_process, "processes": num_processes}
     with logging_listener(), mp.get_context("spawn").Pool(**kwargs) as pool:
@@ -165,26 +165,39 @@ def get_time_intervals(times, num_processes):
     Split the times, which have been recovered from the filenames, into intervals.
     If the intervals are too small, set num_processes to 1.
     """
-    interval_size = int(np.ceil(len(times) / num_processes))
-    if interval_size < 5:
+    # If less than 6 times, use one process
+    if len(times) < 6:
         start_time = str(pd.Timestamp(times[0]))
         end_time = str(pd.Timestamp(times[-1]))
         intervals = [(start_time, end_time)]
+        logger.debug("Less than 6 times, using one process.")
         num_processes = 1
-    else:
-        previous, next = 0, interval_size
-        end = len(times) - 1
-        intervals = []
-        while next <= end:
-            start_time = str(pd.Timestamp(times[previous]))
-            end_time = str(pd.Timestamp(times[next]))
-            intervals.append((start_time, end_time))
-            previous = next - 1
-            next = previous + interval_size
-        if next > end:
-            start_time = str(pd.Timestamp(times[previous]))
-            end_time = str(pd.Timestamp(times[-1]))
-            intervals.append((start_time, end_time))
+        return intervals, num_processes
+
+    interval_size = int(np.ceil(len(times) / num_processes))
+    if interval_size < 6:
+        # If less than 6 times per interval, recalculate num processes
+        message = f"Less than 6 times per interval with {num_processes} processes."
+        logger.debug(message)
+        num_processes = int(np.ceil(len(times) / 6))
+        interval_size = int(np.ceil(len(times) / num_processes))
+        message = f"Instead using {num_processes} processes, with {interval_size} "
+        message += "times per interval."
+        logger.debug(message)
+
+    previous, next = 0, interval_size
+    end = len(times) - 1
+    intervals = []
+    while next <= end:
+        start_time = str(pd.Timestamp(times[previous]))
+        end_time = str(pd.Timestamp(times[next]))
+        intervals.append((start_time, end_time))
+        previous = next - 1
+        next = previous + interval_size
+    if next > end:
+        start_time = str(pd.Timestamp(times[previous]))
+        end_time = str(pd.Timestamp(times[-1]))
+        intervals.append((start_time, end_time))
     return intervals, num_processes
 
 

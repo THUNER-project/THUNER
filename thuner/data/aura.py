@@ -2,7 +2,7 @@
 
 import os
 
-# check if system is windows
+# Check if system is unix-like, as xESMF is not supported on Windows
 if os.name == "posix":
     import xesmf as xe
 else:
