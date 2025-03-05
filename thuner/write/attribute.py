@@ -96,7 +96,7 @@ def write_metadata(filepath, attribute_type: AttributeType):
     attribute_type.to_yaml(filepath)
 
 
-def write_csv(filepath, df, attribute_type=None):
+def write_csv(filepath, df, attribute_type=None, write_mode="w"):
     """Write attribute dataframe to csv."""
     if attribute_type is None:
         date_format = "%Y-%m-%d %H:%M:%S"
@@ -110,8 +110,9 @@ def write_csv(filepath, df, attribute_type=None):
     filepath.parent.mkdir(parents=True, exist_ok=True)
     logger.debug("Writing attribute dataframe to %s", filepath)
     date_format = "%Y-%m-%d %H:%M:%S"
-    df.to_csv(filepath, na_rep="NA", date_format=date_format)
-    write_metadata(Path(filepath).with_suffix(".yml"), attribute_type)
+    df.to_csv(filepath, na_rep="NA", date_format=date_format, mode=write_mode)
+    if write_mode == "w":
+        write_metadata(Path(filepath).with_suffix(".yml"), attribute_type)
     return df
 
 
