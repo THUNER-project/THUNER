@@ -10,3 +10,4 @@ pandas
 matplotlib
 arm_pyart>=1.19,<2
 pyarrow
+dask
