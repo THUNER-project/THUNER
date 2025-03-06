@@ -58,6 +58,7 @@ autodoc_mock_imports = [
     "graphviz",
     "pygraphviz",
     "nbconvert",
+    "pyarrow",
 ]
 
 
