@@ -1,5 +1,5 @@
 """
-A package for detecting, tracking, and analyzing meteorological events in gridded 
+A package for detecting, tracking, and analyzing meteorological events in gridded
 datasets.
 """
 
@@ -53,13 +53,13 @@ try:
 except FileNotFoundError:
     config_path = config.create_user_config()
 
-from . import track
-from . import parallel
-from . import option
-from . import default
-from . import data
-from . import analyze
-from . import visualize
+import thuner.track as track
+import thuner.parallel as parallel
+import thuner.option as option
+import thuner.default as default
+import thuner.data as data
+import thuner.analyze as analyze
+import thuner.visualize as visualize
 
 
 __all__ = ["track", "parallel", "option", "default", "data", "analyze", "visualize"]

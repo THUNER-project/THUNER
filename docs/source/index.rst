@@ -45,6 +45,7 @@ Contents
 .. toctree::
    :maxdepth: 1
    
+   design
    usage
    api
 

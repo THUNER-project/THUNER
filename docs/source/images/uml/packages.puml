@@ -1,0 +1,404 @@
+@startuml packages
+set namespaceSeparator none
+package "thuner" as thuner {
+}
+package "thuner.analyze" as thuner.analyze {
+}
+package "thuner.analyze.mcs" as thuner.analyze.mcs {
+}
+package "thuner.analyze.utils" as thuner.analyze.utils {
+}
+package "thuner.attribute" as thuner.attribute {
+}
+package "thuner.attribute.attribute" as thuner.attribute.attribute {
+}
+package "thuner.attribute.core" as thuner.attribute.core {
+}
+package "thuner.attribute.ellipse" as thuner.attribute.ellipse {
+}
+package "thuner.attribute.group" as thuner.attribute.group {
+}
+package "thuner.attribute.profile" as thuner.attribute.profile {
+}
+package "thuner.attribute.quality" as thuner.attribute.quality {
+}
+package "thuner.attribute.tag" as thuner.attribute.tag {
+}
+package "thuner.attribute.utils" as thuner.attribute.utils {
+}
+package "thuner.config" as thuner.config {
+}
+package "thuner.data" as thuner.data {
+}
+package "thuner.data.access" as thuner.data.access {
+}
+package "thuner.data.aura" as thuner.data.aura {
+}
+package "thuner.data.dispatch" as thuner.data.dispatch {
+}
+package "thuner.data.era5" as thuner.data.era5 {
+}
+package "thuner.data.gridrad" as thuner.data.gridrad {
+}
+package "thuner.data.odim" as thuner.data.odim {
+}
+package "thuner.data.synthetic" as thuner.data.synthetic {
+}
+package "thuner.data.utils" as thuner.data.utils {
+}
+package "thuner.data.wrf" as thuner.data.wrf {
+}
+package "thuner.default" as thuner.default {
+}
+package "thuner.detect" as thuner.detect {
+}
+package "thuner.detect.detect" as thuner.detect.detect {
+}
+package "thuner.detect.preprocess" as thuner.detect.preprocess {
+}
+package "thuner.detect.steiner" as thuner.detect.steiner {
+}
+package "thuner.grid" as thuner.grid {
+}
+package "thuner.group" as thuner.group {
+}
+package "thuner.group.group" as thuner.group.group {
+}
+package "thuner.log" as thuner.log {
+}
+package "thuner.match" as thuner.match {
+}
+package "thuner.match.box" as thuner.match.box {
+}
+package "thuner.match.correlate" as thuner.match.correlate {
+}
+package "thuner.match.match" as thuner.match.match {
+}
+package "thuner.match.object" as thuner.match.object {
+}
+package "thuner.match.tint" as thuner.match.tint {
+}
+package "thuner.match.utils" as thuner.match.utils {
+}
+package "thuner.option" as thuner.option {
+}
+package "thuner.option.attribute" as thuner.option.attribute {
+}
+package "thuner.option.data" as thuner.option.data {
+}
+package "thuner.option.grid" as thuner.option.grid {
+}
+package "thuner.option.track" as thuner.option.track {
+}
+package "thuner.option.visualize" as thuner.option.visualize {
+}
+package "thuner.parallel" as thuner.parallel {
+}
+package "thuner.test" as thuner.test {
+}
+package "thuner.test.demos_to_tests" as thuner.test.demos_to_tests {
+}
+package "thuner.test.test_cpol" as thuner.test.test_cpol {
+}
+package "thuner.test.test_gridrad" as thuner.test.test_gridrad {
+}
+package "thuner.test.test_synthetic" as thuner.test.test_synthetic {
+}
+package "thuner.track" as thuner.track {
+}
+package "thuner.track.track" as thuner.track.track {
+}
+package "thuner.track.utils" as thuner.track.utils {
+}
+package "thuner.utils" as thuner.utils {
+}
+package "thuner.visualize" as thuner.visualize {
+}
+package "thuner.visualize.analysis" as thuner.visualize.analysis {
+}
+package "thuner.visualize.attribute" as thuner.visualize.attribute {
+}
+package "thuner.visualize.horizontal" as thuner.visualize.horizontal {
+}
+package "thuner.visualize.runtime" as thuner.visualize.runtime {
+}
+package "thuner.visualize.styles" as thuner.visualize.styles {
+}
+package "thuner.visualize.utils" as thuner.visualize.utils {
+}
+package "thuner.visualize.vertical" as thuner.visualize.vertical {
+}
+package "thuner.visualize.visualize" as thuner.visualize.visualize {
+}
+package "thuner.write" as thuner.write {
+}
+package "thuner.write.attribute" as thuner.write.attribute {
+}
+package "thuner.write.filepath" as thuner.write.filepath {
+}
+package "thuner.write.mask" as thuner.write.mask {
+}
+package "thuner.write.utils" as thuner.write.utils {
+}
+thuner --> thuner.analyze
+thuner --> thuner.config
+thuner --> thuner.data
+thuner --> thuner.default
+thuner --> thuner.option
+thuner --> thuner.parallel
+thuner --> thuner.track
+thuner --> thuner.visualize
+thuner.analyze --> thuner.analyze.mcs
+thuner.analyze --> thuner.analyze.utils
+thuner.analyze.mcs --> thuner.analyze.utils
+thuner.analyze.mcs --> thuner.attribute.core
+thuner.analyze.mcs --> thuner.attribute.utils
+thuner.analyze.mcs --> thuner.log
+thuner.analyze.mcs --> thuner.option.attribute
+thuner.analyze.mcs --> thuner.utils
+thuner.analyze.mcs --> thuner.write
+thuner.analyze.utils --> thuner.option
+thuner.attribute --> thuner.attribute.attribute
+thuner.attribute --> thuner.attribute.core
+thuner.attribute --> thuner.attribute.ellipse
+thuner.attribute --> thuner.attribute.group
+thuner.attribute --> thuner.attribute.profile
+thuner.attribute --> thuner.attribute.quality
+thuner.attribute --> thuner.attribute.tag
+thuner.attribute --> thuner.attribute.utils
+thuner.attribute.attribute --> thuner.log
+thuner.attribute.attribute --> thuner.option.attribute
+thuner.attribute.attribute --> thuner.option.track
+thuner.attribute.attribute --> thuner.utils
+thuner.attribute.core --> thuner.attribute.utils
+thuner.attribute.core --> thuner.grid
+thuner.attribute.core --> thuner.log
+thuner.attribute.core --> thuner.match.object
+thuner.attribute.core --> thuner.option.attribute
+thuner.attribute.ellipse --> thuner.attribute
+thuner.attribute.ellipse --> thuner.attribute.core
+thuner.attribute.ellipse --> thuner.attribute.utils
+thuner.attribute.ellipse --> thuner.grid
+thuner.attribute.ellipse --> thuner.log
+thuner.attribute.ellipse --> thuner.option.attribute
+thuner.attribute.group --> thuner.attribute.core
+thuner.attribute.group --> thuner.grid
+thuner.attribute.group --> thuner.log
+thuner.attribute.group --> thuner.option.attribute
+thuner.attribute.profile --> thuner.attribute.core
+thuner.attribute.profile --> thuner.attribute.utils
+thuner.attribute.profile --> thuner.log
+thuner.attribute.profile --> thuner.option.attribute
+thuner.attribute.profile --> thuner.option.grid
+thuner.attribute.quality --> thuner.attribute.core
+thuner.attribute.quality --> thuner.attribute.utils
+thuner.attribute.quality --> thuner.log
+thuner.attribute.quality --> thuner.option.attribute
+thuner.attribute.tag --> thuner.attribute.core
+thuner.attribute.tag --> thuner.attribute.utils
+thuner.attribute.tag --> thuner.log
+thuner.attribute.tag --> thuner.option.attribute
+thuner.attribute.utils --> thuner.log
+thuner.attribute.utils --> thuner.option.attribute
+thuner.data --> thuner.data.access
+thuner.data --> thuner.data.aura
+thuner.data --> thuner.data.era5
+thuner.data --> thuner.data.gridrad
+thuner.data --> thuner.data.odim
+thuner.data --> thuner.data.synthetic
+thuner.data --> thuner.data.utils
+thuner.data --> thuner.data.wrf
+thuner.data.access --> thuner.config
+thuner.data.access --> thuner.log
+thuner.data.access --> thuner.utils
+thuner.data.aura --> thuner.data.odim
+thuner.data.aura --> thuner.data.utils
+thuner.data.aura --> thuner.grid
+thuner.data.aura --> thuner.log
+thuner.data.aura --> thuner.utils
+thuner.data.dispatch --> thuner.data.aura
+thuner.data.dispatch --> thuner.data.era5
+thuner.data.dispatch --> thuner.data.gridrad
+thuner.data.dispatch --> thuner.data.synthetic
+thuner.data.dispatch --> thuner.data.utils
+thuner.data.dispatch --> thuner.log
+thuner.data.dispatch --> thuner.utils
+thuner.data.era5 --> thuner.config
+thuner.data.era5 --> thuner.data.utils
+thuner.data.era5 --> thuner.log
+thuner.data.era5 --> thuner.utils
+thuner.data.gridrad --> thuner.data.utils
+thuner.data.gridrad --> thuner.grid
+thuner.data.gridrad --> thuner.log
+thuner.data.gridrad --> thuner.utils
+thuner.data.odim --> thuner.data.utils
+thuner.data.odim --> thuner.log
+thuner.data.synthetic --> thuner.data.utils
+thuner.data.synthetic --> thuner.grid
+thuner.data.synthetic --> thuner.log
+thuner.data.synthetic --> thuner.utils
+thuner.data.utils --> thuner.config
+thuner.data.utils --> thuner.log
+thuner.data.utils --> thuner.utils
+thuner.data.wrf --> thuner.config
+thuner.data.wrf --> thuner.log
+thuner.data.wrf --> thuner.utils
+thuner.default --> thuner.attribute.core
+thuner.default --> thuner.attribute.ellipse
+thuner.default --> thuner.attribute.group
+thuner.default --> thuner.attribute.profile
+thuner.default --> thuner.attribute.quality
+thuner.default --> thuner.attribute.tag
+thuner.default --> thuner.option.attribute
+thuner.default --> thuner.option.track
+thuner.default --> thuner.option.visualize
+thuner.default --> thuner.visualize.runtime
+thuner.detect --> thuner.detect.detect
+thuner.detect --> thuner.detect.preprocess
+thuner.detect --> thuner.detect.steiner
+thuner.detect.detect --> thuner.detect.preprocess
+thuner.detect.detect --> thuner.detect.steiner
+thuner.detect.detect --> thuner.log
+thuner.detect.detect --> thuner.utils
+thuner.detect.steiner --> thuner.log
+thuner.detect.steiner --> thuner.utils
+thuner.grid --> thuner.log
+thuner.grid --> thuner.utils
+thuner.group --> thuner.group.group
+thuner.group.group --> thuner.utils
+thuner.log --> thuner.config
+thuner.match --> thuner.match.box
+thuner.match --> thuner.match.correlate
+thuner.match --> thuner.match.match
+thuner.match --> thuner.match.object
+thuner.match --> thuner.match.tint
+thuner.match --> thuner.match.utils
+thuner.match.box --> thuner.grid
+thuner.match.box --> thuner.log
+thuner.match.correlate --> thuner.match.box
+thuner.match.correlate --> thuner.match.utils
+thuner.match.match --> thuner.log
+thuner.match.match --> thuner.match.object
+thuner.match.match --> thuner.match.tint
+thuner.match.match --> thuner.match.utils
+thuner.match.object --> thuner.grid
+thuner.match.object --> thuner.log
+thuner.match.object --> thuner.match.utils
+thuner.match.tint --> thuner.grid
+thuner.match.tint --> thuner.log
+thuner.match.tint --> thuner.match.box
+thuner.match.tint --> thuner.match.correlate
+thuner.match.tint --> thuner.match.object
+thuner.match.tint --> thuner.match.utils
+thuner.match.utils --> thuner.log
+thuner.option --> thuner.option.attribute
+thuner.option --> thuner.option.data
+thuner.option --> thuner.option.grid
+thuner.option --> thuner.option.track
+thuner.option --> thuner.option.visualize
+thuner.option.attribute --> thuner.utils
+thuner.option.data --> thuner.data.aura
+thuner.option.data --> thuner.data.era5
+thuner.option.data --> thuner.data.gridrad
+thuner.option.data --> thuner.log
+thuner.option.data --> thuner.utils
+thuner.option.grid --> thuner.log
+thuner.option.grid --> thuner.utils
+thuner.option.track --> thuner.log
+thuner.option.track --> thuner.option.attribute
+thuner.option.track --> thuner.utils
+thuner.option.visualize --> thuner.config
+thuner.option.visualize --> thuner.log
+thuner.option.visualize --> thuner.utils
+thuner.parallel --> thuner.analyze
+thuner.parallel --> thuner.attribute
+thuner.parallel --> thuner.data
+thuner.parallel --> thuner.log
+thuner.parallel --> thuner.option
+thuner.parallel --> thuner.track.track
+thuner.parallel --> thuner.utils
+thuner.parallel --> thuner.write
+thuner.test.test_cpol --> thuner.analyze
+thuner.test.test_cpol --> thuner.data
+thuner.test.test_cpol --> thuner.default
+thuner.test.test_cpol --> thuner.grid
+thuner.test.test_cpol --> thuner.option
+thuner.test.test_cpol --> thuner.track.track
+thuner.test.test_cpol --> thuner.visualize
+thuner.test.test_gridrad --> thuner.analyze
+thuner.test.test_gridrad --> thuner.data
+thuner.test.test_gridrad --> thuner.default
+thuner.test.test_gridrad --> thuner.log
+thuner.test.test_gridrad --> thuner.option
+thuner.test.test_gridrad --> thuner.parallel
+thuner.test.test_gridrad --> thuner.track.track
+thuner.test.test_gridrad --> thuner.visualize
+thuner.test.test_synthetic --> thuner.data
+thuner.test.test_synthetic --> thuner.data.synthetic
+thuner.test.test_synthetic --> thuner.default
+thuner.test.test_synthetic --> thuner.option
+thuner.test.test_synthetic --> thuner.track.track
+thuner.track --> thuner.track.track
+thuner.track.track --> thuner.attribute.attribute
+thuner.track.track --> thuner.config
+thuner.track.track --> thuner.data.dispatch
+thuner.track.track --> thuner.detect.detect
+thuner.track.track --> thuner.group.group
+thuner.track.track --> thuner.log
+thuner.track.track --> thuner.match.match
+thuner.track.track --> thuner.option
+thuner.track.track --> thuner.track.utils
+thuner.track.track --> thuner.utils
+thuner.track.track --> thuner.visualize.runtime
+thuner.track.track --> thuner.visualize.visualize
+thuner.track.track --> thuner.write
+thuner.track.utils --> thuner.attribute.utils
+thuner.track.utils --> thuner.option.data
+thuner.track.utils --> thuner.option.track
+thuner.utils --> thuner.config
+thuner.utils --> thuner.log
+thuner.visualize --> thuner.visualize.analysis
+thuner.visualize --> thuner.visualize.attribute
+thuner.visualize --> thuner.visualize.horizontal
+thuner.visualize --> thuner.visualize.visualize
+thuner.visualize.analysis --> thuner.visualize.utils
+thuner.visualize.attribute --> thuner.analyze.utils
+thuner.visualize.attribute --> thuner.attribute.utils
+thuner.visualize.attribute --> thuner.data.dispatch
+thuner.visualize.attribute --> thuner.detect.detect
+thuner.visualize.attribute --> thuner.log
+thuner.visualize.attribute --> thuner.utils
+thuner.visualize.attribute --> thuner.visualize.horizontal
+thuner.visualize.attribute --> thuner.visualize.utils
+thuner.visualize.attribute --> thuner.visualize.visualize
+thuner.visualize.horizontal --> thuner.grid
+thuner.visualize.horizontal --> thuner.log
+thuner.visualize.horizontal --> thuner.match.box
+thuner.visualize.horizontal --> thuner.visualize.utils
+thuner.visualize.horizontal --> thuner.visualize.visualize
+thuner.visualize.runtime --> thuner.grid
+thuner.visualize.runtime --> thuner.log
+thuner.visualize.runtime --> thuner.match.box
+thuner.visualize.runtime --> thuner.match.utils
+thuner.visualize.runtime --> thuner.utils
+thuner.visualize.runtime --> thuner.visualize.horizontal
+thuner.visualize.runtime --> thuner.visualize.utils
+thuner.visualize.runtime --> thuner.visualize.visualize
+thuner.visualize.visualize --> thuner.log
+thuner.visualize.visualize --> thuner.visualize.utils
+thuner.write --> thuner.write.attribute
+thuner.write --> thuner.write.filepath
+thuner.write --> thuner.write.mask
+thuner.write --> thuner.write.utils
+thuner.write.attribute --> thuner.attribute.utils
+thuner.write.attribute --> thuner.log
+thuner.write.attribute --> thuner.option.attribute
+thuner.write.attribute --> thuner.option.track
+thuner.write.attribute --> thuner.utils
+thuner.write.filepath --> thuner.attribute.utils
+thuner.write.filepath --> thuner.log
+thuner.write.filepath --> thuner.option.attribute
+thuner.write.filepath --> thuner.utils
+thuner.write.filepath --> thuner.write.attribute
+thuner.write.mask --> thuner.log
+@enduml

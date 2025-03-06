@@ -1,6 +1,6 @@
-from . import attribute
-from . import visualize
-from . import horizontal
-from . import analysis
+import thuner.visualize.attribute as attribute
+import thuner.visualize.visualize as visualize
+import thuner.visualize.horizontal as horizontal
+import thuner.visualize.analysis as analysis
 
-__all__ = ["attribute"]
+__all__ = ["attribute", "analysis", "visualize", "horizontal"]

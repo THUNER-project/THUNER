@@ -1,6 +1,8 @@
-from . import correlate
-from . import match
-from . import tint
-from . import utils
-from . import box
-from . import object
+import thuner.match.correlate as correlate
+import thuner.match.match as match
+import thuner.match.tint as tint
+import thuner.match.utils as utils
+import thuner.match.box as box
+import thuner.match.object as object
+
+__all__ = ["correlate", "match", "tint", "utils", "box", "object"]
