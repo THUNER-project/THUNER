@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 import thuner.visualize.utils as utils
 
+__all__ = ["windrose", "windrose_legend"]
+
 
 def windrose(
     ax,

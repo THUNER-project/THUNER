@@ -110,7 +110,10 @@ def write_csv(filepath, df, attribute_type=None, write_mode="w"):
     filepath.parent.mkdir(parents=True, exist_ok=True)
     logger.debug("Writing attribute dataframe to %s", filepath)
     date_format = "%Y-%m-%d %H:%M:%S"
-    df.to_csv(filepath, na_rep="NA", date_format=date_format, mode=write_mode)
+    header = False if write_mode == "a" else True
+    kwargs = {"na_rep": "NA", "date_format": date_format, "mode": write_mode}
+    kwargs.update({"header": header})
+    df.to_csv(filepath, **kwargs)
     if write_mode == "w":
         write_metadata(Path(filepath).with_suffix(".yml"), attribute_type)
     return df

@@ -4,6 +4,7 @@ from pydantic import ValidationError
 import yaml
 from pathlib import Path
 import pandas as pd
+import dask.dataframe as dd
 import xarray as xr
 from pydantic import BaseModel, model_validator
 import numpy as np
@@ -220,7 +221,9 @@ def get_indexes(attribute_type: AttributeType):
     return indexes
 
 
-def read_attribute_csv(filepath, attribute_type=None, columns=None, times=None):
+def read_attribute_csv(
+    filepath, attribute_type=None, columns=None, times=None, dask=False
+):
     """
     Read a CSV file and return a DataFrame.
 
@@ -253,7 +256,12 @@ def read_attribute_csv(filepath, attribute_type=None, columns=None, times=None):
     if attribute_type is None:
         message = "No metadata; loading entire dataframe and data types not enforced."
         logger.warning(message)
-        return pd.read_csv(filepath, na_values=["", "NA"], keep_default_na=True)
+        kwargs = {"na_values": ["", "NA"], "keep_default_na": True}
+        if dask:
+            df = dd.read_csv(filepath, **kwargs)
+        else:
+            df = pd.read_csv(filepath, **kwargs)
+        return df
 
     # Get attributes with np.datetime64 data type
     time_attrs = []
@@ -274,7 +282,7 @@ def read_attribute_csv(filepath, attribute_type=None, columns=None, times=None):
     # Remove time columns as pd handles these separately
     for name in time_attrs:
         data_types.pop(name, None)
-    if times is not None:
+    if times is not None and not dask:
         kwargs = {"usecols": ["time"], "parse_dates": time_attrs}
         kwargs.update({"na_values": ["", "NA"], "keep_default_na": True})
         index_df = pd.read_csv(filepath, **kwargs)
@@ -282,13 +290,22 @@ def read_attribute_csv(filepath, attribute_type=None, columns=None, times=None):
         # Increment row numbers by 1 to account for header
         row_numbers = [i + 1 for i in row_numbers]
     else:
+        if dask:
+            logger.warning("Row skipping not yet implemented with dask dataframes.")
         row_numbers = None
 
-    kwargs = {"usecols": all_columns, "dtype": data_types, "parse_dates": time_attrs}
-    kwargs.update({"skiprows": row_numbers})
-    kwargs.update({"na_values": ["", "NA"], "keep_default_na": True})
-    df = pd.read_csv(filepath, **kwargs)
-    df = df.set_index(indexes)
+    if dask:
+        kwargs = {"dtype": data_types, "parse_dates": time_attrs}
+        kwargs.update({"na_values": ["", "NA"], "keep_default_na": True})
+        df = dd.read_csv(filepath, **kwargs)
+        message = "Index not set for dask dataframe."
+        logger.warning(message)
+    else:
+        kwargs = {"usecols": all_columns, "dtype": data_types}
+        kwargs.update({"parse_dates": time_attrs, "skiprows": row_numbers})
+        kwargs.update({"na_values": ["", "NA"], "keep_default_na": True})
+        df = pd.read_csv(filepath, **kwargs)
+        df = df.set_index(indexes)
     return df
 
 

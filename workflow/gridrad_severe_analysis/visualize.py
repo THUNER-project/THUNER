@@ -6,10 +6,13 @@ import matplotlib.ticker as mticker
 import networkx as nx
 import numpy as np
 import pandas as pd
+from dask.diagnostics import ProgressBar
 import pickle
 import thuner.visualize as visualize
 from thuner.log import setup_logger
 import utils
+from thuner.attribute.utils import read_attribute_csv
+import thuner.visualize.analysis as analysis
 
 logger = setup_logger(__name__)
 
@@ -76,15 +79,17 @@ def parent_graph(parent_graph, ax=None, analysis_directory=None):
     plt.savefig(filepath, bbox_inches="tight")
 
 
-def windrose(dfs, analysis_directory=None):
+def windrose(analysis_directory=None):
     """Create a windrose style plot of system velocity and stratiform offset."""
 
     plt.close("all")
     if analysis_directory is None:
         analysis_directory = utils.get_analysis_directory()
+    attribute_directory = analysis_directory / "attributes/aggregated"
 
-    quality = dfs["quality"]
-    raw_sample = quality[["duration", "parents", "children"]].any(axis=1)
+    quality = read_attribute_csv(attribute_directory / "quality.csv")
+    columns = ["duration", "parents", "children"]
+    raw_sample = quality[columns].any(axis=1)
 
     kwargs = {"subplot_width": 4, "rows": 1, "columns": 2, "projections": "windrose"}
     kwargs.update({"colorbar": False, "legend_rows": 5, "horizontal_spacing": 2})
@@ -92,10 +97,13 @@ def windrose(dfs, analysis_directory=None):
     fig, subplot_axes, colorbar_axes, legend_axes = panelled_layout.initialize_layout()
 
     names = quality_dispatcher["velocity"]
-    quality = dfs["quality"][names].all(axis=1)
+    vel_quality = quality[names].all(axis=1)
+    filepath = attribute_directory / "velocities.csv"
+    columns = ["u", "v"]
+    velocities = read_attribute_csv(filepath, columns=columns)
     values = []
-    for v in ["u", "v"]:
-        values.append(dfs["velocities"][v].where(quality & raw_sample).dropna().values)
+    for v in columns:
+        values.append(velocities[v].where(vel_quality & raw_sample).dropna().values)
     u, v = values
     bins = np.arange(5, 30, 5)
     yticks = np.arange(5, 30, 5)
@@ -103,18 +111,20 @@ def windrose(dfs, analysis_directory=None):
     kwargs = {"bins": bins, "yticks": yticks, "colormap": colormap}
     kwargs.update({"label_angle": -22.5 - 45})
     kwargs.update({"horizontalalignment": "left", "verticalalignment": "top"})
-    visualize.analysis.windrose(subplot_axes[0], u, v, **kwargs)
+    analysis.windrose(subplot_axes[0], u, v, **kwargs)
     subplot_axes[0].set_title("System Velocity")
-    visualize.analysis.windrose_legend(legend_axes[0], bins, colormap, columns=2)
+    analysis.windrose_legend(legend_axes[0], bins, colormap, columns=2)
 
     names = quality_dispatcher["offset"]
-    quality = dfs["quality"][names].all(axis=1)
+    columns = ["x_offset", "y_offset"]
+    group = read_attribute_csv(attribute_directory / "group.csv", columns=columns)
+    off_quality = quality[names].all(axis=1)
     values = []
     for v in ["x_offset", "y_offset"]:
-        values.append(dfs["group"][v].where(quality & raw_sample).dropna().values)
+        values.append(group[v].where(off_quality & raw_sample).dropna().values)
     x_offset, y_offset = values
     bins = np.arange(10, 60, 10)
-    yticks = np.arange(5, 25, 5)
+    yticks = np.arange(5, 20, 5)
     colormap = plt.get_cmap("Blues", len(bins))
     kwargs = {"bins": bins, "yticks": yticks, "colormap": colormap}
     kwargs.update({"label_angle": -22.5 - 45, "yticks": yticks})
@@ -184,19 +194,21 @@ def plot_pie_inset(data, longitude, latitude, ax, width, offsets, colors):
     return patches, texts
 
 
-def pie_map(dfs, classification_name, analysis_directory=None, block_size=5):
+def pie_map(classification_name, analysis_directory=None, block_size=5):
     """Create a map of classification ratios using pie charts."""
 
     plt.close("all")
     if analysis_directory is None:
         analysis_directory = utils.get_analysis_directory()
+    attribute_directory = analysis_directory / "attributes/aggregated"
 
-    mcs = dfs["mcs_core"].copy()
-    classification = dfs["classification"].copy()
+    mcs = read_attribute_csv(attribute_directory / "mcs_core.csv")
+    classification = read_attribute_csv(attribute_directory / "classification.csv")
+    quality = read_attribute_csv(attribute_directory / "quality.csv")
     classification["latitude_block"] = mcs["latitude"] // block_size * block_size
     classification["longitude_block"] = mcs["longitude"] // block_size * block_size
 
-    cond = dfs["quality"][quality_dispatcher[classification_name]].all(axis=1)
+    cond = quality[quality_dispatcher[classification_name]].all(axis=1)
     classification = classification.where(cond).dropna()
 
     block_names = ["latitude_block", "longitude_block"]
@@ -213,7 +225,7 @@ def pie_map(dfs, classification_name, analysis_directory=None, block_size=5):
     layout = visualize.horizontal.PanelledUniformMaps(**kwargs)
     fig, subplot_axes, colorbar_axes, legend_axes = layout.initialize_layout()
 
-    min_obs = 100
+    min_obs = 200
 
     for lat, lon in [(i[0], i[1]) for i in ratios.index]:
         ratio = ratios.loc[(lat, lon)]
@@ -304,14 +316,34 @@ def field_map(
     save_figure(filepath, fig, subplot_axes, colorbar_axes, legend_axes)
 
 
-def field_maps(dfs, analysis_directory=None):
+def reduce_profile(attribute_directory, time_offset=0, cols=None):
+    """Reduce the profile to a single time offset."""
+    profile = read_attribute_csv(attribute_directory / "era5_pl_profile.csv", dask=True)
+    if cols is not None:
+        cols = ["time", "universal_id", "event_start", "time_offset", "altitude"] + cols
+        profile = profile[cols]
+    ProgressBar().register()
+    profile = profile[profile["time_offset"] == 0].compute()
+    profile = profile.set_index(["time", "universal_id", "event_start", "altitude"])
+    profile = profile.drop("time_offset", axis=1)
+    return profile
+
+
+def field_maps(analysis_directory=None):
     """Visualize fields related to mesoscale structure."""
 
     if analysis_directory is None:
         analysis_directory = utils.get_analysis_directory()
+    attribute_directory = analysis_directory / "attributes/aggregated"
 
-    profile = dfs["era5_pl_profile"].xs(0, level="time_offset")
-    tag = dfs["era5_sl_tag"].xs(0, level="time_offset")
+    filepath = attribute_directory / "era5_pl_profile.csv"
+    cols = ["u", "v"]
+
+    cols = ["time", "universal_id", "event_start", "time_offset", "altitude", "u", "v"]
+    cols += ["temperature"]
+    profile = reduce_profile(attribute_directory, cols=cols)
+    filepath = attribute_directory / "era5_sl_tag.csv"
+    tag = read_attribute_csv(filepath, columns=["cape"]).xs(0, level="time_offset")
     shear = utils.get_shear(profile)
     ake = (1 / 2) * (shear["u"] ** 2 + shear["v"] ** 2)
     ake.name = "ake"
@@ -321,8 +353,10 @@ def field_maps(dfs, analysis_directory=None):
     R.name = "R"
     R = pd.DataFrame(R)
 
-    mcs = dfs["mcs_core"].copy()
-    quality = dfs["quality"].copy()
+    filepath = attribute_directory / "mcs_core.csv"
+    mcs = read_attribute_csv(filepath, columns=["latitude", "longitude"])
+    filepath = attribute_directory / "quality.csv"
+    quality = read_attribute_csv(filepath)
 
     all_levels = [
         np.arange(0, 2000 + 250, 250),
@@ -414,17 +448,19 @@ def acute_angle_hist(ax, angles_degrees):
     ax.grid(True, which="minor", alpha=0.4)
 
 
-def shear_orientation_angles(dfs, analysis_directory=None):
+def shear_orientation_angles(analysis_directory=None):
     """Plot the distribution of angles between shear and orientation."""
 
     plt.close("all")
     if analysis_directory is None:
         analysis_directory = utils.get_analysis_directory()
+    attribute_directory = analysis_directory / "attributes/aggregated"
 
-    velocities = dfs["velocities"]
-    quality = dfs["quality"]
-    orientation = dfs["ellipse"]["orientation"]
-    classification = dfs["classification"]
+    velocities = read_attribute_csv(attribute_directory / "velocities.csv")
+    quality = read_attribute_csv(attribute_directory / "quality.csv")
+    filepath = attribute_directory / "ellipse.csv"
+    orientation = read_attribute_csv(filepath, columns=["orientation"])["orientation"]
+    classification = read_attribute_csv(attribute_directory / "classification.csv")
 
     shear = velocities[["u_shear", "v_shear"]]
     shear_direction = np.arctan2(shear["v_shear"], shear["u_shear"])
@@ -721,15 +757,16 @@ def wind_profile(mean_winds, std_winds, ax):
     profile_grid(-10, 35, 5, 0, 16e3, 2e3, ax, y_label=True)
 
 
-def wind_profiles(dfs):
+def wind_profiles():
     """Contrast wind profiles across categories."""
 
     plt.close("all")
     analysis_directory = utils.get_analysis_directory()
+    attribute_directory = analysis_directory / "attributes/aggregated"
 
-    profile = dfs["era5_pl_profile"].xs(0, level="time_offset")
-    classification = dfs["classification"].copy()
-    quality = dfs["quality"].copy()
+    profile = reduce_profile(attribute_directory, cols=["u", "v"])
+    classification = read_attribute_csv(attribute_directory / "classification.csv")
+    quality = read_attribute_csv(attribute_directory / "quality.csv")
     winds = profile[["u", "v"]].xs(slice(0, 16e3), level="altitude", drop_level=False)
     cond = quality[quality_dispatcher["ambient_wind"]].all(axis=1)
 
@@ -763,14 +800,16 @@ def wind_profiles(dfs):
     save_figure(filepath, fig, subplot_axes, colorbar_axes, legend_axes)
 
 
-def cape_ake_R(dfs):
+def cape_ake_R():
     """Contrast shear, CAPE and R."""
 
     plt.close("all")
     analysis_directory = utils.get_analysis_directory()
+    attribute_directory = analysis_directory / "attributes/aggregated"
 
-    profile = dfs["era5_pl_profile"].xs(0, level="time_offset")
-    tag = dfs["era5_sl_tag"].xs(0, level="time_offset")
+    profile = reduce_profile(attribute_directory, cols=["u", "v", "temperature"])
+    filepath = attribute_directory / "era5_sl_tag.csv"
+    tag = read_attribute_csv(filepath, columns=["cape"]).xs(0, level="time_offset")
     shear = utils.get_shear(profile)
     ake = (1 / 2) * (shear["u"] ** 2 + shear["v"] ** 2)
     ake.name = "ake"
@@ -780,8 +819,8 @@ def cape_ake_R(dfs):
     R.name = "R"
     R = pd.DataFrame(R)
 
-    quality = dfs["quality"].copy()
-    classification = dfs["classification"].copy()
+    classification = read_attribute_csv(attribute_directory / "classification.csv")
+    quality = read_attribute_csv(attribute_directory / "quality.csv")
 
     # Quality control criteria same for cape, ake, R
     cond = quality[quality_dispatcher["cape"]].all(axis=1)

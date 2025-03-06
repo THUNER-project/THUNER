@@ -102,79 +102,15 @@ def recalculate_quality(base_local=None):
         analyze.mcs.quality_control(directory, analysis_options)
 
 
-def aggregate_year(base_local=None, year=2010):
-    """Aggregate data within given year."""
-
-    if base_local is None:
-        base_local = config.get_outputs_directory()
-
-    pattern = str(base_local / f"runs/gridrad/gridrad_severe/{year}/*[!.tar.gz]")
-    run_directories = sorted(glob.glob(pattern))
-    analysis_directory = get_analysis_directory()
-    attributes_directory = analysis_directory / f"attributes/aggregated/{year}"
-
-    shutil.rmtree(attributes_directory, ignore_errors=True)
-    attributes_directory.mkdir(exist_ok=True, parents=True)
-
-    names = ["core", "group", "core", "core", "ellipse"]
-    names += ["era5_pl_profile", "era5_sl_tag", "classification"]
-    names += ["quality", "velocities"]
-    dataset_names = ["mcs_core", "group", "convective_core", "anvil_core", "ellipse"]
-    dataset_names += ["era5_pl_profile", "era5_sl_tag", "classification"]
-    dataset_names += ["quality", "velocities"]
-    subdirectories = ["attributes/mcs"] * 2 + ["attributes/mcs/convective"]
-    subdirectories += ["attributes/mcs/anvil"]
-    subdirectories += ["attributes/mcs/convective"]
-    subdirectories += ["attributes/mcs", "attributes/mcs"]
-    subdirectories += ["analysis"] * 3
-    dfs = {}
-    metadata = {}
-
-    for i, name in enumerate(names):
-        logger.info(f"Processing {dataset_names[i]}")
-        df_list = []
-        # Read the first file to get the metadata
-        filepath = Path(run_directories[0]) / subdirectories[i] / f"{name}.csv"
-        attr = utils.read_metadata_yml(filepath.with_suffix(".yml"))
-        for directory in run_directories:
-            options_filepath = Path(directory) / "options/data.yml"
-            with open(options_filepath, "r") as f:
-                data_options = DataOptions(**yaml.safe_load(f))
-            gridrad_options = data_options.dataset_by_name("gridrad")
-            event_start = gridrad_options.event_start
-            try:
-                filepath = Path(directory) / subdirectories[i] / f"{name}.csv"
-                df = utils.read_attribute_csv(filepath)
-                df["event_start"] = event_start
-                df_list.append(df)
-            except FileNotFoundError:
-                logger.info(f"No {filepath.name} found in {directory}. Skipping.")
-
-        event_start = core.Time()
-        event_start.name = "event_start"
-        event_start.description = "GridRad Severe event start date."
-        attr.attributes.append(event_start)
-        attr.name = dataset_names[i]
-        df = pd.concat(df_list)
-        df = df.reset_index().set_index(["time", "universal_id", "event_start"])
-        df = df.sort_index()
-
-        filepath = attributes_directory / f"{dataset_names[i]}.csv"
-        write.attribute.write_csv(filepath, df, attr)
-        dfs[dataset_names[i]] = df
-        metadata[dataset_names[i]] = attr
-    return dfs, metadata
-
-
-def aggregate_years(base_local=None):
+def aggregate_runs(base_local=None):
     """Aggregate data across runs."""
 
     if base_local is None:
         base_local = config.get_outputs_directory()
 
-    analysis_directory = get_analysis_directory()
-    pattern = analysis_directory / f"gridrad_severe/attributes/*[.]*"
+    pattern = str(base_local / "runs/gridrad/gridrad_severe/*/gridrad_*[!.tar.gz]")
     run_directories = sorted(glob.glob(pattern))
+    analysis_directory = get_analysis_directory()
     attributes_directory = analysis_directory / "attributes/aggregated"
 
     shutil.rmtree(attributes_directory, ignore_errors=True)
@@ -193,8 +129,6 @@ def aggregate_years(base_local=None):
     subdirectories += ["analysis"] * 3
 
     for i, name in enumerate(names):
-        i = 5
-        name = names[i]
         logger.info(f"Processing {dataset_names[i]}")
         for directory in run_directories:
             options_filepath = Path(directory) / "options/data.yml"
@@ -202,27 +136,23 @@ def aggregate_years(base_local=None):
                 data_options = DataOptions(**yaml.safe_load(f))
             gridrad_options = data_options.dataset_by_name("gridrad")
             event_start = gridrad_options.event_start
-            try:
-                filepath = Path(directory) / subdirectories[i] / f"{name}.csv"
-                df = utils.read_attribute_csv(filepath)
-                attr = utils.read_metadata_yml(filepath.with_suffix(".yml"))
-            except FileNotFoundError:
+            filepath = Path(directory) / subdirectories[i] / f"{name}.csv"
+            if not filepath.exists():
                 logger.info(f"No {filepath.name} found in {directory}. Skipping.")
                 continue
-
+            filepath = Path(directory) / subdirectories[i] / f"{name}.csv"
+            df = utils.read_attribute_csv(filepath)
+            attr = utils.read_metadata_yml(filepath.with_suffix(".yml"))
             df["event_start"] = event_start
             event_start_attr = core.Time()
             event_start_attr.name = "event_start"
             event_start_attr.description = "GridRad Severe event start date."
             attr.attributes.append(event_start_attr)
-            event_start_attr.name = dataset_names[i]
             df = df.reset_index().set_index(["time", "universal_id", "event_start"])
             df = df.sort_index()
-
             filepath = attributes_directory / f"{dataset_names[i]}.csv"
             write_mode = "a" if filepath.exists() else "w"
             write.attribute.write_csv(filepath, df, attr, write_mode=write_mode)
-    return df, attr
 
 
 def load_aggregated_runs(attributes_directory=None):
@@ -233,6 +163,7 @@ def load_aggregated_runs(attributes_directory=None):
         attributes_directory = analysis_directory / "attributes/aggregated"
     dfs, metadata = {}, {}
     for csv in glob.glob(str(attributes_directory / "*.csv")):
+        logger.info(f"Loading {Path(csv).name}.")
         df = utils.read_attribute_csv(csv)
         md = utils.read_metadata_yml(Path(csv).with_suffix(".yml"))
         dfs[Path(csv).stem] = df

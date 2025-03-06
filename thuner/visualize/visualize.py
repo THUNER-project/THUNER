@@ -22,7 +22,7 @@ logger = setup_logger(__name__)
 
 style = "presentation"
 
-__all__ = ["discrete_cmap_norm"]
+__all__ = ["animate_object", "set_style"]
 
 
 def discrete_cmap_norm(
@@ -80,7 +80,7 @@ mask_colormap = mcolors.LinearSegmentedColormap.from_list("mask", mask_colors, N
 
 @contextlib.contextmanager
 def set_style(new_style):
-    """Set the style for the visualization."""
+    """Custom style manager for matplotlib."""
     global style
     original_style = style
     style = new_style
