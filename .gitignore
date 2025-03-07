@@ -17,3 +17,4 @@ kitchen_sink
 htmlcov
 .pre-commit-config.yaml
 conda_init_out.out
+docs/source/images/uml
