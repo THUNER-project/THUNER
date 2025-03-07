@@ -1,5 +1,12 @@
 @startuml packages
 set namespaceSeparator none
+skinparam nodesep 15
+skinparam ranksep 25
+<style>
+package {
+    FontSize 12
+}
+</style>
 package "thuner" as thuner {
 }
 package "thuner.analyze" as thuner.analyze {

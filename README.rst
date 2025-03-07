@@ -36,25 +36,25 @@ Installation
 The `THUNER repository <https://github.com/THUNER-project/THUNER>`__ can be cloned from 
 GitHub in the usual ways. Cloning the repository is the easiest way to access the demo, 
 workflow and gallery folders. After cloning, a new conda environment using 
-`environment.yml`, then run `pip install .` from the THUNER root directory.
+``environment.yml``, then run ``pip install .`` from the THUNER root directory.
 
-Alternatively, THUNER can be installed using `conda`, ideally into a new environment:
+Alternatively, THUNER can be installed using ``conda``, ideally into a new environment:
 
-.. code:: sh
+.. code-block:: console
 
-   conda install -c conda-forge thuner
+   (THUNER) $ conda install -c conda-forge thuner
 
-While `conda` installation is preferred, `pip` may also be used. First install the `esmpy` 
-package manually as detailed
+While ``conda`` installation is preferred, ``pip`` may also be used. First install the 
+``esmpy`` package manually as detailed
 `here <https://xesmf.readthedocs.io/en/latest/installation.html#notes-about-esmpy>`__.
 THUNER can then be installed using
 
-.. code:: sh
+.. code-block:: console
 
-   pip install thuner
+   (THUNER) $ pip install thuner
 
-Note that THUNER depends on `xesmf` for regridding, and is therefore currently only
-available on Linux and OSX systems.
+Because THUNER depends on ``xesmf`` for regridding it is currently only supported on
+Unix systems.
 
 Examples
 --------
