@@ -33,7 +33,7 @@ Note many excellent alternatives to THUNER exist, including
 research project involving THUNER, consider performing sensitivity tests using these 
 alternatives.
 
-Check out the :doc:`usage` section for instructions on installing and running THUNER
+Check out the :doc:`installation` section for instructions on installing and running THUNER
 
 .. note::
 

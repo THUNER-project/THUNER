@@ -8,6 +8,7 @@ build_scripts
 log
 .flake8
 .vscode
+docs/build
 thuner/test/data
 thuner/test/runtime_visualization
 thuner/options
