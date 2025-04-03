@@ -8,7 +8,7 @@ THUNER - Thunderstorm Event Reconnaissance
    :alt: GridRad Demo
 
 Welcome to THUNER's documentation!
-===================================
+=========================================
 
 Welcome to the Thunderstorm Event Reconnaissance (THUNER) package!
 THUNER is a flexible toolkit for multi-feature detection, tracking,
@@ -46,7 +46,7 @@ Contents
    :maxdepth: 1
    
    design
-   usage
+   installation
    api
 
 Acknowledgements

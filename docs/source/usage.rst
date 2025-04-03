@@ -1,11 +1,5 @@
-Usage
-=====
-
 Installation
-------------
-
-Installation
-------------
+-----------------
 THUNER uses `conda <https://www.anaconda.com/docs/getting-started/miniconda/install>`__ 
 or `pip <https://pypi.org/project/pip/>`__ for installation and to manage dependencies. 
 First ensure either `conda` or `pip` is installed; `conda` is the preferred method. Note 

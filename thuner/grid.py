@@ -1,4 +1,4 @@
-"""Deal with thuner grid objects"""
+"""Convenience functions for processing grids."""
 
 import numpy as np
 from pyproj import Geod, Proj, Transformer
