@@ -19,15 +19,18 @@ The `THUNER repository <https://github.com/THUNER-project/THUNER>`__ can be clon
 GitHub in the usual ways. Cloning the repository is the easiest way to access the demo, 
 workflow and gallery folders. After cloning, navigate to the THUNER directory and create
 a new conda environment using 
+
 .. code-block:: console
 
    conda env create -f environment.yml
    conda activate thuner
 
 Then run 
+
 .. code-block:: console
 
    pip install . 
+
 from the THUNER root directory.
 
 From conda-forge
