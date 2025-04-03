@@ -4,28 +4,51 @@ Usage
 Installation
 ------------
 
+Installation
+------------
+THUNER uses `conda <https://www.anaconda.com/docs/getting-started/miniconda/install>`__ 
+or `pip <https://pypi.org/project/pip/>`__ for installation and to manage dependencies. 
+First ensure either `conda` or `pip` is installed; `conda` is the preferred method. Note 
+that THUNER depends on ``xesmf`` for regridding, which is not currently supported on 
+Windows. While THUNER can still be installed on Windows systems, regridding functionality 
+will not be available.
+
+From GitHub
+~~~~~~~~~~~~
 The `THUNER repository <https://github.com/THUNER-project/THUNER>`__ can be cloned from 
 GitHub in the usual ways. Cloning the repository is the easiest way to access the demo, 
-workflow and gallery folders. After cloning, a new conda environment using 
-``environment.yml``, then run ``pip install .`` from the THUNER root directory.
+workflow and gallery folders. After cloning, navigate to the THUNER directory and create
+a new conda environment using 
+.. code-block:: console
 
-Alternatively, THUNER can be installed using ``conda``, ideally into a new environment:
+   conda env create -f environment.yml
+   conda activate thuner
+
+Then run 
+.. code-block:: console
+
+   pip install . 
+from the THUNER root directory.
+
+From conda-forge
+~~~~~~~~~~~~~~~~~~~~~~~
+Alternatively, THUNER can be installed using ``conda``. Create a new conda environment
+as above, then run
 
 .. code-block:: console
 
-   (THUNER) $ conda install -c conda-forge thuner
+   conda install -c conda-forge thuner
 
-While ``conda`` installation is preferred, ``pip`` may also be used. First install the 
-``esmpy`` package manually as detailed
+From PyPI
+~~~~~~~~~~~~~~~~~~~~~~~
+While ``conda`` installation is preferred, ``pip`` may also be used to install directly
+from PyPI. First install the ``esmpy`` package manually as detailed
 `here <https://xesmf.readthedocs.io/en/latest/installation.html#notes-about-esmpy>`__.
-THUNER can then be installed using
+Then run
 
 .. code-block:: console
 
-   (THUNER) $ pip install thuner
-
-Because THUNER depends on ``xesmf`` for regridding it is currently only supported on
-Unix systems.
+   pip install thuner
 
 Tracking
 --------
