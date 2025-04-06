@@ -6,7 +6,7 @@ from typing import Iterable
 import numpy as np
 from pathlib import Path
 from thuner.log import setup_logger
-import thuner.data.dispatch as dispatch
+import thuner.data._dispatch as _dispatch
 import thuner.detect.detect as detect
 import thuner.group.group as group
 import thuner.visualize.runtime as runtime
@@ -17,7 +17,7 @@ import thuner.utils as utils
 import thuner.write as write
 import thuner.attribute.attribute as attribute
 import thuner.option as option
-from thuner.track.utils import InputRecords, Tracks
+from thuner.track._utils import InputRecords, Tracks
 
 
 logger = setup_logger(__name__)
@@ -90,7 +90,7 @@ def track(
         logger.info(f"Processing {utils.format_time(next_time, filename_safe=False)}.")
         args = [next_time, input_records.track, track_options, data_options]
         args += [grid_options, output_directory]
-        dispatch.update_track_input_records(*args)
+        _dispatch.update_track_input_records(*args)
         # Record track input filepaths
         for name in input_records.track.keys():
             input_record = input_records.track[name]
@@ -100,7 +100,7 @@ def track(
 
         args = [current_time, input_records.tag, track_options, data_options]
         args += [grid_options]
-        dispatch.update_tag_input_records(*args)
+        _dispatch.update_tag_input_records(*args)
         # loop over levels
         for level_index in range(len(track_options.levels)):
             logger.info("Processing hierarchy level %s.", level_index)

@@ -10,6 +10,7 @@ import thuner.data.era5 as era5
 
 logger = setup_logger(__name__)
 
+__all__ = ["DataOptions"]
 
 _summary = {"datasets": "List of dataset options."}
 

@@ -14,7 +14,7 @@ import thuner.visualize.horizontal as horizontal
 from thuner.utils import initialize_process, check_results
 from thuner.attribute.utils import read_attribute_csv
 from thuner.analyze.utils import read_options
-import thuner.data.dispatch as dispatch
+import thuner.data._dispatch as _dispatch
 import thuner.detect.detect as detect
 from thuner.utils import format_time, new_angle, circular_mean
 import thuner.visualize.utils as utils
@@ -154,7 +154,7 @@ def visualize_mcs(
 
     filepath = filepaths[dataset_name].loc[time]
     dataset_options = options["data"].dataset_by_name(dataset_name)
-    convert = dispatch.convert_dataset_dispatcher.get(dataset_name)
+    convert = _dispatch.convert_dataset_dispatcher.get(dataset_name)
     if convert is None:
         message = f"Dataset {dataset_name} not found in dispatch."
         logger.debug(f"Getting grid from dataset at time {time}.")
@@ -167,7 +167,7 @@ def visualize_mcs(
     ds, boundary_coords, simple_boundary_coords = convert(*args)
     del boundary_coords
     logger.debug(f"Getting grid from dataset at time {time}.")
-    get_grid = dispatch.grid_from_dataset_dispatcher.get(dataset_name)
+    get_grid = _dispatch.grid_from_dataset_dispatcher.get(dataset_name)
     if get_grid is None:
         message = f"Dataset {dataset_name} not found in grid from dataset "
         message += "dispatcher."

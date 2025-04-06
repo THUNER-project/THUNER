@@ -1,4 +1,4 @@
-"""Display options functions."""
+"""Display options classes."""
 
 from pathlib import PosixPath
 from typing import Callable, Any

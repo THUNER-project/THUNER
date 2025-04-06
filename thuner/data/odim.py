@@ -6,7 +6,7 @@ import os
 os.environ["PYART_QUIET"] = "True"
 import pyart
 from thuner.log import setup_logger
-import thuner.data.utils as utils
+import thuner.data._utils as _utils
 from pathlib import Path
 import xarray as xr
 
@@ -48,8 +48,8 @@ def convert_odim(
     if out_filename is None:
         out_filename = Path(filepaths[0]).parent.name
 
-    grid_shape = utils.get_pyart_grid_shape(grid_options)
-    grid_limits = utils.get_pyart_grid_limits(grid_options)
+    grid_shape = _utils.get_pyart_grid_shape(grid_options)
+    grid_limits = _utils.get_pyart_grid_limits(grid_options)
 
     datasets = []
     for filepath in sorted(filepaths):

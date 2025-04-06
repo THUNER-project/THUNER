@@ -1,8 +1,8 @@
 """
-Functions for analyzing MCSs. In particular, for implementing the methodologies 
+Functions for analyzing MCSs. In particular, for implementing the methodologies
 presented in the following papers:
 
-Short et al. (2023), Objectively diagnosing characteristics of mesoscale organization 
+Short et al. (2023), Objectively diagnosing characteristics of mesoscale organization
 from radar reflectivity and ambient winds. https://dx.doi.org/10.1175/MWR-D-22-0146.1
 """
 
@@ -19,6 +19,16 @@ from thuner.utils import BaseOptions
 from thuner.option.attribute import Attribute, AttributeType
 
 logger = log.setup_logger(__name__)
+
+__all__ = [
+    "process_velocities",
+    "quality_control",
+    "classify_all",
+    "classify_angles",
+    "classify_small_offsets",
+    "classify_ambiguous",
+    "AnalysisOptions",
+]
 
 
 def process_velocities(

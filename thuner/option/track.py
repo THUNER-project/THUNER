@@ -1,4 +1,4 @@
-"""Functions for creating and modifying default tracking configurations."""
+"""Classes for managing tracking related options."""
 
 from typing import Dict, List, Annotated, Literal
 from pydantic import Field, model_validator

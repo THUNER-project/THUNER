@@ -19,10 +19,17 @@ from typing import Literal
 from pydantic import Field, model_validator
 from thuner.log import setup_logger
 from thuner.data.odim import convert_odim
-import thuner.data.utils as utils
+import thuner.data._utils as _utils
 import thuner.grid as grid
 from thuner.utils import BaseDatasetOptions
 
+__all__ = [
+    "AURAOptions",
+    "CPOLOptions",
+    "OperationalOptions",
+    "get_cpol_filepaths",
+    "get_operational_filepaths",
+]
 
 logger = setup_logger(__name__)
 
@@ -95,7 +102,7 @@ def get_cpol_filepaths(options):
 
     filepaths = []
 
-    base_url = utils.get_parent(options)
+    base_url = _utils.get_parent(options)
     base_url += "/cpol"
 
     if options.level == "1b":
@@ -191,7 +198,7 @@ def get_operational_filepaths(options):
     end = np.datetime64(options["end"])
 
     urls = []
-    base_url = f"{utils.get_parent(options)}"
+    base_url = f"{_utils.get_parent(options)}"
 
     times = np.arange(start, end + np.timedelta64(1, "D"), np.timedelta64(1, "D"))
     times = pd.DatetimeIndex(times)
@@ -232,10 +239,10 @@ def setup_operational(data_options, grid_options, url, directory):
     """
 
     if "http" in urlparse(url).scheme:
-        filepath = utils.download_file(url, directory)
+        filepath = _utils.download_file(url, directory)
     else:
         filepath = url
-    extracted_filepaths = utils.unzip_file(filepath)[0]
+    extracted_filepaths = _utils.unzip_file(filepath)[0]
     if data_options.level == "1":
         dataset = convert_odim(
             extracted_filepaths,
@@ -244,7 +251,7 @@ def setup_operational(data_options, grid_options, url, directory):
             out_dir=directory,
         )
     elif data_options.level == "1b":
-        dataset = utils.consolidate_netcdf(
+        dataset = _utils.consolidate_netcdf(
             extracted_filepaths, fields=data_options.fields, concat_dim="time"
         )
 
@@ -285,7 +292,7 @@ def get_cpol(time, input_record, dataset_options, grid_options):
 
 def convert_cpol(time, filepath, dataset_options, grid_options):
     """Convert CPOL data to a standard format."""
-    utils.log_convert(logger, dataset_options.name, filepath)
+    _utils.log_convert(logger, dataset_options.name, filepath)
     cpol = xr.open_dataset(filepath)
 
     if time not in cpol.time.values:
@@ -361,14 +368,14 @@ def convert_cpol(time, filepath, dataset_options, grid_options):
 
     # Get the domain mask and domain boundary. Note this is the region where data
     # exists, not the detected object masks from the detect module.
-    domain_mask = utils.mask_from_range(ds, dataset_options, grid_options)
-    boundary_coords, simple_boundary_coords, boundary_mask = utils.get_mask_boundary(
+    domain_mask = _utils.mask_from_range(ds, dataset_options, grid_options)
+    boundary_coords, simple_boundary_coords, boundary_mask = _utils.get_mask_boundary(
         domain_mask, grid_options
     )
     ds["domain_mask"] = domain_mask
     ds["boundary_mask"] = boundary_mask
 
-    ds = utils.apply_mask(ds, grid_options)
+    ds = _utils.apply_mask(ds, grid_options)
 
     return ds, boundary_coords, simple_boundary_coords
 
@@ -399,7 +406,7 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
     dataset : object
         The updated dataset.
     """
-    utils.log_dataset_update(logger, dataset_options.name, time)
+    _utils.log_dataset_update(logger, dataset_options.name, time)
     conv_options = dataset_options.converted_options
 
     input_record._current_file_index += 1
@@ -415,7 +422,7 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
             dataset_options.filepaths[input_record._current_file_index]
         )
     if conv_options.save:
-        utils.save_converted_dataset(dataset, dataset_options)
+        _utils.save_converted_dataset(dataset, dataset_options)
 
     input_record.dataset = dataset
 

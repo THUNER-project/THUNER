@@ -1,6 +1,6 @@
 """
-Module for generating synthetic reflectivity data for testing. This module a work in 
-progress; core functions are very slow. 
+Module for generating synthetic reflectivity data for testing. This module a work in
+progress; core functions are very slow.
 
 """
 
@@ -10,12 +10,15 @@ import xarray as xr
 from pyproj import Geod
 from thuner.log import setup_logger
 from pydantic import Field
-import thuner.data.utils as utils
+import thuner.data._utils as _utils
 import thuner.grid as grid
 from thuner.utils import BaseDatasetOptions
 
 logger = setup_logger(__name__)
 geod = Geod(ellps="WGS84")
+
+
+__all__ = ["SyntheticOptions", "create_object"]
 
 
 class SyntheticOptions(BaseDatasetOptions):
@@ -104,7 +107,7 @@ def update_dataset(time, input_record, tracks, dataset_options, grid_options):
     dataset : object
         The updated dataset.
     """
-    utils.log_dataset_update(logger, dataset_options.name, time)
+    _utils.log_dataset_update(logger, dataset_options.name, time)
 
     latitude = grid_options.latitude
     longitude = grid_options.longitude

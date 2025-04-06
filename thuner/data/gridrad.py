@@ -9,12 +9,24 @@ import pandas as pd
 import xarray as xr
 from skimage.morphology import remove_small_objects
 from pydantic import Field, model_validator
-import thuner.data.utils as utils
+import thuner.data._utils as _utils
 from thuner.log import setup_logger
 import thuner.grid as grid
 from thuner.utils import BaseDatasetOptions
 
 logger = setup_logger(__name__)
+
+__all__ = [
+    "GridRadSevereOptions",
+    "get_gridrad_filepaths",
+    "open_gridrad",
+    "convert_gridrad",
+    "filter",
+    "remove_speckles",
+    "remove_low_level_clutter",
+    "remove_clutter_below_anvils",
+    "remove_clutter",
+]
 
 
 class GridRadSevereOptions(BaseDatasetOptions):
@@ -115,7 +127,7 @@ def get_gridrad_filepaths(options):
 
     filepaths = []
 
-    base_url = utils.get_parent(options)
+    base_url = _utils.get_parent(options)
     base_url += f"/{dataset_id_converter[options.dataset_id]}/volumes"
 
     times = np.arange(start, end + np.timedelta64(10, "m"), np.timedelta64(10, "m"))
@@ -366,7 +378,7 @@ def remove_clutter(ds, variables=None, low_level=True, below_anvil=False):
 
 def get_gridrad(time, input_record, track_options, dataset_options, grid_options):
     filepath = dataset_options.filepaths[input_record._current_file_index]
-    utils.log_convert(logger, dataset_options.name, filepath)
+    _utils.log_convert(logger, dataset_options.name, filepath)
     args = [time, filepath, track_options, dataset_options, grid_options]
     ds, boundary_coords = convert_gridrad(*args)[:2]
     update_boundary_data(ds, boundary_coords, input_record)
@@ -422,7 +434,7 @@ def convert_gridrad(time, filepath, track_options, dataset_options, grid_options
     # Note the relevant domain mask is a function of how the object is detected, e.g.
     # which levels!
     domain_mask = get_domain_mask(ds, track_options, dataset_options)
-    boundary_coords, simple_boundary_coords, boundary_mask = utils.get_mask_boundary(
+    boundary_coords, simple_boundary_coords, boundary_mask = _utils.get_mask_boundary(
         domain_mask, grid_options
     )
     ds["domain_mask"] = domain_mask
@@ -435,7 +447,7 @@ def convert_gridrad(time, filepath, track_options, dataset_options, grid_options
     ds["gridcell_area"].attrs.update(area_attrs)
 
     # Apply the domain mask to the current grid
-    ds = utils.apply_mask(ds, grid_options)
+    ds = _utils.apply_mask(ds, grid_options)
     ds = ds.drop_vars(["number_of_observations", "number_of_echoes"])
     return ds, boundary_coords, simple_boundary_coords
 
@@ -452,7 +464,9 @@ def get_domain_mask(ds, track_options, dataset_options):
             detected = "detection" in object_options.model_fields
             uses_dataset = dataset_name == object_options.dataset
             if detected and uses_dataset:
-                mask = utils.mask_from_observations(ds, dataset_options, object_options)
+                mask = _utils.mask_from_observations(
+                    ds, dataset_options, object_options
+                )
                 domain_masks.append(mask)
     # Combine the masks
     if len(domain_masks) == 0:
@@ -460,7 +474,7 @@ def get_domain_mask(ds, track_options, dataset_options):
         logger.debug(message)
         raise ValueError(message)
     domain_mask = reduce(lambda x, y: x * y, domain_masks)
-    domain_mask = utils.smooth_mask(domain_mask)
+    domain_mask = _utils.smooth_mask(domain_mask)
     logger.debug(f"Got domain mask for {dataset_name}.")
     return domain_mask
 
@@ -499,7 +513,7 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
     dataset : object
         The updated dataset.
     """
-    utils.log_dataset_update(logger, dataset_options.name, time)
+    _utils.log_dataset_update(logger, dataset_options.name, time)
     conv_options = dataset_options.converted_options
 
     input_record._current_file_index += 1
@@ -510,11 +524,11 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
     else:
         dataset = xr.open_dataset(filepath)
         domain_mask = dataset["domain_mask"]
-        boundary_coords = utils.get_mask_boundary(domain_mask, grid_options)[0]
+        boundary_coords = _utils.get_mask_boundary(domain_mask, grid_options)[0]
         update_boundary_data(dataset, boundary_coords, input_record)
 
     if conv_options.save:
-        utils.save_converted_dataset(dataset, dataset_options)
+        _utils.save_converted_dataset(dataset, dataset_options)
     input_record.dataset = dataset
 
 

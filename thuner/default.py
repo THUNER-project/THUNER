@@ -12,6 +12,9 @@ import thuner.attribute.quality as quality
 import thuner.visualize.runtime as vis_runtime
 
 
+__all__ = ["convective", "middle", "anvil", "mcs", "track"]
+
+
 def convective(dataset="cpol"):
     """Build default options for convective objects."""
     kwargs = {"name": "convective", "dataset": dataset, "variable": "reflectivity"}

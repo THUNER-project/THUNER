@@ -74,7 +74,7 @@ def gridrad(start, end, event_start, base_local=None):
     # 8 processes a good choice for a GADI job with 32 GB of memory, 7 cores
     # Each tracking process can use up to 4 GB of memory - mainly storing gridrad data
     num_processes = 8
-    times = data.utils.generate_times(data_options.dataset_by_name("gridrad"))
+    times = data._utils.generate_times(data_options.dataset_by_name("gridrad"))
     args = [times, data_options, grid_options, track_options, visualize_options]
     kwargs = {"output_directory": output_parent, "num_processes": num_processes}
     parallel.track(*args, **kwargs)

@@ -12,8 +12,10 @@ from typing import Any, Literal
 from pydantic import Field, model_validator
 import thuner.log as log
 from thuner.utils import get_hour_interval, BaseDatasetOptions
-import thuner.data.utils as utils
+import thuner.data._utils as _utils
 from thuner.config import get_outputs_directory
+
+__all__ = ["ERA5Options", "get_era5_filepaths"]
 
 
 logger = log.setup_logger(__name__)
@@ -401,7 +403,7 @@ def convert_era5(ds):
 def update_dataset(time, input_record, track_options, dataset_options, grid_options):
     """Update ERA5 dataset."""
 
-    utils.log_dataset_update(logger, dataset_options.name, time)
+    _utils.log_dataset_update(logger, dataset_options.name, time)
 
     kwargs = {"start_buffer": dataset_options.start_buffer}
     kwargs.update({"end_buffer": dataset_options.end_buffer})
@@ -430,7 +432,7 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
                 logger.debug("Subsetting %s", output_filename)
                 args = [filepath, f"{tmp}/{output_filename}.nc", start, end]
                 args += [lat_range, lon_range]
-                utils.call_ncks(*args)
+                _utils.call_ncks(*args)
         logger.debug("Merging files.")
         ds = xr.open_mfdataset(f"{tmp}/*.nc")
         logger.debug("Converting")

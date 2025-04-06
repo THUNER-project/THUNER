@@ -13,6 +13,7 @@ author = "Ewan Short"
 
 release = "0.0.16"
 version = "0.0.16"
+numfig = True
 
 # -- General configuration
 extensions = [
@@ -24,15 +25,26 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
     "sphinxcontrib.autodoc_pydantic",
+    "sphinx.ext.autosectionlabel",
 ]
 
-autodoc_default_options = {"exclude-members": "model_post_init"}
+autodoc_default_options = {
+    "exclude-members": "model_post_init",
+    "members": True,
+    "private-members": False,
+    "undoc-members": True,
+    "show-inheritance": True,
+}
+autosectionlabel_prefix_document = True
+autosummary_generate = True
+autosummary_ignore_module_all = False
 
 autodoc_pydantic_model_show_json = False
 autodoc_pydantic_settings_show_json = False
 autodoc_pydantic_model_summary_list_order = "bysource"
 autodoc_pydantic_field_list_validators = False
 autodoc_pydantic_model_show_config_summary = False
+
 
 autodoc_mock_imports = [
     "numba",
@@ -47,7 +59,8 @@ autodoc_mock_imports = [
     "tqdm",
     "cdsapi",
     "xesmf",
-    "opencv",
+    "skimage",
+    "cv2",
     "nco",
     "pytables",
     "pydantic",
@@ -58,12 +71,16 @@ autodoc_mock_imports = [
     "graphviz",
     "pygraphviz",
     "nbconvert",
+    "networkx",
+    "imageio",
 ]
 
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),
     "sphinx": ("https://www.sphinx-doc.org/en/master/", None),
+    "pydantic": ("https://docs.pydantic.dev/latest/", None),
+    "pylint": ("https://pylint.pycqa.org/en/latest/", None),
 }
 intersphinx_disabled_domains = ["std"]
 

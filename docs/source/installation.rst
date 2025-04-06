@@ -46,19 +46,3 @@ Then run
 .. code-block:: console
 
    pip install thuner
-
-Tracking
---------
-
-The core tracking function is ``thuner.track.track.track()``:
-
-.. autofunction:: thuner.track.track.track
-   :noindex:
-
-This function takes a series of options objects as input.
-
-For example:
-
->>> import thuner
->>> thuner.track.track.track()
-

@@ -1,7 +1,4 @@
-"""
-Tracking utilities. 
-
-"""
+"""Tracking utilities."""
 
 from collections import deque
 from pydantic import BaseModel, Field, model_validator
@@ -11,6 +8,8 @@ from typing import Dict
 from thuner.attribute.utils import AttributesRecord
 from thuner.option.data import DataOptions
 from thuner.option.track import TrackOptions, BaseObjectOptions, LevelOptions
+
+__all__ = []
 
 
 class BaseInputRecord(BaseModel):

@@ -134,7 +134,7 @@ def track_interval(
     interval_data_options.to_yaml(options_directory / "data.yml")
     grid_options.to_yaml(options_directory / "grid.yml")
     track_options.to_yaml(options_directory / "track.yml")
-    times = data.utils.generate_times(
+    times = data._utils.generate_times(
         interval_data_options.dataset_by_name(dataset_name)
     )
     args = [times, interval_data_options, grid_options, track_options]

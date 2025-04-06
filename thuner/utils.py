@@ -1,4 +1,5 @@
 "General utilities for the thuner package."
+
 import inspect
 from datetime import datetime
 import yaml
@@ -7,7 +8,6 @@ import json
 import hashlib
 import numpy as np
 import pandas as pd
-import xarray as xr
 from numba import njit, int32, float32
 from numba.typed import List
 from scipy.interpolate import interp1d
@@ -15,13 +15,15 @@ import re
 import os
 import platform
 from typing import Any, Dict, Literal
-from pydantic import Field, model_validator, BaseModel, model_validator, PrivateAttr
+from pydantic import Field, model_validator, BaseModel, model_validator, ConfigDict
 import multiprocessing
 from thuner.log import setup_logger
 from thuner.config import get_outputs_directory
 
 
 logger = setup_logger(__name__)
+
+__all__ = ["BaseOptions", "ConvertedOptions", "BaseDatasetOptions"]
 
 
 def convert_value(value: Any) -> Any:
@@ -55,18 +57,18 @@ def convert_value(value: Any) -> Any:
 class BaseOptions(BaseModel):
     """
     The base class for all options classes. This class is built on the pydantic
-    BaseModel class, which is similar to python dataclasses but with type checking.
+    BaseModel, which is similar to python dataclasses but with type checking.
     """
 
-    type: str = Field(None, description="Type of the options class.")
+    type: str = Field(None, description="Type of the options, i.e. the subclass name.")
 
     # Allow arbitrary types in the options classes.
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     # Ensure that floats in all options classes are np.float32
     @model_validator(mode="after")
     def convert_floats(cls, values):
+        """Convert all floats to np.float32."""
         for field in values.model_fields:
             if type(getattr(values, field)) is float:
                 setattr(values, field, np.float32(getattr(values, field)))
@@ -74,15 +76,18 @@ class BaseOptions(BaseModel):
 
     @model_validator(mode="after")
     def _set_type(cls, values):
+        """Set the type of the options class to the subclass name."""
         if values.type is None:
             values.type = cls.__name__
         return values
 
     def to_dict(self) -> Dict[str, Any]:
+        """Convert the options to a dictionary."""
         fields = self.model_fields.keys()
         return {field: convert_value(getattr(self, field)) for field in fields}
 
     def to_yaml(self, filepath: str):
+        """Save the options to a yaml file."""
         Path(filepath).parent.mkdir(exist_ok=True, parents=True)
         with open(filepath, "w") as f:
             kwargs = {"default_flow_style": False, "allow_unicode": True}

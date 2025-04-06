@@ -4,7 +4,7 @@ import thuner.data.aura as aura
 import thuner.data.era5 as era5
 import thuner.data.synthetic as synthetic
 import thuner.data.gridrad as gridrad
-import thuner.data.utils as utils
+import thuner.data._utils as _utils
 from thuner.log import setup_logger
 from thuner.utils import time_in_dataset_range
 
@@ -54,7 +54,7 @@ generate_filepaths_dispatcher = {
 
 get_domain_mask_dispatcher = {
     "gridrad": gridrad.get_domain_mask,
-    "cpol": utils.mask_from_input_record,
+    "cpol": _utils.mask_from_input_record,
 }
 
 
