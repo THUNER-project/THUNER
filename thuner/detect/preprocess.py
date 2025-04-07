@@ -1,5 +1,7 @@
 "Preprocess data before detection."
 
+__all__ = ["vertical_max", "cross_section"]
+
 
 def vertical_max(grid, object_options):
     """Return the maximum over the specified altitude range."""

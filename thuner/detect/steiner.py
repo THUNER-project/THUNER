@@ -142,14 +142,14 @@ def get_convective_radius(background_reflectivity, radius_option=1):
     beginning at 25 dBZ, i.e. threshold_option=1.
 
     Parameters:
-    ----------
+    ------------------------
     background_reflectivity: float
         Background reflectivity in dBZ.
     radius_option: int
         Radius option. Default is 1.
 
     Returns:
-    -------
+    ----------------------------
     convective_radius: float
         Convective radius in metres.
     """
@@ -174,14 +174,14 @@ def get_delta_Z_threshold(background_reflectivity, delta_Z_option=0):
     Return the relevant delta_Z threshold based on the background reflectivity.
 
     Parameters:
-    ----------
+    -------------------------------------
     background_reflectivity: float
         Background reflectivity in dBZ.
     threshold_option: float
         Threshold option. Default is 0 to match the Steiner et al. (1995) function.
 
     Returns:
-    -------
+    -----------------------------------
     delta_Z_threshold: float
         delta_Z_threshold in dB.
     """

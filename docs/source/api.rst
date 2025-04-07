@@ -1,5 +1,5 @@
 API
-=================
+========================================================================
 
 .. autosummary::
    :toctree: api
@@ -10,4 +10,8 @@ API
    thuner.track
    thuner.parallel
    thuner.data
+   thuner.detect
+   thuner.group
+   thuner.match
+   thuner.analyze
    thuner.visualize

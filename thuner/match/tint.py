@@ -1,24 +1,24 @@
 """
-Perform matching using the TINT/MINT approach. The methods are discussed in the 
+Perform matching using the TINT/MINT approach. The methods are discussed in the
 following papers.
 
-Leese et al. (1971), An automated technique for obtaining cloud motion from 
-geosynchronous satellite data using cross correlation. 
+Leese et al. (1971), An automated technique for obtaining cloud motion from
+geosynchronous satellite data using cross correlation.
 https://dx.doi.org/10.1175/1520-0450(1971)010<0118:AATFOC>2.0.CO;2
 
 Dixon & Wiener (1993), TITAN: Thunderstorm Identification, Tracking, Analysis, and
-Nowcasting—a radar-based methodology. 
+Nowcasting—a radar-based methodology.
 https://dx.doi.org/10.1175/1520-0426(1993)010<0785:TTITAA>2.0.CO;2
 
-Fridlind et al. (2019), Use of polarimetric radar measurements to constrain simulated 
+Fridlind et al. (2019), Use of polarimetric radar measurements to constrain simulated
 convective cell evolution: a pilot study with Lagrangian tracking.
 https://dx.doi.org/10.5194/amt-12-2979-2019
 
-Raut et al. (2021), An adaptive tracking algorithm for convection in simulated and 
+Raut et al. (2021), An adaptive tracking algorithm for convection in simulated and
 remote sensing data.
 https://dx.doi.org/10.1175/JAMC-D-20-0119.1
 
-Short et al. (2023), Objectively diagnosing characteristics of mesoscale organization 
+Short et al. (2023), Objectively diagnosing characteristics of mesoscale organization
 from radar reflectivity and ambient winds.
 https://dx.doi.org/10.1175/MWR-D-22-0146.1
 

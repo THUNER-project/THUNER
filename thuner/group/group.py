@@ -8,6 +8,9 @@ from networkx.algorithms.components.connected import connected_components
 from thuner.utils import get_time_interval
 
 
+__all__ = ["group"]
+
+
 def group(
     track_input_records,
     tracks,
@@ -17,7 +20,7 @@ def group(
     object_options,
     grid_options,
 ):
-    """Group objects into new objects."""
+    """Group objects into new objects based on overlap and connected components."""
 
     dataset = track_input_records[object_options.dataset].dataset
     if tracks.levels[level_index].objects[obj].gridcell_area is None:

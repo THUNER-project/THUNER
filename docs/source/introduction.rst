@@ -112,4 +112,14 @@ a level 1 object, built from the level 0 objects.
 After each object is obtained, it can be matched with objects in the "current" timestep.
 Matching is handled by the :mod:`thuner.match` subpackage. THUNER currently supports the 
 TINT and MINT matching algorithms, with some slight modifications to handle datasets 
-covering larger geographic areas.
+covering larger geographic areas. The :mod:`thuner.match` subpackage also contains 
+code for relabelling objects based on split/merge events; currently a simple overlap 
+criteria is used to determine split/merge events. 
+
+Analysis and visualization
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The :mod:`thuner.analyze` subpackage contains analysis functions, including those used
+to classify storms as "trailing stratiform", "leading stratiform" and so forth. The 
+:mod:`thuner.visualize` subpackage contains functions for visualizing the results of
+tracking runs, and visualizing how algorithms are functioning, which is helpful for 
+debugging. 

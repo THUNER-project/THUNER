@@ -10,6 +10,9 @@ from thuner.match.utils import get_masks
 logger = setup_logger(__name__)
 
 
+__all__ = ["match"]
+
+
 def initialise_match_records(object_tracks, object_options):
     """Initialise the match records dictionary for the object tracks."""
     object_tracks.next_matched_mask = None

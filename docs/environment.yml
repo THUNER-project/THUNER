@@ -8,6 +8,7 @@ dependencies:
   - sphinxcontrib-napoleon
   - numpy
   - autodoc-pydantic
+  - pydantic
   - ipykernel
   - xarray
   - pandas
@@ -15,4 +16,3 @@ dependencies:
   - arm_pyart>=1.19,<2
   - pyarrow
   - dask
-

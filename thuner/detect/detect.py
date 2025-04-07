@@ -13,6 +13,8 @@ from thuner.utils import get_time_interval
 
 logger = setup_logger(__name__)
 
+__all__ = ["threshold", "steiner"]
+
 
 def threshold(grid, object_options):
     """Detect objects in the given grid using thresholding."""
@@ -24,7 +26,7 @@ def threshold(grid, object_options):
 
 
 def steiner(grid, object_options):
-    """Detect objects in the given grid using the Steiner et al. method."""
+    """Detect objects in the given grid using the Steiner et al. (1995) method."""
     if object_options.detection.method != "steiner":
         raise ValueError("Detection method not set to steiner.")
 

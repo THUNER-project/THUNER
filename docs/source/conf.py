@@ -63,7 +63,6 @@ autodoc_mock_imports = [
     "cv2",
     "nco",
     "pytables",
-    "pydantic",
     "zarr",
     "windrose",
     "pydot",
