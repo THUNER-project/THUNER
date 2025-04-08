@@ -1,4 +1,4 @@
-"""CPOL demo."""
+"""CPOL demo/test."""
 
 from pathlib import Path
 import shutil

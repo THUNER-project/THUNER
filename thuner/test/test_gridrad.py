@@ -1,4 +1,4 @@
-"""GridRad Severe demo."""
+"""GridRad Severe demo/test."""
 
 from pathlib import Path
 import shutil
@@ -52,9 +52,6 @@ track_options = default.track(dataset="gridrad")
 # global flow box for each object.
 track_options.levels[1].objects[0].tracking.global_flow_margin = 70
 track_options.levels[1].objects[0].tracking.unique_global_flow = False
-# If testing, remove the profile and tag attributes
-# track_options.levels[1].objects[0].attributes["mcs"].pop("profile")
-# track_options.levels[1].objects[0].attributes["mcs"].pop("tag")
 track_options.to_yaml(options_directory / "track.yml")
 
 visualize_options = None

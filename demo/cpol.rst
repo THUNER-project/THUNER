@@ -1,33 +1,3 @@
-Tutorial
-========================================================================
-
-This tutorial works through the CPOL demo, which is available as both a 
-`script <https://github.com/THUNER-project/THUNER/blob/main/thuner/test/test_cpol.py>`__ 
-and a `notebook <https://github.com/THUNER-project/THUNER/blob/main/demo/cpol.ipynb>`__ 
-in the `THUNER Github repository <https://github.com/THUNER-project/THUNER>`__. 
-Demos are also available for GridRad and synthetic datasets.
-
-First we specify the folders where THUNER outputs will be saved.
-
-.. code-block:: python
-   :linenos:
-
-   from pathlib import Path
-   import shutil
-
-   # Parent directory for saving outputs
-   base_local = Path.home() / "THUNER_output"
-   
-   output_parent = base_local / "runs/cpol/geographic"
-   options_directory = output_parent / "options"
-   visualize_directory = output_parent / "visualize"
-   
-   # Remove the output parent directory if it already exists
-   if output_parent.exists():
-      shutil.rmtree(output_parent)
-
-
-
 .. code:: ipython3
 
     """CPOL demo/test."""
@@ -71,6 +41,8 @@ First we specify the folders where THUNER outputs will be saved.
     Leese et al. (1971), doi: 10.1175/1520-0450(1971)010<0118:AATFOC>2.0.CO;2
     
 
+
+test etse
 
 .. code:: ipython3
 
@@ -435,7 +407,5 @@ First we specify the folders where THUNER outputs will be saved.
     2025-03-06 23:57:27,453 - thuner.visualize.attribute - INFO - Saving mcs_attributes figure for 2005-11-13T18:50:08.000000000.
     2025-03-06 23:57:29,694 - thuner.visualize.visualize - INFO - Animating mcs_attributes figures for mcs objects.
     2025-03-06 23:57:29,696 - thuner.visualize.visualize - INFO - Saving animation to /home/ewan/THUNER_output/runs/cpol/cartesian/visualize/mcs_attributes.gif.
-
-
 
 

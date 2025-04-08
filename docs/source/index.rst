@@ -42,6 +42,7 @@ Contents
    
    introduction
    installation
+   tutorial
    api
 
 Acknowledgements

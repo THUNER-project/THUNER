@@ -1,4 +1,4 @@
-"""Synthetic data demo."""
+"""Synthetic data demo/test."""
 
 from pathlib import Path
 import shutil
