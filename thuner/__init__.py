@@ -28,12 +28,13 @@ welcome_message = f"""
 Welcome to the Thunderstorm Event Reconnaissance (THUNER) package 
 v{__version__}! This package is still in testing and development. Please visit 
 github.com/THUNER-project/THUNER for examples, and to report issues or contribute.
-
+ 
 THUNER is a flexible toolkit for performing multi-feature detection, 
 tracking, tagging and analysis of events within meteorological datasets. 
 The intended application is to convective weather events. For examples 
-and instructions, see github.com/THUNER-project/THUNER. If you use this 
-package in your research, consider citing the following papers;
+and instructions, see github.com/THUNER-project/THUNER and 
+https://thuner.readthedocs.io/en/latest/. If you use THUNER in your research, consider 
+citing the following papers;
 
 Short et al. (2023), doi: 10.1175/MWR-D-22-0146.1
 Raut et al. (2021), doi: 10.1175/JAMC-D-20-0119.1

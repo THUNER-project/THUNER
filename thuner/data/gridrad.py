@@ -54,7 +54,7 @@ class GridRadSevereOptions(BaseDatasetOptions):
     @model_validator(mode="after")
     def _check_filepaths(cls, values):
         if values.filepaths is None:
-            logger.info("Generating era5 filepaths.")
+            logger.info("Generating GridRad filepaths.")
             values.filepaths = get_gridrad_filepaths(values)
         if values.filepaths is None:
             raise ValueError("filepaths not provided or badly formed.")

@@ -126,6 +126,19 @@ class AttributeType(BaseOptions):
     # If the attribute type corresponds to a specific tagging dataset, specify it here
     _desc = "Dataset for tag attribute types (None if not applicable)."
     dataset: str | None = Field(None, description=_desc)
+    _desc = "Lookup dictionary for attributes."
+    attribute_lookup: dict[str, Attribute] = Field({}, description=_desc)
+
+    @model_validator(mode="after")
+    def initialize_lookup(cls, values):
+        """
+        Initialize the lookup dictionary for attributes. This is used to quickly access
+        attributes by name.
+        """
+        values.attribute_lookup = {}
+        for attribute in values.attributes:
+            values.attribute_lookup[attribute.name] = attribute
+        return values
 
 
 AttributesDict = dict[str, "Attributes"]
@@ -139,5 +152,18 @@ class Attributes(BaseOptions):
     name: str = Field(..., description="Name of the object.", examples=["mcs"])
     _desc = "Attribute types of the object."
     attribute_types: list[AttributeType] = Field(..., description=_desc)
+    _desc = "Lookup dictionary for attribute types."
+    attribute_type_lookup: dict[str, AttributeType] = Field({}, description=_desc)
     _desc = "List of object attributes for the member objects."
     member_attributes: AttributesDict | None = Field(None, description=_desc)
+
+    @model_validator(mode="after")
+    def initialize_lookup(cls, values):
+        """
+        Initialize the lookup dictionary for attribute types. This is used to quickly
+        access attribute types by name.
+        """
+        values.attribute_type_lookup = {}
+        for attribute_type in values.attribute_types:
+            values.attribute_type_lookup[attribute_type.name] = attribute_type
+        return values

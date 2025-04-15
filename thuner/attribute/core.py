@@ -300,14 +300,14 @@ class Longitude(Attribute):
 
 
 class CoordinatesRecord(AttributeGroup):
-    name: str = "coordinate"
+    name: str = "coordinates"
     description: str = "Coordinates taken from the match_record."
     attributes: list = [Latitude(), Longitude()]
     retrieval: Retrieval | None = Retrieval(function=coordinates_from_match_record)
 
 
 class CoordinatesMask(AttributeGroup):
-    name: str = "coordinate"
+    name: str = "coordinates"
     description: str = "Coordinates taken from the object mask."
     attributes: list = [Latitude(), Longitude()]
     retrieval: Retrieval | None = Retrieval(

@@ -1,11 +1,11 @@
 Tutorial
 ========================================================================
 
-This tutorial works through the CPOL demo, which is available as both a 
-`script <https://github.com/THUNER-project/THUNER/blob/main/thuner/test/test_cpol.py>`__ 
-and a `notebook <https://github.com/THUNER-project/THUNER/blob/main/demo/cpol.ipynb>`__ 
+This tutorial works through the GridRad Severe demo, which is available as both a 
+`script <https://github.com/THUNER-project/THUNER/blob/main/thuner/test/test_gridrad.py>`__ 
+and a `notebook <https://github.com/THUNER-project/THUNER/blob/main/demo/gridrad.ipynb>`__ 
 in the `THUNER Github repository <https://github.com/THUNER-project/THUNER>`__. 
-Demos are also available for GridRad and synthetic datasets.
+Demos are also available for CPOL and synthetic datasets.
 
 First we specify the folders where THUNER outputs will be saved.
 
@@ -122,7 +122,7 @@ First we specify the folders where THUNER outputs will be saved.
 
 .. code:: ipython3
 
-    times = data._utils.generate_times(data_options.dataset_by_name("cpol"))
+    times = data.utils.generate_times(data_options.dataset_by_name("cpol"))
     args = [times, data_options, grid_options, track_options, visualize_options]
     # parallel.track(*args, output_directory=output_parent)
     track.track(*args, output_directory=output_parent)
@@ -257,7 +257,7 @@ First we specify the folders where THUNER outputs will be saved.
     data_options.to_yaml(options_directory / "data.yml")
     track_options.to_yaml(options_directory / "track.yml")
     
-    times = data._utils.generate_times(data_options.dataset_by_name("cpol"))
+    times = data.utils.generate_times(data_options.dataset_by_name("cpol"))
     args = [times, data_options, grid_options, track_options, visualize_options]
     track.track(*args, output_directory=output_parent)
 

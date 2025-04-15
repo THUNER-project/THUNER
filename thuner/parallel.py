@@ -73,6 +73,10 @@ def track(
     elif num_processes > 3 / 4 * os.cpu_count():
         logger.warning("Number of processes over 3/4 of available CPUs.")
 
+    if visualize_options is not None and num_processes > 1:
+        message = "Runtime visualizations require that num_processes be set to 1."
+        raise ValueError(message)
+
     times = list(times)
     intervals, num_processes = get_time_intervals(times, num_processes)
     logger.info(f"Beginning parallel tracking with {num_processes} processes.")
