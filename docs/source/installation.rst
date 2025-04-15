@@ -2,13 +2,16 @@ Installation
 -----------------
 THUNER uses `conda <https://www.anaconda.com/docs/getting-started/miniconda/install>`__ 
 or `pip <https://pypi.org/project/pip/>`__ for installation and to manage dependencies. 
-First ensure either `conda` or `pip` is installed; `conda` is the preferred method. Note 
+First ensure either ``conda`` or ``pip`` is installed; ``conda`` is the preferred method. Note 
 that THUNER depends on ``xesmf`` for regridding, which is not currently supported on 
 Windows. While THUNER can still be installed on Windows systems, regridding functionality 
 will not be available.
 
+.. _from-github:
+
 From GitHub
 ~~~~~~~~~~~~
+
 The `THUNER repository <https://github.com/THUNER-project/THUNER>`__ can be cloned from 
 GitHub in the usual ways. Cloning the repository is the easiest way to access the demo, 
 workflow and gallery folders. After cloning, navigate to the THUNER directory and create

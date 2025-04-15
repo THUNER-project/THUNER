@@ -140,7 +140,7 @@ def track_level(
 
     def get_track_object_args(obj, level_options):
         logger.info("Tracking %s.", obj)
-        object_options = level_options.options_by_name(obj)
+        object_options = level_options.object_by_name(obj)
         if "dataset" not in object_options.model_fields:
             dataset_options = None
         else:
@@ -171,7 +171,7 @@ def track_object(
 ):
     """Track the given object."""
     # Get the object options
-    object_options = track_options.levels[level_index].options_by_name(obj)
+    object_options = track_options.levels[level_index].object_by_name(obj)
     object_tracks = tracks.levels[level_index].objects[obj]
     track_input_records = input_records.track
 

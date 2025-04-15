@@ -7,6 +7,9 @@ import numpy as np
 import thuner.option as option
 
 
+__all__ = ["read_options"]
+
+
 def get_angle(u1, v1, u2, v2):
     """
     Get the angle between two vectors. Angle calculated as second vector direction minus

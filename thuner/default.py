@@ -84,17 +84,17 @@ def mcs(tracking_dataset="cpol", profile_dataset="era5_pl", tag_dataset="era5_sl
     return mcs_options
 
 
-def track(dataset="cpol"):
+def track(dataset_name: str = "cpol"):
     """Build default options for tracking MCS."""
 
     mask_options = track_option.MaskOptions(save=False, load=False)
-    convective_options = convective(dataset)
+    convective_options = convective(dataset_name)
     convective_options.mask_options = mask_options
-    middle_options = middle(dataset)
+    middle_options = middle(dataset_name)
     middle_options.mask_options = mask_options
-    anvil_options = anvil(dataset)
+    anvil_options = anvil(dataset_name)
     anvil_options.mask_options = mask_options
-    mcs_options = mcs(dataset)
+    mcs_options = mcs(dataset_name)
     objects = [convective_options, middle_options, anvil_options]
     level_0 = track_option.LevelOptions(objects=objects)
     level_1 = track_option.LevelOptions(objects=[mcs_options])

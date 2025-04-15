@@ -190,7 +190,7 @@ def download(url, parent_remote, parent_local, max_retries=10, retry_delay=2):
 
 
 def generate_times(dataset_options, attempt_download=False):
-    """Get times from data_options."""
+    """Get times from dataset_options."""
     filepaths = dataset_options.filepaths
     parent_local = dataset_options.parent_local
     parent_remote = dataset_options.parent_remote

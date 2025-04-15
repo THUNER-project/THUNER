@@ -33,15 +33,15 @@ mcs_legend_options = {"ncol": 3, "loc": "lower center"}
 
 def get_altitude_labels(track_options, mcs_name="mcs", mcs_level=1):
     """Get altitude labels for convective and stratiform objects."""
-    mcs_options = track_options.levels[mcs_level].options_by_name(mcs_name)
+    mcs_options = track_options.levels[mcs_level].object_by_name(mcs_name)
     convective = mcs_options.grouping.member_objects[0]
     convective_level = mcs_options.grouping.member_levels[0]
     stratiform = mcs_options.grouping.member_objects[-1]
     stratiform_level = mcs_options.grouping.member_levels[-1]
     convective_options = track_options.levels[convective_level]
-    convective_options = convective_options.options_by_name(convective)
+    convective_options = convective_options.object_by_name(convective)
     stratiform_options = track_options.levels[stratiform_level]
-    stratiform_options = stratiform_options.options_by_name(stratiform)
+    stratiform_options = stratiform_options.object_by_name(stratiform)
     convective_altitudes = np.array(convective_options.detection.altitudes)
     stratiform_altitudes = np.array(stratiform_options.detection.altitudes)
     convective_altitudes = np.round(convective_altitudes / 1e3, 1)
@@ -75,7 +75,7 @@ def mcs_series(
     track_options = options["track"]
     if dataset_name is None:
         try:
-            object_options = track_options.levels[0].options_by_name(convective_label)
+            object_options = track_options.levels[0].object_by_name(convective_label)
             dataset_name = object_options.dataset
         except KeyError:
             message = "Could not infer dataset used for detection. Provide manually."

@@ -110,6 +110,7 @@ class AttributeGroup(BaseOptions):
 
 
 AttributeList = list[Attribute | AttributeGroup]
+AttributeDict = dict[str, Attribute | AttributeGroup]
 
 
 class AttributeType(BaseOptions):
@@ -127,7 +128,7 @@ class AttributeType(BaseOptions):
     _desc = "Dataset for tag attribute types (None if not applicable)."
     dataset: str | None = Field(None, description=_desc)
     _desc = "Lookup dictionary for attributes."
-    attribute_lookup: dict[str, Attribute] = Field({}, description=_desc)
+    _attribute_lookup = {}
 
     @model_validator(mode="after")
     def initialize_lookup(cls, values):
@@ -135,10 +136,20 @@ class AttributeType(BaseOptions):
         Initialize the lookup dictionary for attributes. This is used to quickly access
         attributes by name.
         """
-        values.attribute_lookup = {}
+        values._attribute_lookup = {}
         for attribute in values.attributes:
-            values.attribute_lookup[attribute.name] = attribute
+            values._attribute_lookup[attribute.name] = attribute
         return values
+
+    def attribute_by_name(self, name: str) -> Attribute | AttributeGroup:
+        """
+        Get an attribute by name.
+        """
+        try:
+            return self._attribute_lookup[name]
+        except KeyError:
+            message = f"Attribute {name} not found in attribute type {self.name}."
+            raise KeyError(message)
 
 
 AttributesDict = dict[str, "Attributes"]
@@ -153,7 +164,7 @@ class Attributes(BaseOptions):
     _desc = "Attribute types of the object."
     attribute_types: list[AttributeType] = Field(..., description=_desc)
     _desc = "Lookup dictionary for attribute types."
-    attribute_type_lookup: dict[str, AttributeType] = Field({}, description=_desc)
+    _attribute_type_lookup = {}
     _desc = "List of object attributes for the member objects."
     member_attributes: AttributesDict | None = Field(None, description=_desc)
 
@@ -163,7 +174,17 @@ class Attributes(BaseOptions):
         Initialize the lookup dictionary for attribute types. This is used to quickly
         access attribute types by name.
         """
-        values.attribute_type_lookup = {}
+        values._attribute_type_lookup = {}
         for attribute_type in values.attribute_types:
-            values.attribute_type_lookup[attribute_type.name] = attribute_type
+            values._attribute_type_lookup[attribute_type.name] = attribute_type
         return values
+
+    def attribute_type_by_name(self, name: str) -> AttributeType:
+        """
+        Get an attribute type by name.
+        """
+        try:
+            return self._attribute_type_lookup[name]
+        except KeyError:
+            message = f"Attribute type {name} not found."
+            raise KeyError(message)

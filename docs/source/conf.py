@@ -80,6 +80,8 @@ intersphinx_mapping = {
     "sphinx": ("https://www.sphinx-doc.org/en/master/", None),
     "pydantic": ("https://docs.pydantic.dev/latest/", None),
     "pylint": ("https://pylint.pycqa.org/en/latest/", None),
+    "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
+    "xarray": ("https://docs.xarray.dev/en/stable/", None),
 }
 intersphinx_disabled_domains = ["std"]
 

@@ -14,6 +14,9 @@ from thuner.log import setup_logger
 logger = setup_logger(__name__)
 
 
+__all__ = ["read_attribute_csv"]
+
+
 def get_nearest_points(
     stacked_mask: xr.DataArray | xr.Dataset,
     id_number: int,

@@ -1,6 +1,6 @@
 """Classes for managing tracking related options."""
 
-from typing import Dict, List, Annotated, Literal
+from typing import List, Annotated, Literal
 from pydantic import Field, model_validator
 from thuner.log import setup_logger
 from thuner.option.attribute import Attributes
@@ -223,23 +223,23 @@ class LevelOptions(BaseOptions):
 
     objects: List[AnyObjectOptions] = Field([], description=_summary["objects"])
     _description = "Dictionary for looking up ObjectOptions by object name."
-    object_lookup: Dict[str, BaseObjectOptions] = Field({}, description=_description)
+    _object_lookup = {}
     _desc = "Names of the objects comprising this tracking level."
     object_names: List[str] = Field([], description=_desc)
 
     @model_validator(mode="after")
     def initialize_object_lookup(cls, values):
         """Initialize object lookup dictionary."""
-        values.object_lookup = {obj.name: obj for obj in values.objects}
+        values._object_lookup = {obj.name: obj for obj in values.objects}
         values.object_names = [obj.name for obj in values.objects]
         if len(values.object_names) != len(set(values.object_names)):
             message = "Object names must be unique to facilitate name based lookup."
             raise ValueError(message)
         return values
 
-    def options_by_name(self, obj_name: str) -> BaseObjectOptions:
+    def object_by_name(self, obj_name: str) -> BaseObjectOptions:
         """Return object options by name."""
-        return self.object_lookup.get(obj_name)
+        return self._object_lookup.get(obj_name)
 
 
 class TrackOptions(BaseOptions):
@@ -248,7 +248,7 @@ class TrackOptions(BaseOptions):
     """
 
     levels: List[LevelOptions] = Field([], description="Hierachy levels.")
-    object_lookup: Dict[str, BaseObjectOptions] = {}
+    _object_lookup = {}
     object_names: List[str] = Field([], description="Names of the objects.")
 
     @model_validator(mode="after")
@@ -257,18 +257,20 @@ class TrackOptions(BaseOptions):
         object_names = []
         lookup_dicts = []
         for level in values.levels:
-            lookup_dicts.append(level.object_lookup)
-            object_names += level.object_lookup.keys()
+            lookup_dicts.append(level._object_lookup)
+            object_names += level._object_lookup.keys()
         if len(object_names) != len(set(object_names)):
             message = "Object names must be unique to facilitate name based lookup."
             raise ValueError(message)
-        new_lookup_dict = {}
         for lookup_dict in lookup_dicts:
-            new_lookup_dict.update(lookup_dict)
-        values.object_lookup = new_lookup_dict
+            values._object_lookup.update(lookup_dict)
         values.object_names = object_names
         return values
 
-    def options_by_name(self, obj_name: str) -> BaseObjectOptions:
+    def object_by_name(self, obj_name: str) -> BaseObjectOptions:
         """Return object options by name."""
-        return self.object_lookup.get(obj_name)
+        try:
+            return self._object_lookup.get(obj_name)
+        except KeyError:
+            message = f"Object {obj_name} not found in object lookup."
+            raise KeyError(message)

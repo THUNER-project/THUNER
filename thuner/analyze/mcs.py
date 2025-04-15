@@ -47,11 +47,11 @@ def process_velocities(
         analysis_directory = output_directory / "analysis"
 
     options = utils.read_options(output_directory)
-    mcs_options = options["track"].levels[1].options_by_name("mcs")
+    mcs_options = options["track"].levels[1].object_by_name("mcs")
     member_objects = mcs_options.grouping.member_objects
     convective_label = member_objects[0]
 
-    convective_options = options["track"].levels[0].options_by_name(convective_label)
+    convective_options = options["track"].levels[0].object_by_name(convective_label)
     altitudes = convective_options.detection.altitudes
 
     filepath = output_directory / "attributes/mcs/core.csv"
@@ -191,7 +191,7 @@ def quality_control(
         analysis_directory = output_directory / "analysis"
 
     options = utils.read_options(output_directory)
-    mcs_options = options["track"].levels[1].options_by_name("mcs")
+    mcs_options = options["track"].levels[1].object_by_name("mcs")
     member_objects = mcs_options.grouping.member_objects
     convective_label = member_objects[0]
     anvil_label = member_objects[1]

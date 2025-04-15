@@ -1,3 +1,7 @@
+# # Synthetic Data
+
+# For more detailed explanations of THUNER's usage and features, see the GridRad Severe demo/tutorial.
+
 """Synthetic data demo/test."""
 
 from pathlib import Path
@@ -8,8 +12,6 @@ import thuner.default as default
 import thuner.track.track as track
 import thuner.option as option
 import thuner.data.synthetic as synthetic
-
-notebook_name = "synthetic_demo.ipynb"
 
 # Parent directory for saving outputs
 base_local = Path.home() / "THUNER_output"

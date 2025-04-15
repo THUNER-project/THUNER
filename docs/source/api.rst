@@ -7,6 +7,8 @@ API
 
    thuner.utils
    thuner.option
+   thuner.default
+   thuner.attribute
    thuner.track
    thuner.parallel
    thuner.data

@@ -7,4 +7,4 @@ import thuner.attribute.attribute as attribute
 import thuner.attribute.quality as quality
 import thuner.attribute.ellipse as ellipse
 
-__all__ = ["core", "group", "tag", "profile", "attribute", "quality", "ellipse"]
+__all__ = ["utils"]

@@ -1,5 +1,5 @@
 """
-Plotting functions to be called during algorithm runtime for debugging 
+Plotting functions to be called during algorithm runtime for debugging
 and visualization purposes.
 """
 
@@ -39,7 +39,7 @@ def detected_mask(
     """Plot masks for a detected object."""
 
     object_tracks = tracks.levels[level_index].objects[obj]
-    object_options = track_options.levels[level_index].options_by_name(obj)
+    object_options = track_options.levels[level_index].object_by_name(obj)
     grid = object_tracks.next_grid
 
     if object_options.tracking is None:
@@ -64,7 +64,7 @@ def grouped_mask(
     figure_options,
 ):
     """Plot masks for a grouped object."""
-    object_options = track_options.levels[level_index].options_by_name(obj)
+    object_options = track_options.levels[level_index].object_by_name(obj)
     object_tracks = tracks.levels[level_index].objects[obj]
     if object_options.tracking is None:
         mask = object_tracks.next_mask
@@ -186,7 +186,7 @@ def visualize_match(
 
     object_tracks = tracks.levels[level_index].objects[obj]
     match_record = object_tracks.match_record
-    object_options = track_options.levels[level_index].options_by_name(obj)
+    object_options = track_options.levels[level_index].object_by_name(obj)
     grids = get_grids(object_tracks, object_options, num_previous=2)
     if object_options.tracking is not None:
         matched = True
@@ -238,7 +238,7 @@ def visualize_mask(
     input_record, tracks, level_index, obj, track_options, grid_options, figure_options
 ):
     """Plot masks for an object."""
-    object_options = track_options.levels[level_index].options_by_name(obj)
+    object_options = track_options.levels[level_index].object_by_name(obj)
     create_figure = create_mask_figure_dispatcher(object_options)
     if not create_figure:
         message = "create_mask_figure function for object detection option not found."
@@ -265,7 +265,7 @@ def visualize(
 
     if not runtime_options or not runtime_options.objects.get(obj):
         return
-    object_options = track_options.levels[level_index].options_by_name(obj)
+    object_options = track_options.levels[level_index].object_by_name(obj)
     object_runtime_options = runtime_options.objects.get(obj)
     input_record = track_input_records[object_options.dataset]
     logger.info("Creating runtime visualization figures.")

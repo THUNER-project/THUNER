@@ -42,7 +42,7 @@ Contents
    
    introduction
    installation
-   tutorial
+   tutorials
    api
 
 Acknowledgements
