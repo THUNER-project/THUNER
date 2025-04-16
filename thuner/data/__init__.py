@@ -9,6 +9,6 @@ import thuner.data._utils as _utils
 import thuner.data.wrf as wrf
 import thuner.data.synthetic as synthetic
 
-from thuner.data._utils import generate_times
+from thuner.data._utils import generate_times, get_demo_data
 
-__all__ = ["aura", "era5", "gridrad", "synthetic", "generate_times"]
+__all__ = ["aura", "era5", "gridrad", "synthetic", "generate_times", "get_demo_data"]

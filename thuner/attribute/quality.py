@@ -9,6 +9,8 @@ from thuner.option.attribute import Retrieval, Attribute, AttributeType
 
 logger = setup_logger(__name__)
 
+__all__ = ["overlap_from_mask", "default", "BoundaryOverlap"]
+
 
 def overlap_from_mask(
     input_records,
@@ -54,6 +56,8 @@ def overlap_from_mask(
 
 
 class BoundaryOverlap(Attribute):
+    """Fraction of object pixels overlapping the domain boundary."""
+
     name: str = "boundary_overlap"
     data_type: type = float
     precision: int = 4

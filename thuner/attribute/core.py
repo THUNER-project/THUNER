@@ -1,5 +1,5 @@
 """
-Core attributes.
+Convenience classes describing core object attributes like position and velocity,
 """
 
 import numpy as np
@@ -12,6 +12,41 @@ import thuner.attribute.utils as utils
 from thuner.option.attribute import Retrieval, Attribute, AttributeGroup, AttributeType
 
 logger = setup_logger(__name__)
+
+
+__all__ = [
+    "time_from_tracks",
+    "coordinates_from_match_record",
+    "echo_top_height_from_mask",
+    "areas_from_match_record",
+    "parents_from_match_record",
+    "velocities_from_match_record",
+    "ids_from_mask",
+    "ids_from_match_record",
+    "coordinates_from_mask",
+    "areas_from_mask",
+    "default_tracked",
+    "default_member",
+    "RecordID",
+    "MaskID",
+    "RecordUniversalID",
+    "MaskUniversalID",
+    "Parents",
+    "Latitude",
+    "Longitude",
+    "CoordinatesRecord",
+    "CoordinatesMask",
+    "UFlow",
+    "VFlow",
+    "FlowVelocity",
+    "UDisplacement",
+    "VDisplacement",
+    "DisplacementVelocity",
+    "AreasRecord",
+    "AreasMask",
+    "EchoTopHeight",
+    "Time",
+]
 
 
 def time_from_tracks(attribute: Attribute, object_tracks):
@@ -241,6 +276,8 @@ def ids_from_match_record(attribute: Attribute, object_tracks):
 
 # Define convenience attributes
 class RecordID(Attribute):
+    """Object IDs (unmatched) obtained from the matching process."""
+
     name: str = "id"
     data_type: type = int
     description: str = "id taken from match record."
@@ -250,15 +287,21 @@ class RecordID(Attribute):
 
 
 class MaskID(Attribute):
+    """Object IDs (unmatched) obtained from object masks."""
+
     name: str = "id"
     data_type: type = int
     description: str = "id taken from object mask."
     retrieval: Retrieval | None = Retrieval(
-        function=ids_from_mask, keyword_arguments={"matched": True}
+        function=ids_from_mask, keyword_arguments={"matched": False}
     )
 
 
 class RecordUniversalID(Attribute):
+    """
+    Object universal IDs (i.e. preserved for matched objects) from the match record.
+    """
+
     name: str = "universal_id"
     data_type: type = int
     description: str = "universal_id taken from match record."
@@ -268,6 +311,10 @@ class RecordUniversalID(Attribute):
 
 
 class MaskUniversalID(Attribute):
+    """
+    Object universal IDs (i.e. preserved for matched objects) from object masks.
+    """
+
     name: str = "universal_id"
     data_type: type = int
     description: str = "universal_id taken from object mask."
@@ -277,6 +324,12 @@ class MaskUniversalID(Attribute):
 
 
 class Parents(Attribute):
+    """
+    Parents of the given object. Note an object's parents are those objects it has split
+    from or merged with. The parents attribute allows the full split/merge history of
+    the objects in a given run to be contructed.
+    """
+
     name: str = "parents"
     data_type: type = str
     description: str = "parent objects as space separated list of universal_ids."
@@ -284,6 +337,8 @@ class Parents(Attribute):
 
 
 class Latitude(Attribute):
+    """Latitude position of the object."""
+
     name: str = "latitude"
     data_type: type = float
     precision: int = 4
@@ -292,6 +347,8 @@ class Latitude(Attribute):
 
 
 class Longitude(Attribute):
+    """Longitude position of the object."""
+
     name: str = "longitude"
     data_type: type = float
     precision: int = 4
@@ -300,6 +357,10 @@ class Longitude(Attribute):
 
 
 class CoordinatesRecord(AttributeGroup):
+    """
+    Attribute group describing coordinate attributes obtained from the matching process.
+    """
+
     name: str = "coordinates"
     description: str = "Coordinates taken from the match_record."
     attributes: list = [Latitude(), Longitude()]
@@ -307,6 +368,8 @@ class CoordinatesRecord(AttributeGroup):
 
 
 class CoordinatesMask(AttributeGroup):
+    """Attribute group describing coordinate attributes obtained from object masks."""
+
     name: str = "coordinates"
     description: str = "Coordinates taken from the object mask."
     attributes: list = [Latitude(), Longitude()]
@@ -316,6 +379,8 @@ class CoordinatesMask(AttributeGroup):
 
 
 class UFlow(Attribute):
+    """Zonal velocity obtained from cross correlations."""
+
     name: str = "u_flow"
     data_type: type = float
     precision: int = 1
@@ -324,6 +389,8 @@ class UFlow(Attribute):
 
 
 class VFlow(Attribute):
+    """Meridional velocity obtained from cross correlations."""
+
     name: str = "v_flow"
     data_type: type = float
     precision: int = 1
@@ -332,6 +399,8 @@ class VFlow(Attribute):
 
 
 class FlowVelocity(AttributeGroup):
+    """Attribute group describing flow velocity."""
+
     name: str = "flow_velocity"
     description: str = "Flow velocities from match record."
     attributes: list = [UFlow(), VFlow()]
@@ -339,6 +408,8 @@ class FlowVelocity(AttributeGroup):
 
 
 class UDisplacement(Attribute):
+    """Zonal velocity obtained from centroid displacements."""
+
     name: str = "u_displacement"
     data_type: type = float
     precision: int = 1
@@ -347,6 +418,8 @@ class UDisplacement(Attribute):
 
 
 class VDisplacement(Attribute):
+    """Meridional velocity obtained from centroid displacements."""
+
     name: str = "v_displacement"
     data_type: type = float
     precision: int = 1
@@ -355,6 +428,8 @@ class VDisplacement(Attribute):
 
 
 class DisplacementVelocity(AttributeGroup):
+    """Attribute group describing velocity obtained from object displacements."""
+
     name: str = "displacement_velocity"
     description: str = "Displacement velocities."
     attributes: list = [UDisplacement(), VDisplacement()]
@@ -362,6 +437,8 @@ class DisplacementVelocity(AttributeGroup):
 
 
 class AreasRecord(Attribute):
+    """Object areas taken from the match record."""
+
     name: str = "area"
     data_type: type = float
     precision: int = 1
@@ -371,6 +448,8 @@ class AreasRecord(Attribute):
 
 
 class AreasMask(Attribute):
+    """Object areas taken from object masks."""
+
     name: str = "area"
     data_type: type = float
     precision: int = 1
@@ -382,6 +461,8 @@ class AreasMask(Attribute):
 
 
 class EchoTopHeight(Attribute):
+    """Echo top heights."""
+
     name: str = "echo_top_height"
     data_type: type = float
     precision: int = 1
@@ -393,6 +474,8 @@ class EchoTopHeight(Attribute):
 
 
 class Time(Attribute):
+    """Time taken from the tracking process."""
+
     name: str = "time"
     data_type: type = np.datetime64
     units: str = "yyyy-mm-dd hh:mm:ss"

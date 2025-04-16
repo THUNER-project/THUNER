@@ -1,3 +1,7 @@
+"""
+Describe and collect "tags" from tagging datasets.
+"""
+
 import numpy as np
 from thuner.log import setup_logger
 import thuner.attribute.core as core
@@ -6,6 +10,15 @@ import xarray as xr
 from thuner.option.attribute import Retrieval, Attribute, AttributeGroup, AttributeType
 
 logger = setup_logger(__name__)
+
+__all__ = [
+    "from_centers",
+    "from_masks",
+    "default",
+    "CAPE",
+    "CIN",
+    "TagCenter",
+]
 
 
 # Functions for obtaining and recording attributes
@@ -18,12 +31,7 @@ def from_centers(
     member_object: str | None = None,
 ):
     """
-    Calculate profile from object centers.
-
-    Parameters
-    ----------
-    names : list of str
-        Names of attributes to calculate.
+    Get tags from object centers.
     """
 
     args = [attribute_group, input_records, object_tracks, dataset, member_object]
@@ -72,12 +80,7 @@ def from_masks(
     member_object: str | None = None,
 ):
     """
-    Calculate profile from object centers.
-
-    Parameters
-    ----------
-    names : list of str
-        Names of attributes to calculate.
+    Get tags from masks.
     """
 
     args = [attribute_group, input_records, object_tracks, dataset, member_object]
@@ -124,6 +127,8 @@ def from_masks(
 
 
 class CAPE(Attribute):
+    """Convective available potential energy (CAPE)."""
+
     name: str = "cape"
     data_type: type = float
     precision: int = 1
@@ -132,6 +137,8 @@ class CAPE(Attribute):
 
 
 class CIN(Attribute):
+    """Convective inhibition."""
+
     name: str = "cin"
     data_type: type = float
     precision: int = 1
@@ -140,6 +147,8 @@ class CIN(Attribute):
 
 
 class TagCenter(AttributeGroup):
+    """Tags at the object center."""
+
     name: str = "tags_center"
     retrieval: Retrieval = Retrieval(
         function=from_centers,

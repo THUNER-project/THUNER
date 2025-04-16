@@ -46,14 +46,16 @@ THUNER's goals include the following.
    detection, grouping, tagging and analysis techniques, allowing methodological 
    choices to be set and recorded before each tracking run. The overarching goal is to 
    simplify sensitivity testing and facilitate reproducibility.
-#. **To support multiple coordinate systems.** While small, individual radar domains can be
-   processed in cartesian coordinates, datasets encompassing larger areas require other 
+#. **To support multiple coordinate systems.** While small radar domains can be
+   processed in cartesian coordinates, larger area domains require other 
    coordinates, e.g. geographic.
-#. **To support large datasets.** High resolution radar mosaics and model datasets
-   require parallelisation and chunking to be processed efficiently.
-
+#. **To support large datasets.** High resolution radar mosaic and model datasets
+   require parallelisation to be processed efficiently.
+   
 Design
 -----------------------------------------------------------------------------------
+The intent of THUNER's design is to create a solid foundation that can be more easily 
+extended (when supervisors change their minds, and reviewers request major revisions!) 
 :numref:`packages` shows the dependency structure of THUNER's core subpackages and 
 modules.
 

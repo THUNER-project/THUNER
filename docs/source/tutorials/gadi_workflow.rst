@@ -37,8 +37,8 @@ using the script
     sh gridrad_year_job.sh <year>
 
 Be wary that processing all 13 years will consume 20-30 KSU. Note that all 13 years have 
-already been processed with these options, and are available on tape in the directory ``TBC``.
-You can set different options by modifying the ``gridrad.py`` file in the 
+already been processed with these options, and are available on tape under the v46 group
+at ``esh563/gridrad_severe.tar.gz``. You can set different options by modifying the ``gridrad.py`` file in the 
 ``workflow/gridrad_severe_gadi`` directory. In particular, commenting out line 102, 
 ``visualize.attribute.mcs_series(*args, **kwargs)``, will switch off the generation of 
 figures, and will reduce the KSU cost by at least half.

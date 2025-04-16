@@ -1,3 +1,7 @@
+"""
+Record vertical profiles from tagging datasets associated with meteorological objects.
+"""
+
 import numpy as np
 import xarray as xr
 from thuner.log import setup_logger
@@ -7,6 +11,20 @@ from thuner.option.attribute import Retrieval, Attribute, AttributeGroup, Attrib
 from thuner.option.grid import GridOptions
 
 logger = setup_logger(__name__)
+
+
+__all__ = [
+    "from_centers",
+    "from_masks",
+    "default",
+    "Altitude",
+    "U",
+    "V",
+    "Temperature",
+    "Pressure",
+    "RelativeHumidity",
+    "ProfileCenter",
+]
 
 
 # Functions for obtaining and recording attributes
@@ -22,11 +40,6 @@ def from_centers(
     """
     Calculate profile from object centers. Lookup core attributes, and extend to match
     length of profile attributes.
-
-    Parameters
-    ----------
-    names : list of str
-        Names of attributes to calculate.
     """
 
     args = [attribute_group, input_records, object_tracks, dataset, member_object]
@@ -174,6 +187,8 @@ def _interp_profile(profile: xr.DataArray | xr.Dataset, new_altitudes: np.ndarra
 
 
 class Altitude(Attribute):
+    """Altitude coordinate of profile."""
+
     name: str = "altitude"
     data_type: type = float
     precision: int = 1
@@ -182,6 +197,8 @@ class Altitude(Attribute):
 
 
 class U(Attribute):
+    """Zonal winds."""
+
     name: str = "u"
     data_type: type = float
     precision: int = 1
@@ -190,6 +207,8 @@ class U(Attribute):
 
 
 class V(Attribute):
+    """Meridional winds."""
+
     name: str = "v"
     data_type: type = float
     precision: int = 1
@@ -198,6 +217,8 @@ class V(Attribute):
 
 
 class Temperature(Attribute):
+    """Temperature in Kelvin."""
+
     name: str = "temperature"
     data_type: type = float
     precision: int = 2
@@ -206,6 +227,8 @@ class Temperature(Attribute):
 
 
 class Pressure(Attribute):
+    """Pressure in hPa."""
+
     name: str = "pressure"
     data_type: type = float
     precision: int = 1
@@ -214,6 +237,8 @@ class Pressure(Attribute):
 
 
 class RelativeHumidity(Attribute):
+    """Relative humidity as percentage."""
+
     name: str = "relative_humidity"
     data_type: type = float
     precision: int = 1
@@ -223,6 +248,8 @@ class RelativeHumidity(Attribute):
 
 # Create a convenience attribute group, as they are typically all retrieved at once
 class ProfileCenter(AttributeGroup):
+    """Attribute group describing profiles obtained at the object center."""
+
     name: str = "profiles"
     attributes: list[Attribute] = [
         core.Time(retrieval=None),

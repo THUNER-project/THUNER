@@ -32,6 +32,17 @@ logger = log.setup_logger(__name__, level="DEBUG")
 cv2.setNumThreads(0)
 
 
+def get_demo_data(output_directory=None):
+    """
+    Download the demo data from the AWS s3 thuner-storage bucket.
+    """
+    if output_directory is None:
+        output_directory = get_outputs_directory()
+    command = "aws s3 cp s3://thuner-storage/THUNER_output"
+    command += f"{output_directory} --recursive"
+    subprocess.run(command, shell=True, check=True)
+
+
 class DownloadState(utils.SingletonBase):
     """
     Singleton class to manage download state across multiple processes.

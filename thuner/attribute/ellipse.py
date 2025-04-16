@@ -17,6 +17,18 @@ logger = setup_logger(__name__)
 # See https://github.com/opencv/opencv/issues/5150#issuecomment-675019390
 cv2.setNumThreads(0)
 
+__all__ = [
+    "from_mask",
+    "default",
+    "Latitude",
+    "Longitude",
+    "Major",
+    "Minor",
+    "Orientation",
+    "Eccentricity",
+    "EllipseFit",
+]
+
 
 def cartesian_pixel_to_distance(spacing, axis, orientation):
     x_distance = axis * np.cos(orientation) * spacing[1]
@@ -120,6 +132,8 @@ def from_mask(
 
 
 class Latitude(Attribute):
+    """Latitude of the center of the ellipse fit."""
+
     name: str = "latitude"
     data_type: type = float
     precision: int = 4
@@ -129,6 +143,8 @@ class Latitude(Attribute):
 
 
 class Longitude(Attribute):
+    """Longitude of the center of the ellipse fit."""
+
     name: str = "longitude"
     data_type: type = float
     precision: int = 4
@@ -138,6 +154,8 @@ class Longitude(Attribute):
 
 
 class Major(Attribute):
+    """Major axis from ellipse fitted to object mask."""
+
     name: str = "major"
     data_type: type = float
     precision: int = 1
@@ -147,6 +165,8 @@ class Major(Attribute):
 
 
 class Minor(Attribute):
+    """Major axis from ellipse fitted to object mask."""
+
     name: str = "minor"
     data_type: type = float
     precision: int = 1
@@ -156,6 +176,10 @@ class Minor(Attribute):
 
 
 class Orientation(Attribute):
+    """
+    Orientation of the ellipse fit measured in radians from the positive zonal axis.
+    """
+
     name: str = "orientation"
     data_type: type = float
     precision: int = 4
@@ -165,6 +189,8 @@ class Orientation(Attribute):
 
 
 class Eccentricity(Attribute):
+    """Eccentricity of the ellipse fit."""
+
     name: str = "eccentricity"
     data_type: type = float
     precision: int = 4
@@ -174,6 +200,10 @@ class Eccentricity(Attribute):
 
 
 class EllipseFit(AttributeGroup):
+    """
+    Attribute group describing attributes obtained from fitting ellipses to objects.
+    """
+
     name: str = "ellipse_fit"
     retrieval: Retrieval = Retrieval(function=from_mask)
     description: str = "Properties of ellipse fit to object mask."

@@ -1,9 +1,5 @@
 """
-Functions for defining property options associated with grouped objects, and for 
-measuring such properties. Note the distinction between the attributes associated with 
-this module, and functions like record_detected and record_grouped in the attributes
-module, which collect the attributes associated with grouped and detected objects 
-respectively.
+Describe and retrieve attributes associated with grouped objects.
 """
 
 from thuner.log import setup_logger
@@ -13,6 +9,14 @@ import thuner.grid as grid
 from thuner.option.attribute import Retrieval, Attribute, AttributeType, AttributeGroup
 
 logger = setup_logger(__name__)
+
+__all__ = [
+    "offset_from_centers",
+    "default",
+    "XOffset",
+    "YOffset",
+    "Offset",
+]
 
 
 def offset_from_centers(object_tracks, attribute_group: AttributeGroup, objects):
@@ -52,6 +56,8 @@ def offset_from_centers(object_tracks, attribute_group: AttributeGroup, objects)
 
 
 class XOffset(Attribute):
+    """Zonal offset between member objects."""
+
     name: str = "x_offset"
     data_type: type = float
     precision: int = 1
@@ -60,6 +66,8 @@ class XOffset(Attribute):
 
 
 class YOffset(Attribute):
+    """Meridional offset between member objects."""
+
     name: str = "y_offset"
     data_type: type = float
     precision: int = 1
@@ -68,6 +76,8 @@ class YOffset(Attribute):
 
 
 class Offset(AttributeGroup):
+    """Attribute describing horizontal offset vector between objects."""
+
     name: str = "offset"
     description: str = "Offset of one object from another."
     attributes: list[Attribute] = [XOffset(), YOffset()]

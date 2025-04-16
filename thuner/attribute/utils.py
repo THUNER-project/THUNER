@@ -14,7 +14,7 @@ from thuner.log import setup_logger
 logger = setup_logger(__name__)
 
 
-__all__ = ["read_attribute_csv"]
+__all__ = ["read_attribute_csv", "AttributesRecord"]
 
 
 def get_nearest_points(
@@ -116,6 +116,12 @@ string_to_data_type = {
 
 
 class TimeOffset(Attribute):
+    """
+    Attribute describing the time offsets to use when tagging objects using other datasets.
+    For instance, we may wish to tag storms with the ERA5 ambient winds 1-hour before the
+    storm detection time to provide an assessment of the pre-storm environment.
+    """
+
     name: str = "time_offset"
     data_type: type = int
     units: str = "min"
