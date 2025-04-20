@@ -32,7 +32,7 @@ github.com/THUNER-project/THUNER for examples, and to report issues or contribut
 THUNER is a flexible toolkit for performing multi-feature detection, 
 tracking, tagging and analysis of events within meteorological datasets. 
 The intended application is to convective weather events. For examples 
-and instructions, see github.com/THUNER-project/THUNER and 
+and instructions, see https://github.com/THUNER-project/THUNER and 
 https://thuner.readthedocs.io/en/latest/. If you use THUNER in your research, consider 
 citing the following papers;
 

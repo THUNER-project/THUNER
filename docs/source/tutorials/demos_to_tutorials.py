@@ -46,6 +46,7 @@ def convert_notebook_to_tutorial(notebook_path, rst_path):
         "thuner.option.attribute.Attribute",
         "thuner.option.attribute.AttributeGroup",
         "thuner.option.attribute.AttributeType",
+        "thuner.utils.BaseDatasetOptions",
     ]
     for class_name in classes:
         rst = rst.replace(f"``{class_name}``", f":class:`{class_name}`")

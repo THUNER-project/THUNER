@@ -132,7 +132,7 @@ default_parent_local = str(get_outputs_directory() / "input_data/raw")
 class BaseDatasetOptions(BaseOptions):
     """Base class for dataset options."""
 
-    name: str = Field(..., description=_summary["name"])
+    name: str = Field(None, description=_summary["name"])
     start: str | np.datetime64 = Field(..., description=_summary["start"])
     end: str | np.datetime64 = Field(..., description=_summary["end"])
     fields: list[str] | None = Field(None, description=_summary["fields"])
@@ -146,12 +146,23 @@ class BaseDatasetOptions(BaseOptions):
     filepaths: list[str] | dict = Field(None, description=_summary["filepaths"])
     attempt_download: bool = Field(False, description=_summary["attempt_download"])
     deque_length: int = Field(2, description=_summary["deque_length"])
-    use: Literal["track", "tag"] = Field("track", description=_summary["use"])
+    use: Literal["track", "tag", "both"] = Field("track", description=_summary["use"])
     start_buffer: int = Field(-120, description=_summary["start_buffer"])
     end_buffer: int = Field(0, description=_summary["end_buffer"])
 
     @model_validator(mode="after")
+    def _check_name(cls, values):
+        """
+        Check the name field has been created. This should be explicitly provided
+        by the user or set in a subclass.
+        """
+        if values.name is None:
+            raise ValueError("The 'name' field has not been set.")
+        return values
+
+    @model_validator(mode="after")
     def _check_parents(cls, values):
+        """Check the parents fields are correct."""
         if values.parent_remote is None and values.parent_local is None:
             message = "At least one of parent_remote and parent_local must be "
             message += "specified."
@@ -169,6 +180,7 @@ class BaseDatasetOptions(BaseOptions):
 
     @model_validator(mode="after")
     def _check_fields(cls, values):
+        """Check whether the use field created correctly."""
         if values.use == "track" and len(values.fields) != 1:
             message = "Only one field should be specified if the dataset is used for "
             message += "tracking. Instead, created grouped objects. See thuner.option."

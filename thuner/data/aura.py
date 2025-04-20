@@ -47,11 +47,14 @@ _summary = {
 class AURAOptions(BaseDatasetOptions):
     """Base options class for AURA datasets."""
 
-    # Overwrite the default values from the base class. Note these objects are still
-    # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
-    fields: list[str] = ["reflectivity"]
+    def model_post_init(self, __context):
+        """
+        If unset by user, change default values inherited from the base class.
+        """
+        if "fields" not in self.model_fields_set:
+            self.fields = ["reflectivity"]
 
-    # Define additional fields for CPOL
+    # Define additional fields for AURA
     level: Literal["1", "1b", "2"] = Field(..., description="Processing level.")
     data_format: Literal["grid_150km_2500m", "grid_70km_1000m"] = Field(
         ..., description="Data format."
@@ -63,13 +66,18 @@ class AURAOptions(BaseDatasetOptions):
 class CPOLOptions(AURAOptions):
     """Options for CPOL datasets."""
 
-    # Overwrite the default values from the base class. Note these objects are still
-    # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
-    name: str = "cpol"
-    fields: list[str] = ["reflectivity"]
-    parent_remote: str = "https://dapds00.nci.org.au/thredds/fileServer/hj10"
-    level: str = "1b"
-    data_format: str = "grid_150km_2500m"
+    def model_post_init(self, __context):
+        """
+        If unset by user, change default values inherited from the base class.
+        """
+        if "name" not in self.model_fields_set:
+            self.name = "cpol"
+        if "parent_remote" not in self.model_fields_set:
+            self.parent_remote = "https://dapds00.nci.org.au/thredds/fileServer/hj10"
+        if "level" not in self.model_fields_set:
+            self.level = "1b"
+        if "data_format" not in self.model_fields_set:
+            self.data_format = "grid_150km_2500m"
 
     # Define additional fields for CPOL
     version: str = Field("v2020", description="Data version.")

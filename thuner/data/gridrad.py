@@ -32,11 +32,16 @@ __all__ = [
 class GridRadSevereOptions(BaseDatasetOptions):
     """Options for GridRad Severe datasets."""
 
-    # Overwrite the default values from the base class. Note these objects are still
-    # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
-    name: str = "gridrad"
-    fields: list[str] = ["reflectivity"]
-    parent_remote: str = "https://data.rda.ucar.edu"
+    def model_post_init(self, __context):
+        """
+        If unset by user, change default values inherited from the base class.
+        """
+        if "name" not in self.model_fields_set:
+            self.name = "gridrad"
+        if "fields" not in self.model_fields_set:
+            self.fields = ["reflectivity"]
+        if "parent_remote" not in self.model_fields_set:
+            self.parent_remote = "https://data.rda.ucar.edu"
 
     # Define additional fields for CPOL
     event_start: str = Field(..., description="Event start date.")

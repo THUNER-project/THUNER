@@ -34,13 +34,16 @@ _summary = {
 class ERA5Options(BaseDatasetOptions):
     """Options for ERA5 datasets."""
 
-    # Overwrite the default values from the base class. Note these objects are still
-    # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
-    name: str = "era5_pl"
-    parent_remote: str = "/g/data/rt52"
-    use: Literal["track", "tag"] = "tag"
-    # Redefine refault start buffer to -120 minutes
-    start_buffer: int = Field(-120, description=_summary["start_buffer"])
+    def model_post_init(self, __context):
+        """
+        If unset by user, change default values inherited from the base class.
+        """
+        if "name" not in self.model_fields_set:
+            self.name = "era5_pl"
+        if "use" not in self.model_fields_set:
+            self.use = "tag"
+        if "parent_remote" not in self.model_fields_set:
+            self.parent_remote = "/g/data/rt52"
 
     # Define additional fields for era5
     latitude_range: list[float] = Field(
