@@ -119,10 +119,11 @@ According to `Wikipedia <https://en.wikipedia.org/wiki/Thor>`__, between
 the 8th and 16th centuries the storm god more commonly known as Thor was
 called “Thuner” by the inhabitants of what is now west Germany. Almost every culture has
 at least one storm deity; [Dianmu](https://en.wikipedia.org/wiki/Dianmu) and 
-[Leigong](https://en.wikipedia.org/wiki/Leigong) in China, 
-[Indra](https://en.wikipedia.org/wiki/Indra) in India, 
-[Bol'ngu the Thunderman](https://www.ngv.vic.gov.au/essay/nonggirrnga-marawili-thunderman-raining-down/)
-among the Yolngu people of Northern Australia, and [many others](https://en.wikipedia.org/wiki/Weather_god).
+`Leigong <https://en.wikipedia.org/wiki/Leigong>`__ in China, 
+`Indra <https://en.wikipedia.org/wiki/Indra>`__ in India, 
+`Bol'ngu the Thunderman <https://www.ngv.vic.gov.au/essay/nonggirrnga-marawili-thunderman-raining-down/>`__
+among the Yolngu people of Northern Australia, and 
+`many others <https://en.wikipedia.org/wiki/Weather_god>`__.
 
 Acknowledgements
 ------------------
