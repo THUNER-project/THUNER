@@ -136,4 +136,5 @@ Note THUNER began as a fork of the `TINT <https://github.com/openradar/TINT>`__ 
 which was adapted from tracking code by `Bhupendra Raut <https://orcid.org/0000-0001-5598-1393>`__. 
 Computational resources during THUNER's development were provided by the Australian 
 `National Computational Infrastructure (NCI) <https://nci.org.au/>`__.
-THUNER's documentation is hosted by Read the Docs.
+THUNER's `documentation <https://thuner.readthedocs.io/en/latest/>`__ is hosted by 
+`Read the Docs <https://about.readthedocs.com/>`__.
