@@ -4,8 +4,6 @@ Thunderstorm Event Reconnaissance (THUNER)
 .. figure:: https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/mcs_gridrad_20100804.gif
    :alt: GridRad Demo
 
-   Example output of the THUNER package.
-
 Package description
 -------------------
 
@@ -98,20 +96,20 @@ domain boundary have their
 velocities masked, as these cannot be measured accurately when the
 object is partially outside the domain.
 
+The example below depicts multiple
+`trailing-stratiform <https://doi.org/10.1175/1520-0493(2001)129%3C3413:OMOMMC%3E2.0.CO;2>`__
+type systems.
 
 .. figure:: https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/mcs_gridrad_20100804.gif
    :alt: GridRad Demo
 
-   An example depicting multiple 
-   `trailing-stratiform <https://doi.org/10.1175/1520-0493(2001)129%3C3413:OMOMMC%3E2.0.CO;2>`__
-   type systems.
 
+The example below depicts multiple
+`leading-stratiform <https://doi.org/10.1175/1520-0493(2001)129%3C3413:OMOMMC%3E2.0.CO;2>`__
+type systems.
 
 .. figure:: https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/mcs_gridrad_20100120.gif
    :alt: GridRad Demo
-
-   An example depicting multiple `leading-stratiform <https://doi.org/10.1175/1520-0493(2001)129%3C3413:OMOMMC%3E2.0.CO;2>`__
-   type systems.
 
 
 Etymology
