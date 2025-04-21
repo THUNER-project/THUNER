@@ -113,26 +113,27 @@ type systems.
 
 
 Etymology
----------
+------------------------
 
 According to `Wikipedia <https://en.wikipedia.org/wiki/Thor>`__, between
 the 8th and 16th centuries the storm god more commonly known as Thor was
-called “Thuner” by the inhabitants of what is now west Germany. Almost every culture has
-at least one storm deity; [Dianmu](https://en.wikipedia.org/wiki/Dianmu) and 
-`Leigong <https://en.wikipedia.org/wiki/Leigong>`__ in China, 
+called “Thuner” by the inhabitants of what is now west Germany. Interestingly, almost 
+every culture has at least one storm deity; `Dianmu <https://en.wikipedia.org/wiki/Dianmu>`__ 
+and `Leigong <https://en.wikipedia.org/wiki/Leigong>`__ in China, 
 `Indra <https://en.wikipedia.org/wiki/Indra>`__ in India, 
 `Bol'ngu the Thunderman <https://www.ngv.vic.gov.au/essay/nonggirrnga-marawili-thunderman-raining-down/>`__
 among the Yolngu people of Northern Australia, and 
 `many others <https://en.wikipedia.org/wiki/Weather_god>`__.
 
 Acknowledgements
-------------------
+-----------------------------------------
 
-THUNER was developed by 
-`Ewan Short <https://orcid.org/0000-0003-2821-8151>`__ while supported by 
+THUNER was developed by `Ewan Short <https://orcid.org/0000-0003-2821-8151>`__ while supported by 
 Australian Research Council grants 
 `CE170100023 <https://dataportal.arc.gov.au/NCGP/Web/Grant/Grant/CE170100023>`__
 and `DP200102516 <https://dataportal.arc.gov.au/NCGP/Web/Grant/Grant/DP200102516>`__. 
-Computational resources during development were provided by the Australian
+Note THUNER began as a fork of the `TINT <https://github.com/openradar/TINT>`__ package,
+which was adapted from tracking code by `Bhupendra Raut <https://orcid.org/0000-0001-5598-1393>`__. 
+Computational resources during THUNER's development were provided by the Australian 
 `National Computational Infrastructure (NCI) <https://nci.org.au/>`__.
-THUNER's documentation is hosted on Read the Docs.
+THUNER's documentation is hosted by Read the Docs.
