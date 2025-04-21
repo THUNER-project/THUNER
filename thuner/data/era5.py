@@ -21,10 +21,7 @@ __all__ = ["ERA5Options", "get_era5_filepaths"]
 logger = log.setup_logger(__name__)
 
 _summary = {
-    "latitude_range": "Latitude range if accessing a directory of subsetted era5 data.",
-    "longitude_range": "Longitude range if accessing a directory of subsetted era5 data.",
     "mode": "Mode of the data, e.g. reannalysis.",
-    "data_format": "Data format, e.g. pressure-levels.",
     "pressure_levels": "Pressure levels; required if data_format is pressure-levels.",
     "storage": "Storage format of the data, e.g. monthly.",
     "start_buffer": "Minutes before interval start time to include.",
@@ -35,27 +32,25 @@ class ERA5Options(BaseDatasetOptions):
     """Options for ERA5 datasets."""
 
     def model_post_init(self, __context):
-        """
-        If unset by user, change default values inherited from the base class.
-        """
-        if "name" not in self.model_fields_set:
-            self.name = "era5_pl"
-        if "use" not in self.model_fields_set:
-            self.use = "tag"
-        if "parent_remote" not in self.model_fields_set:
-            self.parent_remote = "/g/data/rt52"
+        """Use model_post_init to change default inherited values."""
+        new_defaults = {"use": "tag", "parent_remote": "/g/data/rt52"}
+        self._change_defaults(**new_defaults)
+        message = f"Setting default era5 {self.data_format} options name and fields."
+        logger.debug(message)
+        if self.data_format == "pressure-levels":
+            self._change_defaults(name="era5_pl", fields=["u", "v", "z", "r", "t"])
+        elif self.data_format == "single-levels":
+            self._change_defaults(name="era5_sl", fields=["cape", "cin"])
 
     # Define additional fields for era5
-    latitude_range: list[float] = Field(
-        [-90, 90], description=_summary["latitude_range"]
-    )
-    longitude_range: list[float] = Field(
-        [-180, 180], description=_summary["longitude_range"]
-    )
+    _desc = "Latitude range if accessing a directory of subsetted era5 data."
+    latitude_range: list[float] = Field([-90, 90], description=_desc)
+    _desc = "Longitude range if accessing a directory of subsetted era5 data."
+    longitude_range: list[float] = Field([-180, 180], description=_desc)
     mode: Literal["reanalysis"] = Field("reanalysis", description=_summary["mode"])
-    data_format: Literal["pressure-levels", "single-levels"] = Field(
-        "pressure-levels", description=_summary["data_format"]
-    )
+    _FormatChoices = Literal["pressure-levels", "single-levels"]
+    _desc = "Data format, e.g. pressure-levels."
+    data_format: _FormatChoices = Field("pressure-levels", description=_desc)
     pressure_levels: list[str] | list[float] | None = Field(
         None, description=_summary["pressure_levels"]
     )
@@ -76,16 +71,6 @@ class ERA5Options(BaseDatasetOptions):
                 values.pressure_levels = era5_pressure_levels
                 logger.debug(f"Assigning default era5 pressure levels.")
             values.pressure_levels = [str(level) for level in values.pressure_levels]
-        if values.fields is None:
-            message = f"Assigning default era5 {values.data_format} options name "
-            message += "and fields."
-            logger.debug(message)
-            if values.data_format == "pressure-levels":
-                values.name = "era5_pl"
-                values.fields = ["u", "v", "z", "r", "t"]
-            elif values.data_format == "single-levels":
-                values.name = "era5_sl"
-                values.fields = ["cape", "cin"]
         return values
 
     @model_validator(mode="after")

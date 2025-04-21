@@ -57,5 +57,8 @@ Computational resources during development were provided by the Australian
 `National Computational Infrastructure (NCI) <https://nci.org.au/>`__.
 THUNER's documentation is hosted on Read the Docs.
 
+.. figure:: ./images/logo_black.svg
+   :alt: THUNER logo
+   :align: center
 
 

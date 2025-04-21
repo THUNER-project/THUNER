@@ -16,6 +16,7 @@ import os
 import platform
 from typing import Any, Dict, Literal
 from pydantic import Field, model_validator, BaseModel, model_validator, ConfigDict
+from pydantic import ValidationError
 import multiprocessing
 from thuner.log import setup_logger
 from thuner.config import get_outputs_directory
@@ -83,7 +84,7 @@ class BaseOptions(BaseModel):
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert the options to a dictionary."""
-        fields = self.model_fields.keys()
+        fields = self.__class__.model_fields.keys()
         return {field: convert_value(getattr(self, field)) for field in fields}
 
     def to_yaml(self, filepath: str):
@@ -93,6 +94,20 @@ class BaseOptions(BaseModel):
             kwargs = {"default_flow_style": False, "allow_unicode": True}
             kwargs = {"sort_keys": False}
             yaml.dump(self.to_dict(), f, **kwargs)
+
+    def revalidate(self):
+        """Revalidate the model to ensure all fields are valid."""
+        self.model_validate(self)
+
+    def _change_defaults(self, **kwargs):
+        """Change the default values of the model fields if not set by user."""
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                if key not in self.model_fields_set:
+                    setattr(self, key, value)
+            else:
+                raise KeyError(f"{key} is not a valid option.")
+        return self
 
 
 # Create convenience dictionary for options descriptions.
@@ -118,15 +133,17 @@ _summary = {
 }
 
 
+default_parent_local = str(get_outputs_directory() / "input_data/raw")
+default_parent_converted = str(get_outputs_directory() / "input_data/converted")
+
+
 class ConvertedOptions(BaseOptions):
     """Converted options."""
 
     save: bool = Field(False, description="Whether to save the converted data.")
     load: bool = Field(False, description="Whether to load the converted data.")
-    parent_converted: str | None = Field(None, description=_summary["parent_converted"])
-
-
-default_parent_local = str(get_outputs_directory() / "input_data/raw")
+    _desc = "Parent directory for converted data."
+    parent_converted: str | None = Field(default_parent_converted, description=_desc)
 
 
 class BaseDatasetOptions(BaseOptions):
@@ -168,7 +185,7 @@ class BaseDatasetOptions(BaseOptions):
             message += "specified."
             raise ValueError(message)
         if values.converted_options.save or values.converted_options.load:
-            if values.parent_converted is None:
+            if values.converted_options.parent_converted is None:
                 message = "parent_converted must be specified if saving or loading."
                 raise ValueError(message)
         if values.attempt_download:
@@ -180,10 +197,17 @@ class BaseDatasetOptions(BaseOptions):
 
     @model_validator(mode="after")
     def _check_fields(cls, values):
-        """Check whether the use field created correctly."""
-        if values.use == "track" and len(values.fields) != 1:
+        """Check whether fields compatible with other options."""
+        if values.fields is None:
+            message = "At least one field must be specified. Ensure fields is set "
+            message += "explicitly, or set a default value in the appropriate subclass."
+            raise ValueError(message)
+        elif values.use == "track" and len(values.fields) != 1:
             message = "Only one field should be specified if the dataset is used for "
-            message += "tracking. Instead, created grouped objects. See thuner.option."
+            message += "tracking. If you want to define objects built out of multiple "
+            message += "components, use grouping. See "
+            message += "thuner.option.track.GroupedObjectOptions, thuner.default"
+            message += "and the gridrad.ipynb demo."
             raise ValueError(message)
         return values
 

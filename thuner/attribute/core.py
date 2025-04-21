@@ -484,7 +484,7 @@ class Time(Attribute):
 
 
 def default_tracked():
-    """Create the default core attribute type for grouped objects."""
+    """Create the default core attribute type for tracked objects."""
     attributes_list = [Time(), RecordUniversalID(), Parents(), CoordinatesRecord()]
     attributes_list += [AreasRecord(), FlowVelocity(), DisplacementVelocity()]
     description = "Core attributes of tracked object, e.g. position and velocities."
@@ -493,7 +493,7 @@ def default_tracked():
 
 
 def default_member():
-    """Create the default core attribute type for member objects."""
+    """Create the default core attribute type for member, i.e. component, objects."""
     attributes_list = [Time(), RecordUniversalID(), CoordinatesMask(), AreasMask()]
     description = "Core attributes of a member object, e.g. position and velocities."
     kwargs = {"name": "core", "attributes": attributes_list, "description": description}

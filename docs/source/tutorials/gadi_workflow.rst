@@ -1,4 +1,4 @@
-GridRad Severe NCI Gadi Workflow
+Working Remotely: NCI Gadi
 --------------------------------------
 
 Australian users can run THUNER on the `National Computational Infrastructure (NCI) <https://nci.org.au/>`__

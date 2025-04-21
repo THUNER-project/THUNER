@@ -103,16 +103,17 @@ def track(dataset_name: str = "cpol"):
     return track_options
 
 
-def runtime(visualize_directory):
+def runtime(visualize_directory, objects=["mcs"]):
     """Build default options for runtime visualization."""
 
-    kwargs = {"name": "match", "function": vis_runtime.visualize_match}
-    match_figure = visualize_option.FigureOptions(**kwargs)
-    kwargs = {"name": "mcs", "parent_local": visualize_directory}
-    kwargs.update({"figures": [match_figure]})
-    mcs_figures = visualize_option.ObjectRuntimeOptions(**kwargs)
-
-    objects_dict = {mcs_figures.name: mcs_figures}
+    objects_dict = {}
+    for obj in objects:
+        kwargs = {"name": "match", "function": vis_runtime.visualize_match}
+        match_figure = visualize_option.FigureOptions(**kwargs)
+        kwargs = {"name": obj, "parent_local": visualize_directory}
+        kwargs.update({"figures": [match_figure]})
+        figures = visualize_option.ObjectRuntimeOptions(**kwargs)
+        objects_dict[figures.name] = figures
     visualize_options = visualize_option.RuntimeOptions(objects=objects_dict)
     return visualize_options
 

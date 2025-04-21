@@ -1,6 +1,6 @@
 """Classes for managing tracking related options."""
 
-from typing import List, Annotated, Literal
+from typing import List, Annotated, Literal, Union
 from pydantic import Field, model_validator
 from thuner.log import setup_logger
 from thuner.option.attribute import Attributes
@@ -156,11 +156,20 @@ _summary["detection"] = "Method used to detect the object."
 class DetectedObjectOptions(BaseObjectOptions):
     """Options for detected objects."""
 
+    object_type: Literal["detected"] = Field("detected", description="Type of object.")
     variable: str = Field("reflectivity", description=_summary["variable"])
     detection: DetectionOptions = Field(
         DetectionOptions(method="steiner"), description=_summary["detection"]
     )
     tracking: BaseOptions | None = Field(TintOptions(), description="Tracking options.")
+
+    @model_validator(mode="after")
+    def _check_mask(cls, values):
+        """Check if masks saved if tracking options provided."""
+        if values.tracking is not None and not values.mask_options.save:
+            message = "Masks must be saved when objects are being tracked."
+            raise ValueError(message)
+        return values
 
 
 # Define a custom type with constraints
@@ -204,13 +213,18 @@ AnyTrackingOptions = TintOptions | MintOptions
 class GroupedObjectOptions(BaseObjectOptions):
     """Options for grouped objects."""
 
+    object_type: Literal["grouped"] = Field("grouped", description="Type of object.")
     grouping: GroupingOptions = Field(
         GroupingOptions(), description=_summary["grouping"]
     )
     tracking: AnyTrackingOptions = Field(MintOptions(), description="Tracking options.")
 
 
-AnyObjectOptions = DetectedObjectOptions | GroupedObjectOptions
+# Unclear why an additional discriminator is needed here. Perhaps due to the list.
+AnyObjectOptions = Annotated[
+    DetectedObjectOptions | GroupedObjectOptions, Field(discriminator="object_type")
+]
+
 
 _summary["objects"] = "Options for each object in the level."
 

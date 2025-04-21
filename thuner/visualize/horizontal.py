@@ -6,7 +6,6 @@ import copy
 import numpy as np
 import cv2
 import xarray as xr
-import windrose
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.ticker as mticker
@@ -63,7 +62,7 @@ def show_mask(
     the object id."""
 
     title = ax.get_title()
-    colors = visualize.mask_colors
+    colors = visualize.runtime_colors
     if single_color:
         colors = [colors[0]] * len(colors)
     object_labels = np.unique(mask.where(mask > 0).values)

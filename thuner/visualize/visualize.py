@@ -1,5 +1,6 @@
 """General display functions."""
 
+import random
 from PIL import Image
 import imageio
 import colorsys
@@ -76,6 +77,11 @@ def hls_colormap(N=1, lightness=0.9, saturation=1):
 
 mask_colors = ["cyan", "magenta", "gold", "cyan"]
 mask_colormap = mcolors.LinearSegmentedColormap.from_list("mask", mask_colors, N=64)
+runtime_colormap = mcolors.LinearSegmentedColormap.from_list("mask", mask_colors, N=12)
+runtime_colors = [runtime_colormap(i) for i in range(12)]
+runtime_colors = [mcolors.to_hex(color) for color in runtime_colors]
+random.seed(4189)
+random.shuffle(runtime_colors)
 
 
 @contextlib.contextmanager

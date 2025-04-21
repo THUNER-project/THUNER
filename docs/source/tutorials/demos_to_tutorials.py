@@ -4,14 +4,36 @@ from nbconvert import RSTExporter
 import re
 
 
+def truncate_output(output, max_lines=15):
+    """Truncate output to a maximum number of lines, adding '...' if truncated."""
+    lines = output.splitlines()
+    if len(lines) > max_lines:
+        return "\n".join(lines[:max_lines]) + "\n..."
+    return output
+
+
 def convert_notebook_to_tutorial(notebook_path, rst_path):
+    """
+    Convert a Jupyter notebook to a reStructuredText (.rst) file for Sphinx
+    documentation.
+    """
     # Load the notebook
     with open(Path(notebook_path), "r", encoding="utf-8") as f:
         notebook = nbformat.read(f, as_version=4)
 
+    # Process cell outputs to truncate them
+    for cell in notebook.cells:
+        if "outputs" in cell:
+            for output in cell.outputs:
+                if "text" in output:
+                    output["text"] = truncate_output(output["text"])
+                elif "data" in output:
+                    if "text/plain" in output["data"]:
+                        plain_text = output["data"]["text/plain"]
+                        output["data"]["text/plain"] = truncate_output(plain_text)
+
     # Create an .rst exporter
     rst_exporter = RSTExporter()
-    rst_exporter.exclude_output = True
 
     # Convert the notebook to an .rst file
     rst = rst_exporter.from_notebook_node(notebook)[0]
@@ -35,7 +57,9 @@ def convert_notebook_to_tutorial(notebook_path, rst_path):
     rst = rst.strip()
     # Remove duplicate empty lines
     rst = re.sub(r"\n{3,}", "\n\n", rst)
-    rst = rst.replace(".. code:: ipython3", ".. code-block:: python3")
+    replacement_string = ".. code-block:: python3\n    :linenos:"
+    rst = rst.replace(".. code:: ipython3", replacement_string)
+    rst = rst.replace(".. parsed-literal::", ".. code-block:: text")
     classes = [
         "pydantic.BaseModel",
         "thuner.option.data.DataOptions",

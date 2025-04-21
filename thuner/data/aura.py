@@ -51,14 +51,13 @@ class AURAOptions(BaseDatasetOptions):
         """
         If unset by user, change default values inherited from the base class.
         """
-        if "fields" not in self.model_fields_set:
-            self.fields = ["reflectivity"]
+        super().model_post_init(__context)
+        self._change_defaults(fields=["reflectivity"])
 
     # Define additional fields for AURA
-    level: Literal["1", "1b", "2"] = Field(..., description="Processing level.")
-    data_format: Literal["grid_150km_2500m", "grid_70km_1000m"] = Field(
-        ..., description="Data format."
-    )
+    level: Literal["1", "1b", "2"] = Field("1b", description="Processing level.")
+    _FormatChoices = Literal["grid_150km_2500m", "grid_70km_1000m"]
+    data_format: _FormatChoices = Field("grid_150km_2500m", description="Data format.")
     range: float = Field(142.5, description="Range of the radar in km.")
     range_units: str = Field("km", description="Units of the range.")
 
@@ -67,17 +66,12 @@ class CPOLOptions(AURAOptions):
     """Options for CPOL datasets."""
 
     def model_post_init(self, __context):
-        """
-        If unset by user, change default values inherited from the base class.
-        """
-        if "name" not in self.model_fields_set:
-            self.name = "cpol"
-        if "parent_remote" not in self.model_fields_set:
-            self.parent_remote = "https://dapds00.nci.org.au/thredds/fileServer/hj10"
-        if "level" not in self.model_fields_set:
-            self.level = "1b"
-        if "data_format" not in self.model_fields_set:
-            self.data_format = "grid_150km_2500m"
+        """Use model_post_init to change default inherited values."""
+        super().model_post_init(__context)
+        url = "https://dapds00.nci.org.au/thredds/fileServer/hj10"
+        new_defaults = {"name": "cpol", "parent_remote": url, "level": "1b"}
+        new_defaults.update({"data_format": "grid_150km_2500m"})
+        self._change_defaults(**new_defaults)
 
     # Define additional fields for CPOL
     version: str = Field("v2020", description="Data version.")
@@ -105,8 +99,8 @@ def get_cpol_filepaths(options):
     Generate CPOL fielpaths.
     """
 
-    start = np.datetime64(options.start).astype("datetime64[s]")
-    end = np.datetime64(options.end).astype("datetime64[s]")
+    start = np.datetime64(options.start).astype("datetime64[m]")
+    end = np.datetime64(options.end).astype("datetime64[m]")
 
     filepaths = []
 
@@ -429,8 +423,9 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
         dataset = xr.open_dataset(
             dataset_options.filepaths[input_record._current_file_index]
         )
+    raw_filepath = dataset_options.filepaths[input_record._current_file_index]
     if conv_options.save:
-        _utils.save_converted_dataset(dataset, dataset_options)
+        _utils.save_converted_dataset(raw_filepath, dataset, dataset_options)
 
     input_record.dataset = dataset
 

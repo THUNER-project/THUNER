@@ -1,6 +1,6 @@
 """Data options classes, convenience subclasses, and functions."""
 
-from typing import Dict, Union
+from typing import Dict, Union, List
 from pydantic import Field, model_validator
 from thuner.log import setup_logger
 from thuner.utils import BaseOptions, BaseDatasetOptions
@@ -29,11 +29,14 @@ class DataOptions(BaseOptions):
 
     datasets: list[AnyDatasetOptions] = Field(..., description=_summary["datasets"])
     _dataset_lookup: Dict[str, AnyDatasetOptions] = {}
+    _desc = "List of dataset names to be used in the run. This is set automatically."
+    dataset_names: List[str] = Field([], description=_desc)
 
     @model_validator(mode="after")
     def initialize_dataset_lookup(cls, values):
         """Initialize the dataset lookup dictionary."""
         values._dataset_lookup = {d.name: d for d in values.datasets}
+        values.dataset_names = list(values._dataset_lookup.keys())
         return values
 
     def dataset_by_name(self, dataset_name: str) -> AnyDatasetOptions:

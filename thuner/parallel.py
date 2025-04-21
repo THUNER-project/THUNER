@@ -43,6 +43,7 @@ def track(
     num_processes=4,
     cleanup=True,
     dataset_name="gridrad",
+    debug_mode=False,
 ):
     """
     Perform tracking in parallel using multiprocessing by splitting the time domain
@@ -68,6 +69,9 @@ def track(
         Defaults to None.
     """
 
+    if dataset_name not in data_options.dataset_names:
+        raise ValueError(f"Dataset name {dataset_name} not in data options.")
+
     if num_processes > os.cpu_count():
         raise ValueError("Number of processes cannot exceed number of cpus.")
     elif num_processes > 3 / 4 * os.cpu_count():
@@ -92,21 +96,28 @@ def track(
         visualize_options = None
         logger.warning(message)
 
-    kwargs = {"initializer": utils.initialize_process, "processes": num_processes}
-    with logging_listener(), mp.get_context("spawn").Pool(**kwargs) as pool:
-        results = []
+    if debug_mode:
         for i, time_interval in enumerate(intervals):
-            time.sleep(1)
             args = [i, time_interval, data_options.model_copy(deep=True)]
             args += [grid_options.model_copy(deep=True)]
             args += [track_options.model_copy(deep=True)]
-            args += [None, output_directory]
-            args += [dataset_name]
-            args = tuple(args)
-            results.append(pool.apply_async(track_interval, args))
-        pool.close()
-        pool.join()
-        utils.check_results(results)
+            args += [None, output_directory, dataset_name]
+            track_interval(*args)
+    else:
+        kwargs = {"initializer": utils.initialize_process, "processes": num_processes}
+        with logging_listener(), mp.get_context("spawn").Pool(**kwargs) as pool:
+            results = []
+            for i, time_interval in enumerate(intervals):
+                time.sleep(1)
+                args = [i, time_interval, data_options.model_copy(deep=True)]
+                args += [grid_options.model_copy(deep=True)]
+                args += [track_options.model_copy(deep=True)]
+                args += [None, output_directory, dataset_name]
+                args = tuple(args)
+                results.append(pool.apply_async(track_interval, args))
+            pool.close()
+            pool.join()
+            utils.check_results(results)
 
     stitch_run(output_directory, intervals, cleanup=cleanup)
 

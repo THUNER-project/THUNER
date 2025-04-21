@@ -624,17 +624,18 @@ def get_encoding(ds):
     return encoding
 
 
-def save_converted_dataset(dataset, dataset_options):
+def save_converted_dataset(raw_filepath, dataset, dataset_options):
     """Save a converted dataset."""
     conv_options = dataset_options.converted_options
     if conv_options.save:
-        filepath = dataset_options.filepaths[0]
         parent = get_parent(dataset_options)
-        if conv_options["parent_converted"] is None:
-            parent_converted = parent.replace("raw", "converted")
-        converted_filepath = filepath.replace(parent, parent_converted)
+        parent_converted = conv_options.parent_converted
+        if parent_converted is None:
+            raise ValueError("No parent directory provided.")
+        parent_converted = parent.replace("raw", "converted")
+        conv_options.parent_converted = parent_converted
+        converted_filepath = raw_filepath.replace(parent, parent_converted)
         if not Path(converted_filepath).parent.exists():
             Path(converted_filepath).parent.mkdir(parents=True)
-        encoding = get_encoding(dataset)
         dataset.to_netcdf(converted_filepath, mode="w")
     return dataset

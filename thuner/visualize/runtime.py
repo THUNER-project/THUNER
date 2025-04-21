@@ -7,6 +7,7 @@ import copy
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import matplotlib.colors as mcolors
 import cartopy.crs as ccrs
 import thuner.visualize.horizontal as horizontal
 from thuner.visualize.visualize import styles
@@ -14,7 +15,7 @@ from thuner.utils import format_time
 from thuner.match.utils import get_grids, get_masks
 from thuner.log import setup_logger
 from thuner.visualize.utils import make_subplot_labels, get_extent
-from thuner.visualize.visualize import mask_colors, set_style
+from thuner.visualize.visualize import runtime_colors, set_style
 from thuner.match.box import get_box_center_coords
 import thuner.grid as thuner_grid
 import thuner.visualize.utils as utils
@@ -107,7 +108,9 @@ def match_template(reference_grid, figure_options, extent):
 
 
 def match_features(grid, match_record, axes, grid_options, unique_global_flow=True):
-    colors = mask_colors
+    """Visualizing the matching process for TINT/MINT matching."""
+    colors = runtime_colors
+
     if unique_global_flow and len(match_record["global_flows"]) > 0:
         global_flow = match_record["global_flows"][0]
         if "instrument" in grid.attrs.keys() and "radar" in grid.attrs["instrument"]:
