@@ -39,6 +39,7 @@ grid_from_dataset_dispatcher = {
     "gridrad": gridrad.gridrad_grid_from_dataset,
     "operational": grid_from_dataset_basic,
     "synthetic": grid_from_dataset_basic,
+    "thuner": grid_from_dataset_basic,
 }
 
 
