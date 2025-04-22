@@ -73,8 +73,6 @@ def show_mask(
     elif grid_options.name == "cartesian":
         LON, LAT = grid_options.longitude, grid_options.latitude
 
-    # levels = np.arange(0, len(colors) + 1)
-    # norm = BoundaryNorm(levels, ncolors=len(colors), clip=True)
     mesh_style = {"shading": "nearest", "transform": proj, "alpha": 0.4, "zorder": 2}
     if mask_quality is None:
         mask_quality = {obj: True for obj in object_labels}
@@ -116,6 +114,26 @@ def mask_legend_artist(single_color=False):
         edge_color = mcolors.to_rgb(colors[i])
         fill_color = list(edge_color) + [0.4]  # Add alpha of .4
         kwargs = {"edgecolor": edge_color, "facecolor": fill_color}
+        patch = mpatches.Rectangle((0, 0), 1, 1, **kwargs)
+        patches.append(patch)
+
+    handler_map = {tuple: HandlerTuple(ndivide=None)}
+    return tuple(patches), handler_map
+
+
+def box_legend_artist(single_color=False, linestyle="--"):
+    """Create a legend artist for boxes."""
+    colors = visualize.mask_colors
+    single_color = False
+    if single_color:
+        colors = [colors[0]] * len(colors)
+
+    patches = []
+    for i in range(3):
+        edge_color = mcolors.to_rgb(colors[i])
+        fill_color = list(edge_color) + [0]  # Make transparent
+        kwargs = {"edgecolor": edge_color, "linewidth": 1, "linestyle": linestyle}
+        kwargs.update({"facecolor": fill_color})
         patch = mpatches.Rectangle((0, 0), 1, 1, **kwargs)
         patches.append(patch)
 
@@ -420,6 +438,44 @@ def ellipse_legend_artist(label, style):
     return legend_handle
 
 
+def pixel_displacement(
+    ax,
+    row,
+    col,
+    vector,
+    grid_options,
+    start_lat=None,
+    start_lon=None,
+    color="w",
+):
+    """Plot a vector given in gridcell, i.e. "pixel", coordinates."""
+    latitudes = grid_options.latitude
+    longitudes = grid_options.longitude
+    if grid_options.name == "cartesian":
+        if start_lat is None or start_lon is None:
+            start_lon = longitudes[row, col]
+            start_lat = latitudes[row, col]
+        dy, dx = vector * np.array(grid_options.cartesian_spacing)
+    elif grid_options.name == "geographic":
+        if start_lat is None or start_lon is None:
+            start_lat = latitudes[row]
+            start_lon = longitudes[col]
+        dlat, dlon = vector * np.array(grid_options.geographic_spacing)
+        end_lat, end_lon = start_lat + dlat, start_lon + dlon
+        args = [start_lon, start_lat, end_lon, end_lat]
+        forward_dir, backward_dir, distance = thuner_grid.geodesic_inverse(*args)
+        # Convert azimuth to vector direction from east, measured counter-clockwise as normal
+        # in cartesian coordinates.
+        forward_dir = (90 - forward_dir) % 360
+        dy = distance * np.sin(np.deg2rad(forward_dir))
+        dx = distance * np.cos(np.deg2rad(forward_dir))
+    else:
+        raise ValueError(f"Grid name must be 'cartesian' or 'geographic'.")
+    kwargs = {"start_latitude": start_lat, "start_longitude": start_lon}
+    kwargs.update({"dx": dx, "dy": dy, "color": color, "quality": True})
+    cartesian_displacement(ax, **kwargs)
+
+
 def cartesian_displacement(
     ax,
     start_latitude,
@@ -528,9 +584,11 @@ def pixel_vector(
     ax.add_patch(arrow)
 
 
-def plot_box(ax, box, grid_options, linestyle="--", alpha=1, color="tab:red"):
+def plot_box(
+    ax, box, grid_options, linestyle="--", alpha=1, color="tab:red", linewidth=1
+):
     lats, lons = get_geographic_box_coords(box, grid_options)
-    box_style = {"color": color, "linewidth": 1, "linestyle": linestyle}
+    box_style = {"color": color, "linewidth": linewidth, "linestyle": linestyle}
     box_style.update({"alpha": alpha, "transform": proj})
     ax.plot(lons, lats, **box_style)
 
@@ -869,7 +927,6 @@ class PanelledUniformMaps(Panelled):
         super().__init__(*args)
         self.extent = extent
         self.colorbar = colorbar
-        self.legend_rows = legend_rows
         self.legend_rows = legend_rows
         self.suptitle_height = 1
         self.border_zorder = border_zorder

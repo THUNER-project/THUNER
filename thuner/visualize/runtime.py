@@ -6,15 +6,14 @@ and visualization purposes.
 import copy
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-import matplotlib.colors as mcolors
+from matplotlib import patches as mpatches
 import cartopy.crs as ccrs
 import thuner.visualize.horizontal as horizontal
 from thuner.visualize.visualize import styles
 from thuner.utils import format_time
 from thuner.match.utils import get_grids, get_masks
 from thuner.log import setup_logger
-from thuner.visualize.utils import make_subplot_labels, get_extent
+from thuner.visualize.utils import get_extent
 from thuner.visualize.visualize import runtime_colors, set_style
 from thuner.match.box import get_box_center_coords
 import thuner.grid as thuner_grid
@@ -83,28 +82,33 @@ def grouped_mask(
     return fig, subplot_axes
 
 
-def match_template(reference_grid, figure_options, extent):
+def match_template(reference_grid, extent, scale):
     """Create a template for match figures."""
-    fig = plt.figure(figsize=(12, 3))
-    gs = gridspec.GridSpec(1, 4, width_ratios=[1, 1, 1, 0.05])
-    axes = []
-    for i in range(3):
-        ax = fig.add_subplot(gs[0, i], projection=proj)
-        ax.set_rasterized(True)
-        kwargs = {"extent": extent, "scale": "10m"}
-        kwargs.update({"left_labels": (i == 0)})
-        ax = horizontal.cartographic_features(ax, **kwargs)[0]
-        if (
-            "instrument" in reference_grid.attrs.keys()
-            and "radar" in reference_grid.attrs["instrument"]
-        ):
+    if scale == 1:
+        rows = 1
+        columns = 3
+        subplot_width = 4
+    elif scale == 2:
+        rows = 3
+        columns = 1
+        subplot_width = 8
+    else:
+        raise ValueError("Only scales of 1 or 2 implemented so far.")
+    kwargs = {"extent": extent, "subplot_width": subplot_width, "rows": rows}
+    kwargs.update({"columns": columns, "colorbar": True, "legend_rows": 2})
+    kwargs.update({"shared_legends": "all"})
+    layout = horizontal.PanelledUniformMaps(**kwargs)
+    fig, subplot_axes, colorbar_axes, legend_axes = layout.initialize_layout()
+    for i in range(len(subplot_axes)):
+        ax = subplot_axes[i]
+        ax.set_extent(extent)
+        keys = reference_grid.attrs.keys()
+        if "instrument" in keys and "radar" in reference_grid.attrs["instrument"]:
             radar_longitude = float(reference_grid.attrs["origin_longitude"])
             radar_latitude = float(reference_grid.attrs["origin_latitude"])
             horizontal.radar_features(ax, radar_longitude, radar_latitude, extent)
-        axes.append(ax)
-    cbar_ax = fig.add_subplot(gs[0, -1])
-    make_subplot_labels(axes, x_shift=-0.12, y_shift=0.06)
-    return fig, axes, cbar_ax
+
+    return fig, subplot_axes, colorbar_axes, legend_axes, layout
 
 
 def match_features(grid, match_record, axes, grid_options, unique_global_flow=True):
@@ -119,10 +123,9 @@ def match_features(grid, match_record, axes, grid_options, unique_global_flow=Tr
         else:
             lon, lat = None, None
         [row, col] = np.ceil(np.array(grid_options.shape) / 2).astype(int)
+        args = [axes[1], row, col, global_flow, grid_options]
         vector_options = {"start_lat": lat, "start_lon": lon, "color": "tab:red"}
-        horizontal.pixel_vector(
-            axes[1], row, col, global_flow, grid_options, **vector_options
-        )
+        horizontal.pixel_displacement(*args, **vector_options)
     for i in range(len(match_record["ids"])):
         # Get the flows, displacements and boxes.
         id = match_record["universal_ids"][i]
@@ -140,23 +143,23 @@ def match_features(grid, match_record, axes, grid_options, unique_global_flow=Tr
             global_flow = match_record["global_flows"][i]
             global_flow_box = match_record["global_flow_boxes"][i]
             horizontal.plot_box(axes[1], global_flow_box, grid_options, alpha=0.8)
-            horizontal.pixel_vector(
-                axes[1], row, col, global_flow, grid_options, color="tab:red"
-            )
+            args = [axes[1], row, col, global_flow, grid_options]
+            horizontal.pixel_displacement(*args, color="tab:red")
         # Plot the local flow box, and the local and corrected flow vectors
         horizontal.plot_box(axes[1], flow_box, grid_options, color=color)
-        horizontal.pixel_vector(axes[1], row, col, flow, grid_options, color="silver")
-        horizontal.pixel_vector(
-            axes[1], row, col, corrected_flow, grid_options, linestyle=":"
-        )
+        args = [axes[1], row, col, flow, grid_options]
+        horizontal.pixel_displacement(*args, color="tab:blue")
+        args = [axes[1], row, col, corrected_flow, grid_options]
+        horizontal.pixel_displacement(*args, color="tab:purple")
         # Plot the search box
-        horizontal.plot_box(axes[2], search_box, grid_options, color=color)
+        kwargs = {"color": color, "linestyle": "dashdot"}
+        horizontal.plot_box(axes[2], search_box, grid_options, **kwargs)
 
         if np.all(np.logical_not(np.isnan(displacement))):
             # Subtract displacement from center to get the origin
             origin = center - displacement.astype(int)
             args = [axes[0], origin[0], origin[1], displacement, grid_options]
-            horizontal.pixel_vector(*args, color="silver")
+            horizontal.pixel_displacement(*args, color="tab:green")
         # Label object with corrected flow case and cost
         case = match_record["cases"][i]
         lat = np.array(grid_options.latitude)
@@ -201,30 +204,58 @@ def visualize_match(
     extent, scale = get_extent(grid_options)
 
     if figure_options.template is None:
-        fig, ax, cbar_ax = match_template(grids[0], figure_options, extent)
-        figure_options.template = fig
+        figure_options.template = match_template(grids[0], extent, scale)
 
-    fig = copy.deepcopy(figure_options.template)
-    axes = fig.axes[:-1]
-    cbar_ax = fig.axes[-1]
+    template = copy.deepcopy(figure_options.template)
+    fig, subplot_axes, colorbar_axes, legend_axes, layout = template
 
     for i in range(3):
         j = 2 - i
+        ax = subplot_axes[i]
         if grids[j] is not None:
-            axes[i].set_title(grids[j].time.values.astype("datetime64[s]"))
-            args = [grids[j], axes[i], grid_options, False]
+            ax.set_title(grids[j].time.values.astype("datetime64[s]"))
+            args = [grids[j], ax, grid_options, False]
             pcm = horizontal.show_grid(*args)
             if masks[j] is not None:
-                horizontal.show_mask(masks[j], axes[i], grid_options)
+                horizontal.show_mask(masks[j], ax, grid_options)
             if input_record.next_boundary_coordinates is not None:
-                horizontal.domain_boundary(axes[i], all_boundaries[j], grid_options)
-        axes[i].set_extent(extent)
+                horizontal.domain_boundary(ax, all_boundaries[j], grid_options)
+        ax.set_extent(extent)
     unique_global_flow = object_options.tracking.unique_global_flow
-    match_features(grids[0], match_record, axes, grid_options, unique_global_flow)
+    args = [grids[0], match_record, subplot_axes, grid_options, unique_global_flow]
+    match_features(*args)
     cbar_label = grids[0].attrs["long_name"].title() + f" [{grids[0].attrs['units']}]"
-    fig.colorbar(pcm, cax=cbar_ax, label=cbar_label)
+    fig.colorbar(pcm, cax=colorbar_axes[0], label=cbar_label)
 
-    return fig, axes
+    # Create legend patches and labels
+    handles = []
+    labels = ["Displacement", "Global Flow", "Local Flow", "Corrected Flow"]
+    colors = ["tab:green", "tab:red", "tab:blue", "tab:purple"]
+    for i in range(len(labels)):
+        handles.append(horizontal.displacement_legend_artist(colors[i], labels[i]))
+
+    handle, handler = horizontal.mask_legend_artist()
+    handles = [handle] + handles
+    labels = ["Object Masks"] + labels
+
+    if not unique_global_flow:
+        kwargs = {"color": "tab:red", "single_color": True}
+        handle, handler = horizontal.box_legend_artist(**kwargs)
+        handles = handles + [handle]
+        labels = labels + ["Global Flow Boxes"]
+
+    handle, handler = horizontal.box_legend_artist()
+    handles = handles + [handle]
+    labels = labels + ["Local Flow Boxes"]
+
+    handle, handler = horizontal.box_legend_artist(linestyle="dashdot")
+    handles = handles + [handle]
+    labels = labels + ["Search Boxes"]
+
+    legend_options = {"ncol": 4, "loc": "lower center", "handler_map": handler}
+    legend_axes[0].legend(handles, labels, **legend_options)
+
+    return fig, subplot_axes
 
 
 def create_mask_figure_dispatcher(object_options):
