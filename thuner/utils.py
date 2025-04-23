@@ -8,15 +8,15 @@ import json
 import hashlib
 import numpy as np
 import pandas as pd
+import xarray as xr
 from numba import njit, int32, float32
 from numba.typed import List
 from scipy.interpolate import interp1d
 import re
 import os
 import platform
-from typing import Any, Dict, Literal
+from typing import Any, Dict, Literal, Generator
 from pydantic import Field, model_validator, BaseModel, model_validator, ConfigDict
-from pydantic import ValidationError
 import multiprocessing
 from thuner.log import setup_logger
 from thuner.config import get_outputs_directory
@@ -36,7 +36,7 @@ def convert_value(value: Any) -> Any:
     if isinstance(value, np.ndarray):
         return [convert_value(v) for v in value.tolist()]
     if isinstance(value, BaseOptions):
-        fields = value.model_fields.keys()
+        fields = value.__class__.model_fields.keys()
         return {field: convert_value(getattr(value, field)) for field in fields}
     if isinstance(value, dict):
         return {convert_value(k): convert_value(v) for k, v in value.items()}
@@ -166,6 +166,51 @@ class BaseDatasetOptions(BaseOptions):
     use: Literal["track", "tag", "both"] = Field("track", description=_summary["use"])
     start_buffer: int = Field(-120, description=_summary["start_buffer"])
     end_buffer: int = Field(0, description=_summary["end_buffer"])
+    # _desc = "Dictionary describing the filepaths associated with each time."
+    # _time_pathpath_lookup: dict[str, str] = Field({}, description=_desc)
+
+    def get_filepaths(self):
+        """
+        Return the subset of the input filepaths that is within the start and end time
+        range.
+        """
+        if self.filepaths is None:
+            raise ValueError("Filepaths field has not been set.")
+        if len(self.filepaths) == 0:
+            raise ValueError("Filepaths field is an empty list.")
+        time_filepath_lookup = create_time_filepath_lookup(self.filepaths)
+        start, end = np.datetime64(self.start), np.datetime64(self.end)
+        times = np.array(sorted(list(set(time_filepath_lookup.keys()))))
+        times_min = times.astype("datetime64[m]")
+        new_times = times[(times_min >= start) & (times_min <= end)]
+        new_filepaths = []
+        for time in new_times:
+            new_filepaths.append(time_filepath_lookup[time])
+        new_filepaths = sorted(list(set(new_filepaths)))
+        self.filepaths = new_filepaths
+
+    def update_dataset(self, time, input_record, track_options, grid_options):
+        """Update a dataset."""
+
+        time_str = format_time(time, filename_safe=False)
+        logger.info(f"Updating {self.name} dataset for {time_str}.")
+        conv_options = self.converted_options
+
+        input_record._current_file_index += 1
+        if conv_options.load is False:
+            if self.name == "cpol":
+                dataset = get_cpol(time, input_record, dataset_options, grid_options)
+            elif self.name == "operational":
+                dataset = convert_operational(
+                    time, input_record, dataset_options, grid_options
+                )
+        else:
+            dataset = xr.open_dataset(self.filepaths[input_record._current_file_index])
+        raw_filepath = self.filepaths[input_record._current_file_index]
+        if conv_options.save:
+            _utils.save_converted_dataset(raw_filepath, dataset, dataset_options)
+
+        input_record.dataset = dataset
 
     @model_validator(mode="after")
     def _check_name(cls, values):
@@ -210,6 +255,32 @@ class BaseDatasetOptions(BaseOptions):
             message += "and the gridrad.ipynb demo."
             raise ValueError(message)
         return values
+
+
+def generate_times(filepaths: list[str]) -> Generator[np.datetime64, None, None]:
+    """Get times from dataset_options."""
+    for filepath in sorted(filepaths):
+        if not Path(filepath).exists():
+            raise ValueError(f"{filepath} does not exist.")
+        with xr.open_dataset(filepath, chunks={}) as ds:
+            for time in ds.time.values:
+                yield time
+
+
+def create_time_filepath_lookup(filepaths: list[str]) -> Dict[np.datetime64, str]:
+    """Create a time: filepath dictionary from a list of filepaths."""
+    if not isinstance(filepaths, list):
+        raise TypeError("filepaths must be a list of strings")
+    time_filepath_record = {}
+    for filepath in sorted(filepaths):
+        if not isinstance(filepath, str):
+            raise TypeError(f"{filepath} is not a string")
+        if not Path(filepath).exists():
+            raise ValueError(f"{filepath} does not exist.")
+        with xr.open_dataset(filepath, chunks={}) as ds:
+            for time in ds.time.values:
+                time_filepath_record[time] = filepath
+    return time_filepath_record
 
 
 def camel_to_snake(name):

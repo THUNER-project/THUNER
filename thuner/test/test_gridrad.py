@@ -121,7 +121,7 @@ visualize_options = None
 # visualize_options.to_yaml(options_directory / "visualize.yml")
 
 # To perform the tracking run, we need an iterable of the times at which objects will be
-# detected and tracked. The convenience function `thuner.data.generate_times` creates a generator from the dataset options for the tracking dataset. We can then pass this generator, and the various options, to the tracking function `thuner.parallel.track`. During the tracking run, outputs will be created in the `output_parent` directory, within the subfolders `interval_0`, `interval_1` etc, which represent subintervals of the time period being tracked. At the end of the run, these outputs are stiched together.
+# detected and tracked. The convenience function `thuner.utils.generate_times` creates a generator from the dataset options for the tracking dataset. We can then pass this generator, and the various options, to the tracking function `thuner.parallel.track`. During the tracking run, outputs will be created in the `output_parent` directory, within the subfolders `interval_0`, `interval_1` etc, which represent subintervals of the time period being tracked. At the end of the run, these outputs are stiched together.
 
 times = data.generate_times(data_options.dataset_by_name("gridrad"))
 args = [times, data_options, grid_options, track_options, visualize_options]

@@ -93,3 +93,4 @@ class GridOptions(BaseOptions):
             values.shape = (len(values.y), len(values.x))
         else:
             logger.warning("shape not specified. Will attempt to infer from input.")
+        return values

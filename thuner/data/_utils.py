@@ -10,6 +10,7 @@ else:
     print(message)
 
 import multiprocessing
+from typing import Generator, Dict
 import threading
 import subprocess
 import zipfile
@@ -32,14 +33,24 @@ logger = log.setup_logger(__name__, level="DEBUG")
 cv2.setNumThreads(0)
 
 
-def get_demo_data(output_directory=None):
+def get_demo_data(output_parent=None, remote_directory=None):
     """
     Download the demo data from the AWS s3 thuner-storage bucket.
     """
-    if output_directory is None:
-        output_directory = get_outputs_directory()
-    command = "aws s3 cp s3://thuner-storage/THUNER_output"
-    command += f"{output_directory} --recursive"
+    if output_parent is None:
+        output_parent = get_outputs_directory()
+    if remote_directory is None:
+        remote_directory = "s3://thuner-storage/THUNER_output"
+    if not Path(output_parent).exists():
+        Path(output_parent).mkdir(parents=True)
+    if not Path(output_parent).is_dir():
+        raise ValueError(f"{output_parent} is not a directory.")
+    if not Path(output_parent).is_absolute():
+        raise ValueError(f"{output_parent} must be an absolute path.")
+    # Remove "s3://thuner-storage/" from the remote directory and append result to output parent
+    directory_structure = remote_directory.replace("s3://thuner-storage/", "")
+    output_directory = output_parent / directory_structure
+    command = f"aws s3 cp {remote_directory} {output_directory} --recursive"
     subprocess.run(command, shell=True, check=True)
 
 
@@ -198,20 +209,6 @@ def download(url, parent_remote, parent_local, max_retries=10, retry_delay=2):
             else:
                 message = "Max retries reached. Download failed."
                 raise requests.exceptions.RequestException(message)
-
-
-def generate_times(dataset_options, attempt_download=False):
-    """Get times from dataset_options."""
-    filepaths = dataset_options.filepaths
-    parent_local = dataset_options.parent_local
-    parent_remote = dataset_options.parent_remote
-    for filepath in sorted(filepaths):
-        if not Path(filepath).exists() and attempt_download:
-            remote_filepath = str(filepath).replace(parent_local, parent_remote)
-            download(remote_filepath, parent_remote, parent_local)
-        with xr.open_dataset(filepath, chunks={}) as ds:
-            for time in ds.time.values:
-                yield time
 
 
 def unzip_file(filepath, directory=None):

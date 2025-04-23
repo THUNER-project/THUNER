@@ -62,4 +62,14 @@ import thuner.analyze as analyze
 import thuner.visualize as visualize
 
 
-__all__ = ["option", "default", "track", "parallel", "data", "analyze", "visualize"]
+__all__ = [
+    "option",
+    "default",
+    "track",
+    "parallel",
+    "data",
+    "analyze",
+    "visualize",
+    "config",
+    "utils",
+]

@@ -6,8 +6,11 @@ import os
 import json
 from pathlib import Path
 
+__all__ = ["set_outputs_directory", "get_outputs_directory"]
+
 
 def create_user_config(output_directory=Path.home() / "THUNER_output"):
+    """Create a user configuration file for THUNER."""
     # Determine the OS-specific path
     config_path = get_config_path()
 

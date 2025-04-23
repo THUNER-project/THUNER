@@ -347,7 +347,7 @@ Tracking
 
 To perform the tracking run, we need an iterable of the times at which
 objects will be detected and tracked. The convenience function
-:func:`thuner.data.generate_times` creates a generator from the dataset
+:func:`thuner.utils.generate_times` creates a generator from the dataset
 options for the tracking dataset. We can then pass this generator, and
 the various options, to the tracking function :func:`thuner.parallel.track`.
 During the tracking run, outputs will be created in the
@@ -359,7 +359,7 @@ together.
 .. code-block:: python3
     :linenos:
 
-    times = data.generate_times(data_options.dataset_by_name("gridrad"))
+    times = utils.generate_times(data_options.dataset_by_name("gridrad"))
     args = [times, data_options, grid_options, track_options, visualize_options]
     num_processes = 4 # If visualize_options is not None, num_processes must be 1
     kwargs = {"output_directory": output_parent, "num_processes": num_processes}

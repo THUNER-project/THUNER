@@ -81,10 +81,12 @@ def convert_notebook_to_tutorial(notebook_path, rst_path):
     for module_name in modules:
         rst = rst.replace(f"``{module_name}``", f":mod:`{module_name}`")
     functions = [
-        "thuner.data.generate_times",
+        "thuner.utils.generate_times",
         "thuner.parallel.track",
         "thuner.analyze.read_options",
         "thuner.attribute.utils.read_attribute_csv",
+        "thuner.config.set_outputs_directory",
+        "thuner.config.get_outputs_directory",
     ]
     for function_name in functions:
         rst = rst.replace(f"``{function_name}``", f":func:`{function_name}`")

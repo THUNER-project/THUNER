@@ -137,7 +137,7 @@ using parallelization. To make the run go much faster, set
 .. code-block:: python3
     :linenos:
 
-    times = data.generate_times(data_options.dataset_by_name("cpol"))
+    times = utils.generate_times(data_options.dataset_by_name("cpol"))
     args = [times, data_options, grid_options, track_options, visualize_options]
     # parallel.track(*args, output_directory=output_parent)
     track.track(*args, output_directory=output_parent)
@@ -327,7 +327,7 @@ fly. We will also switch off the runtime figure generation.
     track_options.to_yaml(options_directory / "track.yml")
     visualize_options = None
     
-    times = data.generate_times(data_options.dataset_by_name("cpol"))
+    times = utils.generate_times(data_options.dataset_by_name("cpol"))
     args = [times, data_options, grid_options, track_options, visualize_options]
     kwargs = {"output_directory": output_parent, "dataset_name": "cpol"}
     parallel.track(*args, **kwargs, debug_mode=True)
