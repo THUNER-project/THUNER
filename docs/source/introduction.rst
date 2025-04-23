@@ -11,7 +11,7 @@ package. This fork was referred to as Mesoscale TINT (MINT) in the
 MINT worked by identifing multiple objects associated with a single storm 
 (e.g. convective and stratiform echoes), and grouping these together into new storm "system" 
 objects. Tracking was then performed on these grouped objects, rather than the 
-compenent objects. During tracking, MINT also "tagged" storm objects with 
+component objects. During tracking, MINT also "tagged" storm objects with 
 attributes from other datasets, e.g. ambient wind and temperature fields from the 
 European Centre for Medium-Range Weather Forecasts (ECMWF) reanalysis. 
 

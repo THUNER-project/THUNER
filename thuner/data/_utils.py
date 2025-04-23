@@ -104,7 +104,7 @@ class DownloadState(utils.SingletonBase):
         lock_file.write(str(time.time()))
 
 
-def get_parent(dataset_options):
+def get_parent(dataset_options: utils.BaseDatasetOptions) -> str:
     """Get the appropriate parent directory."""
     conv_options = dataset_options.converted_options
     local = dataset_options.parent_local

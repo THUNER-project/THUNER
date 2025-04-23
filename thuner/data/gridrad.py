@@ -12,7 +12,7 @@ from pydantic import Field, model_validator
 import thuner.data._utils as _utils
 from thuner.log import setup_logger
 import thuner.grid as grid
-from thuner.utils import BaseDatasetOptions
+from thuner.utils import BaseDatasetOptions, format_time
 
 logger = setup_logger(__name__)
 
@@ -49,8 +49,25 @@ class GridRadSevereOptions(BaseDatasetOptions):
     version: str = Field("v4_2", description="GridRad version.")
     obs_thresh: int = Field(2, description="Observation count threshold for filtering.")
 
+    def get_filepaths(self):
+        """
+        Get the filepaths for the GridRad dataset assuming filenames and directory
+        structure match the remote location.
+        """
+        return get_gridrad_filepaths(self)
+
+    def update_dataset(self, time, input_record, track_options, grid_options):
+        """Update the GridRad Severe dataset."""
+        args = [time, input_record, track_options, self, grid_options]
+        update_gridrad_dataset(*args)
+
+    def convert_dataset(self, time, filepath, track_options, grid_options):
+        """Convert GridRad dataset."""
+        return convert_gridrad(time, filepath, track_options, self, grid_options)
+
     @model_validator(mode="after")
     def _check_times(cls, values):
+        """Check start_time isn't before beginning of GridRad record."""
         start_time = np.datetime64("2010-01-20T18:00:00")
         if np.datetime64(values.start) < start_time:
             raise ValueError(f"start must be {str(start_time)} or later.")
@@ -58,6 +75,7 @@ class GridRadSevereOptions(BaseDatasetOptions):
 
     @model_validator(mode="after")
     def _check_filepaths(cls, values):
+        """Check filepaths are valid."""
         if values.filepaths is None:
             logger.info("Generating GridRad filepaths.")
             values.filepaths = get_gridrad_filepaths(values)
@@ -158,7 +176,6 @@ def open_gridrad(path, dataset_options):
     """
     Open a GridRad netcdf file, converting variables with an "Index" dimension back to 3D
     """
-
     kept_variables = [gridrad_names_dict[f] for f in dataset_options.fields]
     kept_variables += ["Nradobs", "Nradecho", "wReflectivity", "CorrelationCoefficient"]
     ds = xr.open_dataset(path)
@@ -382,6 +399,7 @@ def remove_clutter(ds, variables=None, low_level=True, below_anvil=False):
 
 
 def get_gridrad(time, input_record, track_options, dataset_options, grid_options):
+    """Load and convert a gridrad dataset, and update the boundary data."""
     filepath = dataset_options.filepaths[input_record._current_file_index]
     _utils.log_convert(logger, dataset_options.name, filepath)
     args = [time, filepath, track_options, dataset_options, grid_options]
@@ -461,7 +479,6 @@ def get_domain_mask(ds, track_options, dataset_options):
     """
     Get a domain mask for a GridRad dataset.
     """
-
     domain_masks = []
     dataset_name = dataset_options.name
     for level_options in track_options.levels:
@@ -469,9 +486,8 @@ def get_domain_mask(ds, track_options, dataset_options):
             detected = "detection" in object_options.model_fields
             uses_dataset = dataset_name == object_options.dataset
             if detected and uses_dataset:
-                mask = _utils.mask_from_observations(
-                    ds, dataset_options, object_options
-                )
+                args = [ds, dataset_options, object_options]
+                mask = _utils.mask_from_observations(*args)
                 domain_masks.append(mask)
     # Combine the masks
     if len(domain_masks) == 0:
@@ -498,27 +514,12 @@ def update_boundary_data(dataset, boundary_coords, input_record):
     input_record.next_boundary_mask = dataset["boundary_mask"]
 
 
-def update_dataset(time, input_record, track_options, dataset_options, grid_options):
-    """
-    Update a gridrad dataset.
-
-    Parameters
-    ----------
-    time : datetime64
-        The time of the dataset.
-    object_tracks : dict
-        Dictionary containing the object tracks.
-    dataset_options : dict
-        Dictionary containing the dataset options.
-    grid_options : dict
-        Dictionary containing the grid options.
-
-    Returns
-    -------
-    dataset : object
-        The updated dataset.
-    """
-    _utils.log_dataset_update(logger, dataset_options.name, time)
+def update_gridrad_dataset(
+    time, input_record, track_options, dataset_options, grid_options
+):
+    """Update a Gridrad Severe dataset."""
+    time_str = format_time(time, filename_safe=False)
+    logger.info(f"Updating {dataset_options.name} dataset for {time_str}.")
     conv_options = dataset_options.converted_options
 
     input_record._current_file_index += 1
@@ -538,10 +539,3 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
 
 
 dataset_id_converter = {"ds841.6": "d841006"}
-
-
-def gridrad_grid_from_dataset(dataset, variable, time):
-    """Get a THUNER grid from a GridRad dataset."""
-    grid = dataset[variable].sel(time=time)
-    logger.debug(f"Got grid from dataset at time {time}.")
-    return grid

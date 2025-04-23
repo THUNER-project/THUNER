@@ -109,6 +109,15 @@ class BaseOptions(BaseModel):
                 raise KeyError(f"{key} is not a valid option.")
         return self
 
+    def model_summary(self) -> str:
+        """Return a summary of the model fields and their descriptions."""
+        summary_str = "Field Name: Type, Description\n"
+        summary_str += "-------------------------------------\n"
+        for name, info in self.__class__.model_fields.items():
+            field_type = info.annotation if info.annotation else "Any"
+            summary_str += f"{name}: {field_type}, {info.description}\n"
+        return summary_str
+
 
 # Create convenience dictionary for options descriptions.
 _summary = {
@@ -166,9 +175,9 @@ class BaseDatasetOptions(BaseOptions):
     use: Literal["track", "tag", "both"] = Field("track", description=_summary["use"])
     start_buffer: int = Field(-120, description=_summary["start_buffer"])
     end_buffer: int = Field(0, description=_summary["end_buffer"])
-    # _desc = "Dictionary describing the filepaths associated with each time."
-    # _time_pathpath_lookup: dict[str, str] = Field({}, description=_desc)
 
+    # Create basic functions for getting filepaths etc for already converted datasets.
+    # These are overridden in the subclasses.
     def get_filepaths(self):
         """
         Return the subset of the input filepaths that is within the start and end time
@@ -187,30 +196,31 @@ class BaseDatasetOptions(BaseOptions):
         for time in new_times:
             new_filepaths.append(time_filepath_lookup[time])
         new_filepaths = sorted(list(set(new_filepaths)))
-        self.filepaths = new_filepaths
+        return new_filepaths
 
     def update_dataset(self, time, input_record, track_options, grid_options):
         """Update a dataset."""
-
         time_str = format_time(time, filename_safe=False)
         logger.info(f"Updating {self.name} dataset for {time_str}.")
-        conv_options = self.converted_options
-
         input_record._current_file_index += 1
-        if conv_options.load is False:
-            if self.name == "cpol":
-                dataset = get_cpol(time, input_record, dataset_options, grid_options)
-            elif self.name == "operational":
-                dataset = convert_operational(
-                    time, input_record, dataset_options, grid_options
-                )
-        else:
-            dataset = xr.open_dataset(self.filepaths[input_record._current_file_index])
-        raw_filepath = self.filepaths[input_record._current_file_index]
-        if conv_options.save:
-            _utils.save_converted_dataset(raw_filepath, dataset, dataset_options)
-
+        dataset = xr.open_dataset(self.filepaths[input_record._current_file_index])
         input_record.dataset = dataset
+
+    def grid_from_dataset(self, dataset, variable, time):
+        """Get the grid from the dataset."""
+        grid = dataset[variable].sel(time=time)
+        return grid
+
+    def convert_dataset(self, time, filepath, track_options, grid_options):
+        """
+        Convert the dataset. Note if the base class is used directly, the data is
+        assumed to be already converted, and hence this function just opens the dataset.
+        Return None for both boundary and simple boundary.
+        """
+        dataset = xr.open_dataset(filepath)
+        if time not in dataset.time.values:
+            raise ValueError(f"{time} not in dataset time values.")
+        return dataset, None, None
 
     @model_validator(mode="after")
     def _check_name(cls, values):

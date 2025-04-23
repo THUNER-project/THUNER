@@ -149,9 +149,8 @@ def track_interval(
     interval_data_options.to_yaml(options_directory / "data.yml")
     grid_options.to_yaml(options_directory / "grid.yml")
     track_options.to_yaml(options_directory / "track.yml")
-    times = data._utils.generate_times(
-        interval_data_options.dataset_by_name(dataset_name)
-    )
+    filepaths = interval_data_options.dataset_by_name(dataset_name).filepaths
+    times = utils.generate_times(filepaths)
     args = [times, interval_data_options, grid_options, track_options]
     args += [visualize_options, output_directory]
     thuner_track.track(*args)

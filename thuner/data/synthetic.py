@@ -33,6 +33,17 @@ class SyntheticOptions(BaseDatasetOptions):
     use: str = Field("track")
     starting_objects: list[dict] | None = Field(None)
 
+    def get_filepaths(self):
+        """
+        Override the get_filepaths method to return an empty list, as filepaths
+        not relevant for synthetic data.
+        """
+        return []
+
+    def update_dataset(self, time, input_record, track_options, grid_options):
+        """Update the synthetic dataset."""
+        update_synthetic_dataset(time, input_record, track_options, self, grid_options)
+
 
 def create_object(
     time,
@@ -87,7 +98,7 @@ def create_object(
     return object_dict
 
 
-def update_dataset(time, input_record, tracks, dataset_options, grid_options):
+def update_synthetic_dataset(time, input_record, tracks, dataset_options, grid_options):
     """
     Update an aura dataset.
 

@@ -51,10 +51,17 @@ class ERA5Options(BaseDatasetOptions):
     _FormatChoices = Literal["pressure-levels", "single-levels"]
     _desc = "Data format, e.g. pressure-levels."
     data_format: _FormatChoices = Field("pressure-levels", description=_desc)
-    pressure_levels: list[str] | list[float] | None = Field(
-        None, description=_summary["pressure_levels"]
-    )
+    _desc = "Pressure levels; required if data_format is pressure-levels."
+    pressure_levels: list[str] | list[float] | None = Field(None, description=_desc)
     storage: str = Field("monthly", description=_summary["storage"])
+
+    def get_filepaths(self):
+        """Override the get_filepaths method with the era5 version."""
+        return get_era5_filepaths(self)
+
+    def update_dataset(self, time, input_record, track_options, grid_options):
+        """Update the era5 dataset."""
+        update_era5_dataset(time, input_record, track_options, self, grid_options)
 
     @model_validator(mode="after")
     def _check_ranges(cls, values):
@@ -96,14 +103,14 @@ era5_pressure_levels += ["350", "300", "250", "225", "200", "175", "150", "125",
 era5_pressure_levels += ["70", "50", "30", "20", "10", "7", "5", "3", "2", "1"]
 
 
-def get_era5_filepaths(options, start=None, end=None, local=True):
+def get_era5_filepaths(dataset_options: ERA5Options, start=None, end=None):
     """
     Generate era5 filepaths from dataset options dictionary.
 
     Parameters
     ----------
-    options : dict
-        Dictionary containing the input options.
+    dataset_options : dict
+        Dictionary containing the input dataset_options.
 
     Returns
     -------
@@ -114,11 +121,13 @@ def get_era5_filepaths(options, start=None, end=None, local=True):
     """
 
     # First get the base_path
-    base_path = get_base_path(options, local=local)
+    base_path = get_base_path(dataset_options, local=True)
 
-    if start is None or end is None:
-        start = options.start
-        end = options.end
+    # If start and end are not provided, use the dataset options
+    if start is None:
+        start = dataset_options.start
+    if end is None:
+        end = dataset_options.end
 
     start = pd.Timestamp(start)
     end = pd.Timestamp(end)
@@ -126,17 +135,19 @@ def get_era5_filepaths(options, start=None, end=None, local=True):
     short_data_format = {"pressure-levels": "pl", "single-levels": "sfc"}
 
     # Get the times corresponding to the filepaths
-    times = get_file_datetimes(options, start, end)
+    times = get_file_datetimes(dataset_options, start, end)
 
     # We will store individual fields in separate files
-    filepaths = dict(zip(options.fields, [[] for i in range(len(options.fields))]))
+    fields = dataset_options.fields
+    filepaths = dict(zip(fields, [[] for i in range(len(fields))]))
 
-    for field in options.fields:
+    for field in dataset_options.fields:
         for time in times:
             time = pd.Timestamp(time)
-            daterange_str = format_daterange(options, time)
+            daterange_str = format_daterange(dataset_options, time)
             filepath = f"{base_path}/{field}/{time.year}/{field}_era5_oper_"
-            filepath += f"{short_data_format[options.data_format]}_{daterange_str}.nc"
+            filepath += f"{short_data_format[dataset_options.data_format]}_"
+            filepath += f"{daterange_str}.nc"
             filepaths[field].append(filepath)
 
     for key in filepaths.keys():
@@ -388,7 +399,9 @@ def convert_era5(ds):
     return ds
 
 
-def update_dataset(time, input_record, track_options, dataset_options, grid_options):
+def update_era5_dataset(
+    time, input_record, track_options, dataset_options, grid_options
+):
     """Update ERA5 dataset."""
 
     _utils.log_dataset_update(logger, dataset_options.name, time)
@@ -396,7 +409,7 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
     kwargs = {"start_buffer": dataset_options.start_buffer}
     kwargs.update({"end_buffer": dataset_options.end_buffer})
     start, end = get_hour_interval(time, **kwargs)
-    filepaths = get_era5_filepaths(dataset_options, start, end, local=True)
+    filepaths = get_era5_filepaths(dataset_options, start, end)
     all_files_exist = all(
         Path(filepath).exists() for field in filepaths.values() for filepath in field
     )

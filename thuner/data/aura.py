@@ -34,16 +34,6 @@ __all__ = [
 logger = setup_logger(__name__)
 
 
-_summary = {
-    "latitude_range": "Latitude range if accessing a directory of subsetted era5 data.",
-    "longitude_range": "Longitude range if accessing a directory of subsetted era5 data.",
-    "mode": "Mode of the data, e.g. reannalysis.",
-    "data_format": "Data format, e.g. pressure-levels.",
-    "pressure_levels": "Pressure levels; required if data_format is pressure-levels.",
-    "storage": "Storage format of the data, e.g. monthly.",
-}
-
-
 class AURAOptions(BaseDatasetOptions):
     """Base options class for AURA datasets."""
 
@@ -54,10 +44,12 @@ class AURAOptions(BaseDatasetOptions):
         super().model_post_init(__context)
         self._change_defaults(fields=["reflectivity"])
 
+    # Override update_dataset with the AURA specific version.
+    def update_dataset(self, time, input_record, track_options, grid_options):
+        args = [time, input_record, track_options, self, grid_options]
+        update_aura_dataset(*args)
+
     # Define additional fields for AURA
-    level: Literal["1", "1b", "2"] = Field("1b", description="Processing level.")
-    _FormatChoices = Literal["grid_150km_2500m", "grid_70km_1000m"]
-    data_format: _FormatChoices = Field("grid_150km_2500m", description="Data format.")
     range: float = Field(142.5, description="Range of the radar in km.")
     range_units: str = Field("km", description="Units of the range.")
 
@@ -69,12 +61,25 @@ class CPOLOptions(AURAOptions):
         """Use model_post_init to change default inherited values."""
         super().model_post_init(__context)
         url = "https://dapds00.nci.org.au/thredds/fileServer/hj10"
-        new_defaults = {"name": "cpol", "parent_remote": url, "level": "1b"}
-        new_defaults.update({"data_format": "grid_150km_2500m"})
-        self._change_defaults(**new_defaults)
+        self._change_defaults(name="cpol", parent_remote=url)
 
     # Define additional fields for CPOL
+    level: Literal["1", "1b", "2"] = Field("1b", description="Processing level.")
+    _FormatChoices = Literal["grid_150km_2500m", "grid_70km_1000m", "ppi"]
+    data_format: _FormatChoices = Field("grid_150km_2500m", description="Data format.")
     version: str = Field("v2020", description="Data version.")
+
+    # Override get_filepaths and grid_from_dataset with CPOL specific versions.
+    def get_filepaths(self):
+        """Get CPOL fielpaths."""
+        return get_cpol_filepaths(self)
+
+    def convert_dataset(self, time, filepath, track_options, grid_options):
+        return convert_cpol(time, filepath, track_options, self, grid_options)
+
+    def grid_from_dataset(self, dataset, variable, time):
+        """Get a grid from a CPOL dataset."""
+        return cpol_grid_from_dataset(dataset, variable, time)
 
     @model_validator(mode="after")
     def _check_times(cls, values):
@@ -94,9 +99,9 @@ class CPOLOptions(AURAOptions):
         return values
 
 
-def get_cpol_filepaths(options):
+def get_cpol_filepaths(options: CPOLOptions):
     """
-    Generate CPOL fielpaths.
+    Get CPOL filepaths assuming same filenames and directory structure as remote location.
     """
 
     start = np.datetime64(options.start).astype("datetime64[m]")
@@ -156,11 +161,6 @@ def get_cpol_filepaths(options):
     return sorted(filepaths)
 
 
-_summary = {}
-_summary["weighting_function"] = "Weighting function used by pyart to reconstruct the "
-_summary["weighting_function"] += "grid from ODIM."
-
-
 class OperationalOptions(AURAOptions):
     """Options for CPOL datasets."""
 
@@ -173,27 +173,14 @@ class OperationalOptions(AURAOptions):
     level: str = "1"
     data_format: str = "ODIM"
     radar: int = Field(63, description="Radar ID number.")
-    weighting_function: str = Field(
-        "Barnes2", description=_summary["weighting_function"]
-    )
+    _desc = "Weighting function used by pyart to reconstruct the grid from ODIM."
+    weighting_function: str = Field("Barnes2", description=_desc)
 
 
-def get_operational_filepaths(options):
+def get_operational_filepaths(options: OperationalOptions):
     """
     Generate operational radar URLs from input options dictionary. Note level 1 are
     zipped ODIM files, level 1b are zipped netcdf files.
-
-    Parameters
-    ----------
-    options : dict
-        Dictionary containing the input options.
-
-    Returns
-    -------
-    urls : list
-        List of URLs.
-    times : list
-        Times associated with the URLs.
     """
 
     start = np.datetime64(options["start"])
@@ -246,25 +233,22 @@ def setup_operational(data_options, grid_options, url, directory):
         filepath = url
     extracted_filepaths = _utils.unzip_file(filepath)[0]
     if data_options.level == "1":
-        dataset = convert_odim(
-            extracted_filepaths,
-            data_options,
-            grid_options,
-            out_dir=directory,
-        )
+        args = [extracted_filepaths, data_options, grid_options]
+        dataset = convert_odim(*args, out_dir=directory)
     elif data_options.level == "1b":
-        dataset = _utils.consolidate_netcdf(
-            extracted_filepaths, fields=data_options.fields, concat_dim="time"
-        )
+        kwargs = {"fields": data_options.fields, "concat_dim": "time"}
+        dataset = _utils.consolidate_netcdf(extracted_filepaths, **kwargs)
 
     return dataset
 
 
-def get_cpol(time, input_record, dataset_options, grid_options):
+# Note "get" functions both retrieve and convert the dataset, and update the
+# input_record boundary data.
+def get_cpol(time, input_record, track_options, dataset_options, grid_options):
     """Update the CPOL input_record for tracking."""
     filepath = dataset_options.filepaths[input_record._current_file_index]
     ds, boundary_coords, simple_boundary_coords = convert_cpol(
-        time, filepath, dataset_options, grid_options
+        time, filepath, track_options, dataset_options, grid_options
     )
 
     # Set data outside instrument range to NaN
@@ -292,7 +276,7 @@ def get_cpol(time, input_record, dataset_options, grid_options):
     return ds
 
 
-def convert_cpol(time, filepath, dataset_options, grid_options):
+def convert_cpol(time, filepath, track_options, dataset_options, grid_options):
     """Convert CPOL data to a standard format."""
     _utils.log_convert(logger, dataset_options.name, filepath)
     cpol = xr.open_dataset(filepath)
@@ -388,41 +372,24 @@ def convert_operational():
     return ds
 
 
-def update_dataset(time, input_record, track_options, dataset_options, grid_options):
-    """
-    Update an aura dataset.
-
-    Parameters
-    ----------
-    time : datetime64
-        The time of the dataset.
-    object_tracks : dict
-        Dictionary containing the object tracks.
-    dataset_options : dict
-        Dictionary containing the dataset options.
-    grid_options : dict
-        Dictionary containing the grid options.
-
-    Returns
-    -------
-    dataset : object
-        The updated dataset.
-    """
+def update_aura_dataset(
+    time, input_record, track_options, dataset_options, grid_options
+):
+    """Update an AURA dataset."""
     _utils.log_dataset_update(logger, dataset_options.name, time)
     conv_options = dataset_options.converted_options
 
     input_record._current_file_index += 1
     if conv_options.load is False:
         if dataset_options.name == "cpol":
-            dataset = get_cpol(time, input_record, dataset_options, grid_options)
+            args = [time, input_record, track_options, dataset_options, grid_options]
+            dataset = get_cpol(*args)
         elif dataset_options.name == "operational":
-            dataset = convert_operational(
-                time, input_record, dataset_options, grid_options
-            )
+            args = [time, input_record, dataset_options, grid_options]
+            dataset = convert_operational(*args)
     else:
-        dataset = xr.open_dataset(
-            dataset_options.filepaths[input_record._current_file_index]
-        )
+        filepath = dataset_options.filepaths[input_record._current_file_index]
+        dataset = xr.open_dataset(filepath)
     raw_filepath = dataset_options.filepaths[input_record._current_file_index]
     if conv_options.save:
         _utils.save_converted_dataset(raw_filepath, dataset, dataset_options)
@@ -431,6 +398,7 @@ def update_dataset(time, input_record, track_options, dataset_options, grid_opti
 
 
 def cpol_grid_from_dataset(dataset, variable, time):
+    """Get a grid from a CPOL dataset, ensuring useful attributes are copied."""
     grid = dataset[variable].sel(time=time)
     for attr in ["origin_longitude", "origin_latitude", "instrument"]:
         grid.attrs[attr] = dataset.attrs[attr]

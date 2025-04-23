@@ -154,25 +154,12 @@ def visualize_mcs(
 
     filepath = filepaths[dataset_name].loc[time]
     dataset_options = options["data"].dataset_by_name(dataset_name)
-    convert = _dispatch.convert_dataset_dispatcher.get(dataset_name)
-    if convert is None:
-        message = f"Dataset {dataset_name} not found in dispatch."
-        logger.debug(f"Getting grid from dataset at time {time}.")
-        raise KeyError(message)
-    convert_args_dispatcher = {
-        "cpol": [time, filepath, dataset_options, options["grid"]],
-        "gridrad": [time, filepath, track_options, dataset_options, options["grid"]],
-    }
-    args = convert_args_dispatcher[dataset_name]
-    ds, boundary_coords, simple_boundary_coords = convert(*args)
+
+    args = [time, filepath, track_options, options["grid"]]
+    ds, boundary_coords, simple_boundary_coords = dataset_options.convert_dataset(*args)
     del boundary_coords
     logger.debug(f"Getting grid from dataset at time {time}.")
-    get_grid = _dispatch.grid_from_dataset_dispatcher.get(dataset_name)
-    if get_grid is None:
-        message = f"Dataset {dataset_name} not found in grid from dataset "
-        message += "dispatcher."
-        raise KeyError(message)
-    grid = get_grid(ds, "reflectivity", time)
+    grid = dataset_options.grid_from_dataset(ds, "reflectivity", time)
     del ds
     logger.debug(f"Rebuilding processed grid for time {time}.")
     processed_grid = detect.rebuild_processed_grid(grid, track_options, "mcs", 1)
