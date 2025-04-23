@@ -14,7 +14,7 @@ import thuner.visualize.horizontal as horizontal
 from thuner.utils import initialize_process, check_results
 from thuner.attribute.utils import read_attribute_csv
 from thuner.analyze.utils import read_options
-import thuner.data._dispatch as _dispatch
+import thuner.data._update as _update
 import thuner.detect.detect as detect
 from thuner.utils import format_time, new_angle, circular_mean
 import thuner.visualize.utils as utils
