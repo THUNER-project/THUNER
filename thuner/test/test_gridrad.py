@@ -1,10 +1,19 @@
-# # GridRad Severe
+# # Basics: GridRad Severe
+
+# This demo/tutorial illustrates the basics of THUNER by tracking and visualizing
+# mesoscale convective system (MCS) objects in
+# [GridRad Severe](https://doi.org/10.5065/2B46-1A97) data.
+# See [Short et al. (2023)](https://doi.org/10.1175/MWR-D-22-0146.1) for methodological
+# details. By the end of the notebook, you should be able to generate the animation below.
+#
+# ![Animation depicting tracked MCSs.](https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/mcs_gridrad_20100120.gif)
+
+# ## Setup
 
 # First, import the requisite modules.
 
 """GridRad Severe demo/test."""
 
-from pathlib import Path
 import shutil
 import yaml
 import numpy as np
@@ -16,25 +25,37 @@ import thuner.parallel as parallel
 import thuner.visualize as visualize
 import thuner.attribute as attribute
 import thuner.default as default
+import thuner.config as config
+import thuner.utils as utils
 
-# Next, specify the folders where THUNER outputs will be saved.
+# Next, specify the folders where THUNER outputs will be saved. Note that THUNER stores a fallback output directory in a config file, accessible via the functions `thuner.config.set_outputs_directory` and `thuner.config.get_outputs_directory`. By default, this fallback
+# directory is `Path.home() / THUNER_output`.
 
 # Parent directory for saving outputs
-base_local = Path.home() / "THUNER_output"
+base_local = config.get_outputs_directory()
 output_parent = base_local / f"runs/gridrad/gridrad_demo"
 options_directory = output_parent / "options"
 visualize_directory = output_parent / "visualize"
 
-# Delete the options directory if it already exists
-# if output_parent.exists():
-# shutil.rmtree(output_parent)
+# Delete the output directory for the run if it already exists
+if output_parent.exists():
+    shutil.rmtree(output_parent)
 
-# Now specify the options for the THUNER run, beginning with the GridRad severe dataset
-# options. Options classes in THUNER are built on the `pydantic.BaseModel`, and are
-# initialized by passing keyword, value pairs. Note that GridRad Severe data is organized
-# into "events". First load the example events from local disk. If you don't yet have the
-# demo data, run thuner.data.get_demo_data().
+# Next download the demo data for the tutorial, if you haven't already.
 
+# Download the demo data
+remote_directory = "s3://thuner-storage/THUNER_output/input_data/raw/d81006"
+data.get_demo_data(base_local, remote_directory)
+remote_directory = "s3://thuner-storage/THUNER_output/input_data/raw/"
+remote_directory += "era5_monthly_39N_102W_27N_89W"
+data.get_demo_data(base_local, remote_directory)
+
+# ## Options
+
+# We now specify the options for the THUNER run. Options classes in THUNER are built on the `pydantic.BaseModel`, which provides a simple way to describe and validate options. Options objects are initialized using keyword, value pairs. Below we specify the options for a GridRad Severe dataset.
+
+# Uncomment the line below to download the demo data if not already present
+# data.get_demo_data()
 event_directories = data.gridrad.get_event_directories(year=2010, base_local=base_local)
 event_directory = event_directories[0]  # Take the first event from 2010 for the demo
 # Get the start and end times of the event, and the date of the event start
@@ -43,19 +64,18 @@ times_dict = {"start": start, "end": end}
 gridrad_dict = {"event_start": event_start}
 gridrad_options = data.gridrad.GridRadSevereOptions(**times_dict, **gridrad_dict)
 
-# All instances of options classes can be examined using the `model_dump` method, which
-# converts the class instance to a dictionary. Note the `parent_local` field, which provides
-# the parent directory on local disk containing the dataset. Analogously, `parent_remote`
-# specifies the remote location of the data. Note also the `filepaths` field, which
-# provides a list of the dataset's absolute filepaths. If `filepaths` is unset
-# when the options instance is created, it will be populated automatically based on
-# the other input arguments. Note the `use` field, which tells THUNER whether the dataset
-# will be used to `track` or `tag` objects.
+# Options instances can be examined using the `model_dump` method, which
+# converts the instance to a dictionary.
 
 gridrad_options.model_dump()
 
-# We will use ERA5 single-level and pressure-level data for tagging the storms detected
-# in the GridRad Severe dataset with other attributes, e.g. ambient winds.
+# The `model_summary()` method of an options instance returns a string summary of the fields in the model. Note the `parent_local` field, which provides the parent directory on local disk containing the dataset. Analogously, `parent_remote` specifies the remote location of the data; which is useful when one wants to access data from a remote location during the tracking run. Note also the `filepaths` field, which provides a list of the dataset's absolute filepaths. The idea is that for standard datasets, `filepaths` can be populated automatically by looking in the `parent_local` directory, assuming the same sub-directory structure as in the dataset's original location. If the dataset is nonstandard, the `filepaths` list can be explicitly provided by the user. For datasets that do not yet have convenience classes in THUNER, the `thuner.utils.BaseDatasetOptions` class can be used. Note also the `use` field, which tells THUNER whether the dataset will be used to `track` or `tag` objects. Tracking in THUNER means detecting objects in a dataset, and matching those objects across time.
+# Tagging means attaching attributes from potentially different datasets to detected objects.
+
+print(gridrad_options.model_summary())
+
+# We will also create dataset options for ERA5 single-level and pressure-level data, which we use
+# for tagging the storms detected in the GridRad Severe dataset with other attributes, e.g. ambient winds and temperature.
 
 era5_dict = {"latitude_range": [27, 39], "longitude_range": [-102, -89]}
 era5_pl_options = data.era5.ERA5Options(**times_dict, **era5_dict)
@@ -105,11 +125,13 @@ core_mcs_attributes = mcs_attributes.attribute_type_by_name("core")
 core_mcs_attributes.model_dump()
 
 # The default `thuner.option.track.TrackOptions` use "local" and "global" cross-correlations to measure object velocities, as described by [Raut et al. (2021)](https://doi.org/10.1175/JAMC-D-20-0119.1) and [Short et al. (2023)](https://doi.org/10.1175/MWR-D-22-0146.1). For GridRad severe, we modify this approach slightly so that "global" cross-correlations are calculated using boxes encompassing each object, with a margin of 70 km around the object.
+# Note that pydantic models are automatically validated when first created. Because we
+# are changing the model instance, we should revalidate the object options model to check
+# we haven't broken anything.
 
-# Modify the default options for gridrad. Because grids so large we now use a distinct
-# global flow box for each object.
 track_options.levels[1].objects[0].tracking.unique_global_flow = False
 track_options.levels[1].objects[0].tracking.global_flow_margin = 70
+track_options.levels[1].objects[0].revalidate()
 track_options.to_yaml(options_directory / "track.yml")
 
 # Users can also specify visualization options for generating figures during a tracking run.
@@ -120,57 +142,67 @@ visualize_options = None
 # visualize_options = default.runtime(visualize_directory=visualize_directory)
 # visualize_options.to_yaml(options_directory / "visualize.yml")
 
+# ## Tracking
+
 # To perform the tracking run, we need an iterable of the times at which objects will be
 # detected and tracked. The convenience function `thuner.utils.generate_times` creates a generator from the dataset options for the tracking dataset. We can then pass this generator, and the various options, to the tracking function `thuner.parallel.track`. During the tracking run, outputs will be created in the `output_parent` directory, within the subfolders `interval_0`, `interval_1` etc, which represent subintervals of the time period being tracked. At the end of the run, these outputs are stiched together.
 
-times = data.generate_times(data_options.dataset_by_name("gridrad"))
+times = utils.generate_times(data_options.dataset_by_name("gridrad").filepaths)
 args = [times, data_options, grid_options, track_options, visualize_options]
 num_processes = 4  # If visualize_options is not None, num_processes must be 1
-parallel.track(*args, output_directory=output_parent, num_processes=num_processes)
+kwargs = {"output_directory": output_parent, "num_processes": num_processes}
+# In parallel tracking runs, we need to tell the tracking function which dataset to use
+# for tracking, so the subinterval data_options can be generated correctly
+kwargs.update({"dataset_name": "gridrad"})
+parallel.track(*args, **kwargs)
 
 # The outputs of the tracking run are saved in the `output_parent` directory. The options for
-# the run are saved in human-readable YAML files within the `options` directory. For reproducibility,
-# Python objects can be rebuilt from these YAML files by reading the YAML, and passing
-# this to the appropriate `pydantic` model.
+# the run are saved in human-readable YAML files within the `options` directory. For reproducibility, Python objects can be rebuilt from these YAML files by reading the YAML, and passing this to the appropriate `pydantic` model.
 
 with open(options_directory / "data.yml", "r") as f:
     data_options = option.data.DataOptions(**yaml.safe_load(f))
     # Note yaml.safe_load(f) is a dictionary.
     # Prepending with ** unpacks the dictionary into keyword/argument pairs.
-data_options
+data_options.model_dump()
 
-# The convenience function `thuner.analyze.utils.read_options` reloads all options in the above way, saving the options in a dictionary.
+# The convenience function `thuner.analyze.utils.read_options` reloads all options in the above way, storing the different options in a dictionary.
 
 all_options = analyze.utils.read_options(output_parent)
-all_options["data"]
+all_options["data"].model_dump()
 
 # Object attributes, e.g. MCS position, area and velocity, are saved as CSV files in nested subfolders. Attribute metadata is recorded in YAML files. One can then load attribute data using `pandas.read_csv`. One can also create an appropriately formatted `pandas.DataFrame` using the convenience function `thuner.attribute.utils.read_attribute_csv`.
 
-attribute.utils.read_attribute_csv(output_parent / "attributes/mcs/core.csv")
+core = attribute.utils.read_attribute_csv(output_parent / "attributes/mcs/core.csv")
+print(core.head(20).to_string())
 
 # Records of the filepaths corresponding to each time of the tracking run are saved in
 # the `records` folder. These records are useful for generating figures after a tracking run.
 
-attribute.utils.read_attribute_csv(output_parent / "records/filepaths/gridrad.csv")
+filepath = output_parent / "records/filepaths/gridrad.csv"
+records = attribute.utils.read_attribute_csv(filepath)
+print(records.head(20).to_string())
 
 # Object masks are saved as ZARR files, which can be read using `xarray`.
 
-xr.open_dataset(output_parent / "masks/mcs.zarr")
+xr.open_dataset(output_parent / "masks/mcs.zarr").info()
 
-# We can then perform analysis on the above outputs. Below we perform the MCS classifications
-# discussed by [Short et al. (2023)](https://doi.org/10.1175/MWR-D-22-0146.1).
+# ## Analysis and Visualization
+
+# We can then perform analysis on the tracking run outputs. Below we perform the MCS classifications discussed by [Short et al. (2023)](https://doi.org/10.1175/MWR-D-22-0146.1).
 
 analysis_options = analyze.mcs.AnalysisOptions()
 analyze.mcs.process_velocities(output_parent, profile_dataset="era5_pl")
 analyze.mcs.quality_control(output_parent, analysis_options)
 analyze.mcs.classify_all(output_parent, analysis_options)
-attribute.utils.read_attribute_csv(output_parent / "analysis/classification.csv")
+filepath = output_parent / "analysis/classification.csv"
+classifications = attribute.utils.read_attribute_csv(filepath)
+print("\n" + classifications.head(20).to_string())
 
 # We can also generate figures and animations from the output. Below we visualize the
 # convective and stratiform regions of each MCS, displaying each system's velocity and
 # stratiform-offset, and the boundaries of the radar mosaic domain, as discussed by
-# [Short et al. (2023)](https://doi.org/10.1175/MWR-D-22-0146.1). By default, figures and animations
-# are saved in `output_parent` directory in the `visualize` folder.
+# [Short et al. (2023)](https://doi.org/10.1175/MWR-D-22-0146.1). By default, figures and animations are saved in the `output_parent` directory in the `visualize` folder. The code below should generate an animation `mcs_gridrad_20100120.gif`, matching the
+# animation provided at the start of the notebook.
 
 figure_name = f"mcs_gridrad_{event_start.replace('-', '')}"
 kwargs = {"name": figure_name, "style": "presentation"}

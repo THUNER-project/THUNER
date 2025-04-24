@@ -121,12 +121,11 @@ def mask_legend_artist(single_color=False):
     return tuple(patches), handler_map
 
 
-def box_legend_artist(single_color=False, linestyle="--"):
+def box_legend_artist(single_color=False, color=None, linestyle="--"):
     """Create a legend artist for boxes."""
     colors = visualize.mask_colors
-    single_color = False
-    if single_color:
-        colors = [colors[0]] * len(colors)
+    if single_color and color is not None:
+        colors = [color] * len(colors)
 
     patches = []
     for i in range(3):

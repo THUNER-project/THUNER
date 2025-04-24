@@ -1,4 +1,4 @@
-# # Synthetic Data
+# # Testing: Synthetic Data
 
 # For more detailed explanations of THUNER's usage and features, see the GridRad Severe demo/tutorial.
 
@@ -61,6 +61,8 @@ times = np.arange(
 )
 args = [times, data_options, grid_options, track_options, visualize_options]
 track.track(*args, output_directory=output_parent)
+
+# ![THUNER applied to synthetic data.](https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/synthetic.gif)
 
 central_latitude = -10
 central_longitude = 132

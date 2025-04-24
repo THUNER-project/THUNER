@@ -40,7 +40,7 @@ class SyntheticOptions(BaseDatasetOptions):
         """
         return []
 
-    def update_dataset(self, time, input_record, track_options, grid_options):
+    def update_input_record(self, time, input_record, track_options, grid_options):
         """Update the synthetic dataset."""
         update_synthetic_dataset(time, input_record, track_options, self, grid_options)
 

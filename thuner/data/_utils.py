@@ -104,31 +104,6 @@ class DownloadState(utils.SingletonBase):
         lock_file.write(str(time.time()))
 
 
-def get_parent(dataset_options: utils.BaseDatasetOptions) -> str:
-    """Get the appropriate parent directory."""
-    conv_options = dataset_options.converted_options
-    local = dataset_options.parent_local
-    remote = dataset_options.parent_remote
-    if conv_options.load:
-        if conv_options.parent_converted is not None:
-            parent = conv_options.parent_converted
-        elif local is not None:
-            conv_options.parent_converted = local.replace("raw", "converted")
-            parent = conv_options.parent_converted
-        elif conv_options.parent_remote is not None:
-            conv_options.parent_converted = remote.replace("raw", "converted")
-            parent = conv_options.parent_converted
-        else:
-            raise ValueError("Could not find/create parent_converted directory.")
-    elif local is not None:
-        parent = local
-    elif remote is not None:
-        parent = remote
-    else:
-        raise ValueError("No parent directory provided.")
-    return parent
-
-
 def url_to_filepath(url, parent_remote, parent_local):
     """Convert remote URL to local file path."""
     if not isinstance(url, str):
@@ -568,71 +543,9 @@ def mask_from_range(dataset, dataset_options, grid_options):
     return mask
 
 
-def get_mask_boundary(mask, grid_options):
-    """Get domain mask boundary using cv2."""
-
-    lons = np.array(grid_options.longitude)
-    lats = np.array(grid_options.latitude)
-    mask_array = mask.fillna(0).values.astype(np.uint8)
-    args = [mask_array, cv2.RETR_LIST]
-    # Record the contours with all points, and with only the end points of each line
-    # comprising the contour. The former is used to determine boundary overlap,
-    # the latter makes plotting the boundary more efficient.
-    contours = cv2.findContours(*args, cv2.CHAIN_APPROX_NONE)[0]
-    simple_contours = cv2.findContours(*args, cv2.CHAIN_APPROX_SIMPLE)[0]
-    boundary_coords = []
-    boundary_pixels = []
-    simple_boundary_coords = []
-
-    def get_boundary_coords(contour):
-        # Append the first point to the end to close the contour
-        contour = np.append(contour, [contour[0]], axis=0)
-        contour_rows = contour[:, :, 1].flatten()
-        contour_cols = contour[:, :, 0].flatten()
-        if grid_options.name == "cartesian":
-            boundary_lats = lats[contour_rows, contour_rows]
-            boundary_lons = lons[contour_rows, contour_cols]
-        elif grid_options.name == "geographic":
-            boundary_lats = lats[contour_rows]
-            boundary_lons = lons[contour_cols]
-        boundary_dict = {"latitude": boundary_lats, "longitude": boundary_lons}
-        pixel_dict = {"row": contour_rows, "col": contour_cols}
-        return boundary_dict, pixel_dict
-
-    for contour in contours:
-        boundary_dict, pixel_dict = get_boundary_coords(contour)
-        boundary_coords.append(boundary_dict)
-        boundary_pixels.append(pixel_dict)
-    for contour in simple_contours:
-        simple_boundary_coords.append(get_boundary_coords(contour)[0])
-
-    boundary_mask = xr.zeros_like(mask).astype(bool)
-    for pixels in boundary_pixels:
-        boundary_mask.values[pixels["row"], pixels["col"]] = True
-
-    return boundary_coords, simple_boundary_coords, boundary_mask
-
-
 def get_encoding(ds):
     """Get encoding for writing masks to file."""
     encoding = {}
     for var in ds.variables:
         encoding[var] = {"zlib": True, "complevel": 5}
     return encoding
-
-
-def save_converted_dataset(raw_filepath, dataset, dataset_options):
-    """Save a converted dataset."""
-    conv_options = dataset_options.converted_options
-    if conv_options.save:
-        parent = get_parent(dataset_options)
-        parent_converted = conv_options.parent_converted
-        if parent_converted is None:
-            raise ValueError("No parent directory provided.")
-        parent_converted = parent.replace("raw", "converted")
-        conv_options.parent_converted = parent_converted
-        converted_filepath = raw_filepath.replace(parent, parent_converted)
-        if not Path(converted_filepath).parent.exists():
-            Path(converted_filepath).parent.mkdir(parents=True)
-        dataset.to_netcdf(converted_filepath, mode="w")
-    return dataset

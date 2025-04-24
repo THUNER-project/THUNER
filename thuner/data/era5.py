@@ -59,7 +59,7 @@ class ERA5Options(BaseDatasetOptions):
         """Override the get_filepaths method with the era5 version."""
         return get_era5_filepaths(self)
 
-    def update_dataset(self, time, input_record, track_options, grid_options):
+    def update_input_record(self, time, input_record, track_options, grid_options):
         """Update the era5 dataset."""
         update_era5_dataset(time, input_record, track_options, self, grid_options)
 

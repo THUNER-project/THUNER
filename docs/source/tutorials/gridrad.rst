@@ -27,7 +27,6 @@ First, import the requisite modules.
     %load_ext autoreload
     %autoreload 2
     
-    from pathlib import Path
     import shutil
     import yaml
     import numpy as np
@@ -39,6 +38,8 @@ First, import the requisite modules.
     import thuner.visualize as visualize
     import thuner.attribute as attribute
     import thuner.default as default
+    import thuner.config as config
+    import thuner.utils as utils
 
 .. code-block:: text
 
@@ -59,20 +60,47 @@ First, import the requisite modules.
     Fridlind et al. (2019), doi: 10.5194/amt-12-2979-2019
     ...
 
-Next, specify the folders where THUNER outputs will be saved.
+Next, specify the folders where THUNER outputs will be saved. Note that
+THUNER stores a fallback output directory in a config file, accessible
+via the functions :func:`thuner.config.set_outputs_directory` and
+:func:`thuner.config.get_outputs_directory`. By default, this fallback
+directory is ``Path.home() / THUNER_output``.
 
 .. code-block:: python3
     :linenos:
 
     # Parent directory for saving outputs
-    base_local = Path.home() / "THUNER_output"
+    base_local = config.get_outputs_directory()
     output_parent = base_local / f"runs/gridrad/gridrad_demo"
     options_directory = output_parent / "options"
     visualize_directory = output_parent / "visualize"
     
-    # Delete the options directory if it already exists
-    # if output_parent.exists():
-        # shutil.rmtree(output_parent)
+    # Delete the output directory for the run if it already exists
+    if output_parent.exists():
+        shutil.rmtree(output_parent)
+
+Next download the demo data for the tutorial, if you haven’t already.
+
+.. code-block:: python3
+    :linenos:
+
+    # Download the demo data
+    remote_directory = "s3://thuner-storage/THUNER_output/input_data/raw/d81006"
+    data.get_demo_data(base_local, remote_directory)
+    remote_directory = "s3://thuner-storage/THUNER_output/input_data/raw/"
+    remote_directory += "era5_monthly_39N_102W_27N_89W"
+    data.get_demo_data(base_local, remote_directory)
+
+.. code-block:: text
+
+    download: s3://thuner-storage/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/single-levels/reanalysis/cape/2010/cape_era5_oper_sfc_20100101-20100131.nc to ../../../THUNER_output/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/single-levels/reanalysis/cape/2010/cape_era5_oper_sfc_20100101-20100131.nc
+    download: s3://thuner-storage/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/single-levels/reanalysis/cin/2010/cin_era5_oper_sfc_20100101-20100131.nc to ../../../THUNER_output/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/single-levels/reanalysis/cin/2010/cin_era5_oper_sfc_20100101-20100131.nc
+    download: s3://thuner-storage/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/v/2010/v_era5_oper_pl_20100101-20100131.nc to ../../../THUNER_output/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/v/2010/v_era5_oper_pl_20100101-20100131.nc
+    download: s3://thuner-storage/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/q/2010/q_era5_oper_pl_20100101-20100131.nc to ../../../THUNER_output/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/q/2010/q_era5_oper_pl_20100101-20100131.nc
+    download: s3://thuner-storage/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/u/2010/u_era5_oper_pl_20100101-20100131.nc to ../../../THUNER_output/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/u/2010/u_era5_oper_pl_20100101-20100131.nc
+    download: s3://thuner-storage/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/z/2010/z_era5_oper_pl_20100101-20100131.nc to ../../../THUNER_output/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/z/2010/z_era5_oper_pl_20100101-20100131.nc
+    download: s3://thuner-storage/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/t/2010/t_era5_oper_pl_20100101-20100131.nc to ../../../THUNER_output/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/t/2010/t_era5_oper_pl_20100101-20100131.nc
+    download: s3://thuner-storage/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/r/2010/r_era5_oper_pl_20100101-20100131.nc to ../../../THUNER_output/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/r/2010/r_era5_oper_pl_20100101-20100131.nc
 
 Options
 -------
@@ -98,7 +126,7 @@ dataset.
 
 .. code-block:: text
 
-    2025-04-21 17:47:38,591 - thuner.data.gridrad - INFO - Generating GridRad filepaths.
+    2025-04-24 23:52:15,463 - thuner.data.gridrad - INFO - Generating GridRad filepaths.
 
 Options instances can be examined using the ``model_dump`` method, which
 converts the instance to a dictionary.
@@ -120,55 +148,54 @@ converts the instance to a dictionary.
      'converted_options': {'type': 'ConvertedOptions',
       'save': False,
       'load': False,
-      'parent_converted': None},
+      'parent_converted': '/home/ewan/THUNER_output/input_data/converted'},
      'filepaths': ['/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T180000Z.nc',
       '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T181000Z.nc',
       '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T182000Z.nc',
       '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T183000Z.nc',
     ...
 
-The code below illustrates how to examine the metadata associated with
-each options type. Note the ``parent_local`` field, which provides the
-parent directory on local disk containing the dataset. Analogously,
-``parent_remote`` specifies the remote location of the data; which is
-useful when one wants to access data from a remote location during the
-tracking run. Note also the ``filepaths`` field, which provides a list
-of the dataset’s absolute filepaths. The idea is that for standard
-datasets, ``filepaths`` can be populated automatically by looking in the
-``parent_local`` directory, assuming the same sub-directory structure as
-in the dataset’s original location. If the dataset is nonstandard, the
-``filepaths`` list can be explicitly provided by the user. For datasets
-that do not yet have convenience classes in THUNER, the
-:class:`thuner.utils.BaseDatasetOptions` class can be used. Note also the
-``use`` field, which tells THUNER whether the dataset will be used to
-``track`` or ``tag`` objects. Tracking in THUNER means detecting objects
-in a dataset, and matching those objects across time. Tagging means
-attaching attributes from potentially different datasets to detected
-objects.
+The ``model_summary()`` method of an options instance returns a string
+summary of the fields in the model. Note the ``parent_local`` field,
+which provides the parent directory on local disk containing the
+dataset. Analogously, ``parent_remote`` specifies the remote location of
+the data; which is useful when one wants to access data from a remote
+location during the tracking run. Note also the ``filepaths`` field,
+which provides a list of the dataset’s absolute filepaths. The idea is
+that for standard datasets, ``filepaths`` can be populated automatically
+by looking in the ``parent_local`` directory, assuming the same
+sub-directory structure as in the dataset’s original location. If the
+dataset is nonstandard, the ``filepaths`` list can be explicitly
+provided by the user. For datasets that do not yet have convenience
+classes in THUNER, the :class:`thuner.utils.BaseDatasetOptions` class can be
+used. Note also the ``use`` field, which tells THUNER whether the
+dataset will be used to ``track`` or ``tag`` objects. Tracking in THUNER
+means detecting objects in a dataset, and matching those objects across
+time. Tagging means attaching attributes from potentially different
+datasets to detected objects.
 
 .. code-block:: python3
     :linenos:
 
-    for name, info in gridrad_options.__class__.model_fields.items():
-        print(f"{name}: {info.description}")
+    print(gridrad_options.model_summary())
 
 .. code-block:: text
 
-    type: Type of the options, i.e. the subclass name.
-    name: Name of the dataset.
-    start: Tracking start time.
-    end: Tracking end time.
-    fields: List of dataset fields, i.e. variables, to use. Fields should be given 
+    Field Name: Type, Description
+    -------------------------------------
+    type: <class 'str'>, Type of the options, i.e. the subclass name.
+    name: <class 'str'>, Name of the dataset.
+    start: str | numpy.datetime64, Tracking start time.
+    end: str | numpy.datetime64, Tracking end time.
+    fields: list[str] | None, List of dataset fields, i.e. variables, to use. Fields should be given 
         using their thuner, i.e. CF-Conventions, names, e.g. 'reflectivity'.
-    parent_remote: Data parent directory on remote storage.
-    parent_local: Data parent directory on local storage.
-    converted_options: Options for converted data.
-    filepaths: List of filepaths to used for tracking.
-    attempt_download: Whether to attempt to download the data.
-    deque_length: Number of current/previous grids from this dataset to keep in memory. 
+    parent_remote: str | None, Data parent directory on remote storage.
+    parent_local: str | pathlib.Path | None, Data parent directory on local storage.
+    converted_options: <class 'thuner.utils.ConvertedOptions'>, Options for converted data.
+    filepaths: list[str] | dict, List of filepaths to used for tracking.
+    attempt_download: <class 'bool'>, Whether to attempt to download the data.
+    deque_length: <class 'int'>, Number of current/previous grids from this dataset to keep in memory. 
         Most tracking algorithms require at least two current/previous grids.
-    use: Whether this dataset will be used for tagging or tracking.
-    start_buffer: Minutes before interval start time to include. Useful for 
     ...
 
 We will also create dataset options for ERA5 single-level and
@@ -186,8 +213,8 @@ temperature.
 
 .. code-block:: text
 
-    2025-04-21 17:47:46,636 - thuner.data.era5 - INFO - Generating era5 filepaths.
-    2025-04-21 17:47:46,639 - thuner.data.era5 - INFO - Generating era5 filepaths.
+    2025-04-24 23:52:18,541 - thuner.data.era5 - INFO - Generating era5 filepaths.
+    2025-04-24 23:52:18,552 - thuner.data.era5 - INFO - Generating era5 filepaths.
 
 All the dataset options are grouped into a single
 :class:`thuner.option.data.DataOptions` object, which is passed to the THUNER
@@ -216,8 +243,8 @@ these from the tracking dataset.
 
 .. code-block:: text
 
-    2025-04-21 17:47:49,213 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
-    2025-04-21 17:47:49,214 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
+    2025-04-24 23:52:21,009 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
+    2025-04-24 23:52:21,019 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
 
 Finally, we create options describing how the tracking should be
 performed. In multi-feature tracking, some objects, like mesoscale
@@ -359,7 +386,7 @@ together.
 .. code-block:: python3
     :linenos:
 
-    times = utils.generate_times(data_options.dataset_by_name("gridrad"))
+    times = utils.generate_times(data_options.dataset_by_name("gridrad").filepaths)
     args = [times, data_options, grid_options, track_options, visualize_options]
     num_processes = 4 # If visualize_options is not None, num_processes must be 1
     kwargs = {"output_directory": output_parent, "num_processes": num_processes}
@@ -370,21 +397,21 @@ together.
 
 .. code-block:: text
 
-    2025-04-21 16:13:39,189 - thuner.parallel - INFO - Beginning parallel tracking with 4 processes.
-    2025-04-21 16:13:45,066 - thuner.parallel - INFO - {'type': 'GridRadSevereOptions', 'name': 'gridrad', 'start': '2010-01-20T18:00:00', 'end': '2010-01-21T03:30:00', 'fields': ['reflectivity'], 'parent_remote': 'https://data.rda.ucar.edu', 'parent_local': '/home/ewan/THUNER_output/input_data/raw', 'converted_options': {'type': 'ConvertedOptions', 'save': False, 'load': False, 'parent_converted': None}, 'filepaths': ['/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T180000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T181000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T182000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T183000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T184000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T185000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T190000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T191000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T192000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T193000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T194000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T195000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T200000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T201000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T202000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T203000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T204000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T205000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T210000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T211000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T212000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T213000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T214000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T215000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T220000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T221000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T222000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T223000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T224000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T225000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T230000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T231000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T232000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T233000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T234000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T235000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T000000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T001000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T002000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T003000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T004000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T005000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T010000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T011000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T012000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T013000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T014000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T015000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T020000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T021000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T022000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T023000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T024000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T025000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T030000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T031000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T032000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T033000Z.nc'], 'attempt_download': False, 'deque_length': 2, 'use': 'track', 'start_buffer': -120, 'end_buffer': 0, 'event_start': '2010-01-20', 'dataset_id': 'ds841.6', 'version': 'v4_2', 'obs_thresh': 2}
-    2025-04-21 16:13:45,068 - thuner.parallel - INFO - {'type': 'ERA5Options', 'name': 'era5_pl', 'start': '2010-01-20T18:00:00', 'end': '2010-01-21T03:30:00', 'fields': ['u', 'v', 'z', 'r', 't'], 'parent_remote': '/g/data/rt52', 'parent_local': '/home/ewan/THUNER_output/input_data/raw', 'converted_options': {'type': 'ConvertedOptions', 'save': False, 'load': False, 'parent_converted': None}, 'filepaths': {'u': ['/home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/u/2010/u_era5_oper_pl_20100101-20100131.nc'], 'v': ['/home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/v/2010/v_era5_oper_pl_20100101-20100131.nc'], 'z': ['/home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/z/2010/z_era5_oper_pl_20100101-20100131.nc'], 'r': ['/home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/r/2010/r_era5_oper_pl_20100101-20100131.nc'], 't': ['/home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/t/2010/t_era5_oper_pl_20100101-20100131.nc']}, 'attempt_download': False, 'deque_length': 2, 'use': 'tag', 'start_buffer': -120, 'end_buffer': 0, 'latitude_range': [27.0, 39.0], 'longitude_range': [-102.0, -89.0], 'mode': 'reanalysis', 'data_format': 'pressure-levels', 'pressure_levels': ['1000', '975', '950', '925', '900', '875', '850', '825', '800', '775', '750', '700', '650', '600', '550', '500', '450', '400', '350', '300', '250', '225', '200', '175', '150', '125', '100', '70', '50', '30', '20', '10', '7', '5', '3', '2', '1'], 'storage': 'monthly'}
-    2025-04-21 16:13:45,068 - thuner.parallel - INFO - {'type': 'ERA5Options', 'name': 'era5_sl', 'start': '2010-01-20T18:00:00', 'end': '2010-01-21T03:30:00', 'fields': ['cape', 'cin'], 'parent_remote': '/g/data/rt52', 'parent_local': '/home/ewan/THUNER_output/input_data/raw', 'converted_options': {'type': 'ConvertedOptions', 'save': False, 'load': False, 'parent_converted': None}, 'filepaths': {'cape': ['/home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/single-levels/reanalysis/cape/2010/cape_era5_oper_sfc_20100101-20100131.nc'], 'cin': ['/home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/single-levels/reanalysis/cin/2010/cin_era5_oper_sfc_20100101-20100131.nc']}, 'attempt_download': False, 'deque_length': 2, 'use': 'tag', 'start_buffer': -120, 'end_buffer': 0, 'latitude_range': [27.0, 39.0], 'longitude_range': [-102.0, -89.0], 'mode': 'reanalysis', 'data_format': 'single-levels', 'pressure_levels': None, 'storage': 'monthly'}
-    2025-04-21 16:13:45,120 - thuner.parallel - INFO - {'type': 'GridRadSevereOptions', 'name': 'gridrad', 'start': '2010-01-20T18:00:00', 'end': '2010-01-21T03:30:00', 'fields': ['reflectivity'], 'parent_remote': 'https://data.rda.ucar.edu', 'parent_local': '/home/ewan/THUNER_output/input_data/raw', 'converted_options': {'type': 'ConvertedOptions', 'save': False, 'load': False, 'parent_converted': None}, 'filepaths': ['/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T180000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T181000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T182000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T183000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T184000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T185000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T190000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T191000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T192000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T193000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T194000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T195000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T200000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T201000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T202000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T203000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T204000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T205000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T210000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T211000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T212000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T213000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T214000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T215000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T220000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T221000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T222000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T223000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T224000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T225000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T230000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T231000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T232000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T233000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T234000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T235000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T000000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T001000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T002000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T003000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T004000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T005000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T010000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T011000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T012000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T013000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T014000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T015000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T020000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T021000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T022000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T023000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T024000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T025000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T030000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T031000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T032000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T033000Z.nc'], 'attempt_download': False, 'deque_length': 2, 'use': 'track', 'start_buffer': -120, 'end_buffer': 0, 'event_start': '2010-01-20', 'dataset_id': 'ds841.6', 'version': 'v4_2', 'obs_thresh': 2}
-    2025-04-21 16:13:45,122 - thuner.parallel - INFO - {'type': 'ERA5Options', 'name': 'era5_pl', 'start': '2010-01-20T18:00:00', 'end': '2010-01-21T03:30:00', 'fields': ['u', 'v', 'z', 'r', 't'], 'parent_remote': '/g/data/rt52', 'parent_local': '/home/ewan/THUNER_output/input_data/raw', 'converted_options': {'type': 'ConvertedOptions', 'save': False, 'load': False, 'parent_converted': None}, 'filepaths': {'u': ['/home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/u/2010/u_era5_oper_pl_20100101-20100131.nc'], 'v': ['/home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/v/2010/v_era5_oper_pl_20100101-20100131.nc'], 'z': ['/home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/z/2010/z_era5_oper_pl_20100101-20100131.nc'], 'r': ['/home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/r/2010/r_era5_oper_pl_20100101-20100131.nc'], 't': ['/home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/t/2010/t_era5_oper_pl_20100101-20100131.nc']}, 'attempt_download': False, 'deque_length': 2, 'use': 'tag', 'start_buffer': -120, 'end_buffer': 0, 'latitude_range': [27.0, 39.0], 'longitude_range': [-102.0, -89.0], 'mode': 'reanalysis', 'data_format': 'pressure-levels', 'pressure_levels': ['1000', '975', '950', '925', '900', '875', '850', '825', '800', '775', '750', '700', '650', '600', '550', '500', '450', '400', '350', '300', '250', '225', '200', '175', '150', '125', '100', '70', '50', '30', '20', '10', '7', '5', '3', '2', '1'], 'storage': 'monthly'}
-    2025-04-21 16:13:45,123 - thuner.parallel - INFO - {'type': 'ERA5Options', 'name': 'era5_sl', 'start': '2010-01-20T18:00:00', 'end': '2010-01-21T03:30:00', 'fields': ['cape', 'cin'], 'parent_remote': '/g/data/rt52', 'parent_local': '/home/ewan/THUNER_output/input_data/raw', 'converted_options': {'type': 'ConvertedOptions', 'save': False, 'load': False, 'parent_converted': None}, 'filepaths': {'cape': ['/home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/single-levels/reanalysis/cape/2010/cape_era5_oper_sfc_20100101-20100131.nc'], 'cin': ['/home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/single-levels/reanalysis/cin/2010/cin_era5_oper_sfc_20100101-20100131.nc']}, 'attempt_download': False, 'deque_length': 2, 'use': 'tag', 'start_buffer': -120, 'end_buffer': 0, 'latitude_range': [27.0, 39.0], 'longitude_range': [-102.0, -89.0], 'mode': 'reanalysis', 'data_format': 'single-levels', 'pressure_levels': None, 'storage': 'monthly'}
-    2025-04-21 16:13:45,124 - thuner.parallel - INFO - {'type': 'GridRadSevereOptions', 'name': 'gridrad', 'start': '2010-01-20T18:00:00', 'end': '2010-01-21T03:30:00', 'fields': ['reflectivity'], 'parent_remote': 'https://data.rda.ucar.edu', 'parent_local': '/home/ewan/THUNER_output/input_data/raw', 'converted_options': {'type': 'ConvertedOptions', 'save': False, 'load': False, 'parent_converted': None}, 'filepaths': ['/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T180000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T181000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T182000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T183000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T184000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T185000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T190000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T191000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T192000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T193000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T194000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T195000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T200000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T201000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T202000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T203000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T204000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T205000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T210000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T211000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T212000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T213000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T214000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T215000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T220000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T221000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T222000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T223000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T224000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T225000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T230000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T231000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T232000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T233000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T234000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T235000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T000000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T001000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T002000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T003000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T004000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T005000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T010000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T011000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T012000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T013000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T014000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T015000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T020000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T021000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T022000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T023000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T024000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T025000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T030000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T031000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T032000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T033000Z.nc'], 'attempt_download': False, 'deque_length': 2, 'use': 'track', 'start_buffer': -120, 'end_buffer': 0, 'event_start': '2010-01-20', 'dataset_id': 'ds841.6', 'version': 'v4_2', 'obs_thresh': 2}
-    2025-04-21 16:13:45,125 - thuner.parallel - INFO - {'type': 'ERA5Options', 'name': 'era5_pl', 'start': '2010-01-20T18:00:00', 'end': '2010-01-21T03:30:00', 'fields': ['u', 'v', 'z', 'r', 't'], 'parent_remote': '/g/data/rt52', 'parent_local': '/home/ewan/THUNER_output/input_data/raw', 'converted_options': {'type': 'ConvertedOptions', 'save': False, 'load': False, 'parent_converted': None}, 'filepaths': {'u': ['/home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/u/2010/u_era5_oper_pl_20100101-20100131.nc'], 'v': ['/home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/v/2010/v_era5_oper_pl_20100101-20100131.nc'], 'z': ['/home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/z/2010/z_era5_oper_pl_20100101-20100131.nc'], 'r': ['/home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/r/2010/r_era5_oper_pl_20100101-20100131.nc'], 't': ['/home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/t/2010/t_era5_oper_pl_20100101-20100131.nc']}, 'attempt_download': False, 'deque_length': 2, 'use': 'tag', 'start_buffer': -120, 'end_buffer': 0, 'latitude_range': [27.0, 39.0], 'longitude_range': [-102.0, -89.0], 'mode': 'reanalysis', 'data_format': 'pressure-levels', 'pressure_levels': ['1000', '975', '950', '925', '900', '875', '850', '825', '800', '775', '750', '700', '650', '600', '550', '500', '450', '400', '350', '300', '250', '225', '200', '175', '150', '125', '100', '70', '50', '30', '20', '10', '7', '5', '3', '2', '1'], 'storage': 'monthly'}
-    2025-04-21 16:13:45,126 - thuner.parallel - INFO - {'type': 'ERA5Options', 'name': 'era5_sl', 'start': '2010-01-20T18:00:00', 'end': '2010-01-21T03:30:00', 'fields': ['cape', 'cin'], 'parent_remote': '/g/data/rt52', 'parent_local': '/home/ewan/THUNER_output/input_data/raw', 'converted_options': {'type': 'ConvertedOptions', 'save': False, 'load': False, 'parent_converted': None}, 'filepaths': {'cape': ['/home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/single-levels/reanalysis/cape/2010/cape_era5_oper_sfc_20100101-20100131.nc'], 'cin': ['/home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/single-levels/reanalysis/cin/2010/cin_era5_oper_sfc_20100101-20100131.nc']}, 'attempt_download': False, 'deque_length': 2, 'use': 'tag', 'start_buffer': -120, 'end_buffer': 0, 'latitude_range': [27.0, 39.0], 'longitude_range': [-102.0, -89.0], 'mode': 'reanalysis', 'data_format': 'single-levels', 'pressure_levels': None, 'storage': 'monthly'}
-    2025-04-21 16:13:45,272 - thuner.parallel - INFO - {'type': 'GridRadSevereOptions', 'name': 'gridrad', 'start': '2010-01-20T18:00:00', 'end': '2010-01-21T03:30:00', 'fields': ['reflectivity'], 'parent_remote': 'https://data.rda.ucar.edu', 'parent_local': '/home/ewan/THUNER_output/input_data/raw', 'converted_options': {'type': 'ConvertedOptions', 'save': False, 'load': False, 'parent_converted': None}, 'filepaths': ['/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T180000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T181000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T182000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T183000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T184000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T185000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T190000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T191000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T192000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T193000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T194000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T195000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T200000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T201000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T202000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T203000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T204000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T205000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T210000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T211000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T212000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T213000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T214000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T215000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T220000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T221000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T222000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T223000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T224000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T225000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T230000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T231000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T232000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T233000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T234000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T235000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T000000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T001000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T002000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T003000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T004000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T005000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T010000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T011000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T012000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T013000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T014000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T015000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T020000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T021000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T022000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T023000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T024000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T025000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T030000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T031000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T032000Z.nc', '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100121T033000Z.nc'], 'attempt_download': False, 'deque_length': 2, 'use': 'track', 'start_buffer': -120, 'end_buffer': 0, 'event_start': '2010-01-20', 'dataset_id': 'ds841.6', 'version': 'v4_2', 'obs_thresh': 2}
-    2025-04-21 16:13:45,274 - thuner.parallel - INFO - {'type': 'ERA5Options', 'name': 'era5_pl', 'start': '2010-01-20T18:00:00', 'end': '2010-01-21T03:30:00', 'fields': ['u', 'v', 'z', 'r', 't'], 'parent_remote': '/g/data/rt52', 'parent_local': '/home/ewan/THUNER_output/input_data/raw', 'converted_options': {'type': 'ConvertedOptions', 'save': False, 'load': False, 'parent_converted': None}, 'filepaths': {'u': ['/home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/u/2010/u_era5_oper_pl_20100101-20100131.nc'], 'v': ['/home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/v/2010/v_era5_oper_pl_20100101-20100131.nc'], 'z': ['/home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/z/2010/z_era5_oper_pl_20100101-20100131.nc'], 'r': ['/home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/r/2010/r_era5_oper_pl_20100101-20100131.nc'], 't': ['/home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/t/2010/t_era5_oper_pl_20100101-20100131.nc']}, 'attempt_download': False, 'deque_length': 2, 'use': 'tag', 'start_buffer': -120, 'end_buffer': 0, 'latitude_range': [27.0, 39.0], 'longitude_range': [-102.0, -89.0], 'mode': 'reanalysis', 'data_format': 'pressure-levels', 'pressure_levels': ['1000', '975', '950', '925', '900', '875', '850', '825', '800', '775', '750', '700', '650', '600', '550', '500', '450', '400', '350', '300', '250', '225', '200', '175', '150', '125', '100', '70', '50', '30', '20', '10', '7', '5', '3', '2', '1'], 'storage': 'monthly'}
-    2025-04-21 16:13:45,275 - thuner.parallel - INFO - {'type': 'ERA5Options', 'name': 'era5_sl', 'start': '2010-01-20T18:00:00', 'end': '2010-01-21T03:30:00', 'fields': ['cape', 'cin'], 'parent_remote': '/g/data/rt52', 'parent_local': '/home/ewan/THUNER_output/input_data/raw', 'converted_options': {'type': 'ConvertedOptions', 'save': False, 'load': False, 'parent_converted': None}, 'filepaths': {'cape': ['/home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/single-levels/reanalysis/cape/2010/cape_era5_oper_sfc_20100101-20100131.nc'], 'cin': ['/home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/single-levels/reanalysis/cin/2010/cin_era5_oper_sfc_20100101-20100131.nc']}, 'attempt_download': False, 'deque_length': 2, 'use': 'tag', 'start_buffer': -120, 'end_buffer': 0, 'latitude_range': [27.0, 39.0], 'longitude_range': [-102.0, -89.0], 'mode': 'reanalysis', 'data_format': 'single-levels', 'pressure_levels': None, 'storage': 'monthly'}
-    2025-04-21 16:13:45,390 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/gridrad/gridrad_demo/interval_0.
-    2025-04-21 16:13:45,448 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/gridrad/gridrad_demo/interval_2.
+    2025-04-25 00:04:34,883 - thuner.parallel - INFO - Beginning parallel tracking with 4 processes.
+    2025-04-25 00:04:41,830 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/gridrad/gridrad_demo/interval_0.
+    2025-04-25 00:04:41,844 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/gridrad/gridrad_demo/interval_1.
+    2025-04-25 00:04:42,208 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/gridrad/gridrad_demo/interval_2.
+    2025-04-25 00:04:42,523 - thuner.track.track - INFO - Processing 2010-01-20T18:00:00.
+    2025-04-25 00:04:42,524 - thuner.utils - INFO - Updating gridrad input record for 2010-01-20T18:00:00.
+    2025-04-25 00:04:42,645 - thuner.track.track - INFO - Processing 2010-01-20T20:20:00.
+    2025-04-25 00:04:42,646 - thuner.utils - INFO - Updating gridrad input record for 2010-01-20T20:20:00.
+    2025-04-25 00:04:42,689 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/gridrad/gridrad_demo/interval_3.
+    2025-04-25 00:04:42,940 - thuner.track.track - INFO - Processing 2010-01-20T22:40:00.
+    2025-04-25 00:04:42,952 - thuner.utils - INFO - Updating gridrad input record for 2010-01-20T22:40:00.
+    2025-04-25 00:04:43,968 - thuner.track.track - INFO - Processing 2010-01-21T01:00:00.
+    2025-04-25 00:04:43,971 - thuner.utils - INFO - Updating gridrad input record for 2010-01-21T01:00:00.
+    2025-04-25 00:04:48,608 - thuner.track.track - INFO - Processing hierarchy level 0.
+    2025-04-25 00:04:48,609 - thuner.track.track - INFO - Tracking convective.
     ...
 
 The outputs of the tracking run are saved in the ``output_parent``
@@ -415,7 +442,7 @@ passing this to the appropriate ``pydantic`` model.
        'converted_options': {'type': 'ConvertedOptions',
         'save': False,
         'load': False,
-        'parent_converted': None},
+        'parent_converted': '/home/ewan/THUNER_output/input_data/converted'},
        'filepaths': ['/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T180000Z.nc',
         '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T181000Z.nc',
         '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T182000Z.nc',
@@ -433,8 +460,8 @@ dictionary.
 
 .. code-block:: text
 
-    2025-04-21 16:17:35,297 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
-    2025-04-21 16:17:35,299 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
+    2025-04-25 00:16:57,754 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
+    2025-04-25 00:16:57,755 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
 
 .. code-block:: text
 
@@ -449,7 +476,7 @@ dictionary.
        'converted_options': {'type': 'ConvertedOptions',
         'save': False,
         'load': False,
-        'parent_converted': None},
+        'parent_converted': '/home/ewan/THUNER_output/input_data/converted'},
        'filepaths': ['/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T180000Z.nc',
         '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T181000Z.nc',
         '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T182000Z.nc',
@@ -563,10 +590,10 @@ al. (2023) <https://doi.org/10.1175/MWR-D-22-0146.1>`__.
 
 .. code-block:: text
 
-    2025-04-21 13:40:13,695 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
-    2025-04-21 13:40:13,696 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-    2025-04-21 13:40:14,202 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
-    2025-04-21 13:40:14,204 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
+    2025-04-25 00:17:05,742 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
+    2025-04-25 00:17:05,744 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
+    2025-04-25 00:17:06,105 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
+    2025-04-25 00:17:06,106 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
 
 .. code-block:: text
 
@@ -612,19 +639,19 @@ start of the notebook.
 
 .. code-block:: text
 
-    2025-04-21 13:40:53,299 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
-    2025-04-21 13:40:53,302 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-    2025-04-21 13:40:53,778 - thuner.visualize.attribute - INFO - Visualizing MCS at time 2010-01-20T18:00:00.000000000.
-    2025-04-21 13:40:57,953 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
-    2025-04-21 13:40:57,954 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-    2025-04-21 13:40:59,213 - thuner.visualize.attribute - INFO - Saving mcs_gridrad_20100120 figure for 2010-01-20T18:00:00.000000000.
-    2025-04-21 13:41:09,572 - thuner.visualize.attribute - INFO - Visualizing MCS at time 2010-01-20T18:20:00.000000000.
-    2025-04-21 13:41:09,574 - thuner.visualize.attribute - INFO - Visualizing MCS at time 2010-01-20T18:30:00.000000000.
-    2025-04-21 13:41:09,576 - thuner.visualize.attribute - INFO - Visualizing MCS at time 2010-01-20T18:10:00.000000000.
-    2025-04-21 13:41:10,029 - thuner.visualize.attribute - INFO - Visualizing MCS at time 2010-01-20T18:40:00.000000000.
-    2025-04-21 13:41:15,216 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
-    2025-04-21 13:41:15,217 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-    2025-04-21 13:41:15,280 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
-    2025-04-21 13:41:15,280 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-    2025-04-21 13:41:15,308 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
+    2025-04-25 00:17:08,359 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
+    2025-04-25 00:17:08,360 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
+    2025-04-25 00:17:08,720 - thuner.visualize.attribute - INFO - Visualizing MCS at time 2010-01-20T18:00:00.000000000.
+    2025-04-25 00:17:12,783 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
+    2025-04-25 00:17:12,783 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
+    2025-04-25 00:17:14,097 - thuner.visualize.attribute - INFO - Saving mcs_gridrad_20100120 figure for 2010-01-20T18:00:00.000000000.
+    2025-04-25 00:17:23,473 - thuner.visualize.attribute - INFO - Visualizing MCS at time 2010-01-20T18:20:00.000000000.
+    2025-04-25 00:17:23,476 - thuner.visualize.attribute - INFO - Visualizing MCS at time 2010-01-20T18:30:00.000000000.
+    2025-04-25 00:17:23,476 - thuner.visualize.attribute - INFO - Visualizing MCS at time 2010-01-20T18:10:00.000000000.
+    2025-04-25 00:17:25,051 - thuner.visualize.attribute - INFO - Visualizing MCS at time 2010-01-20T18:40:00.000000000.
+    2025-04-25 00:17:30,954 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
+    2025-04-25 00:17:30,954 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
+    2025-04-25 00:17:31,311 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
+    2025-04-25 00:17:31,311 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
+    2025-04-25 00:17:31,517 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
     ...

@@ -1,6 +1,7 @@
 "General utilities for the thuner package."
 
 import inspect
+import copy
 from datetime import datetime
 import yaml
 from pathlib import Path
@@ -202,21 +203,48 @@ class BaseDatasetOptions(BaseOptions):
         new_filepaths = sorted(list(set(new_filepaths)))
         return new_filepaths
 
-    def update_dataset(self, time, input_record, track_options, grid_options):
-        """Update a dataset."""
+    def update_input_record(self, time, input_record, track_options, grid_options):
+        """Update the input record."""
         time_str = format_time(time, filename_safe=False)
-        logger.info(f"Updating {self.name} dataset for {time_str}.")
+        logger.info(f"Updating {self.name} input record for {time_str}.")
+        conv_options = self.converted_options
         input_record._current_file_index += 1
         filepath = self.filepaths[input_record._current_file_index]
-        args = [time, filepath, track_options, grid_options]
-        dataset, boundary_coords, simple_boundary_coords = self.convert_dataset(*args)
+        if conv_options.load is False:
+            args = [time, filepath, track_options, grid_options]
+            dataset, boundary_coords = self.convert_dataset(*args)[:2]
+        else:
+            dataset = xr.open_dataset(filepath)
+            infer_grid_options(dataset, grid_options)
+            domain_mask = dataset["domain_mask"]
+            boundary_coords = get_mask_boundary(domain_mask, grid_options)[0]
+        # Check if core grid options are defined, if not infer from dataset.
+        attrs = ["latitude", "longitude", "shape"]
+        if any(getattr(grid_options, attr) is None for attr in attrs):
+            grid_options_from_dataset(dataset, grid_options)
+        # Save the dataset if necessary.
+        if conv_options.save:
+            save_converted_dataset(filepath, dataset, self)
+        # Add the dataset to the imput record and update the boundary data.
         input_record.dataset = dataset
-        input_record.next_domain_mask = dataset.domain_mask
+        self.update_boundary_data(dataset, input_record, boundary_coords)
+
+    def update_boundary_data(self, dataset, input_record, boundary_coords):
+        """Update the boundary data in the input record."""
+        current_domain_mask = copy.deepcopy(input_record.next_domain_mask)
+        current_boundary_coords = copy.deepcopy(input_record.next_boundary_coordinates)
+        current_boundary_mask = copy.deepcopy(input_record.next_boundary_mask)
+
+        input_record.domain_masks.append(current_domain_mask)
+        input_record.boundary_coodinates.append(current_boundary_coords)
+        input_record.boundary_masks.append(current_boundary_mask)
+
+        input_record.next_domain_mask = dataset["domain_mask"]
         input_record.next_boundary_coordinates = boundary_coords
         input_record.next_boundary_mask = dataset["boundary_mask"]
 
     def grid_from_dataset(self, dataset, variable, time):
-        """Get the grid from the dataset."""
+        """Get the grid from a generic/pre-converted dataset."""
         grid = dataset[variable].sel(time=time)
         # Copy radar location data to grid if present in dataset
         for attr in ["origin_longitude", "origin_latitude", "instrument"]:
@@ -228,14 +256,13 @@ class BaseDatasetOptions(BaseOptions):
         """
         Convert the dataset. Note if the base class is used directly, the data is
         assumed to be already converted, and hence this function just opens the dataset.
-        Return None for both boundary and simple boundary.
+        Function returns the converted dataset, and the boundary coordinates.
+        Note the simple boundary coordinates are only used for visualization.
         """
         dataset = xr.open_dataset(filepath)
+        infer_grid_options(dataset, grid_options)
         if time not in dataset.time.values:
             raise ValueError(f"{time} not in dataset time values.")
-        attrs = ["latitude", "longitude", "shape"]
-        if any(getattr(grid_options, attr) is None for attr in attrs):
-            grid_options_from_dataset(dataset, grid_options)
         if "domain_mask" in dataset:
             logger.info("Domain mask found in dataset. Getting boundary coordinates.")
             all_coords = get_mask_boundary(dataset.domain_mask, grid_options)
@@ -292,6 +319,56 @@ class BaseDatasetOptions(BaseOptions):
         return values
 
 
+def infer_grid_options(dataset, grid_options):
+    """Infer grid options from the dataset."""
+    attrs = ["latitude", "longitude", "shape"]
+    if any(getattr(grid_options, attr) is None for attr in attrs):
+        logger.info("Grid options not set. Inferring from dataset.")
+        grid_options_from_dataset(dataset, grid_options)
+
+
+def save_converted_dataset(raw_filepath, dataset, dataset_options):
+    """Save a converted dataset."""
+    conv_options = dataset_options.converted_options
+    if conv_options.save:
+        parent = get_parent(dataset_options)
+        parent_converted = conv_options.parent_converted
+        if parent_converted is None:
+            raise ValueError("No parent directory provided.")
+        parent_converted = parent.replace("raw", "converted")
+        conv_options.parent_converted = parent_converted
+        converted_filepath = raw_filepath.replace(parent, parent_converted)
+        if not Path(converted_filepath).parent.exists():
+            Path(converted_filepath).parent.mkdir(parents=True)
+        dataset.to_netcdf(converted_filepath, mode="w")
+    return dataset
+
+
+def get_parent(dataset_options: BaseDatasetOptions) -> str:
+    """Get the appropriate parent directory."""
+    conv_options = dataset_options.converted_options
+    local = dataset_options.parent_local
+    remote = dataset_options.parent_remote
+    if conv_options.load:
+        if conv_options.parent_converted is not None:
+            parent = conv_options.parent_converted
+        elif local is not None:
+            conv_options.parent_converted = local.replace("raw", "converted")
+            parent = conv_options.parent_converted
+        elif conv_options.parent_remote is not None:
+            conv_options.parent_converted = remote.replace("raw", "converted")
+            parent = conv_options.parent_converted
+        else:
+            raise ValueError("Could not find/create parent_converted directory.")
+    elif local is not None:
+        parent = local
+    elif remote is not None:
+        parent = remote
+    else:
+        raise ValueError("No parent directory provided.")
+    return parent
+
+
 def grid_options_from_dataset(dataset, grid_options):
     """Update the grid options using the dataset."""
     logger.info("Updating grid_options latitude, longitude and shape using dataset.")
@@ -300,8 +377,8 @@ def grid_options_from_dataset(dataset, grid_options):
         grid_options.longitude = dataset.longitude.values.tolist()
         grid_options.shape = [len(dataset.latitude), len(dataset.longitude)]
     elif grid_options.name == "cartesian":
-        grid_options.latitude = dataset.y.values.tolist()
-        grid_options.longitude = dataset.x.values.tolist()
+        grid_options.y = dataset.y.values.tolist()
+        grid_options.x = dataset.x.values.tolist()
         grid_options.shape = [len(dataset.y), len(dataset.x)]
     else:
         raise ValueError(f"Grid name {grid_options.name} not recognised.")

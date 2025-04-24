@@ -17,7 +17,8 @@ def boilerplate_update(
     cond = not time_in_dataset_range(earliest_time, input_record.dataset)
     cond = cond or not time_in_dataset_range(latest_time, input_record.dataset)
     if cond:
-        dataset_options.update_dataset(time, input_record, track_options, grid_options)
+        args = [time, input_record, track_options, grid_options]
+        dataset_options.update_input_record(*args)
 
 
 def update_track_input_records(

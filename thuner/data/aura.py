@@ -21,7 +21,7 @@ from thuner.log import setup_logger
 from thuner.data.odim import convert_odim
 import thuner.data._utils as _utils
 import thuner.grid as grid
-from thuner.utils import BaseDatasetOptions
+import thuner.utils as utils
 
 __all__ = [
     "AURAOptions",
@@ -34,7 +34,7 @@ __all__ = [
 logger = setup_logger(__name__)
 
 
-class AURAOptions(BaseDatasetOptions):
+class AURAOptions(utils.BaseDatasetOptions):
     """Base options class for AURA datasets."""
 
     def model_post_init(self, __context):
@@ -43,11 +43,6 @@ class AURAOptions(BaseDatasetOptions):
         """
         super().model_post_init(__context)
         self._change_defaults(fields=["reflectivity"])
-
-    # Override update_dataset with the AURA specific version.
-    def update_dataset(self, time, input_record, track_options, grid_options):
-        args = [time, input_record, track_options, self, grid_options]
-        update_aura_dataset(*args)
 
     # Define additional fields for AURA
     range: float = Field(142.5, description="Range of the radar in km.")
@@ -75,7 +70,12 @@ class CPOLOptions(AURAOptions):
         return get_cpol_filepaths(self)
 
     def convert_dataset(self, time, filepath, track_options, grid_options):
+        """Convert CPOL dataset."""
         return convert_cpol(time, filepath, track_options, self, grid_options)
+
+    def update_boundary_data(self, dataset, input_record, boundary_coords):
+        """Update CPOL boundary data."""
+        update_cpol_boundary_data(dataset, input_record, boundary_coords)
 
     @model_validator(mode="after")
     def _check_times(cls, values):
@@ -105,7 +105,7 @@ def get_cpol_filepaths(options: CPOLOptions):
 
     filepaths = []
 
-    base_url = _utils.get_parent(options)
+    base_url = utils.get_parent(options)
     base_url += "/cpol"
 
     if options.level == "1b":
@@ -183,7 +183,7 @@ def get_operational_filepaths(options: OperationalOptions):
     end = np.datetime64(options["end"])
 
     urls = []
-    base_url = f"{_utils.get_parent(options)}"
+    base_url = f"{utils.get_parent(options)}"
 
     times = np.arange(start, end + np.timedelta64(1, "D"), np.timedelta64(1, "D"))
     times = pd.DatetimeIndex(times)
@@ -240,22 +240,17 @@ def setup_operational(data_options, grid_options, url, directory):
 
 # Note "get" functions both retrieve and convert the dataset, and update the
 # input_record boundary data.
-def get_cpol(time, input_record, track_options, dataset_options, grid_options):
-    """Update the CPOL input_record for tracking."""
-    filepath = dataset_options.filepaths[input_record._current_file_index]
-    ds, boundary_coords, simple_boundary_coords = convert_cpol(
-        time, filepath, track_options, dataset_options, grid_options
-    )
-
+def update_cpol_boundary_data(dataset, input_record, boundary_coords):
+    """Update boundary data using domain mask."""
     # Set data outside instrument range to NaN
     keys = ["next_domain_mask", "next_boundary_coordinates"]
     keys += ["next_boundary_mask"]
     if any(getattr(input_record, k) is None for k in keys):
         # Get the domain mask and domain boundary. Note this is the region where data
         # exists, not the detected object masks from the detect module.
-        input_record.next_domain_mask = ds["domain_mask"]
+        input_record.next_domain_mask = dataset["domain_mask"]
         input_record.next_boundary_coordinates = boundary_coords
-        input_record.next_boundary_mask = ds["boundary_mask"]
+        input_record.next_boundary_mask = dataset["boundary_mask"]
     else:
         domain_mask = copy.deepcopy(input_record.next_domain_mask)
         boundary_mask = copy.deepcopy(input_record.next_boundary_mask)
@@ -269,12 +264,13 @@ def get_cpol(time, input_record, track_options, dataset_options, grid_options):
         # new mask is calculated for each time step based on the altitudes of the
         # objects being detected, and the required threshold on number of observations.
 
-    return ds
-
 
 def convert_cpol(time, filepath, track_options, dataset_options, grid_options):
-    """Convert CPOL data to a standard format."""
-    _utils.log_convert(logger, dataset_options.name, filepath)
+    """Convert CPOL data to a standard format. Retrieve the boundary data."""
+
+    time_str = utils.format_time(time, filename_safe=False)
+    logger.info(f"Updating {dataset_options.name} dataset for {time_str}.")
+
     cpol = xr.open_dataset(filepath)
 
     if time not in cpol.time.values:
@@ -307,6 +303,7 @@ def convert_cpol(time, filepath, track_options, dataset_options, grid_options):
             latitude, longitude = grid.new_geographic_grid(*args)
             grid_options.latitude = latitude
             grid_options.longitude = longitude
+            grid_options.shape = [len(latitude), len(longitude)]
         ds = xr.Dataset({dim: ([dim], getattr(grid_options, dim)) for dim in dims})
         regrid_options = {"periodic": False, "extrap_method": None}
         regridder = xe.Regridder(cpol, ds, "bilinear", **regrid_options)
@@ -328,6 +325,7 @@ def convert_cpol(time, filepath, track_options, dataset_options, grid_options):
         if grid_options.x is None or grid_options.y is None:
             grid_options.x = ds["x"].values
             grid_options.y = ds["y"].values
+            grid_options.shape = [len(ds["y"].values), len(ds["x"].values)]
         x_spacing = ds["x"].values[1:] - ds["x"].values[:-1]
         y_spacing = ds["y"].values[1:] - ds["y"].values[:-1]
         if np.unique(x_spacing).size > 1 or np.unique(y_spacing).size > 1:
@@ -338,9 +336,8 @@ def convert_cpol(time, filepath, track_options, dataset_options, grid_options):
     grid_options.shape = [len(ds[dims[0]].values), len(ds[dims[1]].values)]
     cell_areas = grid.get_cell_areas(grid_options)
     ds["gridcell_area"] = (dims, cell_areas)
-    ds["gridcell_area"].attrs.update(
-        {"units": "km^2", "standard_name": "area", "valid_min": 0}
-    )
+    new_entries = {"units": "km^2", "standard_name": "area", "valid_min": 0}
+    ds["gridcell_area"].attrs.update(new_entries)
     if grid_options.altitude is None:
         grid_options.altitude = ds["altitude"].values
     else:
@@ -350,10 +347,10 @@ def convert_cpol(time, filepath, track_options, dataset_options, grid_options):
 
     # Get the domain mask and domain boundary. Note this is the region where data
     # exists, not the detected object masks from the detect module.
+    utils.infer_grid_options(ds, grid_options)
     domain_mask = _utils.mask_from_range(ds, dataset_options, grid_options)
-    boundary_coords, simple_boundary_coords, boundary_mask = _utils.get_mask_boundary(
-        domain_mask, grid_options
-    )
+    all_coords = utils.get_mask_boundary(domain_mask, grid_options)
+    boundary_coords, simple_boundary_coords, boundary_mask = all_coords
     ds["domain_mask"] = domain_mask
     ds["boundary_mask"] = boundary_mask
 
@@ -368,26 +365,8 @@ def convert_operational():
     return ds
 
 
-def update_aura_dataset(
+def update_operational_input_record(
     time, input_record, track_options, dataset_options, grid_options
 ):
     """Update an AURA dataset."""
-    _utils.log_dataset_update(logger, dataset_options.name, time)
-    conv_options = dataset_options.converted_options
-
-    input_record._current_file_index += 1
-    if conv_options.load is False:
-        if dataset_options.name == "cpol":
-            args = [time, input_record, track_options, dataset_options, grid_options]
-            dataset = get_cpol(*args)
-        elif dataset_options.name == "operational":
-            args = [time, input_record, dataset_options, grid_options]
-            dataset = convert_operational(*args)
-    else:
-        filepath = dataset_options.filepaths[input_record._current_file_index]
-        dataset = xr.open_dataset(filepath)
-    raw_filepath = dataset_options.filepaths[input_record._current_file_index]
-    if conv_options.save:
-        _utils.save_converted_dataset(raw_filepath, dataset, dataset_options)
-
-    input_record.dataset = dataset
+    pass
