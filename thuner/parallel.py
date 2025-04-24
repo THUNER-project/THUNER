@@ -25,14 +25,6 @@ logger = setup_logger(__name__)
 __all__ = ["track"]
 
 
-get_filepaths_dispatcher = {
-    "cpol": data.aura.get_cpol_filepaths,
-    "era5_pl": data.era5.get_era5_filepaths,
-    "era5_sl": data.era5.get_era5_filepaths,
-    "gridrad": data.gridrad.get_gridrad_filepaths,
-}
-
-
 def track(
     times,
     data_options,
@@ -81,7 +73,7 @@ def track(
         message = "Runtime visualizations require that num_processes be set to 1."
         raise ValueError(message)
 
-    times = list(times)
+    times = sorted(list(times))
     intervals, num_processes = get_time_intervals(times, num_processes)
     logger.info(f"Beginning parallel tracking with {num_processes} processes.")
 
@@ -164,8 +156,7 @@ def get_interval_data_options(data_options: option.data.DataOptions, interval):
         name = dataset_options.name
         dataset_options.start = interval[0]
         dataset_options.end = interval[1]
-        get_filepaths = get_filepaths_dispatcher[name]
-        new_filepaths = get_filepaths(dataset_options)
+        new_filepaths = dataset_options.get_filepaths()
         dataset_options.filepaths = new_filepaths
         interval_data_options.datasets[i] = dataset_options
     # Revalidate the model to rebuild the dataset lookup dict

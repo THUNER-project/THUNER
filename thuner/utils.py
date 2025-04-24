@@ -9,6 +9,7 @@ import hashlib
 import numpy as np
 import pandas as pd
 import xarray as xr
+import cv2
 from numba import njit, int32, float32
 from numba.typed import List
 from scipy.interpolate import interp1d
@@ -183,6 +184,10 @@ class BaseDatasetOptions(BaseOptions):
         Return the subset of the input filepaths that is within the start and end time
         range.
         """
+        message = "get_filepaths being called from base class BaseDatasetOptions. "
+        message += "In this case get_filepaths just subsets the filepaths list "
+        message += "provided by the user."
+        logger.info(message)
         if self.filepaths is None:
             raise ValueError("Filepaths field has not been set.")
         if len(self.filepaths) == 0:
@@ -190,8 +195,7 @@ class BaseDatasetOptions(BaseOptions):
         time_filepath_lookup = create_time_filepath_lookup(self.filepaths)
         start, end = np.datetime64(self.start), np.datetime64(self.end)
         times = np.array(sorted(list(set(time_filepath_lookup.keys()))))
-        times_min = times.astype("datetime64[m]")
-        new_times = times[(times_min >= start) & (times_min <= end)]
+        new_times = times[(times >= start) & (times <= end)]
         new_filepaths = []
         for time in new_times:
             new_filepaths.append(time_filepath_lookup[time])
@@ -203,12 +207,21 @@ class BaseDatasetOptions(BaseOptions):
         time_str = format_time(time, filename_safe=False)
         logger.info(f"Updating {self.name} dataset for {time_str}.")
         input_record._current_file_index += 1
-        dataset = xr.open_dataset(self.filepaths[input_record._current_file_index])
+        filepath = self.filepaths[input_record._current_file_index]
+        args = [time, filepath, track_options, grid_options]
+        dataset, boundary_coords, simple_boundary_coords = self.convert_dataset(*args)
         input_record.dataset = dataset
+        input_record.next_domain_mask = dataset.domain_mask
+        input_record.next_boundary_coordinates = boundary_coords
+        input_record.next_boundary_mask = dataset["boundary_mask"]
 
     def grid_from_dataset(self, dataset, variable, time):
         """Get the grid from the dataset."""
         grid = dataset[variable].sel(time=time)
+        # Copy radar location data to grid if present in dataset
+        for attr in ["origin_longitude", "origin_latitude", "instrument"]:
+            if attr in dataset.attrs:
+                grid.attrs[attr] = dataset.attrs[attr]
         return grid
 
     def convert_dataset(self, time, filepath, track_options, grid_options):
@@ -220,7 +233,19 @@ class BaseDatasetOptions(BaseOptions):
         dataset = xr.open_dataset(filepath)
         if time not in dataset.time.values:
             raise ValueError(f"{time} not in dataset time values.")
-        return dataset, None, None
+        attrs = ["latitude", "longitude", "shape"]
+        if any(getattr(grid_options, attr) is None for attr in attrs):
+            grid_options_from_dataset(dataset, grid_options)
+        if "domain_mask" in dataset:
+            logger.info("Domain mask found in dataset. Getting boundary coordinates.")
+            all_coords = get_mask_boundary(dataset.domain_mask, grid_options)
+            boundary_coords, simple_boundary_coords, boundary_mask = all_coords
+            dataset["boundary_mask"] = boundary_mask
+        else:
+            boundary_coords = None
+            simple_boundary_coords = None
+
+        return dataset, boundary_coords, simple_boundary_coords
 
     @model_validator(mode="after")
     def _check_name(cls, values):
@@ -265,6 +290,66 @@ class BaseDatasetOptions(BaseOptions):
             message += "and the gridrad.ipynb demo."
             raise ValueError(message)
         return values
+
+
+def grid_options_from_dataset(dataset, grid_options):
+    """Update the grid options using the dataset."""
+    logger.info("Updating grid_options latitude, longitude and shape using dataset.")
+    if grid_options.name == "geographic":
+        grid_options.latitude = dataset.latitude.values.tolist()
+        grid_options.longitude = dataset.longitude.values.tolist()
+        grid_options.shape = [len(dataset.latitude), len(dataset.longitude)]
+    elif grid_options.name == "cartesian":
+        grid_options.latitude = dataset.y.values.tolist()
+        grid_options.longitude = dataset.x.values.tolist()
+        grid_options.shape = [len(dataset.y), len(dataset.x)]
+    else:
+        raise ValueError(f"Grid name {grid_options.name} not recognised.")
+
+
+def get_mask_boundary(mask, grid_options):
+    """Get domain mask boundary using cv2."""
+
+    lons = np.array(grid_options.longitude)
+    lats = np.array(grid_options.latitude)
+    mask_array = mask.fillna(0).values.astype(np.uint8)
+    args = [mask_array, cv2.RETR_LIST]
+    # Record the contours with all points, and with only the end points of each line
+    # comprising the contour. The former is used to determine boundary overlap,
+    # the latter makes plotting the boundary more efficient.
+    contours = cv2.findContours(*args, cv2.CHAIN_APPROX_NONE)[0]
+    simple_contours = cv2.findContours(*args, cv2.CHAIN_APPROX_SIMPLE)[0]
+    boundary_coords = []
+    boundary_pixels = []
+    simple_boundary_coords = []
+
+    def get_boundary_coords(contour):
+        # Append the first point to the end to close the contour
+        contour = np.append(contour, [contour[0]], axis=0)
+        contour_rows = contour[:, :, 1].flatten()
+        contour_cols = contour[:, :, 0].flatten()
+        if grid_options.name == "cartesian":
+            boundary_lats = lats[contour_rows, contour_rows]
+            boundary_lons = lons[contour_rows, contour_cols]
+        elif grid_options.name == "geographic":
+            boundary_lats = lats[contour_rows]
+            boundary_lons = lons[contour_cols]
+        boundary_dict = {"latitude": boundary_lats, "longitude": boundary_lons}
+        pixel_dict = {"row": contour_rows, "col": contour_cols}
+        return boundary_dict, pixel_dict
+
+    for contour in contours:
+        boundary_dict, pixel_dict = get_boundary_coords(contour)
+        boundary_coords.append(boundary_dict)
+        boundary_pixels.append(pixel_dict)
+    for contour in simple_contours:
+        simple_boundary_coords.append(get_boundary_coords(contour)[0])
+
+    boundary_mask = xr.zeros_like(mask).astype(bool)
+    for pixels in boundary_pixels:
+        boundary_mask.values[pixels["row"], pixels["col"]] = True
+
+    return boundary_coords, simple_boundary_coords, boundary_mask
 
 
 def generate_times(filepaths: list[str]) -> Generator[np.datetime64, None, None]:

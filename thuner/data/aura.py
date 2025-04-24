@@ -77,10 +77,6 @@ class CPOLOptions(AURAOptions):
     def convert_dataset(self, time, filepath, track_options, grid_options):
         return convert_cpol(time, filepath, track_options, self, grid_options)
 
-    def grid_from_dataset(self, dataset, variable, time):
-        """Get a grid from a CPOL dataset."""
-        return cpol_grid_from_dataset(dataset, variable, time)
-
     @model_validator(mode="after")
     def _check_times(cls, values):
         if np.datetime64(values.start) < np.datetime64("1998-12-06T00:00:00"):
@@ -395,11 +391,3 @@ def update_aura_dataset(
         _utils.save_converted_dataset(raw_filepath, dataset, dataset_options)
 
     input_record.dataset = dataset
-
-
-def cpol_grid_from_dataset(dataset, variable, time):
-    """Get a grid from a CPOL dataset, ensuring useful attributes are copied."""
-    grid = dataset[variable].sel(time=time)
-    for attr in ["origin_longitude", "origin_latitude", "instrument"]:
-        grid.attrs[attr] = dataset.attrs[attr]
-    return grid
