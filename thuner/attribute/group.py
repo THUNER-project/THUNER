@@ -55,6 +55,11 @@ def offset_from_centers(object_tracks, attribute_group: AttributeGroup, objects)
     return {"y_offset": y_offsets, "x_offset": x_offsets}
 
 
+def members_from_masks(object_tracks, attribute_group: AttributeGroup, members_matched):
+    """Retrieve ids of the member objects comprising the grouped object."""
+    pass
+
+
 class XOffset(Attribute):
     """Zonal offset between member objects."""
 
@@ -85,6 +90,41 @@ class Offset(AttributeGroup):
         function=offset_from_centers,
         keyword_arguments={"objects": ["convective", "anvil"]},
     )
+
+
+class MemberIDs(Attribute):
+    """Member IDs of the group."""
+
+    name: str = ""  # Replace this with the actual object name
+    data_type: type = str
+    description: str = "IDs of the member objects in the grouped object."
+
+
+def build_membership_attribute_group(
+    member_objects=["convective", "middle", "anvil"],
+    members_matched=[True, False, False],
+):
+    """
+    Create attribute options for each member object of a group, and an encompassing
+    attribute group.
+    """
+    attributes = []
+    for i, obj in enumerate(member_objects):
+        id_type = "universal_id" if members_matched[i] else "id"
+        name = f"{obj}_{id_type}s"
+        description = f"Space seperated list of the {id_type}s of the {obj} objects "
+        description += "in the group."
+        kwargs = {"name": name, "data_type": str, "description": description}
+        attributes.append(Attribute(**kwargs))
+    description = f"Attribute group for the attributes describing member object ids of "
+    description += "a grouped object."
+    kwargs = {"function": members_from_masks}
+    kwargs["keyword_arguments"] = {"members_matched": members_matched}
+    retrieval = Retrieval(**kwargs)
+
+    kwargs = {"name": "member_objects", "attributes": attributes}
+    kwargs.update({"retrieval": retrieval, "description": description})
+    return AttributeGroup(**kwargs)
 
 
 # Convenience functions for creating default group attribute type

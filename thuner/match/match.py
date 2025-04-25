@@ -1,3 +1,5 @@
+"""Module for matching objects between current and next masks."""
+
 from collections import deque
 import numpy as np
 import pandas as pd
@@ -10,7 +12,7 @@ from thuner.match.utils import get_masks
 logger = setup_logger(__name__)
 
 
-__all__ = ["match"]
+__all__ = ["match", "tint"]
 
 
 def initialise_match_records(object_tracks, object_options):

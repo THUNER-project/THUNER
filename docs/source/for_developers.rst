@@ -26,7 +26,6 @@ We also need classes that collect attributes and other data for each object as t
 tracking run proceeds. First we need a class to store the attributes of each object
 as they are collected. Attributes are stored in dictionaries, with the dictionaries
 cleared periodically when data is written to disk.
-:class:`thuner.option.track.TrackOptions`.
 
 .. autopydantic_model:: thuner.attribute.utils.AttributesRecord
     :no-index:

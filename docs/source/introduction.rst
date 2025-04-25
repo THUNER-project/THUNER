@@ -88,9 +88,9 @@ run the tracking loop on each chunk independently, then stitch the results back
 together.
 
 The tracking loop works on gridded meteorological data stored as 
-`xarray <https://docs.xarray.dev/en/stable/>`__ Dataset or DataArray objects, with 
+``xarray.Dataset`` or ``xarray.DataArray`` objects, with 
 variables named according to `CF conventions <https://cfconventions.org/>`__. Using
-xarray internally greatly simplifies code readability and debugging. To apply THUNER 
+``xarray`` internally greatly simplifies code readability and debugging. To apply THUNER 
 to a given dataset, input data must be reformatted to be consistent with THUNER's internal 
 format. Reformatting can be done manually before a THUNER run. However, creating copies 
 of large datasets is not always possible due to storage constraints, and THUNER 
