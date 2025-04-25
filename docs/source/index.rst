@@ -45,6 +45,7 @@ Contents
    installation
    tutorials
    api
+   for_developers
 
 Acknowledgements
 ------------------

@@ -1,6 +1,6 @@
 """General utilities for object attributes."""
 
-from pydantic import ValidationError
+from pydantic import ValidationError, ConfigDict
 import yaml
 from pathlib import Path
 import pandas as pd
@@ -71,8 +71,7 @@ class AttributesRecord(BaseModel):
     """
 
     # Allow arbitrary types in the class.
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     attribute_options: Attributes
     name: str = None

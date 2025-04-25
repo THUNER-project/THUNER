@@ -1,7 +1,7 @@
 """Tracking utilities."""
 
 from collections import deque
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, ConfigDict
 import numpy as np
 import xarray as xr
 from typing import Dict
@@ -12,6 +12,9 @@ from thuner.option.track import TrackOptions, BaseObjectOptions, LevelOptions
 __all__ = []
 
 
+DataObject = xr.DataArray | xr.Dataset
+
+
 class BaseInputRecord(BaseModel):
     """
     Base input record class. An input record will be defined for each dataset, and store
@@ -19,20 +22,29 @@ class BaseInputRecord(BaseModel):
     """
 
     # Allow arbitrary types in the input record classes.
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    name: str
-    filepaths: list[str] | dict | None = None
-    write_interval: np.timedelta64 = np.timedelta64(1, "h")
-    _desc = "Dataset from which to draw grids. This is updated periodically."
-    dataset: xr.Dataset | xr.DataArray | None = Field(None, description=_desc)
+    name: str = Field(..., description="Name of the input dataset being recorded.")
+    _desc = "The relevant dataset filepaths used for the run."
+    filepaths: list[str] | dict | None = Field(None, description=_desc)
+    _desc = "How often to move attribute data from working memory to hard disk."
+    write_interval: np.timedelta64 = Field(np.timedelta64(1, "h"), description=_desc)
+    _desc = "Dataset from which to draw grids, which is updated as needed as the run "
+    _desc += "progresses. In this context, a 'dataset' is an xarray.DataArray or "
+    _desc += "xarray.Dataset corresponding to a single file. A `grid` is a single time "
+    _desc += "step extracted from a dataset."
+    dataset: DataObject | None = Field(None, description=_desc)
 
-    # Initialize attributes not to be set during object creation.
-    # In pydantic these attributes begin with an underscore.
+    # Index of the file corresponding to the currently stored dataset.
+    # Initially set to -1 to indicate no file has been read yet.
     _current_file_index: int = -1
+    # The last time data was written to disk; Used to assess if write_interval
+    # has been reached.
     _last_write_time: np.datetime64 | None = None
+    # List of times considered during the tracking run.
     _time_list: list = []
+    # List of filepaths considered during the tracking run corresponding to
+    # _time_list. Note multiple times can correspond to the same file.
     _filepath_list: list = []
 
 
@@ -51,21 +63,27 @@ class TrackInputRecord(BaseInputRecord):
 
     deque_length: int = Field(2, description="Number of grids/masks to keep in memory.")
 
-    _desc = "Next grid to carry out detection/matching."
-    next_grid: xr.DataArray | xr.Dataset | None = Field(None, description=_desc)
-    grids: deque | None = None
-    next_domain_mask: xr.DataArray | xr.Dataset | None = None
-    domain_masks: deque | None = None
-    next_boundary_mask: xr.DataArray | xr.Dataset | None = None
-    boundary_masks: deque | None = None
-    next_boundary_coordinates: xr.DataArray | xr.Dataset | None = None
-    boundary_coodinates: deque | None = None
+    _desc = "Next grid to carry out detection/matching. "
+    _desc += "A 'grid' in thuner is a single time step."
+    next_grid: DataObject | None = Field(None, description=_desc)
+    _desc = "Deque of current/previous grids."
+    grids: deque[DataObject] | None = Field(None, description=_desc)
+    _desc = "The domain mask, i.e. region of valid values, for the next grid."
+    next_domain_mask: DataObject | None = Field(None, description=_desc)
+    _desc = "Deque of current/previous domain masks."
+    domain_masks: deque[DataObject] | None = Field(None, description=_desc)
+    _desc = "The next grid's boundary mask, i.e. mask of boundary pixels."
+    next_boundary_mask: DataObject | None = Field(None, description=_desc)
+    _desc = "Deque of current/previous boundary masks."
+    boundary_masks: deque[DataObject] | None = Field(None, description=_desc)
+    _desc = "The next grid's boundary coordinates."
+    next_boundary_coordinates: Dict | None = Field(None, description=_desc)
+    _desc = "Deque of current/previous boundary coordinates."
+    boundary_coodinates: deque | None = Field(None, description=_desc)
     _desc = "Dictionaries descibing synthetic objects. See thuner.data.synthetic."
     synthetic_objects: list[dict] | None = Field(None, description=_desc)
     _desc = "Synthetic base dataset. See thuner.data.synthetic."
-    synthetic_base_dataset: xr.DataArray | xr.Dataset | None = Field(
-        None, description=_desc
-    )
+    synthetic_base_dataset: DataObject | None = Field(None, description=_desc)
 
     @model_validator(mode="after")
     def _initialize_deques(cls, values):
@@ -80,13 +98,14 @@ class InputRecords(BaseModel):
     """
 
     # Allow arbitrary types in the input records class.
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    data_options: DataOptions
+    data_options: DataOptions = Field(..., description="Options for the datasets.")
 
-    track: Dict[str, TrackInputRecord] = {}
-    tag: Dict[str, BaseInputRecord] = {}
+    _desc = "Dictionary containing the input records for tracking datasets."
+    track: Dict[str, TrackInputRecord] = Field({}, description=_desc)
+    _desc = "Dictionary containing the input records for tagging datasets."
+    tag: Dict[str, BaseInputRecord] = Field({}, description=_desc)
 
     @model_validator(mode="after")
     def _initialize_input_records(cls, values):
@@ -110,8 +129,7 @@ class ObjectTracks(BaseModel):
     """
 
     # Allow arbitrary types in the class.
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     _desc = "Options for the object to be tracked."
     object_options: BaseObjectOptions = Field(..., description=_desc)
@@ -125,7 +143,7 @@ class ObjectTracks(BaseModel):
     _desc = "Next grid for tracking."
     next_grid: xr.DataArray | xr.Dataset | None = Field(None, description=_desc)
     _desc = "Deque of current/previous grids."
-    grids: deque | None = Field(None, description=_desc)
+    grids: deque[DataObject] | None = Field(None, description=_desc)
 
     _desc = "Interval between current and next grids."
     next_time_interval: np.timedelta64 | None = Field(None, description=_desc)
@@ -135,22 +153,22 @@ class ObjectTracks(BaseModel):
     _desc = "Next time for tracking."
     next_time: np.datetime64 | None = Field(None, description=_desc)
     _desc = "Deque of current/previous times."
-    times: deque | None = Field(None, description=_desc)
+    times: deque[np.datetime64] | None = Field(None, description=_desc)
 
     _desc = "Next mask for tracking."
     next_mask: xr.DataArray | xr.Dataset | None = Field(None, description=_desc)
     _desc = "Deque of current/previous masks."
-    masks: deque | None = Field(None, description=_desc)
+    masks: deque[DataObject] | None = Field(None, description=_desc)
 
     _desc = "Next matched mask for tracking."
     next_matched_mask: xr.DataArray | xr.Dataset | None = Field(None, description=_desc)
     _desc = "Deque of current/previous matched masks."
-    matched_masks: deque | None = Field(None, description=_desc)
+    matched_masks: deque[DataObject] | None = Field(None, description=_desc)
 
     _desc = "Current match record."
-    match_record: dict | None = Field(None, description=_desc)
+    match_record: Dict | None = Field(None, description=_desc)
     _desc = "Deque of previous match records."
-    previous_match_records: deque | None = Field(None, description=_desc)
+    previous_match_records: deque[Dict] | None = Field(None, description=_desc)
 
     _desc = "Attributes for the object."
     attributes: AttributesRecord | None = Field(None, description=_desc)
@@ -158,18 +176,20 @@ class ObjectTracks(BaseModel):
     current_attributes: AttributesRecord | None = Field(None, description=_desc)
 
     _desc = "Area of each grid cell in km^2."
-    gridcell_area: xr.DataArray | xr.Dataset | None = Field(None, description=_desc)
+    gridcell_area: DataObject | None = Field(None, description=_desc)
 
     _last_write_time: np.datetime64 | None = None
 
     @model_validator(mode="after")
     def _initialize_deques(cls, values):
+        """Initialize the deques for the object."""
         names = ["grids", "previous_time_interval", "times"]
         names += ["masks", "matched_masks", "previous_match_records"]
         return _init_deques(values, names)
 
     @model_validator(mode="after")
     def _check_name(cls, values):
+        """Check the name of the object matches the object_options name."""
         if values.name is None:
             values.name = values.object_options.name
         elif values.name != values.object_options.name:
@@ -178,6 +198,7 @@ class ObjectTracks(BaseModel):
 
     @model_validator(mode="after")
     def _initialize_attributes(cls, values):
+        """Initialize the attributes for the object."""
         options = values.object_options.attributes
         if options is not None:
             values.attributes = AttributesRecord(attribute_options=options)
@@ -192,8 +213,7 @@ class LevelTracks(BaseModel):
     """
 
     # Allow arbitrary types in the class.
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     _desc = "Options for the given level of the hierachy."
     level_options: LevelOptions = Field(..., description=_desc)
@@ -201,6 +221,7 @@ class LevelTracks(BaseModel):
 
     @model_validator(mode="after")
     def _initialize_objects(cls, values):
+        """Initialize the objects of the given level."""
         for obj_options in values.level_options.objects:
             values.objects[obj_options.name] = ObjectTracks(object_options=obj_options)
         return values
@@ -212,14 +233,14 @@ class Tracks(BaseModel):
     """
 
     # Allow arbitrary types in the class.
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     levels: list[LevelTracks] = Field([], description="Tracks for each hierachy level.")
     track_options: TrackOptions = Field(..., description="Options for tracking.")
 
     @model_validator(mode="after")
     def _initialize_levels(cls, values):
+        """Initialize the levels of the tracking hierarchy."""
         for level_options in values.track_options.levels:
             values.levels.append(LevelTracks(level_options=level_options))
         return values

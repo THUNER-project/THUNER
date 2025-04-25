@@ -1,8 +1,12 @@
 Testing: Synthetic Data
 =======================
 
-For more detailed explanations of THUNER’s usage and features, see the
-GridRad Severe demo/tutorial.
+The synthetic module is a work in progress. The idea is to allow
+synthetic meteorological datasets to be readily created for testing
+purposes. While an entire synthetic dataset could be created first, then
+fed into THUNER in the usual way (see previous tutorials/demos) with
+this module we instead generate the synthetic data as we go. The
+approach avoids the need for storing large datasets.
 
 .. code-block:: python3
     :linenos:

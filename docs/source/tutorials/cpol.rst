@@ -258,7 +258,7 @@ We can also perform analysis on, and visualization of, the MCS objects.
     :linenos:
 
     figure_name = "mcs_attributes"
-    kwargs = {"style": "presentation", "attributes": ["velocity", "offset"]}
+    kwargs = {"style": "presentation", "attributes": ["id", "velocity", "offset"]}
     figure_options = option.visualize.HorizontalAttributeOptions(name=figure_name, **kwargs)
     
     args = [output_parent, start, end, figure_options]
@@ -373,7 +373,7 @@ If you get a pydantic error, restart the notebook.
     :linenos:
 
     figure_name = "mcs_attributes"
-    kwargs = {"style": "presentation", "attributes": ["velocity", "offset"]}
+    kwargs = {"style": "presentation", "attributes": ["id", "velocity", "offset"]}
     figure_options = option.visualize.HorizontalAttributeOptions(name=figure_name, **kwargs)
     
     args = [output_parent, start, end, figure_options]
@@ -488,7 +488,7 @@ fly. We will also switch off the runtime figure generation.
     :linenos:
 
     figure_name = "mcs_attributes"
-    kwargs = {"style": "presentation", "attributes": ["velocity", "offset"]}
+    kwargs = {"style": "presentation", "attributes": ["id", "velocity", "offset"]}
     figure_options = option.visualize.HorizontalAttributeOptions(name=figure_name, **kwargs)
     
     args = [output_parent, start, end, figure_options]

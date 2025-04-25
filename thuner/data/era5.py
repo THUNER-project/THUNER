@@ -61,7 +61,7 @@ class ERA5Options(BaseDatasetOptions):
 
     def update_input_record(self, time, input_record, track_options, grid_options):
         """Update the era5 dataset."""
-        update_era5_dataset(time, input_record, track_options, self, grid_options)
+        update_era5_input_record(time, input_record, track_options, self, grid_options)
 
     @model_validator(mode="after")
     def _check_ranges(cls, values):
@@ -399,7 +399,7 @@ def convert_era5(ds):
     return ds
 
 
-def update_era5_dataset(
+def update_era5_input_record(
     time, input_record, track_options, dataset_options, grid_options
 ):
     """Update ERA5 dataset."""

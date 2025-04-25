@@ -82,6 +82,7 @@ intersphinx_mapping = {
     "pylint": ("https://pylint.pycqa.org/en/latest/", None),
     "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
     "xarray": ("https://docs.xarray.dev/en/stable/", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
 }
 intersphinx_disabled_domains = ["std"]
 
