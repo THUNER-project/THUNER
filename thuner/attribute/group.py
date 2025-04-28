@@ -7,6 +7,7 @@ import thuner.attribute.core as core
 import numpy as np
 import thuner.grid as grid
 from thuner.option.attribute import Retrieval, Attribute, AttributeType, AttributeGroup
+from thuner.attribute.utils import get_current_mask, get_ids
 
 logger = setup_logger(__name__)
 
@@ -55,9 +56,39 @@ def offset_from_centers(object_tracks, attribute_group: AttributeGroup, objects)
     return {"y_offset": y_offsets, "x_offset": x_offsets}
 
 
-def members_from_masks(object_tracks, attribute_group: AttributeGroup, members_matched):
+def members_from_masks(
+    object_options,
+    tracks,
+    matched: bool,
+    members_matched: list[bool],
+):
     """Retrieve ids of the member objects comprising the grouped object."""
-    pass
+
+    object_name = object_options.name
+    object_level = object_options.hierarchy_level
+    object_tracks = tracks.levels[object_level].objects[object_name]
+
+    member_objects = object_options.grouping.member_objects
+    member_levels = object_options.grouping.member_levels
+
+    grouped_mask = get_current_mask(object_tracks, matched)
+    ids = get_ids(object_tracks, matched, None)
+    member_object_ids = {f"{member_obj}_ids": [] for member_obj in member_objects}
+    for object_id in ids:
+        for i, obj in enumerate(member_objects):
+            level = member_levels[i]
+            member_tracks = tracks.levels[level].objects[obj]
+            mask = get_current_mask(member_tracks, members_matched[i])
+            mask_name = obj + "_mask"
+            member_ids = mask.where(grouped_mask[mask_name] == object_id)
+            member_ids = np.unique(member_ids.values.flatten())
+            member_ids = member_ids[np.logical_not(np.isnan(member_ids))]
+            # Create a space separated string of ids
+            member_ids = " ".join([str(int(id)) for id in member_ids])
+            member_object_ids[f"{obj}_ids"].append(member_ids)
+
+    # Rename the keys to match the attribute names
+    return member_object_ids
 
 
 class XOffset(Attribute):
@@ -102,16 +133,18 @@ class MemberIDs(Attribute):
 
 def build_membership_attribute_group(
     member_objects=["convective", "middle", "anvil"],
+    matched=True,
     members_matched=[True, False, False],
 ):
     """
     Create attribute options for each member object of a group, and an encompassing
-    attribute group.
+    attribute group. Note the object ordering implicit in members_matched should match
+    the ordering of objects in the grouped objects grouping options.
     """
     attributes = []
     for i, obj in enumerate(member_objects):
         id_type = "universal_id" if members_matched[i] else "id"
-        name = f"{obj}_{id_type}s"
+        name = f"{obj}_ids"
         description = f"Space seperated list of the {id_type}s of the {obj} objects "
         description += "in the group."
         kwargs = {"name": name, "data_type": str, "description": description}
@@ -119,7 +152,9 @@ def build_membership_attribute_group(
     description = f"Attribute group for the attributes describing member object ids of "
     description += "a grouped object."
     kwargs = {"function": members_from_masks}
-    kwargs["keyword_arguments"] = {"members_matched": members_matched}
+    kwargs["keyword_arguments"] = {"matched": matched}
+    kwargs["keyword_arguments"]["members_matched"] = members_matched
+
     retrieval = Retrieval(**kwargs)
 
     kwargs = {"name": "member_objects", "attributes": attributes}

@@ -10,6 +10,7 @@ from thuner.match.object import get_object_center
 import thuner.grid as grid
 import thuner.attribute.utils as utils
 from thuner.option.attribute import Retrieval, Attribute, AttributeGroup, AttributeType
+from thuner.attribute.utils import get_ids
 
 logger = setup_logger(__name__)
 
@@ -174,21 +175,6 @@ def velocities_from_match_record(
     v_list = np.array(v_list).astype(data_type).tolist()
     u_list = np.array(u_list).astype(data_type).tolist()
     return dict(zip(names, [v_list, u_list]))
-
-
-def get_ids(object_tracks, matched, member_object):
-    """Get object ids from the match record to avoid recalculating."""
-    current_attributes = object_tracks.current_attributes
-    name = object_tracks.name
-    if matched:
-        id_name = "universal_id"
-    else:
-        id_name = "id"
-    if member_object is not None:
-        ids = current_attributes.member_attributes[member_object]["core"][id_name]
-    else:
-        ids = current_attributes.attribute_types["core"][id_name]
-    return ids
 
 
 def coordinates_from_mask(

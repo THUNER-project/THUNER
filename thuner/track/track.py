@@ -208,7 +208,7 @@ def track_object(
     runtime.visualize(*visualize_args)
     # Update the lists used to periodically write data to file
     if object_tracks.times[-1] is not None:
-        args = [input_records, object_tracks, object_options, grid_options]
+        args = [input_records, tracks, object_options, grid_options]
         attribute.record(*args)
 
 

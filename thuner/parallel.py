@@ -359,7 +359,7 @@ def stitch_run(output_parent, intervals, cleanup=True):
             member_object = False
         else:
             member_object = True
-        args = [dfs, obj, filepaths, attribute_dict, match_dicts, time_dicts]
+        args = [dfs, obj, filepaths, attribute_dict, match_dicts, time_dicts, id_dicts]
         args += [intervals, tracked_objects]
         id_dict = stitch_attribute(*args)
         if not member_object and obj in tracked_objects:
@@ -437,6 +437,23 @@ def stitch_masks(mask_file_dict, intervals, id_dicts):
         stitch_mask(intervals, masks, id_dicts, filepaths, obj)
 
 
+def relabel_id_string(i, df, column_name, id_dicts, mapping=None, object_name=None):
+    """Relabel the ids in a space seperated string."""
+    row = df.iloc[i]
+    if str(row[column_name]) == "nan":
+        return
+    if mapping is None:
+        mapping = get_mapping(id_dicts, object_name, row["interval"])
+    obj_ids = row[column_name].split(" ")
+    new_obj_ids = []
+    for obj_id in obj_ids:
+        obj_id = int(obj_id)
+        new_obj_id = mapping[obj_id]
+        new_obj_ids.append(str(new_obj_id))
+    new_obj_ids = " ".join(new_obj_ids)
+    df.at[i, column_name] = new_obj_ids
+
+
 def stitch_attribute(
     dfs,
     obj,
@@ -444,6 +461,7 @@ def stitch_attribute(
     attribute_dict,
     match_dicts,
     time_dicts,
+    id_dicts,
     intervals,
     tracked_objects,
 ):
@@ -456,6 +474,7 @@ def stitch_attribute(
     else:
         id_type = "id"
 
+    # First ensure object ids increase sequentially over all intervals
     for i, df in enumerate(dfs):
         index_columns = list(df.index.names)
         df["interval"] = i
@@ -478,26 +497,35 @@ def stitch_attribute(
     index_columns = list(df.index.names)
     df = df.reset_index()
 
+    # Next relabel the ids based on the match_dicts if the object is matched/tracked
     if obj in tracked_objects:
         df = relabel_tracked(intervals, match_dicts, obj, df)
 
+    # Finally, relabel the ids based to ensure no id is skipped, which can occur
+    # after the relabelling step
     unique_ids = df[id_type].unique()
     mapping = {old_id: new_id + 1 for new_id, old_id in enumerate(sorted(unique_ids))}
     df[id_type] = df[id_type].map(mapping)
-    # Relabel parents
+
+    # Relabel parents. Note we can use the mapping dict defined above as parents were
+    # relabelled in the same way as the ids in the relabel_tracked function.
     if "parents" in df.columns:
         for i in range(len(df)):
-            row = df.iloc[i]
-            if str(row["parents"]) == "nan":
-                continue
-            parents = row["parents"].split(" ")
-            new_parents = []
-            for p in parents:
-                p = int(p)
-                new_parent = mapping[p]
-                new_parents.append(str(new_parent))
-            new_parents = " ".join(new_parents)
-            df.at[i, "parents"] = new_parents
+            relabel_id_string(i, df, "parents", id_dicts, mapping)
+
+    # Relabel the member objects. Here we use the mapping dict specific to the
+    # given interval, which uses the original id as key, as the member_objects were
+    # not changed by the relabel_tracked function.
+    attribute_names = list(attribute_dict._attribute_lookup.keys())
+    if "member_objects" in attribute_names:
+        attribute_group = attribute_dict.attribute_by_name("member_objects")
+        members_matched = attribute_group.retrieval.keyword_arguments["members_matched"]
+        for i, obj_attr in enumerate(attribute_group.attributes):
+            member_obj = obj_attr.name.replace("_ids", "")
+            if members_matched[i]:
+                for i in range(len(df)):
+                    args = [i, df, f"{member_obj}_ids", id_dicts]
+                    relabel_id_string(*args, object_name=member_obj)
 
     id_dict = df[[id_type, "original_id", "interval"]].drop_duplicates()
     id_dict = id_dict.set_index(["interval", "original_id"]).sort_index()
@@ -544,7 +572,9 @@ def relabel_tracked(intervals, match_dicts, obj, df):
 
 
 def relabel_parents(df, next_interval, current_interval, reversed_match_dict):
-    """Relabel parents based on reversed_match_dict. This is fiddly."""
+    """
+    Relabel parents based on reversed_match_dict.
+    """
     parents = df.loc[next_interval, "parents"]
     new_parents = []
     for object_parents in parents:

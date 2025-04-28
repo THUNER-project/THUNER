@@ -3,6 +3,8 @@
 from thuner.log import setup_logger
 from thuner.option.track import AnyObjectOptions
 from thuner.option.attribute import Attribute, AttributeGroup
+from thuner.option.grid import GridOptions
+from thuner.track._utils import InputRecords, Tracks
 import thuner.utils as utils
 
 logger = setup_logger(__name__)
@@ -31,12 +33,15 @@ def retrieve_attribute(general_kwargs, attribute, member_object=None):
 
 
 def record(
-    input_records,
-    object_tracks,
+    input_records: InputRecords,
+    tracks: Tracks,
     object_options: AnyObjectOptions,
-    grid_options,
+    grid_options: GridOptions,
 ):
     """Record object attributes."""
+
+    object_level = object_options.hierarchy_level
+    object_tracks = tracks.levels[object_level].objects[object_options.name]
 
     if object_tracks.match_record is None:
         no_objects = True
@@ -48,7 +53,9 @@ def record(
     logger.info(f"Recording {object_options.name} attributes.")
 
     # Specify the keyword arguments common to all attribute retrieval functions
-    kwargs = {"input_records": input_records}
+    # Some functions require the entire tracks object, while others only need the
+    # object tracks.
+    kwargs = {"input_records": input_records, "tracks": tracks}
     kwargs.update({"object_tracks": object_tracks, "object_options": object_options})
     kwargs.update({"grid_options": grid_options})
 
@@ -71,7 +78,7 @@ def record(
             obj_attributes.attribute_types[attribute_type.name].update(attr)
 
     # Append the current attributes to the attributes dictionary
-    append(object_tracks)
+    append_tracks(object_tracks)
 
 
 def append_attribute_type(current_attributes, attributes, attribute_type):
@@ -84,7 +91,7 @@ def append_attribute_type(current_attributes, attributes, attribute_type):
         attr_list += current_attributes[attribute_type][attr]
 
 
-def append(object_tracks):
+def append_tracks(object_tracks):
     """
     Append current_attributes dictionary to attributes dictionary grouped objects.
     """

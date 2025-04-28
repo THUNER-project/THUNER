@@ -17,6 +17,20 @@ logger = setup_logger(__name__)
 __all__ = ["read_attribute_csv", "AttributesRecord"]
 
 
+def get_ids(object_tracks, matched, member_object):
+    """Get object ids from the match record to avoid recalculating."""
+    current_attributes = object_tracks.current_attributes
+    if matched:
+        id_name = "universal_id"
+    else:
+        id_name = "id"
+    if member_object is not None:
+        ids = current_attributes.member_attributes[member_object]["core"][id_name]
+    else:
+        ids = current_attributes.attribute_types["core"][id_name]
+    return ids
+
+
 def get_nearest_points(
     stacked_mask: xr.DataArray | xr.Dataset,
     id_number: int,
