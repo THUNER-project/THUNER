@@ -263,6 +263,10 @@ def visualize_tint_match(
     handles = handles + [handle]
     labels = labels + ["Search Boxes"]
 
+    handle = horizontal.domain_boundary_legend_artist()
+    handles = handles + [handle]
+    labels = labels + ["Domain Boundary"]
+
     legend_options = {"ncol": 4, "loc": "lower center", "handler_map": handler}
     legend_axes[0].legend(handles, labels, **legend_options)
 
