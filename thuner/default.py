@@ -108,7 +108,7 @@ def runtime(visualize_directory, objects=["mcs"]):
 
     objects_dict = {}
     for obj in objects:
-        kwargs = {"name": "match", "function": vis_runtime.visualize_match}
+        kwargs = {"name": "tint_match", "function": vis_runtime.visualize_tint_match}
         match_figure = visualize_option.FigureOptions(**kwargs)
         kwargs = {"name": obj, "parent_local": visualize_directory}
         kwargs.update({"figures": [match_figure]})
@@ -135,7 +135,7 @@ def synthetic_track():
 def synthetic_runtime(visualize_directory):
     """Build default options for runtime visualization."""
 
-    kwargs = {"name": "match", "function": vis_runtime.visualize_match}
+    kwargs = {"name": "match", "function": vis_runtime.visualize_tint_match}
     match_figure = visualize_option.FigureOptions(**kwargs)
     kwargs = {"name": "convective", "parent_local": visualize_directory}
     kwargs.update({"figures": [match_figure]})

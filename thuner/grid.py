@@ -126,6 +126,18 @@ def get_coordinate_names(grid_options):
         raise ValueError(grid_name_message)
 
 
+def get_coordinates(grid_options, row, col):
+    """Get coordinates."""
+    row, col = int(row), int(col)
+    if grid_options.name == "cartesian":
+        latitude = grid_options.longitude[row, col]
+        longitude = grid_options.latitude[row, col]
+    elif grid_options.name == "geographic":
+        latitude = grid_options.latitude[row]
+        longitude = grid_options.longitude[col]
+    return latitude, longitude
+
+
 def get_distance(row_1, col_1, row_2, col_2, grid_options):
     """Get the distance in meters between two grid cells."""
     row_coords, col_coords = get_horizontal_coordinates(grid_options)

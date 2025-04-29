@@ -6,7 +6,6 @@ and visualization purposes.
 import copy
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import patches as mpatches
 import cartopy.crs as ccrs
 import thuner.visualize.horizontal as horizontal
 from thuner.visualize.visualize import styles
@@ -128,14 +127,26 @@ def match_features(grid, match_record, axes, grid_options, unique_global_flow=Tr
         horizontal.pixel_displacement(*args, **vector_options)
     for i in range(len(match_record["ids"])):
         # Get the flows, displacements and boxes.
-        id = match_record["universal_ids"][i]
-        color_index = (id - 1) % len(colors)
+        obj_id = match_record["universal_ids"][i]
+        color_index = (obj_id - 1) % len(colors)
         color = colors[color_index]
         flow_box = match_record["flow_boxes"][i]
         flow = match_record["flows"][i]
         corrected_flow = match_record["corrected_flows"][i]
         search_box = match_record["search_boxes"][i]
+
+        # Plot object universal ID in current grid.
         center = match_record["centers"][i]
+        coords = thuner_grid.get_coordinates(grid_options, center[0], center[1])
+        horizontal.embossed_text(axes[1], str(obj_id), coords[1], coords[0])
+        # Plot object universal IDs in next grid.
+        next_center = match_record["next_centers"][i]
+        if np.all(np.logical_not(np.isnan(next_center))):
+            args = [grid_options, next_center[0], next_center[1]]
+            next_coords = thuner_grid.get_coordinates(*args)
+            args = [axes[2], str(obj_id), next_coords[1], next_coords[0]]
+            horizontal.embossed_text(*args)
+
         displacement = match_record["displacements"][i]
         row, col = get_box_center_coords(flow_box, grid_options)[2:]
         if not unique_global_flow:
@@ -179,7 +190,7 @@ def match_features(grid, match_record, axes, grid_options, unique_global_flow=Tr
         axes[1].text(text_lon, text_lat, object_text, **text_properties)
 
 
-def visualize_match(
+def visualize_tint_match(
     input_record,
     tracks,
     level_index,
