@@ -87,6 +87,7 @@ def convert_notebook_to_tutorial(notebook_path, rst_path):
         "thuner.attribute.utils.read_attribute_csv",
         "thuner.config.set_outputs_directory",
         "thuner.config.get_outputs_directory",
+        "xarray.open_dataset",
     ]
     for function_name in functions:
         rst = rst.replace(f"``{function_name}``", f":func:`{function_name}`")
