@@ -59,8 +59,8 @@ Setup
     visualize_directory = output_parent / "visualize"
     
     # Remove the output parent directory if it already exists
-    # if output_parent.exists():
-        # shutil.rmtree(output_parent)
+    if output_parent.exists():
+        shutil.rmtree(output_parent)
 
 Run the cell below to get the demo data for this tutorial, if you
 haven’t already.
@@ -77,21 +77,21 @@ haven’t already.
 
 .. code-block:: text
 
-    download: s3://thuner-storage/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.005000.nc to ../../../THUNER_output/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.005000.nc
     download: s3://thuner-storage/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.004000.nc to ../../../THUNER_output/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.004000.nc
-    download: s3://thuner-storage/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.000000.nc to ../../../THUNER_output/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.000000.nc
-    download: s3://thuner-storage/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.002000.nc to ../../../THUNER_output/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.002000.nc
-    download: s3://thuner-storage/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.013000.nc to ../../../THUNER_output/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.013000.nc
-    download: s3://thuner-storage/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.003000.nc to ../../../THUNER_output/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.003000.nc
+    download: s3://thuner-storage/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.005000.nc to ../../../THUNER_output/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.005000.nc
     download: s3://thuner-storage/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.012000.nc to ../../../THUNER_output/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.012000.nc
-    download: s3://thuner-storage/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.015000.nc to ../../../THUNER_output/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.015000.nc
     download: s3://thuner-storage/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.010000.nc to ../../../THUNER_output/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.010000.nc
+    download: s3://thuner-storage/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.013000.nc to ../../../THUNER_output/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.013000.nc
     download: s3://thuner-storage/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.020000.nc to ../../../THUNER_output/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.020000.nc
-    download: s3://thuner-storage/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.022000.nc to ../../../THUNER_output/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.022000.nc
-    download: s3://thuner-storage/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.021000.nc to ../../../THUNER_output/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.021000.nc
-    download: s3://thuner-storage/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.023000.nc to ../../../THUNER_output/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.023000.nc
-    download: s3://thuner-storage/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.025000.nc to ../../../THUNER_output/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.025000.nc
+    download: s3://thuner-storage/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.011000.nc to ../../../THUNER_output/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.011000.nc
+    download: s3://thuner-storage/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.015000.nc to ../../../THUNER_output/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.015000.nc
     download: s3://thuner-storage/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.014000.nc to ../../../THUNER_output/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.014000.nc
+    download: s3://thuner-storage/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.023000.nc to ../../../THUNER_output/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.023000.nc
+    download: s3://thuner-storage/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.030000.nc to ../../../THUNER_output/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.030000.nc
+    download: s3://thuner-storage/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.021000.nc to ../../../THUNER_output/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.021000.nc
+    download: s3://thuner-storage/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.031000.nc to ../../../THUNER_output/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.031000.nc
+    download: s3://thuner-storage/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.001000.nc to ../../../THUNER_output/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.001000.nc
+    download: s3://thuner-storage/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.024000.nc to ../../../THUNER_output/THUNER_output/input_data/raw/cpol/cpol_level_1b/v2020/gridded/grid_150km_2500m/2005/20051113/twp10cpolgrid150.b2.20051113.024000.nc
     ...
 
 Geographic Coordinates
@@ -143,15 +143,21 @@ later.
     track_options.levels[0].object_by_name("convective").detection.altitudes
     track_options.levels[0].object_by_name("convective").revalidate()
     track_options.levels[0].revalidate()
+    # We will also modify the mcs tracking options to save a record of the member object ids
+    mcs_attributes = track_options.levels[1].object_by_name("mcs").attributes
+    mcs_group_attr = mcs_attributes.attribute_type_by_name("group")
+    membership = attribute.group.build_membership_attribute_group()
+    mcs_group_attr.attributes.append(membership)
+    mcs_group_attr.revalidate()
     track_options.to_yaml(options_directory / "track.yml")
 
 .. code-block:: text
 
-    2025-04-24 23:36:03,359 - thuner.data.aura - INFO - Generating cpol filepaths.
-    2025-04-24 23:36:03,362 - thuner.data.era5 - INFO - Generating era5 filepaths.
-    2025-04-24 23:36:03,365 - thuner.data.era5 - INFO - Generating era5 filepaths.
-    2025-04-24 23:36:03,389 - thuner.option.grid - WARNING - altitude not specified. Using default altitudes.
-    2025-04-24 23:36:03,390 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
+    2025-04-29 19:06:19,008 - thuner.data.aura - INFO - Generating cpol filepaths.
+    2025-04-29 19:06:19,009 - thuner.data.era5 - INFO - Generating era5 filepaths.
+    2025-04-29 19:06:19,011 - thuner.data.era5 - INFO - Generating era5 filepaths.
+    2025-04-29 19:06:19,029 - thuner.option.grid - WARNING - altitude not specified. Using default altitudes.
+    2025-04-29 19:06:19,029 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
 
 For this tutorial, we will generate figures during runtime to visualize
 how THUNER is matching both convective and mcs objects.
@@ -179,21 +185,21 @@ using parallelization. To make the run go much faster, set
 
 .. code-block:: text
 
-    2025-04-24 23:31:45,100 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/cpol/geographic.
-    2025-04-24 23:31:45,646 - thuner.track.track - INFO - Processing 2005-11-13T14:00:09.
-    2025-04-24 23:31:45,647 - thuner.utils - INFO - Updating cpol input record for 2005-11-13T14:00:09.
-    2025-04-24 23:31:45,648 - thuner.data.aura - INFO - Updating cpol dataset for 2005-11-13T14:00:09.
-    2025-04-24 23:31:45,690 - thuner.data.aura - INFO - Creating new geographic grid with spacing 0.025 m, 0.025 m.
-    2025-04-24 23:31:48,561 - thuner.track.track - INFO - Processing hierarchy level 0.
-    2025-04-24 23:31:48,563 - thuner.track.track - INFO - Tracking convective.
-    2025-04-24 23:31:48,571 - thuner.detect.steiner - INFO - Compiling thuner.detect.steiner.steiner_scheme with Numba. Please wait.
-    2025-04-24 23:32:00,656 - thuner.match.match - INFO - Matching convective objects.
-    2025-04-24 23:32:00,667 - thuner.match.match - INFO - No current mask, or no objects in current mask.
-    2025-04-24 23:32:00,670 - thuner.visualize.runtime - INFO - Creating runtime visualization figures.
-    2025-04-24 23:32:03,790 - thuner.track.track - INFO - Tracking middle.
-    2025-04-24 23:32:03,793 - thuner.track.track - INFO - Tracking anvil.
-    2025-04-24 23:32:03,798 - thuner.track.track - INFO - Processing hierarchy level 1.
-    2025-04-24 23:32:03,799 - thuner.track.track - INFO - Tracking mcs.
+    2025-04-29 19:07:21,779 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/cpol/geographic.
+    2025-04-29 19:07:21,828 - thuner.track.track - INFO - Processing 2005-11-13T14:00:09.
+    2025-04-29 19:07:21,830 - thuner.utils - INFO - Updating cpol input record for 2005-11-13T14:00:09.
+    2025-04-29 19:07:21,832 - thuner.data.aura - INFO - Updating cpol dataset for 2005-11-13T14:00:09.
+    2025-04-29 19:07:22,379 - thuner.track.track - INFO - Processing hierarchy level 0.
+    2025-04-29 19:07:22,380 - thuner.track.track - INFO - Tracking convective.
+    2025-04-29 19:07:22,392 - thuner.match.match - INFO - Matching convective objects.
+    2025-04-29 19:07:22,393 - thuner.match.match - INFO - No current mask, or no objects in current mask.
+    2025-04-29 19:07:22,395 - thuner.visualize.runtime - INFO - Creating runtime visualization figures.
+    2025-04-29 19:07:24,310 - thuner.track.track - INFO - Tracking middle.
+    2025-04-29 19:07:24,314 - thuner.track.track - INFO - Tracking anvil.
+    2025-04-29 19:07:24,317 - thuner.track.track - INFO - Processing hierarchy level 1.
+    2025-04-29 19:07:24,317 - thuner.track.track - INFO - Tracking mcs.
+    2025-04-29 19:07:24,334 - thuner.match.match - INFO - Matching mcs objects.
+    2025-04-29 19:07:24,337 - thuner.match.match - INFO - No current mask, or no objects in current mask.
     ...
 
 Once completed, outputs are available in the ``output_parent``
