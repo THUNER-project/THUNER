@@ -301,10 +301,16 @@ def convert_cpol(time, filepath, track_options, dataset_options, grid_options):
             old_lons = cpol["longitude"].values
             args = [old_lats, old_lons, spacing[0], spacing[1]]
             latitude, longitude = grid.new_geographic_grid(*args)
-            grid_options.latitude = latitude
-            grid_options.longitude = longitude
-            grid_options.shape = [len(latitude), len(longitude)]
-        ds = xr.Dataset({dim: ([dim], getattr(grid_options, dim)) for dim in dims})
+            # grid_options.latitude = latitude
+            # grid_options.longitude = longitude
+            # grid_options.shape = [len(latitude), len(longitude)]
+        else:
+            # If the lat/lon of the new grid were specified, use them
+            latitude = grid_options.latitude
+            longitude = grid_options.longitude
+        dims_dict = {"latitude": latitude, "longitude": longitude}
+        # ds = xr.Dataset({dim: ([dim], getattr(grid_options, dim)) for dim in dims})
+        ds = xr.Dataset({dim: ([dim], dims_dict[dim]) for dim in dims})
         regrid_options = {"periodic": False, "extrap_method": None}
         regridder = xe.Regridder(cpol, ds, "bilinear", **regrid_options)
         ds = regridder(cpol)
@@ -315,25 +321,16 @@ def convert_cpol(time, filepath, track_options, dataset_options, grid_options):
             ds[coord].attrs = cpol[coord].attrs
         ds.attrs.update(cpol.attrs)
         ds.attrs["history"] += f", regridded using xesmf on " f"{np.datetime64('now')}"
-
     elif grid_options.name == "cartesian":
         dims = ["y", "x"]
         # Interpolate vertically
         ds = cpol.interp(altitude=grid_options.altitude, method="linear")
-        grid_options.latitude = ds["latitude"].values
-        grid_options.longitude = ds["longitude"].values
-        if grid_options.x is None or grid_options.y is None:
-            grid_options.x = ds["x"].values
-            grid_options.y = ds["y"].values
-            grid_options.shape = [len(ds["y"].values), len(ds["x"].values)]
-        x_spacing = ds["x"].values[1:] - ds["x"].values[:-1]
-        y_spacing = ds["y"].values[1:] - ds["y"].values[:-1]
-        if np.unique(x_spacing).size > 1 or np.unique(y_spacing).size > 1:
-            raise ValueError("x and y must have constant spacing.")
-        grid_options.cartesian_spacing = [y_spacing[0], x_spacing[0]]
+
+    # Update grid_options if necessary
+    utils.infer_grid_options(ds, grid_options)
 
     # Define grid shape and gridcell areas
-    grid_options.shape = [len(ds[dims[0]].values), len(ds[dims[1]].values)]
+    # grid_options.shape = [len(ds[dims[0]].values), len(ds[dims[1]].values)]
     cell_areas = grid.get_cell_areas(grid_options)
     ds["gridcell_area"] = (dims, cell_areas)
     new_entries = {"units": "km^2", "standard_name": "area", "valid_min": 0}
@@ -347,7 +344,6 @@ def convert_cpol(time, filepath, track_options, dataset_options, grid_options):
 
     # Get the domain mask and domain boundary. Note this is the region where data
     # exists, not the detected object masks from the detect module.
-    utils.infer_grid_options(ds, grid_options)
     domain_mask = _utils.mask_from_range(ds, dataset_options, grid_options)
     all_coords = utils.get_mask_boundary(domain_mask, grid_options)
     boundary_coords, simple_boundary_coords, boundary_mask = all_coords

@@ -428,14 +428,7 @@ def convert_gridrad(time, filepath, track_options, dataset_options, grid_options
         ds[field] = ds[field].expand_dims("time")
         ds[field].attrs["long_name"] = field
 
-    spacing = [ds.latitude.delta, ds.longitude.delta]
-    if grid_options.name == "geographic":
-        grid_options.latitude = ds.latitude.values
-        grid_options.longitude = ds.longitude.values
-        grid_options.altitude = ds.altitude.values
-        grid_options.geographic_spacing = spacing
-        grid_options.shape = [len(ds.latitude), len(ds.longitude)]
-
+    utils.infer_grid_options(ds, grid_options)
     ds["longitude"] = ds["longitude"] % 360
 
     # Get the domain mask associated with the given object
@@ -457,10 +450,6 @@ def convert_gridrad(time, filepath, track_options, dataset_options, grid_options
     # Apply the domain mask to the current grid
     ds = _utils.apply_mask(ds, grid_options)
     ds = ds.drop_vars(["number_of_observations", "number_of_echoes"])
-
-    attrs = ["latitude", "longitude", "shape"]
-    if any(getattr(grid_options, attr) is None for attr in attrs):
-        utils.grid_options_from_dataset(ds, grid_options)
 
     return ds, boundary_coords, simple_boundary_coords
 

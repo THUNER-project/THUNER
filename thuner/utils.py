@@ -29,6 +29,9 @@ logger = setup_logger(__name__)
 __all__ = ["BaseOptions", "ConvertedOptions", "BaseDatasetOptions"]
 
 
+DataObject = xr.DataArray | xr.Dataset
+
+
 def convert_value(value: Any) -> Any:
     """
     Convenience function to convert options attributes to types serializable as yaml.
@@ -121,62 +124,48 @@ class BaseOptions(BaseModel):
         return summary_str
 
 
-# Create convenience dictionary for options descriptions.
-_summary = {
-    "name": "Name of the dataset.",
-    "start": "Tracking start time.",
-    "end": "Tracking end time.",
-    "parent_remote": "Data parent directory on remote storage.",
-    "parent_local": "Data parent directory on local storage.",
-    "converted_options": "Options for converted data.",
-    "filepaths": "List of filepaths to used for tracking.",
-    "attempt_download": "Whether to attempt to download the data.",
-    "deque_length": """Number of current/previous grids from this dataset to keep in memory. 
-    Most tracking algorithms require at least two current/previous grids.""",
-    "use": "Whether this dataset will be used for tagging or tracking.",
-    "parent_converted": "Parent directory for converted data.",
-    "fields": """List of dataset fields, i.e. variables, to use. Fields should be given 
-    using their thuner, i.e. CF-Conventions, names, e.g. 'reflectivity'.""",
-    "start_buffer": """Minutes before interval start time to include. Useful for 
-    tagging datasets when one wants to record pre-storm ambient profiles.""",
-    "end_buffer": """Minutes after interval end time to include. Useful for 
-    tagging datasets when one wants to record post-storm ambient profiles.""",
-}
-
-
-default_parent_local = str(get_outputs_directory() / "input_data/raw")
-default_parent_converted = str(get_outputs_directory() / "input_data/converted")
-
-
 class ConvertedOptions(BaseOptions):
     """Converted options."""
 
     save: bool = Field(False, description="Whether to save the converted data.")
     load: bool = Field(False, description="Whether to load the converted data.")
     _desc = "Parent directory for converted data."
-    parent_converted: str | None = Field(default_parent_converted, description=_desc)
+    _default_parent_converted = str(get_outputs_directory() / "input_data/converted")
+    parent_converted: str | None = Field(_default_parent_converted, description=_desc)
 
 
 class BaseDatasetOptions(BaseOptions):
     """Base class for dataset options."""
 
-    name: str = Field(None, description=_summary["name"])
-    start: str | np.datetime64 = Field(..., description=_summary["start"])
-    end: str | np.datetime64 = Field(..., description=_summary["end"])
-    fields: list[str] | None = Field(None, description=_summary["fields"])
-    parent_remote: str | None = Field(None, description=_summary["parent_remote"])
-    parent_local: str | Path | None = Field(
-        default_parent_local, description=_summary["parent_local"]
-    )
-    converted_options: ConvertedOptions = Field(
-        ConvertedOptions(), description=_summary["converted_options"]
-    )
-    filepaths: list[str] | dict = Field(None, description=_summary["filepaths"])
-    attempt_download: bool = Field(False, description=_summary["attempt_download"])
-    deque_length: int = Field(2, description=_summary["deque_length"])
-    use: Literal["track", "tag", "both"] = Field("track", description=_summary["use"])
-    start_buffer: int = Field(-120, description=_summary["start_buffer"])
-    end_buffer: int = Field(0, description=_summary["end_buffer"])
+    name: str = Field(None, description="Name of the dataset.")
+    start: str | np.datetime64 = Field(..., description="Tracking start time.")
+    end: str | np.datetime64 = Field(..., description="Tracking end time.")
+    _desc = "List of dataset fields, i.e. variables, to use. Fields should be given "
+    _desc += "using their thuner, i.e. CF-Conventions, names, e.g. 'reflectivity'."
+    fields: list[str] | None = Field(None, description=_desc)
+    _desc = "Parent directory of the dataset on remote storage."
+    parent_remote: str | None = Field(None, description=_desc)
+    _desc = "Parent directory of the dataset on local storage."
+    _default_parent_local = str(get_outputs_directory() / "input_data/raw")
+    parent_local: str | Path | None = Field(_default_parent_local, description=_desc)
+    _desc = "Options for saving and loading converted data."
+    converted_options: ConvertedOptions = Field(ConvertedOptions(), description=_desc)
+    _desc = "List of filepaths for the dataset."
+    filepaths: list[str] | dict = Field(None, description=_desc)
+    _desc = "Whether to attempt to download the data."
+    attempt_download: bool = Field(False, description=_desc)
+    _desc = "Number of current/previous grids from this dataset to keep in memory. "
+    _desc += "Most tracking algorithms require a 'next' grid, 'current' grid, and at "
+    _desc += "least two previous grids."
+    deque_length: int = Field(2, description=_desc)
+    _desc = "Whether this dataset will be used for tagging, tracking or both."
+    use: Literal["track", "tag", "both"] = Field("track", description=_desc)
+    _desc = "Minutes before interval start time to include. Useful for tagging when "
+    _desc += "one wants to record pre-storm ambient profiles."
+    start_buffer: int = Field(-120, description=_desc)
+    _desc = "Minutes after interval end time to include. Useful for tagging when "
+    _desc += "one wants to record post-storm ambient profiles."
+    end_buffer: int = Field(0, description=_desc)
 
     # Create basic functions for getting filepaths etc for already converted datasets.
     # These are overridden in the subclasses.
@@ -213,15 +202,12 @@ class BaseDatasetOptions(BaseOptions):
         if conv_options.load is False:
             args = [time, filepath, track_options, grid_options]
             dataset, boundary_coords = self.convert_dataset(*args)[:2]
+            infer_grid_options(dataset, grid_options)
         else:
             dataset = xr.open_dataset(filepath)
             infer_grid_options(dataset, grid_options)
             domain_mask = dataset["domain_mask"]
             boundary_coords = get_mask_boundary(domain_mask, grid_options)[0]
-        # Check if core grid options are defined, if not infer from dataset.
-        attrs = ["latitude", "longitude", "shape"]
-        if any(getattr(grid_options, attr) is None for attr in attrs):
-            grid_options_from_dataset(dataset, grid_options)
         # Save the dataset if necessary.
         if conv_options.save:
             save_converted_dataset(filepath, dataset, self)
@@ -319,12 +305,40 @@ class BaseDatasetOptions(BaseOptions):
         return values
 
 
-def infer_grid_options(dataset, grid_options):
+def infer_grid_options(dataset: DataObject, grid_options):
     """Infer grid options from the dataset."""
     attrs = ["latitude", "longitude", "shape"]
     if any(getattr(grid_options, attr) is None for attr in attrs):
         logger.info("Grid options not set. Inferring from dataset.")
-        grid_options_from_dataset(dataset, grid_options)
+        if grid_options.name == "geographic":
+            grid_options.latitude = dataset.latitude.values.tolist()
+            grid_options.longitude = dataset.longitude.values.tolist()
+            grid_options.shape = [len(dataset.latitude), len(dataset.longitude)]
+            lat_spacing = np.unique(np.diff(grid_options.latitude).flatten())
+            lon_spacing = np.unique(np.diff(grid_options.longitude).flatten())
+            if len(lat_spacing) == 1 and len(lon_spacing) == 1:
+                grid_options.geographic_spacing = [lat_spacing[0], lon_spacing[0]]
+            else:
+                logger.warning("Latitude and longitude spacing not uniform.")
+                grid_options.geographic_spacing = None
+        elif grid_options.name == "cartesian":
+            grid_options.y = dataset.y.values.tolist()
+            grid_options.x = dataset.x.values.tolist()
+            grid_options.shape = [len(dataset.y), len(dataset.x)]
+            y_spacing = np.unique(np.diff(grid_options.y).flatten())
+            x_spacing = np.unique(np.diff(grid_options.x).flatten())
+            if len(y_spacing) == 1 and len(x_spacing) == 1:
+                grid_options.cartesian_spacing = [y_spacing[0], x_spacing[0]]
+            else:
+                logger.warning("x and y spacing not uniform.")
+                grid_options.cartesian_spacing = None
+            if "longitude" in dataset.coords and "latitude" in dataset.coords:
+                grid_options.latitude = dataset.latitude.values.tolist()
+                grid_options.longitude = dataset.longitude.values.tolist()
+            else:
+                logger.warning("No latitude or longitude coordinates found in dataset.")
+        else:
+            raise ValueError(f"Grid name {grid_options.name} not recognised.")
 
 
 def save_converted_dataset(raw_filepath, dataset, dataset_options):
@@ -367,21 +381,6 @@ def get_parent(dataset_options: BaseDatasetOptions) -> str:
     else:
         raise ValueError("No parent directory provided.")
     return parent
-
-
-def grid_options_from_dataset(dataset, grid_options):
-    """Update the grid options using the dataset."""
-    logger.info("Updating grid_options latitude, longitude and shape using dataset.")
-    if grid_options.name == "geographic":
-        grid_options.latitude = dataset.latitude.values.tolist()
-        grid_options.longitude = dataset.longitude.values.tolist()
-        grid_options.shape = [len(dataset.latitude), len(dataset.longitude)]
-    elif grid_options.name == "cartesian":
-        grid_options.y = dataset.y.values.tolist()
-        grid_options.x = dataset.x.values.tolist()
-        grid_options.shape = [len(dataset.y), len(dataset.x)]
-    else:
-        raise ValueError(f"Grid name {grid_options.name} not recognised.")
 
 
 def get_mask_boundary(mask, grid_options):

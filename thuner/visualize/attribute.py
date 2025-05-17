@@ -2,6 +2,8 @@
 
 import gc
 from pathlib import Path
+from pydantic import Field, BaseModel, model_validator, ConfigDict
+from typing import Any, Callable, Dict, Literal
 from time import sleep
 import multiprocessing
 import numpy as np
@@ -11,14 +13,14 @@ import matplotlib
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import thuner.visualize.horizontal as horizontal
-from thuner.utils import initialize_process, check_results
+from thuner.utils import initialize_process, check_results, DataObject
 from thuner.attribute.utils import read_attribute_csv
 from thuner.analyze.utils import read_options
-import thuner.data._update as _update
 import thuner.detect.detect as detect
 from thuner.utils import format_time, new_angle, circular_mean
 import thuner.visualize.utils as utils
 import thuner.visualize.visualize as visualize
+from thuner.option.visualize import FigureOptions
 from thuner.log import setup_logger, logging_listener
 
 
@@ -185,6 +187,224 @@ def visualize_mcs(
         gc.collect()
 
 
+class BaseHandler(BaseModel):
+    """Base class for figure handlers defined in this module."""
+
+    # Allow arbitrary types in the input record classes.
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+
+class AttributeVisualizeMethod(BaseHandler):
+    """
+    Class for handling the visualization of a group of attributes. Includes a reference
+    to a function, and requisite keyword arguments.
+    """
+
+    _desc = "The function used to visualize the attributes."
+    function: Callable | str | None = Field(None, description=_desc)
+    _desc = "Keyword arguments for the visualization function."
+    keyword_arguments: dict = Field({}, description=_desc)
+
+
+class AttributeHandler(BaseHandler):
+    """
+    Class for handling the visualization of attributes, e.g. orientation, or groups of
+    attributes visualized together, e.g. u, v.
+    """
+
+    _desc = "The name of the attribute or attributes being handled, e.g. velocity."
+    name: str = Field(..., description=_desc)
+    _desc = "The axes in which the attributes are to be visualized."
+    axes: list[Any] = Field([], description=_desc)
+    _desc = "The label to appear in legends etc for this attribute."
+    label: str = Field(..., description=_desc)
+    _desc = "The names of the attributes to be visualized."
+    attributes: list[str] = Field(..., description=_desc)
+    _desc = "The filepath to the attribute file, i.e. an attribute type csv file."
+    filepath: str = Field(..., description=_desc)
+    _desc = "The method used to visualize the attributes."
+    method: AttributeVisualizeMethod = Field(..., description=_desc)
+    _desc = "Dictionary containing the artists for each (ax_number, object) tuple."
+    artists: Dict[(int, int), Any] = Field({}, description=_desc)
+    _desc = "The filepath of the quality control file."
+    quality_filepath: str | None = Field(None, description=_desc)
+    _desc = "The quality control variables for this attribute."
+    quality_variables: list[str] = Field([], description=_desc)
+    _desc = "The logic used to determine if an object is of sufficient quality."
+    quality_method: Literal["any", "all"] = Field("all", description=_desc)
+
+    def create_artists(self):
+        """Create artists for the objects in the figure."""
+
+        # Get the attributes dataframe
+        kwargs = {"times": [self.time], "columns": self.attributes}
+        objects_df = read_attribute_csv(self.filepath, **kwargs)
+        # Get the quality dataframe
+        kwargs.update({"columns": self.quality_variables})
+        qualities_df = read_attribute_csv(self.quality_filepath, **kwargs)
+        if self.quality_method == "all":
+            qualities_df = qualities_df.all(axis=1)
+        elif self.quality_method == "any":
+            qualities_df.any(axis=1)
+        if "universal_id" in objects_df.columns:
+            id_type = "universal_id"
+        else:
+            id_type = "id"
+        all_objects = sorted(objects_df.index.get_level_values(id_type).unique())
+        for obj in all_objects:
+            for i, ax in enumerate(self.axes.flatten()):
+                object_df = objects_df.xs(obj, level="universal_id")
+                quality_df = qualities_df.xs(obj, level="universal_id")
+                func = self.method.function
+                kwargs = self.method.keyword_arguments
+                artist = func(ax, self.attributes, object_df, quality_df, **kwargs)
+                self.artists[(obj, i)] = artist
+
+
+class BaseFigure(BaseHandler):
+    """Base class for a figure visualizing a field, objects, and object attributes."""
+
+    object_name: str = Field(..., description="The name of the object.")
+    time: np.datetime64 = Field(..., description="The time of the figure.")
+    _desc = "The attribute handlers used to create the figure."
+    attribute_handlers: list[AttributeHandler] = Field([], description=_desc)
+    _desc = "The artist used to visualize the domain boundary."
+    boundary_artists: list[Any] = Field([], description=_desc)
+    _desc = "The artists used to visualize the field, e.g. reflectivity."
+    field_artists: list[Any] = Field([], description=_desc)
+    _desc = "The artists used to visualize object masks."
+    mask_artists: list[Any] = Field([], description=_desc)
+    _desc = "The artists used to visualize object attributes."
+    attribute_artists: Dict[str, Any] = Field({}, description=_desc)
+    _desc = "Layout class instance for the figure."
+    layout: utils.BaseLayout = Field(None, description=_desc)
+    _desc = "Options for the figure."
+    options: FigureOptions | None = Field(None, description=_desc)
+    figure: Any = Field(None, description="The Matplotlib figure object.")
+    _desc = "The Matplotlib axes containing subplots."
+    subplot_axes: list[Any] = Field([], description=_desc)
+    _desc = "The Matplotlib axes containing legends."
+    legend_axes: list[Any] = Field([], description=_desc)
+    _desc = "The Matplotlib axes containing colorbars."
+    colorbar_axes: list[Any] = Field([], description=_desc)
+
+
+class GroupedObjectFigure(BaseFigure):
+    """Class for visualizing grouped objects."""
+
+    member_objects: list[str] = Field([], description="Member object names.")
+
+
+def grouped_horizontal(
+    output_directory,
+    grid,
+    mask,
+    boundary_coordinates,
+    figure_options,
+    grid_options,
+    member_objects,
+    dt=3600,
+    object_colors=None,
+):
+    """Create a horizontal cross section plot."""
+    options = read_options(output_directory)
+    track_options = options["track"]
+    obj_name = figure_options.object_name
+
+    time = grid.time.values
+    logger.debug(f"Creating grouped mask figure at time {time}.")
+    try:
+        filepath = output_directory / "analysis/quality.csv"
+        kwargs = {"times": [time], "columns": ["duration", "parents"]}
+        object_quality = read_attribute_csv(filepath, **kwargs).loc[time]
+        object_quality = object_quality.any(axis=1).to_dict()
+    except (FileNotFoundError, KeyError):
+        object_quality = None
+
+    args = [grid, mask, grid_options, figure_options, member_objects]
+    args += [boundary_coordinates]
+    kwargs = {"object_colors": object_colors, "mask_quality": object_quality}
+    fig, axes, colorbar_axes, legend_axes = horizontal.grouped_mask(*args, **kwargs)
+
+    try:
+        filepath = output_directory / f"attributes/{obj_name}/core.csv"
+        columns = ["latitude", "longitude"]
+        core = read_attribute_csv(filepath, times=[time], columns=columns).loc[time]
+        filepath = output_directory / "attributes/mcs/group.csv"
+        group = read_attribute_csv(filepath, times=[time]).loc[time]
+        filepath = output_directory / "analysis/velocities.csv"
+        velocities = read_attribute_csv(filepath, times=[time]).loc[time]
+        # filepath = output_directory / "analysis/classification.csv"
+        # classification = read_attribute_csv(filepath, times=[time]).loc[time]
+        filepath = output_directory / f"attributes/mcs/{convective_label}/ellipse.csv"
+        ellipse = read_attribute_csv(filepath, times=[time]).loc[time]
+        new_names = {"latitude": "ellipse_latitude", "longitude": "ellipse_longitude"}
+        ellipse = ellipse.rename(columns=new_names)
+        filepath = output_directory / "analysis/quality.csv"
+        quality = read_attribute_csv(filepath, times=[time]).loc[time]
+        attributes = pd.concat([core, ellipse, group, velocities, quality], axis=1)
+        objs = group.reset_index()["universal_id"].values
+    except KeyError:
+        # If no attributes, set objs=[]
+        objs = []
+
+    for obj_id in objs:
+        obj_attr = attributes.loc[obj_id]
+        args = [axes, figure_options, obj_attr]
+        velocity_attributes_horizontal(*args, dt=dt)
+        displacement_attributes_horizontal(*args)
+        ellipse_attributes(*args)
+        if object_quality[obj_id]:
+            text_attributes_horizontal(*args, object_quality=object_quality)
+
+    style = figure_options.style
+    scale = utils.get_extent(grid_options)[1]
+
+    key_color = visualize.figure_colors[style]["key"]
+    horizontal.vector_key(axes[0], color=key_color, dt=dt, scale=scale)
+    kwargs = {"mcs_name": "mcs", "mcs_level": 1}
+    convective_label, stratiform_label = get_altitude_labels(track_options, **kwargs)
+
+    axes[0].set_title(convective_label)
+    axes[1].set_title(stratiform_label)
+
+    # Get legend proxy artists
+    handles = []
+    labels = []
+    handle = horizontal.domain_boundary_legend_artist()
+    handles += [handle]
+    labels += ["Domain Boundary"]
+    handle = horizontal.ellipse_legend_artist("Major Axis", figure_options.style)
+    handles += [handle]
+    labels += ["Major Axis"]
+    attribute_names = figure_options.attributes
+    for name in [attr for attr in attribute_names if attr != "id"]:
+        color = colors_dispatcher[name]
+        label = label_dispatcher[name]
+        handle = horizontal.displacement_legend_artist(color, label)
+        handles.append(handle)
+        labels.append(label)
+
+    handle, handler = horizontal.mask_legend_artist()
+    handles += [handle]
+    labels += ["Object Masks"]
+    legend_color = visualize.figure_colors[figure_options.style]["legend"]
+    handles, labels = handles[::-1], labels[::-1]
+
+    args = [handles, labels]
+    leg_ax = legend_axes[0]
+    if scale == 1:
+        legend = leg_ax.legend(*args, **mcs_legend_options, handler_map=handler)
+    elif scale == 2:
+        mcs_legend_options["loc"] = "lower left"
+        mcs_legend_options["bbox_to_anchor"] = (-0.0, -0.425)
+        legend = leg_ax.legend(*args, **mcs_legend_options, handler_map=handler)
+    legend.get_frame().set_alpha(None)
+    legend.get_frame().set_facecolor(legend_color)
+
+    return fig, axes
+
+
 def mcs_horizontal(
     output_directory,
     grid,
@@ -239,7 +459,6 @@ def mcs_horizontal(
         # If no attributes, set objs=[]
         objs = []
 
-    # Display velocity attributes
     for obj_id in objs:
         obj_attr = attributes.loc[obj_id]
         args = [axes, figure_options, obj_attr]
@@ -331,6 +550,24 @@ quality_dispatcher = {
 }
 
 
+def velocity_horizontal(
+    ax, attributes, object_df, quality_df=None, color="tab:red", dt=3600
+):
+    """
+    Add velocity attributes. Assumes the attribtes dataframe has already
+    been subset to the desired time and object, so is effectively a dictionary.
+    """
+
+    latitude = object_df["latitude"]
+    longitude = object_df["longitude"]
+    legend_handles = []
+    u, v = object_df[attributes[0]], object_df[attributes[1]]
+    args = [ax, latitude, longitude, u, v, color]
+    ax = horizontal.cartesian_velocity(*args, quality=quality_df.values, dt=dt)
+
+    return legend_handles
+
+
 def velocity_attributes_horizontal(axes, figure_options, object_attributes, dt=3600):
     """
     Add velocity attributes. Assumes the attribtes dataframe has already
@@ -355,6 +592,15 @@ def velocity_attributes_horizontal(axes, figure_options, object_attributes, dt=3
         axes[0] = horizontal.cartesian_velocity(*args, quality=quality, dt=dt)
 
     return legend_handles
+
+
+def text_horizontal(ax, attributes, object_df, quality_df=None):
+    """Add object ID attributes."""
+    latitude = object_df["latitude"]
+    longitude = object_df["longitude"]
+    args = [ax, str(object_df.name), longitude, latitude]
+    if quality_df.values:
+        horizontal.embossed_text(*args)
 
 
 def text_attributes_horizontal(
@@ -384,6 +630,24 @@ def get_quality(quality_names, object_attributes, method="all"):
     return quality
 
 
+def orientation_horizontal(ax, attributes, object_df, quality_df=None):
+    """Add orientation attributes to axes."""
+    latitude = object_df["ellipse_latitude"]
+    longitude = object_df["ellipse_longitude"]
+    if "major" in attributes:
+        length = object_df["major"]
+    elif "minor" in attributes:
+        length = object_df["minor"]
+    else:
+        raise ValueError("No major or minor attribute in object_df.")
+    if "orientation" in attributes:
+        orientation = object_df["orientation"]
+    else:
+        raise ValueError("No orientation attribute in object_df.")
+    args = [ax, latitude, longitude, length, orientation, quality_df.values]
+    horizontal.ellipse_axis(*args)
+
+
 def ellipse_attributes(axes, figure_options, object_attributes):
     """Add ellipse axis attributes."""
 
@@ -398,6 +662,20 @@ def ellipse_attributes(axes, figure_options, object_attributes):
     legend_handles = []
     legend_handle = horizontal.ellipse_axis(*args)
     legend_handles.append(legend_handle)
+
+    return legend_handles
+
+
+def displacement_horizontal(
+    ax, attributes: list[str, str], object_df, quality_df=None, color="tab:blue"
+):
+    """Add displacement attributes."""
+    # Convert displacements from km to metres
+    dx, dy = object_df[attributes[0]] * 1e3, object_df[attributes[1]] * 1e3
+    latitude, longitude = object_df["latitude"], object_df["longitude"]
+    legend_handles = []
+    args = [ax, latitude, longitude, dx, dy, color, quality_df.values]
+    horizontal.cartesian_displacement(*args, arrow=True)
 
     return legend_handles
 
@@ -425,9 +703,9 @@ def displacement_attributes_horizontal(axes, figure_options, object_attributes):
             quality = get_quality(quality_names, object_attributes)
             args = [axes[0], latitude, longitude, dx, dy, color]
             kwargs = {"quality": quality}
-            axes[0] = horizontal.cartesian_displacement(*args, **kwargs, arrow=False)
+            axes[0] = horizontal.cartesian_displacement(*args, **kwargs, arrow=True)
             args[0] = axes[1]
-            axes[1] = horizontal.cartesian_displacement(*args, **kwargs, arrow=False)
+            axes[1] = horizontal.cartesian_displacement(*args, **kwargs, arrow=True)
         legend_artist = horizontal.displacement_legend_artist(color, label)
         legend_handles.append(legend_artist)
 
@@ -495,12 +773,13 @@ def update_color_angle(df, row, color_dict, previous_time, universal_id):
         return circular_mean(*args)
 
 
-def get_color_angle_df(output_parent):
+def get_color_angle_df(output_parent, filepath=None):
     """
     Get a dictionary containing color angles, i.e. indices, for displaying masks.
     The color angle is calculated to reflect object splits/merges.
     """
-    filepath = output_parent / "attributes/mcs/core.csv"
+    if filepath is None:
+        filepath = output_parent / "attributes/mcs/core.csv"
     df = read_attribute_csv(filepath, columns=["parents", "area"])
     color_dict = {"time": [], "universal_id": [], "color_angle": []}
     times = sorted(np.unique(df.reset_index().time))

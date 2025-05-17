@@ -87,10 +87,11 @@ class HorizontalAttributeOptions(VisualizeOptions):
 
     _desc = "The base name of the figure."
     name: str = Field(..., description=_desc)
+    _desc = "The name of the object to visualize."
+    object_name: str = Field(..., description=_desc)
     _desc = "The attributes to display."
-    attributes: list[str] = Field(
-        ["ambient", "relative_velocity", "velocity", "offset"], description=_desc
-    )
+    _default_attributes = ["ambient", "relative_velocity", "velocity", "offset"]
+    attributes: list[str] = Field(_default_attributes, description=_desc)
     _desc = "Whether to perform quality control."
     quality_control: bool = Field(True, description=_desc)
     _desc = "The fields to display."

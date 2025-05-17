@@ -46,11 +46,17 @@ THUNER's goals include the following.
    detection, grouping, tagging and analysis techniques, allowing methodological 
    choices to be set and recorded before each tracking run. The overarching goal is to 
    simplify sensitivity testing and facilitate reproducibility.
+#. **To provide comprehensive visualization tools.** Because object tracking 
+   methodologies can be ambiguous, algorithms and outputs should be carefully 
+   scrutinized by human experts. THUNER therefore aspires to provide comprehensive
+   visualization tools illustrating how the algorithms themselves are functioning,
+   and the results of tracking runs.
 #. **To support multiple coordinate systems.** While small radar domains can be
    processed in cartesian coordinates, larger area domains require other 
    coordinates, e.g. geographic.
 #. **To support large datasets.** High resolution radar mosaic and model datasets
    require parallelisation to be processed efficiently.
+
    
 Design
 -----------------------------------------------------------------------------------
@@ -88,13 +94,13 @@ run the tracking loop on each chunk independently, then stitch the results back
 together.
 
 The tracking loop works on gridded meteorological data stored as 
-``xarray.Dataset`` or ``xarray.DataArray`` objects, with 
+:class:`xarray.Dataset` or :class:`xarray.DataArray` objects, with 
 variables named according to `CF conventions <https://cfconventions.org/>`__. Using
-``xarray`` internally greatly simplifies code readability and debugging. To apply THUNER 
+:mod:`xarray` internally greatly simplifies code readability and debugging. To apply THUNER 
 to a given dataset, input data must be reformatted to be consistent with THUNER's internal 
 format. Reformatting can be done manually before a THUNER run. However, creating copies 
 of large datasets is not always possible due to storage constraints, and THUNER 
-therefore recognises a number of common datasets, for which conversation can be done
+therefore recognises a number of common datasets, for which conversion can be done
 on the fly by THUNER itself; these convenience functions and options are managed by the 
 modules within the :mod:`thuner.data` subpackage.
 

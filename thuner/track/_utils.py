@@ -8,11 +8,9 @@ from typing import Dict
 from thuner.attribute.utils import AttributesRecord
 from thuner.option.data import DataOptions
 from thuner.option.track import TrackOptions, BaseObjectOptions, LevelOptions
+from thuner.utils import DataObject
 
 __all__ = []
-
-
-DataObject = xr.DataArray | xr.Dataset
 
 
 class BaseInputRecord(BaseModel):
