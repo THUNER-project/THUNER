@@ -225,7 +225,7 @@ class AttributeHandler(BaseHandler):
     _desc = "The method used to visualize the attributes."
     method: AttributeVisualizeMethod = Field(..., description=_desc)
     _desc = "Dictionary containing the artists for each (ax_number, object) tuple."
-    artists: Dict[(int, int), Any] = Field({}, description=_desc)
+    artists: Dict[tuple[int, int], Any] = Field({}, description=_desc)
     _desc = "The filepath of the quality control file."
     quality_filepath: str | None = Field(None, description=_desc)
     _desc = "The quality control variables for this attribute."
@@ -287,12 +287,16 @@ class BaseFigure(BaseHandler):
     legend_axes: list[Any] = Field([], description=_desc)
     _desc = "The Matplotlib axes containing colorbars."
     colorbar_axes: list[Any] = Field([], description=_desc)
+    _desc = "Filepath to csv of core attributes."
+    core_filepath: str | None = Field(None, description=_desc)
 
 
 class GroupedObjectFigure(BaseFigure):
     """Class for visualizing grouped objects."""
 
     member_objects: list[str] = Field([], description="Member object names.")
+    _desc = "Filepaths to core attributes for each member object."
+    member_core_filepaths: dict[str, str] = Field({}, description=_desc)
 
 
 def grouped_horizontal(
@@ -551,7 +555,7 @@ quality_dispatcher = {
 
 
 def velocity_horizontal(
-    ax, attributes, object_df, quality_df=None, color="tab:red", dt=3600
+    ax, attribute_names, object_df, quality_df=None, color="tab:red", dt=3600
 ):
     """
     Add velocity attributes. Assumes the attribtes dataframe has already
@@ -561,7 +565,7 @@ def velocity_horizontal(
     latitude = object_df["latitude"]
     longitude = object_df["longitude"]
     legend_handles = []
-    u, v = object_df[attributes[0]], object_df[attributes[1]]
+    u, v = object_df[attribute_names[0]], object_df[attribute_names[1]]
     args = [ax, latitude, longitude, u, v, color]
     ax = horizontal.cartesian_velocity(*args, quality=quality_df.values, dt=dt)
 
