@@ -206,6 +206,18 @@ class AttributeVisualizeMethod(BaseHandler):
     keyword_arguments: dict = Field({}, description=_desc)
 
 
+class LegendArtistMethod(BaseHandler):
+    """
+    Class for handling the visualization of a legend artist. Includes a reference
+    to a function, and requisite keyword arguments.
+    """
+
+    _desc = "The function used to create the legend artist."
+    function: Callable | str | None = Field(None, description=_desc)
+    _desc = "Keyword arguments for the legend artist function."
+    keyword_arguments: dict = Field({}, description=_desc)
+
+
 class AttributeHandler(BaseHandler):
     """
     Class for handling the visualization of attributes, e.g. orientation, or groups of
@@ -224,8 +236,8 @@ class AttributeHandler(BaseHandler):
     filepath: str = Field(..., description=_desc)
     _desc = "The method used to visualize the attributes."
     method: AttributeVisualizeMethod = Field(..., description=_desc)
-    _desc = "Dictionary containing the artists for each (ax_number, object) tuple."
-    artists: Dict[tuple[int, int], Any] = Field({}, description=_desc)
+    _desc = "The method used to create the legend artist for this attribute."
+    legend_method: LegendArtistMethod | None = Field(None, description=_desc)
     _desc = "The filepath of the quality control file."
     quality_filepath: str | None = Field(None, description=_desc)
     _desc = "The quality control variables for this attribute."
@@ -233,41 +245,14 @@ class AttributeHandler(BaseHandler):
     _desc = "The logic used to determine if an object is of sufficient quality."
     quality_method: Literal["any", "all"] = Field("all", description=_desc)
 
-    def create_artists(self):
-        """Create artists for the objects in the figure."""
-
-        # Get the attributes dataframe
-        kwargs = {"times": [self.time], "columns": self.attributes}
-        objects_df = read_attribute_csv(self.filepath, **kwargs)
-        # Get the quality dataframe
-        kwargs.update({"columns": self.quality_variables})
-        qualities_df = read_attribute_csv(self.quality_filepath, **kwargs)
-        if self.quality_method == "all":
-            qualities_df = qualities_df.all(axis=1)
-        elif self.quality_method == "any":
-            qualities_df.any(axis=1)
-        if "universal_id" in objects_df.columns:
-            id_type = "universal_id"
-        else:
-            id_type = "id"
-        all_objects = sorted(objects_df.index.get_level_values(id_type).unique())
-        for obj in all_objects:
-            for i, ax in enumerate(self.axes.flatten()):
-                object_df = objects_df.xs(obj, level="universal_id")
-                quality_df = qualities_df.xs(obj, level="universal_id")
-                func = self.method.function
-                kwargs = self.method.keyword_arguments
-                artist = func(ax, self.attributes, object_df, quality_df, **kwargs)
-                self.artists[(obj, i)] = artist
-
 
 class BaseFigure(BaseHandler):
     """Base class for a figure visualizing a field, objects, and object attributes."""
 
     object_name: str = Field(..., description="The name of the object.")
     time: np.datetime64 = Field(..., description="The time of the figure.")
-    _desc = "The attribute handlers used to create the figure."
-    attribute_handlers: list[AttributeHandler] = Field([], description=_desc)
+    _desc = "A dictionary with a list of attribute handlers for the given object."
+    attribute_handlers: dict[str, list[AttributeHandler]] = Field([], description=_desc)
     _desc = "The artist used to visualize the domain boundary."
     boundary_artists: list[Any] = Field([], description=_desc)
     _desc = "The artists used to visualize the field, e.g. reflectivity."
@@ -276,6 +261,8 @@ class BaseFigure(BaseHandler):
     mask_artists: list[Any] = Field([], description=_desc)
     _desc = "The artists used to visualize object attributes."
     attribute_artists: Dict[str, Any] = Field({}, description=_desc)
+    _desc = "The proxy artists used for creating legends."
+    legend_artists: Dict[str, Any] = Field({}, description=_desc)
     _desc = "Layout class instance for the figure."
     layout: utils.BaseLayout = Field(None, description=_desc)
     _desc = "Options for the figure."
@@ -297,6 +284,19 @@ class GroupedObjectFigure(BaseFigure):
     member_objects: list[str] = Field([], description="Member object names.")
     _desc = "Filepaths to core attributes for each member object."
     member_core_filepaths: dict[str, str] = Field({}, description=_desc)
+
+    @model_validator(mode="after")
+    def _check_number_subplots(cls, values):
+        """
+        Check the number of subplots matches the number of member objects and number
+        of member_core_filepaths keys.
+        """
+        lengths = [len(values.member_objects), len(values.subplot_axes)]
+        lengths += [len(values.member_core_filepaths)]
+        if len(set(lengths)) != 1:
+            message = "Number of member objects, subplot axes, and member core "
+            message += "filepaths must agree."
+            raise ValueError(message)
 
 
 def grouped_horizontal(
@@ -520,106 +520,114 @@ def mcs_horizontal(
     return fig, axes
 
 
-names_dispatcher = {
-    "velocity": ["u", "v"],
-    "relative_velocity": ["u_relative", "v_relative"],
-    "shear": ["u_shear", "v_shear"],
-    "ambient": ["u_ambient", "v_ambient"],
-    "offset": ["x_offset", "y_offset"],
-}
-colors_dispatcher = {
-    "velocity": "tab:purple",
-    "relative_velocity": "darkgreen",
-    "shear": "tab:purple",
-    "ambient": "tab:red",
-    "offset": "tab:blue",
-}
-label_dispatcher = {
-    "velocity": "System Velocity",
-    "relative_velocity": "Relative System Velocity",
-    "shear": "Ambient Shear",
-    "ambient": "Ambient Wind",
-    "offset": "Stratiform-Offset",
-}
-system_contained = ["convective_contained", "anvil_contained"]
-quality_dispatcher = {
-    "ambient": system_contained + ["duration"],
-    "velocity": system_contained + ["velocity", "duration"],
-    "shear": system_contained + ["shear", "duration"],
-    "relative_velocity": system_contained + ["relative_velocity", "duration"],
-    "offset": system_contained + ["offset", "duration"],
-    "major": ["convective_contained", "anvil_contained", "axis_ratio", "duration"],
-    "minor": ["convective_contained", "anvil_contained", "axis_ratio", "duration"],
-    "mask": ["parents", "duration"],
-}
+# names_dispatcher = {
+#     "velocity": ["u", "v"],
+#     "relative_velocity": ["u_relative", "v_relative"],
+#     "shear": ["u_shear", "v_shear"],
+#     "ambient": ["u_ambient", "v_ambient"],
+#     "offset": ["x_offset", "y_offset"],
+# }
+# colors_dispatcher = {
+#     "velocity": "tab:purple",
+#     "relative_velocity": "darkgreen",
+#     "shear": "tab:purple",
+#     "ambient": "tab:red",
+#     "offset": "tab:blue",
+# }
+# label_dispatcher = {
+#     "velocity": "System Velocity",
+#     "relative_velocity": "Relative System Velocity",
+#     "shear": "Ambient Shear",
+#     "ambient": "Ambient Wind",
+#     "offset": "Stratiform-Offset",
+# }
+# system_contained = ["convective_contained", "anvil_contained"]
+# quality_dispatcher = {
+#     "ambient": system_contained + ["duration"],
+#     "velocity": system_contained + ["velocity", "duration"],
+#     "shear": system_contained + ["shear", "duration"],
+#     "relative_velocity": system_contained + ["relative_velocity", "duration"],
+#     "offset": system_contained + ["offset", "duration"],
+#     "major": ["convective_contained", "anvil_contained", "axis_ratio", "duration"],
+#     "minor": ["convective_contained", "anvil_contained", "axis_ratio", "duration"],
+#     "mask": ["parents", "duration"],
+# }
 
 
 def velocity_horizontal(
-    ax, attribute_names, object_df, quality_df=None, color="tab:red", dt=3600
+    ax, attributes, object_df, quality_df, color="tab:red", dt=3600
 ):
     """
     Add velocity attributes. Assumes the attribtes dataframe has already
     been subset to the desired time and object, so is effectively a dictionary.
     """
-
-    latitude = object_df["latitude"]
-    longitude = object_df["longitude"]
-    legend_handles = []
-    u, v = object_df[attribute_names[0]], object_df[attribute_names[1]]
+    latitude = object_df["latitude"].values[0]
+    longitude = object_df["longitude"].values[0]
+    u, v = object_df[attributes[0]].values[0], object_df[attributes[1]].values[0]
     args = [ax, latitude, longitude, u, v, color]
-    ax = horizontal.cartesian_velocity(*args, quality=quality_df.values, dt=dt)
-
-    return legend_handles
+    return horizontal.cartesian_velocity(*args, quality=quality_df.values, dt=dt)
 
 
-def velocity_attributes_horizontal(axes, figure_options, object_attributes, dt=3600):
-    """
-    Add velocity attributes. Assumes the attribtes dataframe has already
-    been subset to the desired time and object, so is effectively a dictionary.
-    """
+# def velocity_attributes_horizontal(axes, figure_options, object_attributes, dt=3600):
+#     """
+#     Add velocity attributes. Assumes the attribtes dataframe has already
+#     been subset to the desired time and object, so is effectively a dictionary.
+#     """
 
-    velocity_attributes = ["ambient", "relative_velocity", "velocity", "shear"]
-    attribute_names = figure_options.attributes
-    velocity_attributes = [v for v in attribute_names if v in velocity_attributes]
-    latitude = object_attributes["latitude"]
-    longitude = object_attributes["longitude"]
-    legend_handles = []
+#     velocity_attributes = ["ambient", "relative_velocity", "velocity", "shear"]
+#     attribute_names = figure_options.attributes
+#     velocity_attributes = [v for v in attribute_names if v in velocity_attributes]
+#     latitude = object_attributes["latitude"]
+#     longitude = object_attributes["longitude"]
+#     legend_handles = []
 
-    for attribute in velocity_attributes:
-        [u_name, v_name] = names_dispatcher[attribute]
-        u, v = object_attributes[u_name], object_attributes[v_name]
-        quality_names = quality_dispatcher.get(attribute)
-        quality = get_quality(quality_names, object_attributes)
-        color = colors_dispatcher[attribute]
-        label = label_dispatcher[attribute]
-        args = [axes[0], latitude, longitude, u, v, color]
-        axes[0] = horizontal.cartesian_velocity(*args, quality=quality, dt=dt)
+#     for attribute in velocity_attributes:
+#         [u_name, v_name] = names_dispatcher[attribute]
+#         u, v = object_attributes[u_name], object_attributes[v_name]
+#         quality_names = quality_dispatcher.get(attribute)
+#         quality = get_quality(quality_names, object_attributes)
+#         color = colors_dispatcher[attribute]
+#         label = label_dispatcher[attribute]
+#         args = [axes[0], latitude, longitude, u, v, color]
+#         axes[0] = horizontal.cartesian_velocity(*args, quality=quality, dt=dt)
 
-    return legend_handles
-
-
-def text_horizontal(ax, attributes, object_df, quality_df=None):
-    """Add object ID attributes."""
-    latitude = object_df["latitude"]
-    longitude = object_df["longitude"]
-    args = [ax, str(object_df.name), longitude, latitude]
-    if quality_df.values:
-        horizontal.embossed_text(*args)
+#     return legend_handles
 
 
-def text_attributes_horizontal(
-    axes, figure_options, object_attributes, object_quality=None
+def text_horizontal(
+    ax,
+    attributes,
+    object_df,
+    quality_df,
+    formatter=None,
+    labelled_attribute="universal_id",
 ):
     """Add object ID attributes."""
+    latitude = object_df["latitude"].values[0]
+    longitude = object_df["longitude"].values[0]
+    label = object_df.reset_index()[labelled_attribute].values[0]
+    if formatter is not None:
+        label = formatter(label)
+    args = [ax, label, longitude, latitude]
+    if quality_df.values:
+        return horizontal.embossed_text(*args)
+    else:
+        return None
 
-    if "id" in figure_options.attributes:
-        latitude = object_attributes["latitude"]
-        longitude = object_attributes["longitude"]
-        args = [axes[0], str(object_attributes.name), longitude, latitude]
-        horizontal.embossed_text(*args)
-        args[0] = axes[1]
-        horizontal.embossed_text(*args)
-    return
+
+# def text_attributes_horizontal(
+#     axes, figure_options, object_attributes, object_quality=None
+# ):
+#     """Add object ID attributes."""
+
+#     if "id" in figure_options.attributes:
+#         latitude = object_attributes["latitude"]
+#         longitude = object_attributes["longitude"]
+#         args = [axes[0], str(object_attributes.name), longitude, latitude]
+#         horizontal.embossed_text(*args)
+#         args[0] = axes[1]
+#         horizontal.embossed_text(*args)
+#     return
 
 
 def get_quality(quality_names, object_attributes, method="all"):
@@ -636,84 +644,85 @@ def get_quality(quality_names, object_attributes, method="all"):
 
 def orientation_horizontal(ax, attributes, object_df, quality_df=None):
     """Add orientation attributes to axes."""
-    latitude = object_df["ellipse_latitude"]
-    longitude = object_df["ellipse_longitude"]
+    latitude = object_df["orientation_latitude"].values[0]
+    longitude = object_df["orientation_longitude"].values[0]
     if "major" in attributes:
-        length = object_df["major"]
+        length = object_df["major"].values[0]
     elif "minor" in attributes:
-        length = object_df["minor"]
+        length = object_df["minor"].values[0]
     else:
         raise ValueError("No major or minor attribute in object_df.")
     if "orientation" in attributes:
-        orientation = object_df["orientation"]
+        orientation = object_df["orientation"].values[0]
     else:
         raise ValueError("No orientation attribute in object_df.")
     args = [ax, latitude, longitude, length, orientation, quality_df.values]
-    horizontal.ellipse_axis(*args)
+    return horizontal.ellipse_axis(*args)
 
 
-def ellipse_attributes(axes, figure_options, object_attributes):
-    """Add ellipse axis attributes."""
+# def ellipse_attributes(axes, figure_options, object_attributes):
+#     """Add ellipse axis attributes."""
 
-    quality_names = quality_dispatcher.get("major")
-    quality = get_quality(quality_names, object_attributes)
-    latitude = object_attributes["ellipse_latitude"]
-    longitude = object_attributes["ellipse_longitude"]
-    major, orientation = object_attributes["major"], object_attributes["orientation"]
-    style = figure_options.style
-    args = [axes[0], latitude, longitude, major, orientation, "Major Axis", style]
-    args += [quality]
-    legend_handles = []
-    legend_handle = horizontal.ellipse_axis(*args)
-    legend_handles.append(legend_handle)
+#     quality_names = quality_dispatcher.get("major")
+#     quality = get_quality(quality_names, object_attributes)
+#     latitude = object_attributes["ellipse_latitude"]
+#     longitude = object_attributes["ellipse_longitude"]
+#     major, orientation = object_attributes["major"], object_attributes["orientation"]
+#     style = figure_options.style
+#     args = [axes[0], latitude, longitude, major, orientation, "Major Axis", style]
+#     args += [quality]
+#     legend_handles = []
+#     legend_handle = horizontal.ellipse_axis(*args)
+#     legend_handles.append(legend_handle)
 
-    return legend_handles
+#     return legend_handles
 
 
 def displacement_horizontal(
-    ax, attributes: list[str, str], object_df, quality_df=None, color="tab:blue"
+    ax, attributes, object_df, quality_df, color="tab:blue", reverse=False
 ):
     """Add displacement attributes."""
     # Convert displacements from km to metres
-    dx, dy = object_df[attributes[0]] * 1e3, object_df[attributes[1]] * 1e3
-    latitude, longitude = object_df["latitude"], object_df["longitude"]
-    legend_handles = []
+    dx = object_df[attributes[0]].values[0] * 1e3
+    dy = object_df[attributes[1]].values[0] * 1e3
+    if reverse:
+        dx, dy = -dx, -dy
+    latitude = object_df["latitude"].values[0]
+    longitude = object_df["longitude"].values[0]
     args = [ax, latitude, longitude, dx, dy, color, quality_df.values]
-    horizontal.cartesian_displacement(*args, arrow=True)
-
-    return legend_handles
+    return horizontal.cartesian_displacement(*args, arrow=True, reverse=reverse)
 
 
-def displacement_attributes_horizontal(axes, figure_options, object_attributes):
-    """Add displacement attributes."""
+# def displacement_attributes_horizontal(axes, figure_options, object_attributes):
+#     """Add displacement attributes."""
 
-    displacement_attributes = ["offset"]
-    attribute_names = figure_options.attributes
-    displacement_attributes = [
-        v for v in attribute_names if v in displacement_attributes
-    ]
-    latitude = object_attributes["latitude"]
-    longitude = object_attributes["longitude"]
-    legend_handles = []
+#     displacement_attributes = ["offset"]
+#     attribute_names = figure_options.attributes
+#     displacement_attributes = [
+#         v for v in attribute_names if v in displacement_attributes
+#     ]
+#     latitude = object_attributes["latitude"]
+#     longitude = object_attributes["longitude"]
+#     legend_handles = []
 
-    for attribute in displacement_attributes:
-        [dx_name, dy_name] = names_dispatcher[attribute]
-        # Convert displacements from km to metres
-        if object_attributes is not None:
-            dx, dy = object_attributes[dx_name] * 1e3, object_attributes[dy_name] * 1e3
-            color = colors_dispatcher[attribute]
-            label = label_dispatcher[attribute]
-            quality_names = quality_dispatcher.get(attribute)
-            quality = get_quality(quality_names, object_attributes)
-            args = [axes[0], latitude, longitude, dx, dy, color]
-            kwargs = {"quality": quality}
-            axes[0] = horizontal.cartesian_displacement(*args, **kwargs, arrow=True)
-            args[0] = axes[1]
-            axes[1] = horizontal.cartesian_displacement(*args, **kwargs, arrow=True)
-        legend_artist = horizontal.displacement_legend_artist(color, label)
-        legend_handles.append(legend_artist)
+#     for attribute in displacement_attributes:
+#         [dx_name, dy_name] = names_dispatcher[attribute]
+#         # Convert displacements from km to metres
+#         if object_attributes is not None:
+#             dx, dy = object_attributes[dx_name] * 1e3, object_attributes[dy_name] * 1e3
+#             color = colors_dispatcher[attribute]
+#             label = label_dispatcher[attribute]
+#             quality_names = quality_dispatcher.get(attribute)
+#             quality = get_quality(quality_names, object_attributes)
+#             args = [axes[0], latitude, longitude, dx, dy, color]
+#             kwargs = {"quality": quality}
+#             axes[0] = horizontal.cartesian_displacement(*args, **kwargs, arrow=True)
+#             args[0] = axes[1]
+#             axes[1] = horizontal.cartesian_displacement(*args, **kwargs, arrow=True)
+#         legend_artist = horizontal.displacement_legend_artist(color, label)
+#         legend_handles.append(legend_artist)
 
-    return legend_handles
+#     return legend_handles
 
 
 def convert_parents(parents):

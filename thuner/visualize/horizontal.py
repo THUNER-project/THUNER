@@ -157,9 +157,10 @@ def embossed_text(ax, text, longitude, latitude):
     fontsize = int(plt.rcParams["font.size"] / 2)
     kwargs = {"transform": proj, "zorder": 5, "fontweight": "bold", "color": "w"}
     kwargs.update({"path_effects": path_effects, "fontsize": fontsize})
-    text = ax.text(*args, **kwargs)
-    text.set_clip_on(True)
-    text.set_clip_box(ax.bbox)
+    artist = ax.text(*args, **kwargs)
+    artist.set_clip_on(True)
+    artist.set_clip_box(ax.bbox)
+    return artist
 
 
 def domain_boundary(ax, boundaries, grid_options):
@@ -410,10 +411,13 @@ def ellipse_axis(ax, latitude, longitude, axis_length, orientation, quality=True
     kwargs.update({"zorder": 3, "path_effects": path_effects, "transform": proj})
     kwargs.update({"linestyle": "--"})
     if quality:
-        ax.plot([lon_1, lon_2], [lat_1, lat_2], **kwargs)
+        artist = ax.plot([lon_1, lon_2], [lat_1, lat_2], **kwargs)
+    else:
+        artist = None
+    return artist
 
 
-def ellipse_legend_artist(label, style):
+def orientation_legend_artist(label, style):
     """Create a legend artist for an ellipse axis."""
     colors = visualize.figure_colors[style]
     axis_color = colors["ellipse_axis"]
@@ -476,6 +480,7 @@ def cartesian_displacement(
     color,
     quality=True,
     arrow=True,
+    reverse=False,
     clip=True,
 ):
     """Plot a displacement provided in cartesian coordinates."""
@@ -490,8 +495,10 @@ def cartesian_displacement(
     end_longitude = end_longitude % 360
     dlon = end_longitude - start_longitude
     dlat = end_latitude - start_latitude
-
-    args = [start_longitude, start_latitude, dlon, dlat]
+    if reverse:
+        args = [start_longitude + dlon, start_latitude + dlat, -dlon, -dlat]
+    else:
+        args = [start_longitude, start_latitude, dlon, dlat]
     path_effects = [
         patheffects.Stroke(linewidth=linewidth, foreground=color),
         patheffects.Normal(),
@@ -511,9 +518,11 @@ def cartesian_displacement(
     else:
         kwargs.update({"clip_on": False})
     if quality:
-        ax.arrow(*args, **tmp_vector_options, **kwargs)
+        artist = ax.arrow(*args, **tmp_vector_options, **kwargs)
+    else:
+        artist = None
 
-    return ax
+    return artist
 
 
 def cartesian_velocity(
