@@ -5,7 +5,7 @@ from pathlib import Path
 from pydantic import Field, BaseModel, model_validator, ConfigDict
 from typing import Any, Callable, Dict, Literal
 from time import sleep
-import multiprocessing
+import multiprocessing as mp
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -53,13 +53,12 @@ def get_altitude_labels(track_options, mcs_name="mcs", mcs_level=1):
     return convective_label + " Altitude", stratiform_label + " Altitude"
 
 
-def mcs_series(
+def series(
     output_directory: str | Path,
     start_time,
     end_time,
     figure_options,
-    convective_label="convective",
-    dataset_name=None,
+    dataset_name,
     animate=True,
     parallel_figure=False,
     dt=3600,
@@ -75,13 +74,6 @@ def mcs_series(
     end_time = np.datetime64(end_time)
     options = read_options(output_directory)
     track_options = options["track"]
-    if dataset_name is None:
-        try:
-            object_options = track_options.levels[0].object_by_name(convective_label)
-            dataset_name = object_options.dataset
-        except KeyError:
-            message = "Could not infer dataset used for detection. Provide manually."
-            raise KeyError(message)
 
     masks_filepath = output_directory / "masks/mcs.zarr"
     masks = xr.open_dataset(masks_filepath, engine="zarr")
@@ -93,34 +85,34 @@ def mcs_series(
 
     record_filepath = output_directory / f"records/filepaths/{dataset_name}.csv"
     filepaths = read_attribute_csv(record_filepath, columns=[dataset_name])
+    # Start with first time
     time = times[0]
     args = [time, filepaths, masks, output_directory, figure_options]
-    args += [options, track_options, dataset_name, dt, color_angle_df]
-    visualize_mcs(*args)
+    args += [options, dataset_name, dt, color_angle_df]
+    create_figure(*args)
     if len(times) == 1:
         # Switch back to original backend
         plt.close("all")
         matplotlib.use(original_backend)
         return
     if parallel_figure:
-        with logging_listener(), multiprocessing.get_context("spawn").Pool(
-            initializer=initialize_process, processes=num_processes
-        ) as pool:
+        kwargs = {"initializer": initialize_process, "processes": num_processes}
+        with logging_listener(), mp.get_context("spawn").Pool(**kwargs) as pool:
             results = []
             for time in times[1:]:
                 sleep(2)
                 args = [time, filepaths, masks, output_directory, figure_options]
-                args += [options, track_options, dataset_name, dt, color_angle_df]
+                args += [options, dataset_name, dt, color_angle_df]
                 args = tuple(args)
-                results.append(pool.apply_async(visualize_mcs, args))
+                results.append(pool.apply_async(create_figure, args))
             pool.close()
             pool.join()
             check_results(results)
     else:
         for time in times[1:]:
             args = [time, filepaths, masks, output_directory, figure_options]
-            args += [options, track_options, dataset_name, dt, color_angle_df]
-            visualize_mcs(*args)
+            args += [options, dataset_name, dt, color_angle_df]
+            create_figure(*args)
     if animate:
         figure_name = figure_options.name
         save_directory = output_directory / f"visualize"
@@ -133,7 +125,101 @@ def mcs_series(
     matplotlib.use(original_backend)
 
 
-def visualize_mcs(
+def get_mask_grid_boundary(
+    object_name, time, color_angle_df, filepaths, masks, dataset_name, options
+):
+    """Get the mask and grid for a given time."""
+    logger.info(f"Visualizing attribtues at time {time}.")
+
+    filepath = filepaths[dataset_name].loc[time]
+    dataset_options = options["data"].dataset_by_name(dataset_name)
+
+    args = [time, filepath, options["track"], options["grid"]]
+    ds, boundary_coords, simple_boundary_coords = dataset_options.convert_dataset(*args)
+    del boundary_coords
+    logger.debug(f"Getting grid from dataset at time {time}.")
+    grid = dataset_options.grid_from_dataset(ds, "reflectivity", time)
+    del ds
+    logger.debug(f"Rebuilding processed grid for time {time}.")
+    args = [grid, options["track"], object_name, 1]
+    processed_grid = detect.rebuild_processed_grid(*args)
+    del grid
+    mask = masks.sel(time=time).load()
+    return mask, processed_grid, simple_boundary_coords
+
+
+def get_object_colors(time, color_angle_df):
+    """Get the object colors for a given time."""
+    keys = color_angle_df.loc[color_angle_df["time"] == time]["universal_id"].values
+    values = color_angle_df.loc[color_angle_df["time"] == time]["color_angle"].values
+    values = [visualize.mask_colormap(v / (2 * np.pi)) for v in values]
+    return dict(zip(keys, values))
+
+
+def grouped_horizontal(
+    object_name,
+    time,
+    filepaths,
+    masks,
+    output_directory,
+    figure_options,
+    options,
+    dataset_name,
+    dt,
+    color_angle_df,
+):
+    """Create a horizontal cross section plot."""
+    logger.info(f"Visualizing attribtues at time {time}.")
+    args = [object_name, time, color_angle_df, filepaths, masks, dataset_name, options]
+    mask, grid, boundary_coords = get_mask_grid_boundary(*args)
+    object_colors = get_object_colors(time, color_angle_df)
+
+    grid_options = options["grid"]
+    track_options = options["track"]
+    obj_name = figure_options.object_name
+
+    grid = processed_grid
+    time = grid.time.values
+    style = figure_options.style
+
+    args = [grid, mask, grid_options, figure_options, member_objects]
+    args += [boundary_coords]
+    kwargs = {"object_colors": object_colors}
+
+    with plt.style.context(
+        visualize.visualize.styles[style]
+    ), visualize.visualize.set_style(style):
+        figure_features = visualize.horizontal.grouped_mask(*args, **kwargs)
+        fig, subplot_axes, colorbar_axes, legend_axes = figure_features
+
+    kwargs = {"object_name": "mcs", "time": time, "grid": grid, "mask": mask}
+    kwargs.update({"boundary_coordinates": boundary_coords})
+    kwargs.update({"attribute_handlers": attribute_handlers})
+    kwargs.update({"member_objects": member_objects})
+    kwargs.update({"figure": fig, "subplot_axes": subplot_axes})
+    kwargs.update({"colorbar_axes": colorbar_axes, "legend_axes": legend_axes})
+    core_filepath = output_directory / f"attributes/{obj_name}/core.csv"
+    kwargs["core_filepath"] = str(core_filepath)
+    base_directory = output_directory / f"attributes/{obj_name}/"
+    filepaths_list = [str(base_directory / f"{obj}/core.csv") for obj in member_objects]
+    kwargs["member_core_filepaths"] = dict(zip(member_objects, filepaths_list))
+    grouped_figure = visualize.attribute.GroupedObjectFigure(**kwargs)
+
+    # Remove mask and processed_grid from memory after generating the figure
+    del mask, processed_grid
+    filename = f"{format_time(time)}.png"
+    filepath = output_directory / f"visualize/{figure_options.figure_name}/{filename}"
+    filepath.parent.mkdir(parents=True, exist_ok=True)
+    logger.info(f"Saving {figure_options.figure_name} figure for {time}.")
+    fig.savefig(filepath, bbox_inches="tight")
+    utils.reduce_color_depth(filepath)
+    plt.clf()
+    plt.close()
+    gc.collect()
+
+
+def create_figure(
+    object_name,
     time,
     filepaths,
     masks,
@@ -145,8 +231,8 @@ def visualize_mcs(
     dt,
     color_angle_df,
 ):
-    """Wrapper for mcs_horizontal."""
-    logger.info(f"Visualizing MCS at time {time}.")
+    """Create an attributes figure for a given time."""
+    logger.info(f"Visualizing attribtues at time {time}.")
 
     # Get object colors
     keys = color_angle_df.loc[color_angle_df["time"] == time]["universal_id"].values
@@ -164,14 +250,13 @@ def visualize_mcs(
     grid = dataset_options.grid_from_dataset(ds, "reflectivity", time)
     del ds
     logger.debug(f"Rebuilding processed grid for time {time}.")
-    processed_grid = detect.rebuild_processed_grid(grid, track_options, "mcs", 1)
+    processed_grid = detect.rebuild_processed_grid(grid, track_options, object_name, 1)
     del grid
-    mask = masks.sel(time=time)
-    mask = mask.load()
+    mask = masks.sel(time=time).load()
     args = [output_directory, processed_grid, mask, simple_boundary_coords]
     args += [figure_options, options["grid"]]
-    figure_name = figure_options.name
-    style = figure_options.style
+    figure_name, style = figure_options.name, figure_options.style
+
     with plt.style.context(visualize.styles[style]), visualize.set_style(style):
         fig, ax = mcs_horizontal(*args, dt=dt, object_colors=object_colors)
         # Remove mask and processed_grid from memory after generating the figure
@@ -299,259 +384,115 @@ class GroupedObjectFigure(BaseFigure):
             raise ValueError(message)
 
 
-def grouped_horizontal(
-    output_directory,
-    grid,
-    mask,
-    boundary_coordinates,
-    figure_options,
-    grid_options,
-    member_objects,
-    dt=3600,
-    object_colors=None,
-):
-    """Create a horizontal cross section plot."""
-    options = read_options(output_directory)
-    track_options = options["track"]
-    obj_name = figure_options.object_name
+# def mcs_horizontal(
+#     output_directory,
+#     grid,
+#     mask,
+#     boundary_coordinates,
+#     figure_options,
+#     grid_options,
+#     convective_label="convective",
+#     anvil_label="anvil",
+#     dt=3600,
+#     object_colors=None,
+# ):
+#     """Create a horizontal cross section plot."""
+#     member_objects = [convective_label, anvil_label]
+#     options = read_options(output_directory)
+#     track_options = options["track"]
 
-    time = grid.time.values
-    logger.debug(f"Creating grouped mask figure at time {time}.")
-    try:
-        filepath = output_directory / "analysis/quality.csv"
-        kwargs = {"times": [time], "columns": ["duration", "parents"]}
-        object_quality = read_attribute_csv(filepath, **kwargs).loc[time]
-        object_quality = object_quality.any(axis=1).to_dict()
-    except (FileNotFoundError, KeyError):
-        object_quality = None
+#     time = grid.time.values
+#     logger.debug(f"Creating grouped mask figure at time {time}.")
+#     try:
+#         filepath = output_directory / "analysis/quality.csv"
+#         kwargs = {"times": [time], "columns": ["duration", "parents"]}
+#         object_quality = read_attribute_csv(filepath, **kwargs).loc[time]
+#         object_quality = object_quality.any(axis=1).to_dict()
+#     except (FileNotFoundError, KeyError):
+#         object_quality = None
 
-    args = [grid, mask, grid_options, figure_options, member_objects]
-    args += [boundary_coordinates]
-    kwargs = {"object_colors": object_colors, "mask_quality": object_quality}
-    fig, axes, colorbar_axes, legend_axes = horizontal.grouped_mask(*args, **kwargs)
+#     args = [grid, mask, grid_options, figure_options, member_objects]
+#     args += [boundary_coordinates]
+#     kwargs = {"object_colors": object_colors, "mask_quality": object_quality}
+#     fig, axes, colorbar_axes, legend_axes = horizontal.grouped_mask(*args, **kwargs)
 
-    try:
-        filepath = output_directory / f"attributes/{obj_name}/core.csv"
-        columns = ["latitude", "longitude"]
-        core = read_attribute_csv(filepath, times=[time], columns=columns).loc[time]
-        filepath = output_directory / "attributes/mcs/group.csv"
-        group = read_attribute_csv(filepath, times=[time]).loc[time]
-        filepath = output_directory / "analysis/velocities.csv"
-        velocities = read_attribute_csv(filepath, times=[time]).loc[time]
-        # filepath = output_directory / "analysis/classification.csv"
-        # classification = read_attribute_csv(filepath, times=[time]).loc[time]
-        filepath = output_directory / f"attributes/mcs/{convective_label}/ellipse.csv"
-        ellipse = read_attribute_csv(filepath, times=[time]).loc[time]
-        new_names = {"latitude": "ellipse_latitude", "longitude": "ellipse_longitude"}
-        ellipse = ellipse.rename(columns=new_names)
-        filepath = output_directory / "analysis/quality.csv"
-        quality = read_attribute_csv(filepath, times=[time]).loc[time]
-        attributes = pd.concat([core, ellipse, group, velocities, quality], axis=1)
-        objs = group.reset_index()["universal_id"].values
-    except KeyError:
-        # If no attributes, set objs=[]
-        objs = []
+#     try:
+#         filepath = output_directory / "attributes/mcs/core.csv"
+#         columns = ["latitude", "longitude"]
+#         core = read_attribute_csv(filepath, times=[time], columns=columns).loc[time]
+#         filepath = output_directory / "attributes/mcs/group.csv"
+#         group = read_attribute_csv(filepath, times=[time]).loc[time]
+#         filepath = output_directory / "analysis/velocities.csv"
+#         velocities = read_attribute_csv(filepath, times=[time]).loc[time]
+#         # filepath = output_directory / "analysis/classification.csv"
+#         # classification = read_attribute_csv(filepath, times=[time]).loc[time]
+#         filepath = output_directory / f"attributes/mcs/{convective_label}/ellipse.csv"
+#         ellipse = read_attribute_csv(filepath, times=[time]).loc[time]
+#         new_names = {"latitude": "ellipse_latitude", "longitude": "ellipse_longitude"}
+#         ellipse = ellipse.rename(columns=new_names)
+#         filepath = output_directory / "analysis/quality.csv"
+#         quality = read_attribute_csv(filepath, times=[time]).loc[time]
+#         attributes = pd.concat([core, ellipse, group, velocities, quality], axis=1)
+#         objs = group.reset_index()["universal_id"].values
+#     except KeyError:
+#         # If no attributes, set objs=[]
+#         objs = []
 
-    for obj_id in objs:
-        obj_attr = attributes.loc[obj_id]
-        args = [axes, figure_options, obj_attr]
-        velocity_attributes_horizontal(*args, dt=dt)
-        displacement_attributes_horizontal(*args)
-        ellipse_attributes(*args)
-        if object_quality[obj_id]:
-            text_attributes_horizontal(*args, object_quality=object_quality)
+#     for obj_id in objs:
+#         obj_attr = attributes.loc[obj_id]
+#         args = [axes, figure_options, obj_attr]
+#         velocity_attributes_horizontal(*args, dt=dt)
+#         displacement_attributes_horizontal(*args)
+#         ellipse_attributes(*args)
+#         if object_quality[obj_id]:
+#             text_attributes_horizontal(*args, object_quality=object_quality)
 
-    style = figure_options.style
-    scale = utils.get_extent(grid_options)[1]
+#     style = figure_options.style
+#     scale = utils.get_extent(grid_options)[1]
 
-    key_color = visualize.figure_colors[style]["key"]
-    horizontal.vector_key(axes[0], color=key_color, dt=dt, scale=scale)
-    kwargs = {"mcs_name": "mcs", "mcs_level": 1}
-    convective_label, stratiform_label = get_altitude_labels(track_options, **kwargs)
+#     key_color = visualize.figure_colors[style]["key"]
+#     horizontal.vector_key(axes[0], color=key_color, dt=dt, scale=scale)
+#     kwargs = {"mcs_name": "mcs", "mcs_level": 1}
+#     convective_label, stratiform_label = get_altitude_labels(track_options, **kwargs)
 
-    axes[0].set_title(convective_label)
-    axes[1].set_title(stratiform_label)
+#     axes[0].set_title(convective_label)
+#     axes[1].set_title(stratiform_label)
 
-    # Get legend proxy artists
-    handles = []
-    labels = []
-    handle = horizontal.domain_boundary_legend_artist()
-    handles += [handle]
-    labels += ["Domain Boundary"]
-    handle = horizontal.ellipse_legend_artist("Major Axis", figure_options.style)
-    handles += [handle]
-    labels += ["Major Axis"]
-    attribute_names = figure_options.attributes
-    for name in [attr for attr in attribute_names if attr != "id"]:
-        color = colors_dispatcher[name]
-        label = label_dispatcher[name]
-        handle = horizontal.displacement_legend_artist(color, label)
-        handles.append(handle)
-        labels.append(label)
+#     # Get legend proxy artists
+#     handles = []
+#     labels = []
+#     handle = horizontal.domain_boundary_legend_artist()
+#     handles += [handle]
+#     labels += ["Domain Boundary"]
+#     handle = horizontal.ellipse_legend_artist("Major Axis", figure_options.style)
+#     handles += [handle]
+#     labels += ["Major Axis"]
+#     attribute_names = figure_options.attributes
+#     for name in [attr for attr in attribute_names if attr != "id"]:
+#         color = colors_dispatcher[name]
+#         label = label_dispatcher[name]
+#         handle = horizontal.displacement_legend_artist(color, label)
+#         handles.append(handle)
+#         labels.append(label)
 
-    handle, handler = horizontal.mask_legend_artist()
-    handles += [handle]
-    labels += ["Object Masks"]
-    legend_color = visualize.figure_colors[figure_options.style]["legend"]
-    handles, labels = handles[::-1], labels[::-1]
+#     handle, handler = horizontal.mask_legend_artist()
+#     handles += [handle]
+#     labels += ["Object Masks"]
+#     legend_color = visualize.figure_colors[figure_options.style]["legend"]
+#     handles, labels = handles[::-1], labels[::-1]
 
-    args = [handles, labels]
-    leg_ax = legend_axes[0]
-    if scale == 1:
-        legend = leg_ax.legend(*args, **mcs_legend_options, handler_map=handler)
-    elif scale == 2:
-        mcs_legend_options["loc"] = "lower left"
-        mcs_legend_options["bbox_to_anchor"] = (-0.0, -0.425)
-        legend = leg_ax.legend(*args, **mcs_legend_options, handler_map=handler)
-    legend.get_frame().set_alpha(None)
-    legend.get_frame().set_facecolor(legend_color)
+#     args = [handles, labels]
+#     leg_ax = legend_axes[0]
+#     if scale == 1:
+#         legend = leg_ax.legend(*args, **mcs_legend_options, handler_map=handler)
+#     elif scale == 2:
+#         mcs_legend_options["loc"] = "lower left"
+#         mcs_legend_options["bbox_to_anchor"] = (-0.0, -0.425)
+#         legend = leg_ax.legend(*args, **mcs_legend_options, handler_map=handler)
+#     legend.get_frame().set_alpha(None)
+#     legend.get_frame().set_facecolor(legend_color)
 
-    return fig, axes
-
-
-def mcs_horizontal(
-    output_directory,
-    grid,
-    mask,
-    boundary_coordinates,
-    figure_options,
-    grid_options,
-    convective_label="convective",
-    anvil_label="anvil",
-    dt=3600,
-    object_colors=None,
-):
-    """Create a horizontal cross section plot."""
-    member_objects = [convective_label, anvil_label]
-    options = read_options(output_directory)
-    track_options = options["track"]
-
-    time = grid.time.values
-    logger.debug(f"Creating grouped mask figure at time {time}.")
-    try:
-        filepath = output_directory / "analysis/quality.csv"
-        kwargs = {"times": [time], "columns": ["duration", "parents"]}
-        object_quality = read_attribute_csv(filepath, **kwargs).loc[time]
-        object_quality = object_quality.any(axis=1).to_dict()
-    except (FileNotFoundError, KeyError):
-        object_quality = None
-
-    args = [grid, mask, grid_options, figure_options, member_objects]
-    args += [boundary_coordinates]
-    kwargs = {"object_colors": object_colors, "mask_quality": object_quality}
-    fig, axes, colorbar_axes, legend_axes = horizontal.grouped_mask(*args, **kwargs)
-
-    try:
-        filepath = output_directory / "attributes/mcs/core.csv"
-        columns = ["latitude", "longitude"]
-        core = read_attribute_csv(filepath, times=[time], columns=columns).loc[time]
-        filepath = output_directory / "attributes/mcs/group.csv"
-        group = read_attribute_csv(filepath, times=[time]).loc[time]
-        filepath = output_directory / "analysis/velocities.csv"
-        velocities = read_attribute_csv(filepath, times=[time]).loc[time]
-        # filepath = output_directory / "analysis/classification.csv"
-        # classification = read_attribute_csv(filepath, times=[time]).loc[time]
-        filepath = output_directory / f"attributes/mcs/{convective_label}/ellipse.csv"
-        ellipse = read_attribute_csv(filepath, times=[time]).loc[time]
-        new_names = {"latitude": "ellipse_latitude", "longitude": "ellipse_longitude"}
-        ellipse = ellipse.rename(columns=new_names)
-        filepath = output_directory / "analysis/quality.csv"
-        quality = read_attribute_csv(filepath, times=[time]).loc[time]
-        attributes = pd.concat([core, ellipse, group, velocities, quality], axis=1)
-        objs = group.reset_index()["universal_id"].values
-    except KeyError:
-        # If no attributes, set objs=[]
-        objs = []
-
-    for obj_id in objs:
-        obj_attr = attributes.loc[obj_id]
-        args = [axes, figure_options, obj_attr]
-        velocity_attributes_horizontal(*args, dt=dt)
-        displacement_attributes_horizontal(*args)
-        ellipse_attributes(*args)
-        if object_quality[obj_id]:
-            text_attributes_horizontal(*args, object_quality=object_quality)
-
-    style = figure_options.style
-    scale = utils.get_extent(grid_options)[1]
-
-    key_color = visualize.figure_colors[style]["key"]
-    horizontal.vector_key(axes[0], color=key_color, dt=dt, scale=scale)
-    kwargs = {"mcs_name": "mcs", "mcs_level": 1}
-    convective_label, stratiform_label = get_altitude_labels(track_options, **kwargs)
-
-    axes[0].set_title(convective_label)
-    axes[1].set_title(stratiform_label)
-
-    # Get legend proxy artists
-    handles = []
-    labels = []
-    handle = horizontal.domain_boundary_legend_artist()
-    handles += [handle]
-    labels += ["Domain Boundary"]
-    handle = horizontal.ellipse_legend_artist("Major Axis", figure_options.style)
-    handles += [handle]
-    labels += ["Major Axis"]
-    attribute_names = figure_options.attributes
-    for name in [attr for attr in attribute_names if attr != "id"]:
-        color = colors_dispatcher[name]
-        label = label_dispatcher[name]
-        handle = horizontal.displacement_legend_artist(color, label)
-        handles.append(handle)
-        labels.append(label)
-
-    handle, handler = horizontal.mask_legend_artist()
-    handles += [handle]
-    labels += ["Object Masks"]
-    legend_color = visualize.figure_colors[figure_options.style]["legend"]
-    handles, labels = handles[::-1], labels[::-1]
-
-    args = [handles, labels]
-    leg_ax = legend_axes[0]
-    if scale == 1:
-        legend = leg_ax.legend(*args, **mcs_legend_options, handler_map=handler)
-    elif scale == 2:
-        mcs_legend_options["loc"] = "lower left"
-        mcs_legend_options["bbox_to_anchor"] = (-0.0, -0.425)
-        legend = leg_ax.legend(*args, **mcs_legend_options, handler_map=handler)
-    legend.get_frame().set_alpha(None)
-    legend.get_frame().set_facecolor(legend_color)
-
-    return fig, axes
-
-
-# names_dispatcher = {
-#     "velocity": ["u", "v"],
-#     "relative_velocity": ["u_relative", "v_relative"],
-#     "shear": ["u_shear", "v_shear"],
-#     "ambient": ["u_ambient", "v_ambient"],
-#     "offset": ["x_offset", "y_offset"],
-# }
-# colors_dispatcher = {
-#     "velocity": "tab:purple",
-#     "relative_velocity": "darkgreen",
-#     "shear": "tab:purple",
-#     "ambient": "tab:red",
-#     "offset": "tab:blue",
-# }
-# label_dispatcher = {
-#     "velocity": "System Velocity",
-#     "relative_velocity": "Relative System Velocity",
-#     "shear": "Ambient Shear",
-#     "ambient": "Ambient Wind",
-#     "offset": "Stratiform-Offset",
-# }
-# system_contained = ["convective_contained", "anvil_contained"]
-# quality_dispatcher = {
-#     "ambient": system_contained + ["duration"],
-#     "velocity": system_contained + ["velocity", "duration"],
-#     "shear": system_contained + ["shear", "duration"],
-#     "relative_velocity": system_contained + ["relative_velocity", "duration"],
-#     "offset": system_contained + ["offset", "duration"],
-#     "major": ["convective_contained", "anvil_contained", "axis_ratio", "duration"],
-#     "minor": ["convective_contained", "anvil_contained", "axis_ratio", "duration"],
-#     "mask": ["parents", "duration"],
-# }
+#     return fig, axes
 
 
 def velocity_horizontal(
@@ -566,32 +507,6 @@ def velocity_horizontal(
     u, v = object_df[attributes[0]].values[0], object_df[attributes[1]].values[0]
     args = [ax, latitude, longitude, u, v, color]
     return horizontal.cartesian_velocity(*args, quality=quality_df.values, dt=dt)
-
-
-# def velocity_attributes_horizontal(axes, figure_options, object_attributes, dt=3600):
-#     """
-#     Add velocity attributes. Assumes the attribtes dataframe has already
-#     been subset to the desired time and object, so is effectively a dictionary.
-#     """
-
-#     velocity_attributes = ["ambient", "relative_velocity", "velocity", "shear"]
-#     attribute_names = figure_options.attributes
-#     velocity_attributes = [v for v in attribute_names if v in velocity_attributes]
-#     latitude = object_attributes["latitude"]
-#     longitude = object_attributes["longitude"]
-#     legend_handles = []
-
-#     for attribute in velocity_attributes:
-#         [u_name, v_name] = names_dispatcher[attribute]
-#         u, v = object_attributes[u_name], object_attributes[v_name]
-#         quality_names = quality_dispatcher.get(attribute)
-#         quality = get_quality(quality_names, object_attributes)
-#         color = colors_dispatcher[attribute]
-#         label = label_dispatcher[attribute]
-#         args = [axes[0], latitude, longitude, u, v, color]
-#         axes[0] = horizontal.cartesian_velocity(*args, quality=quality, dt=dt)
-
-#     return legend_handles
 
 
 def text_horizontal(
@@ -613,21 +528,6 @@ def text_horizontal(
         return horizontal.embossed_text(*args)
     else:
         return None
-
-
-# def text_attributes_horizontal(
-#     axes, figure_options, object_attributes, object_quality=None
-# ):
-#     """Add object ID attributes."""
-
-#     if "id" in figure_options.attributes:
-#         latitude = object_attributes["latitude"]
-#         longitude = object_attributes["longitude"]
-#         args = [axes[0], str(object_attributes.name), longitude, latitude]
-#         horizontal.embossed_text(*args)
-#         args[0] = axes[1]
-#         horizontal.embossed_text(*args)
-#     return
 
 
 def get_quality(quality_names, object_attributes, method="all"):
@@ -660,24 +560,6 @@ def orientation_horizontal(ax, attributes, object_df, quality_df=None):
     return horizontal.ellipse_axis(*args)
 
 
-# def ellipse_attributes(axes, figure_options, object_attributes):
-#     """Add ellipse axis attributes."""
-
-#     quality_names = quality_dispatcher.get("major")
-#     quality = get_quality(quality_names, object_attributes)
-#     latitude = object_attributes["ellipse_latitude"]
-#     longitude = object_attributes["ellipse_longitude"]
-#     major, orientation = object_attributes["major"], object_attributes["orientation"]
-#     style = figure_options.style
-#     args = [axes[0], latitude, longitude, major, orientation, "Major Axis", style]
-#     args += [quality]
-#     legend_handles = []
-#     legend_handle = horizontal.ellipse_axis(*args)
-#     legend_handles.append(legend_handle)
-
-#     return legend_handles
-
-
 def displacement_horizontal(
     ax, attributes, object_df, quality_df, color="tab:blue", reverse=False
 ):
@@ -691,38 +573,6 @@ def displacement_horizontal(
     longitude = object_df["longitude"].values[0]
     args = [ax, latitude, longitude, dx, dy, color, quality_df.values]
     return horizontal.cartesian_displacement(*args, arrow=True, reverse=reverse)
-
-
-# def displacement_attributes_horizontal(axes, figure_options, object_attributes):
-#     """Add displacement attributes."""
-
-#     displacement_attributes = ["offset"]
-#     attribute_names = figure_options.attributes
-#     displacement_attributes = [
-#         v for v in attribute_names if v in displacement_attributes
-#     ]
-#     latitude = object_attributes["latitude"]
-#     longitude = object_attributes["longitude"]
-#     legend_handles = []
-
-#     for attribute in displacement_attributes:
-#         [dx_name, dy_name] = names_dispatcher[attribute]
-#         # Convert displacements from km to metres
-#         if object_attributes is not None:
-#             dx, dy = object_attributes[dx_name] * 1e3, object_attributes[dy_name] * 1e3
-#             color = colors_dispatcher[attribute]
-#             label = label_dispatcher[attribute]
-#             quality_names = quality_dispatcher.get(attribute)
-#             quality = get_quality(quality_names, object_attributes)
-#             args = [axes[0], latitude, longitude, dx, dy, color]
-#             kwargs = {"quality": quality}
-#             axes[0] = horizontal.cartesian_displacement(*args, **kwargs, arrow=True)
-#             args[0] = axes[1]
-#             axes[1] = horizontal.cartesian_displacement(*args, **kwargs, arrow=True)
-#         legend_artist = horizontal.displacement_legend_artist(color, label)
-#         legend_handles.append(legend_artist)
-
-#     return legend_handles
 
 
 def convert_parents(parents):

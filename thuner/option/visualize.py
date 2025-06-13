@@ -89,15 +89,12 @@ class HorizontalAttributeOptions(VisualizeOptions):
     name: str = Field(..., description=_desc)
     _desc = "The name of the object to visualize."
     object_name: str = Field(..., description=_desc)
-    _desc = "The attributes to display."
-    _default_attributes = ["ambient", "relative_velocity", "velocity", "offset"]
-    attributes: list[str] = Field(_default_attributes, description=_desc)
-    _desc = "Whether to perform quality control."
-    quality_control: bool = Field(True, description=_desc)
-    _desc = "The fields to display."
-    fields: list[str] = Field(["reflectivity"], description=_desc)
-    _desc = "The extent of the figure."
-    extent: list[float] | None = Field(None, description=_desc)
+    _desc = "Attribute handlers."
+    attribute_handlers: Any = Field(None, description=_desc)
+    # _desc = "The fields to display."
+    # fields: list[str] = Field(["reflectivity"], description=_desc)
+    # _desc = "The extent of the figure."
+    # extent: list[float] | None = Field(None, description=_desc)
     _desc = "The template for the figure. This is typically created during runtime."
     template: Any = Field(None, description=_desc)
     _desc = "Whether to use a single color for the object masks."
