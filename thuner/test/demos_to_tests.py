@@ -29,6 +29,10 @@ def convert_notebook_to_script(notebook_path, script_path):
         # Remove cell markers
         if re.match(r"# In\[.*\]:", line):
             continue
+        # Find the remove_existing_outputs line and set it to True
+        if re.match(r"remove_existing_outputs\s*=\s*False", line):
+            line = "remove_existing_outputs = True"
+
         cleaned_lines.append(line)
     script = "\n".join(cleaned_lines)
     # Remove leading and trailing whitespace
@@ -41,11 +45,12 @@ def convert_notebook_to_script(notebook_path, script_path):
         f.write(script)
 
 
-demo_dir = Path(__file__).parent.parent.parent / "demo"
-test_dir = Path(__file__).parent
+if __name__ == "__main__":
+    demo_dir = Path(__file__).parent.parent.parent / "demo"
+    test_dir = Path(__file__).parent
 
-# Iterate over items in the demo directory
-for item in demo_dir.iterdir():
-    if item.is_file() and item.suffix == ".ipynb":
-        # Convert the notebook to a test script
-        convert_notebook_to_script(item, test_dir / f"test_{item.stem}.py")
+    # Iterate over items in the demo directory
+    for item in demo_dir.iterdir():
+        if item.is_file() and item.suffix == ".ipynb":
+            # Convert the notebook to a test script
+            convert_notebook_to_script(item, test_dir / f"test_{item.stem}.py")

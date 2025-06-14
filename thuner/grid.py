@@ -308,8 +308,8 @@ def get_pixels_geographic(rows, cols, grid_options):
     scalar_input = np.isscalar(rows) and np.isscalar(cols)
     rows = np.array([rows]).flatten()
     cols = np.array([cols]).flatten()
-    latitudes = grid_options.latitude
-    longitudes = grid_options.longitude
+    latitudes = np.array(grid_options.latitude)
+    longitudes = np.array(grid_options.longitude)
     if grid_options.name == "cartesian":
         # lats, lons are 2D arrays
         lats = [latitudes[row, col] for row, col in zip(rows, cols)]

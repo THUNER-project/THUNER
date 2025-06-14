@@ -26,33 +26,22 @@ approach avoids the need for storing large datasets.
 
 .. code-block:: text
 
-    
-    Welcome to the Thunderstorm Event Reconnaissance (THUNER) package 
-    v0.0.16! This package is still in testing and development. Please visit 
-    github.com/THUNER-project/THUNER for examples, and to report issues or contribute.
-     
-    THUNER is a flexible toolkit for performing multi-feature detection, 
-    tracking, tagging and analysis of events within meteorological datasets. 
-    The intended application is to convective weather events. For examples 
-    and instructions, see https://github.com/THUNER-project/THUNER and 
-    https://thuner.readthedocs.io/en/latest/. If you use THUNER in your research, consider 
-    citing the following papers;
-    
-    Short et al. (2023), doi: 10.1175/MWR-D-22-0146.1
-    Raut et al. (2021), doi: 10.1175/JAMC-D-20-0119.1
-    Fridlind et al. (2019), doi: 10.5194/amt-12-2979-2019
-    ...
+    The autoreload extension is already loaded. To reload it, use:
+      %reload_ext autoreload
 
 .. code-block:: python3
     :linenos:
 
+    # Set a flag for whether or not to remove existing output directories
+    remove_existing_outputs = False
+    
     # Parent directory for saving outputs
     base_local = Path.home() / "THUNER_output"
     start = "2005-11-13T00:00:00"
     end = "2005-11-13T02:00:00"
     
     output_parent = base_local / "runs/synthetic/geographic"
-    if output_parent.exists():
+    if output_parent.exists() and remove_existing_outputs:
         shutil.rmtree(output_parent)
     options_directory = output_parent / "options"
     options_directory.mkdir(parents=True, exist_ok=True)
@@ -89,8 +78,8 @@ approach avoids the need for storing large datasets.
 
 .. code-block:: text
 
-    2025-04-25 00:32:55,758 - thuner.option.grid - WARNING - altitude not specified. Using default altitudes.
-    2025-04-25 00:32:55,759 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
+    2025-06-14 22:18:26,663 - thuner.option.grid - WARNING - altitude not specified. Using default altitudes.
+    2025-06-14 22:18:26,666 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
 
 .. code-block:: python3
     :linenos:
@@ -105,25 +94,24 @@ approach avoids the need for storing large datasets.
 
 .. code-block:: text
 
-    2025-04-25 00:32:55,915 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/synthetic/geographic.
-    2025-04-25 00:32:55,925 - thuner.track.track - INFO - Processing 2005-11-13T00:00:00.
-    2025-04-25 00:32:55,931 - thuner.data.synthetic - INFO - Updating synthetic dataset for 2005-11-13T00:00:00.
-    2025-04-25 00:33:10,261 - thuner.track.track - INFO - Processing hierarchy level 0.
-    2025-04-25 00:33:10,262 - thuner.track.track - INFO - Tracking convective.
-    2025-04-25 00:33:10,269 - thuner.detect.steiner - INFO - Compiling thuner.detect.steiner.steiner_scheme with Numba. Please wait.
-    2025-04-25 00:33:22,544 - thuner.match.match - INFO - Matching convective objects.
-    2025-04-25 00:33:22,546 - thuner.match.match - INFO - No current mask, or no objects in current mask.
-    2025-04-25 00:33:22,568 - thuner.visualize.runtime - INFO - Creating runtime visualization figures.
-    2025-04-25 00:33:26,061 - thuner.track.track - INFO - Processing 2005-11-13T00:10:00.
-    2025-04-25 00:33:26,062 - thuner.data.synthetic - INFO - Updating synthetic dataset for 2005-11-13T00:10:00.
-    2025-04-25 00:33:40,854 - thuner.track.track - INFO - Processing hierarchy level 0.
-    2025-04-25 00:33:40,855 - thuner.track.track - INFO - Tracking convective.
-    2025-04-25 00:33:40,864 - thuner.write.mask - INFO - Writing convective masks to /home/ewan/THUNER_output/runs/synthetic/geographic/masks/convective.zarr.
-    2025-04-25 00:33:41,070 - thuner.match.match - INFO - Matching convective objects.
+    2025-06-14 22:18:29,705 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/synthetic/geographic.
+    2025-06-14 22:18:29,726 - thuner.track.track - INFO - Processing 2005-11-13T00:00:00.
+    2025-06-14 22:18:29,728 - thuner.data.synthetic - INFO - Updating synthetic dataset for 2005-11-13T00:00:00.
+    2025-06-14 22:18:33,493 - thuner.track.track - INFO - Processing hierarchy level 0.
+    2025-06-14 22:18:33,495 - thuner.track.track - INFO - Tracking convective.
+    2025-06-14 22:18:33,507 - thuner.detect.steiner - INFO - Compiling thuner.detect.steiner.steiner_scheme with Numba. Please wait.
+    2025-06-14 22:18:48,017 - thuner.match.match - INFO - Matching convective objects.
+    2025-06-14 22:18:48,027 - thuner.match.match - INFO - No current mask, or no objects in current mask.
+    2025-06-14 22:18:48,031 - thuner.visualize.runtime - INFO - Creating runtime visualization figures.
+    2025-06-14 22:18:50,663 - thuner.track.track - INFO - Processing 2005-11-13T00:10:00.
+    2025-06-14 22:18:50,664 - thuner.data.synthetic - INFO - Updating synthetic dataset for 2005-11-13T00:10:00.
+    2025-06-14 22:18:53,531 - thuner.track.track - INFO - Processing hierarchy level 0.
+    2025-06-14 22:18:53,532 - thuner.track.track - INFO - Tracking convective.
+    2025-06-14 22:18:53,542 - thuner.write.mask - INFO - Writing convective masks to /home/ewan/THUNER_output/runs/synthetic/geographic/masks/convective.zarr.
+    2025-06-14 22:18:53,692 - thuner.match.match - INFO - Matching convective objects.
     ...
 
-.. figure::
-   https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/synthetic.gif
+.. figure:: https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/synthetic.gif
    :alt: THUNER applied to synthetic data.
 
    THUNER applied to synthetic data.
@@ -148,13 +136,13 @@ approach avoids the need for storing large datasets.
 
 .. code-block:: text
 
-    2025-04-25 00:39:35,251 - thuner.option.grid - WARNING - altitude not specified. Using default altitudes.
+    2025-06-14 22:20:10,712 - thuner.option.grid - WARNING - altitude not specified. Using default altitudes.
 
 .. code-block:: python3
     :linenos:
 
     output_parent = base_local / "runs/synthetic/cartesian"
-    if output_parent.exists():
+    if output_parent.exists() & remove_existing_outputs:
         shutil.rmtree(output_parent)
         
     times = np.arange(
@@ -168,22 +156,19 @@ approach avoids the need for storing large datasets.
 
 .. code-block:: text
 
-    2025-04-25 00:39:36,701 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/synthetic/cartesian.
-    2025-04-25 00:39:36,704 - thuner.track.track - INFO - Processing 2005-11-13T00:00:00.
-    2025-04-25 00:39:36,707 - thuner.data.synthetic - INFO - Updating synthetic dataset for 2005-11-13T00:00:00.
-    2025-04-25 00:39:50,828 - thuner.track.track - INFO - Processing hierarchy level 0.
-    2025-04-25 00:39:50,828 - thuner.track.track - INFO - Tracking convective.
-    2025-04-25 00:39:50,879 - thuner.match.match - INFO - Matching convective objects.
-    2025-04-25 00:39:50,880 - thuner.match.match - INFO - No current mask, or no objects in current mask.
-    2025-04-25 00:39:50,885 - thuner.visualize.runtime - INFO - Creating runtime visualization figures.
-    2025-04-25 00:39:53,182 - thuner.track.track - INFO - Processing 2005-11-13T00:10:00.
-    2025-04-25 00:39:53,185 - thuner.data.synthetic - INFO - Updating synthetic dataset for 2005-11-13T00:10:00.
-    2025-04-25 00:40:04,086 - thuner.track.track - INFO - Processing hierarchy level 0.
-    2025-04-25 00:40:04,087 - thuner.track.track - INFO - Tracking convective.
-    2025-04-25 00:40:04,092 - thuner.write.mask - INFO - Writing convective masks to /home/ewan/THUNER_output/runs/synthetic/cartesian/masks/convective.zarr.
-    2025-04-25 00:40:04,171 - thuner.match.match - INFO - Matching convective objects.
-    2025-04-25 00:40:04,275 - thuner.match.match - INFO - New matchable objects. Initializing match record.
-    2025-04-25 00:40:04,281 - thuner.visualize.runtime - INFO - Creating runtime visualization figures.
-    2025-04-25 00:40:08,025 - thuner.attribute.attribute - INFO - Recording convective attributes.
-    2025-04-25 00:40:08,029 - thuner.track.track - INFO - Processing 2005-11-13T00:20:00.
+    2025-06-14 22:20:10,790 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/synthetic/cartesian.
+    2025-06-14 22:20:10,798 - thuner.track.track - INFO - Processing 2005-11-13T00:00:00.
+    2025-06-14 22:20:10,800 - thuner.data.synthetic - INFO - Updating synthetic dataset for 2005-11-13T00:00:00.
+    2025-06-14 22:20:13,611 - thuner.track.track - INFO - Processing hierarchy level 0.
+    2025-06-14 22:20:13,612 - thuner.track.track - INFO - Tracking convective.
+    2025-06-14 22:20:13,672 - thuner.match.match - INFO - Matching convective objects.
+    2025-06-14 22:20:13,673 - thuner.match.match - INFO - No current mask, or no objects in current mask.
+    2025-06-14 22:20:13,677 - thuner.visualize.runtime - INFO - Creating runtime visualization figures.
+    2025-06-14 22:20:16,757 - thuner.track.track - INFO - Processing 2005-11-13T00:10:00.
+    2025-06-14 22:20:16,759 - thuner.data.synthetic - INFO - Updating synthetic dataset for 2005-11-13T00:10:00.
+    2025-06-14 22:20:19,597 - thuner.track.track - INFO - Processing hierarchy level 0.
+    2025-06-14 22:20:19,599 - thuner.track.track - INFO - Tracking convective.
+    2025-06-14 22:20:19,610 - thuner.write.mask - INFO - Writing convective masks to /home/ewan/THUNER_output/runs/synthetic/cartesian/masks/convective.zarr.
+    2025-06-14 22:20:19,694 - thuner.match.match - INFO - Matching convective objects.
+    2025-06-14 22:20:19,797 - thuner.match.match - INFO - New matchable objects. Initializing match record.
     ...

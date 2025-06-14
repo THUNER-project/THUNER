@@ -10,7 +10,8 @@ from thuner.log import setup_logger
 from thuner.attribute import core
 import thuner.grid as grid
 import thuner.attribute.utils as utils
-from thuner.option.attribute import Attribute, AttributeGroup, Retrieval, AttributeType
+from thuner.option.attribute import Attribute, AttributeGroup, AttributeType
+from thuner.utils import Retrieval
 
 logger = setup_logger(__name__)
 # Set the number of cv2 threads to 0 to avoid crashes.

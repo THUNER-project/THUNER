@@ -1,6 +1,8 @@
 "General utilities for the thuner package."
 
 import inspect
+import traceback
+import importlib
 import copy
 from datetime import datetime
 import yaml
@@ -17,7 +19,7 @@ from scipy.interpolate import interp1d
 import re
 import os
 import platform
-from typing import Any, Dict, Literal, Generator
+from typing import Any, Dict, Literal, Generator, Callable
 from pydantic import Field, model_validator, BaseModel, model_validator, ConfigDict
 import multiprocessing
 from thuner.log import setup_logger
@@ -122,6 +124,31 @@ class BaseOptions(BaseModel):
             field_type = info.annotation if info.annotation else "Any"
             summary_str += f"{name}: {field_type}, {info.description}\n"
         return summary_str
+
+
+class Retrieval(BaseOptions):
+    """Class for retrieval. Generally a function and a dictionary of kwargs."""
+
+    _desc = "The function used to retrieve the attribute."
+    function: Callable | str | None = Field(None, description=_desc)
+    _desc = "Keyword arguments for the retrieval function."
+    keyword_arguments: dict = Field({}, description=_desc)
+
+    @model_validator(mode="after")
+    def check_function(cls, values):
+        """Ensure that the function is callable, and available to thuner."""
+        if isinstance(values.function, str):
+            module_name, function_name = values.function.rsplit(".", 1)
+            try:
+                module = importlib.import_module(module_name)
+                values.function = getattr(module, function_name)
+            except ImportError:
+                message = f"Could not import function {values.function}."
+                raise ImportError(message)
+            except AttributeError:
+                message = f"Function {values.function} not found in {module_name}."
+                raise AttributeError(message)
+        return values
 
 
 class ConvertedOptions(BaseOptions):
@@ -305,17 +332,54 @@ class BaseDatasetOptions(BaseOptions):
         return values
 
 
+class BaseHandler(BaseModel):
+    """Base class for figure handlers defined in this module."""
+
+    # Allow arbitrary types in the input record classes.
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+
+class AttributeHandler(BaseHandler):
+    """
+    Class for handling the visualization of attributes, e.g. orientation, or groups of
+    attributes visualized together, e.g. u, v.
+    """
+
+    _desc = "The name of the attribute or attributes being handled, e.g. velocity."
+    name: str = Field(..., description=_desc)
+    _desc = "The axes in which the attributes are to be visualized."
+    axes: list[Any] = Field([], description=_desc)
+    _desc = "The label to appear in legends etc for this attribute."
+    label: str = Field(..., description=_desc)
+    _desc = "The names of the attributes to be visualized."
+    attributes: list[str] = Field(..., description=_desc)
+    _desc = "The filepath to the attribute file, i.e. an attribute type csv file."
+    filepath: str = Field(..., description=_desc)
+    _desc = "The method used to visualize the attributes."
+    method: Retrieval = Field(..., description=_desc)
+    _desc = "The method used to create the legend artist for this attribute."
+    legend_method: Retrieval | None = Field(None, description=_desc)
+    _desc = "The filepath of the quality control file."
+    quality_filepath: str | None = Field(None, description=_desc)
+    _desc = "The quality control variables for this attribute."
+    quality_variables: list[str] = Field([], description=_desc)
+    _desc = "The logic used to determine if an object is of sufficient quality."
+    quality_method: Literal["any", "all"] = Field("all", description=_desc)
+
+
 def infer_grid_options(dataset: DataObject, grid_options):
     """Infer grid options from the dataset."""
-    attrs = ["latitude", "longitude", "shape"]
+    attrs = ["latitude", "longitude", "shape", "altitude"]
     if any(getattr(grid_options, attr) is None for attr in attrs):
         logger.info("Grid options not set. Inferring from dataset.")
         if grid_options.name == "geographic":
             grid_options.latitude = dataset.latitude.values.tolist()
             grid_options.longitude = dataset.longitude.values.tolist()
             grid_options.shape = [len(dataset.latitude), len(dataset.longitude)]
-            lat_spacing = np.unique(np.diff(grid_options.latitude).flatten())
-            lon_spacing = np.unique(np.diff(grid_options.longitude).flatten())
+            lat_spacing = np.round(np.diff(dataset.latitude).flatten(), decimals=8)
+            lon_spacing = np.round(np.diff(dataset.longitude).flatten(), decimals=8)
+            lat_spacing = np.unique(lat_spacing)
+            lon_spacing = np.unique(lon_spacing)
             if len(lat_spacing) == 1 and len(lon_spacing) == 1:
                 grid_options.geographic_spacing = [lat_spacing[0], lon_spacing[0]]
             else:
@@ -332,13 +396,26 @@ def infer_grid_options(dataset: DataObject, grid_options):
             else:
                 logger.warning("x and y spacing not uniform.")
                 grid_options.cartesian_spacing = None
-            if "longitude" in dataset.coords and "latitude" in dataset.coords:
+            if "longitude" in dataset and "latitude" in dataset:
                 grid_options.latitude = dataset.latitude.values.tolist()
                 grid_options.longitude = dataset.longitude.values.tolist()
             else:
                 logger.warning("No latitude or longitude coordinates found in dataset.")
         else:
             raise ValueError(f"Grid name {grid_options.name} not recognised.")
+    if grid_options.altitude is None:
+        if "altitude" in dataset:
+            grid_options.altitude = dataset.altitude.values.tolist()
+            alt_spacing = np.round(np.diff(dataset.altitude).flatten(), decimals=8)
+            alt_spacing = np.unique(alt_spacing)
+            if len(alt_spacing) == 1:
+                grid_options.altitude_spacing = alt_spacing[0]
+            else:
+                logger.warning("Altitude spacing not uniform.")
+                grid_options.altitude_spacing = None
+        else:
+            message = "No altitude coordinates found in dataset."
+            raise ValueError(message)
 
 
 def save_converted_dataset(raw_filepath, dataset, dataset_options):
@@ -817,7 +894,8 @@ def check_results(results):
         try:
             result.get(timeout=5 * 60)
         except Exception as exc:
-            print(f"Generated an exception: {exc}")
+            print(f"Generated an exception:")
+            traceback.print_exc()
 
 
 def initialize_process():

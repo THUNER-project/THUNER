@@ -31,6 +31,9 @@ import thuner.utils as utils
 # Next, specify the folders where THUNER outputs will be saved. Note that THUNER stores a fallback output directory in a config file, accessible via the functions `thuner.config.set_outputs_directory` and `thuner.config.get_outputs_directory`. By default, this fallback
 # directory is `Path.home() / THUNER_output`.
 
+# Set a flag for whether or not to remove existing output directories
+remove_existing_outputs = True
+
 # Parent directory for saving outputs
 base_local = config.get_outputs_directory()
 output_parent = base_local / f"runs/gridrad/gridrad_demo"
@@ -38,7 +41,7 @@ options_directory = output_parent / "options"
 visualize_directory = output_parent / "visualize"
 
 # Delete the output directory for the run if it already exists
-if output_parent.exists():
+if output_parent.exists() & remove_existing_outputs:
     shutil.rmtree(output_parent)
 
 # Next download the demo data for the tutorial, if you haven't already.
@@ -204,12 +207,12 @@ print("\n" + classifications.head(20).to_string())
 # [Short et al. (2023)](https://doi.org/10.1175/MWR-D-22-0146.1). By default, figures and animations are saved in the `output_parent` directory in the `visualize` folder. The code below should generate an animation `mcs_gridrad_20100120.gif`, matching the
 # animation provided at the start of the notebook.
 
-figure_name = f"mcs_gridrad_{event_start.replace('-', '')}"
-kwargs = {"name": figure_name, "style": "presentation"}
-kwargs.update({"attributes": ["velocity", "offset"]})
-figure_options = option.visualize.HorizontalAttributeOptions(**kwargs)
-start_time = np.datetime64(start)
-end_time = np.datetime64(end)
-args = [output_parent, start_time, end_time, figure_options]
-args_dict = {"parallel_figure": True, "dt": 7200, "by_date": False, "num_processes": 4}
-visualize.attribute.mcs_series(*args, **args_dict)
+name = f"mcs_gridrad_{event_start.replace('-', '')}"
+style = "presentation"
+attribute_handlers = default.grouped_attribute_handlers(output_parent, style)
+kwargs = {"name": name, "object_name": "mcs", "style": style}
+kwargs.update({"attribute_handlers": attribute_handlers, "dt": 7200})
+figure_options = option.visualize.GroupedHorizontalAttributeOptions(**kwargs)
+args = [output_parent, start, end, figure_options, "gridrad"]
+args_dict = {"parallel_figure": True, "by_date": False, "num_processes": 4}
+visualize.attribute.series(*args, **args_dict)

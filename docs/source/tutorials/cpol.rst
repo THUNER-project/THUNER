@@ -14,6 +14,7 @@ Setup
 
     %load_ext autoreload
     %autoreload 2
+    
     %matplotlib inline
     
     import shutil
@@ -51,6 +52,9 @@ Setup
 .. code-block:: python3
     :linenos:
 
+    # Set a flag for whether or not to remove existing output directories
+    remove_existing_outputs = False
+    
     # Specify the local base directory for saving outputs
     base_local = config.get_outputs_directory()
     
@@ -59,7 +63,7 @@ Setup
     visualize_directory = output_parent / "visualize"
     
     # Remove the output parent directory if it already exists
-    if output_parent.exists():
+    if output_parent.exists() and remove_existing_outputs:
         shutil.rmtree(output_parent)
 
 Run the cell below to get the demo data for this tutorial, if you
@@ -153,11 +157,11 @@ later.
 
 .. code-block:: text
 
-    2025-04-29 19:06:19,008 - thuner.data.aura - INFO - Generating cpol filepaths.
-    2025-04-29 19:06:19,009 - thuner.data.era5 - INFO - Generating era5 filepaths.
-    2025-04-29 19:06:19,011 - thuner.data.era5 - INFO - Generating era5 filepaths.
-    2025-04-29 19:06:19,029 - thuner.option.grid - WARNING - altitude not specified. Using default altitudes.
-    2025-04-29 19:06:19,029 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
+    2025-06-14 20:08:46,131 - thuner.data.aura - INFO - Generating cpol filepaths.
+    2025-06-14 20:08:46,134 - thuner.data.era5 - INFO - Generating era5 filepaths.
+    2025-06-14 20:08:46,138 - thuner.data.era5 - INFO - Generating era5 filepaths.
+    2025-06-14 20:08:46,169 - thuner.option.grid - WARNING - altitude not specified. Using default altitudes.
+    2025-06-14 20:08:46,170 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
 
 For this tutorial, we will generate figures during runtime to visualize
 how THUNER is matching both convective and mcs objects.
@@ -210,8 +214,7 @@ incorporate others. Note that if viewing online, the figures below can
 be viewed at original scale by right clicking, save image as, and
 opening locally, or by right clicking, open in new tab, etc.
 
-.. figure::
-   https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/cpol_convective_match_20051113.png
+.. figure:: https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/cpol_convective_match_20051113.png
    :alt: Visualization of the TINT/MINT matching process.
 
    Visualization of the TINT/MINT matching process.
@@ -227,8 +230,7 @@ by `Short et al. (2023) <https://doi.org/10.1175/MWR-D-22-0146.1>`__.
 Animations of all the runtime matching figures for the convective
 objects are provided below.
 
-.. figure::
-   https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/cpol_convective_match_20051113.gif
+.. figure:: https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/cpol_convective_match_20051113.gif
    :alt: Convective object matching.
 
    Convective object matching.
@@ -238,8 +240,7 @@ only one MCS object, which is comprised of multiple disjoint convective
 objects; the grouping method is described by `Short et
 al. (2023) <https://doi.org/10.1175/MWR-D-22-0146.1>`__.
 
-.. figure::
-   https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/cpol_mcs_match_20051113.gif
+.. figure:: https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/cpol_mcs_match_20051113.gif
    :alt: MCS object matching.
 
    MCS object matching.
@@ -288,39 +289,20 @@ We can also perform analysis on, and visualization of, the MCS objects.
 
 .. code-block:: text
 
-    2025-04-29 19:28:06,622 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-    2025-04-29 19:28:07,519 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
+    2025-06-13 13:51:36,140 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
+    2025-06-13 13:51:36,448 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
 
 .. code-block:: python3
     :linenos:
 
-    figure_name = "mcs_attributes"
-    kwargs = {"style": "presentation", "attributes": ["id", "velocity", "offset"]}
-    figure_options = option.visualize.HorizontalAttributeOptions(name=figure_name, **kwargs)
-    
-    args = [output_parent, start, end, figure_options]
+    style = "presentation"
+    attribute_handlers = default.grouped_attribute_handlers(output_parent, style)
+    kwargs = {"name": "mcs_attributes", "object_name": "mcs", "style": style}
+    kwargs.update({"attribute_handlers": attribute_handlers})
+    figure_options = option.visualize.GroupedHorizontalAttributeOptions(**kwargs)
+    args = [output_parent, start, end, figure_options, "cpol"]
     args_dict = {"parallel_figure": True, "by_date": False, "num_processes": 4}
-    visualize.attribute.mcs_series(*args, **args_dict)
-
-.. code-block:: text
-
-    2025-04-24 23:14:26,564 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-    2025-04-24 23:14:26,816 - thuner.visualize.attribute - INFO - Visualizing MCS at time 2005-11-13T14:00:09.000000000.
-    2025-04-24 23:14:26,831 - thuner.data.aura - INFO - Updating cpol dataset for 2005-11-13T14:00:09.
-    2025-04-24 23:14:26,893 - thuner.data.aura - INFO - Creating new geographic grid with spacing 0.025 m, 0.025 m.
-    2025-04-24 23:14:27,578 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-    2025-04-24 23:14:27,959 - thuner.visualize.attribute - INFO - Saving mcs_attributes figure for 2005-11-13T14:00:09.000000000.
-    2025-04-24 23:14:36,228 - thuner.visualize.attribute - INFO - Visualizing MCS at time 2005-11-13T14:10:23.000000000.
-    2025-04-24 23:14:36,231 - thuner.data.aura - INFO - Updating cpol dataset for 2005-11-13T14:10:23.
-    2025-04-24 23:14:36,236 - thuner.visualize.attribute - INFO - Visualizing MCS at time 2005-11-13T14:20:09.000000000.
-    2025-04-24 23:14:36,242 - thuner.data.aura - INFO - Updating cpol dataset for 2005-11-13T14:20:09.
-    2025-04-24 23:14:36,273 - thuner.visualize.attribute - INFO - Visualizing MCS at time 2005-11-13T14:30:09.000000000.
-    2025-04-24 23:14:36,277 - thuner.data.aura - INFO - Updating cpol dataset for 2005-11-13T14:30:09.
-    2025-04-24 23:14:37,902 - thuner.visualize.attribute - INFO - Visualizing MCS at time 2005-11-13T14:40:09.000000000.
-    2025-04-24 23:14:37,907 - thuner.data.aura - INFO - Updating cpol dataset for 2005-11-13T14:40:09.
-    2025-04-24 23:14:39,544 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-    2025-04-24 23:14:39,545 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-    ...
+    visualize.attribute.series(*args, **args_dict)
 
 Pre-Converted Data
 ------------------
@@ -342,7 +324,7 @@ If you get a pydantic error, restart the notebook.
     options_directory = output_parent / "options"
     options_directory.mkdir(parents=True, exist_ok=True)
     
-    if output_parent.exists():
+    if output_parent.exists() & remove_existing_outputs:
         shutil.rmtree(output_parent)
     
     # Get the pre-converted filepaths
@@ -375,21 +357,21 @@ If you get a pydantic error, restart the notebook.
 
 .. code-block:: text
 
-    2025-04-24 23:36:43,875 - thuner.parallel - INFO - Beginning parallel tracking with 4 processes.
-    2025-04-24 23:36:43,892 - thuner.utils - INFO - get_filepaths being called from base class BaseDatasetOptions. In this case get_filepaths just subsets the filepaths list provided by the user.
-    2025-04-24 23:36:44,715 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/cpol/pre_converted/interval_0.
-    2025-04-24 23:36:44,738 - thuner.track.track - INFO - Processing 2005-11-13T13:10:23.
-    2025-04-24 23:36:44,740 - thuner.utils - INFO - Updating cpol input record for 2005-11-13T13:10:23.
-    2025-04-24 23:36:44,752 - thuner.utils - INFO - Grid options not set. Inferring from dataset.
-    2025-04-24 23:36:44,753 - thuner.utils - INFO - Updating grid_options latitude, longitude and shape using dataset.
-    2025-04-24 23:36:44,755 - thuner.utils - INFO - Domain mask found in dataset. Getting boundary coordinates.
-    2025-04-24 23:36:44,764 - thuner.track.track - INFO - Processing hierarchy level 0.
-    2025-04-24 23:36:44,765 - thuner.track.track - INFO - Tracking convective.
-    2025-04-24 23:36:44,773 - thuner.detect.steiner - INFO - Compiling thuner.detect.steiner.steiner_scheme with Numba. Please wait.
-    2025-04-24 23:36:56,517 - thuner.match.match - INFO - Matching convective objects.
-    2025-04-24 23:36:56,518 - thuner.match.match - INFO - No current mask, or no objects in current mask.
-    2025-04-24 23:36:56,522 - thuner.track.track - INFO - Tracking middle.
-    2025-04-24 23:36:56,526 - thuner.track.track - INFO - Tracking anvil.
+    2025-06-14 19:09:29,634 - thuner.parallel - INFO - Beginning parallel tracking with 4 processes.
+    2025-06-14 19:09:29,782 - thuner.utils - INFO - get_filepaths being called from base class BaseDatasetOptions. In this case get_filepaths just subsets the filepaths list provided by the user.
+    2025-06-14 19:09:32,941 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/cpol/pre_converted/interval_0.
+    2025-06-14 19:09:33,034 - thuner.track.track - INFO - Processing 2005-11-13T13:10:23.
+    2025-06-14 19:09:33,040 - thuner.utils - INFO - Updating cpol input record for 2005-11-13T13:10:23.
+    2025-06-14 19:09:33,100 - thuner.utils - INFO - Grid options not set. Inferring from dataset.
+    2025-06-14 19:09:33,106 - thuner.utils - INFO - Domain mask found in dataset. Getting boundary coordinates.
+    2025-06-14 19:09:33,148 - thuner.track.track - INFO - Processing hierarchy level 0.
+    2025-06-14 19:09:33,151 - thuner.track.track - INFO - Tracking convective.
+    2025-06-14 19:09:33,181 - thuner.detect.steiner - INFO - Compiling thuner.detect.steiner.steiner_scheme with Numba. Please wait.
+    2025-06-14 19:10:17,354 - thuner.match.match - INFO - Matching convective objects.
+    2025-06-14 19:10:17,356 - thuner.match.match - INFO - No current mask, or no objects in current mask.
+    2025-06-14 19:10:17,371 - thuner.track.track - INFO - Tracking middle.
+    2025-06-14 19:10:17,387 - thuner.track.track - INFO - Tracking anvil.
+    2025-06-14 19:10:17,408 - thuner.track.track - INFO - Processing hierarchy level 1.
     ...
 
 .. code-block:: python3
@@ -403,37 +385,38 @@ If you get a pydantic error, restart the notebook.
 
 .. code-block:: text
 
-    2025-04-24 23:37:48,500 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-    2025-04-24 23:37:48,823 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
+    2025-06-14 19:13:48,311 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
+    2025-06-14 19:13:49,628 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
 
 .. code-block:: python3
     :linenos:
 
-    figure_name = "mcs_attributes"
-    kwargs = {"style": "presentation", "attributes": ["id", "velocity", "offset"]}
-    figure_options = option.visualize.HorizontalAttributeOptions(name=figure_name, **kwargs)
-    
-    args = [output_parent, start, end, figure_options]
+    style = "presentation"
+    attribute_handlers = default.grouped_attribute_handlers(output_parent, style)
+    kwargs = {"name": "mcs_attributes", "object_name": "mcs", "style": style}
+    kwargs.update({"attribute_handlers": attribute_handlers})
+    figure_options = option.visualize.GroupedHorizontalAttributeOptions(**kwargs)
+    args = [output_parent, start, end, figure_options, "cpol"]
     args_dict = {"parallel_figure": True, "by_date": False, "num_processes": 4}
-    visualize.attribute.mcs_series(*args, **args_dict)
+    visualize.attribute.series(*args, **args_dict)
 
 .. code-block:: text
 
-    2025-04-24 23:37:53,724 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-    2025-04-24 23:37:54,030 - thuner.visualize.attribute - INFO - Visualizing MCS at time 2005-11-13T14:00:09.000000000.
-    2025-04-24 23:37:54,064 - thuner.utils - INFO - Grid options not set. Inferring from dataset.
-    2025-04-24 23:37:54,065 - thuner.utils - INFO - Updating grid_options latitude, longitude and shape using dataset.
-    2025-04-24 23:37:54,067 - thuner.utils - INFO - Domain mask found in dataset. Getting boundary coordinates.
-    2025-04-24 23:37:54,103 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-    2025-04-24 23:37:54,603 - thuner.visualize.attribute - INFO - Saving mcs_attributes figure for 2005-11-13T14:00:09.000000000.
-    2025-04-24 23:38:04,312 - thuner.visualize.attribute - INFO - Visualizing MCS at time 2005-11-13T14:10:23.000000000.
-    2025-04-24 23:38:04,550 - thuner.visualize.attribute - INFO - Visualizing MCS at time 2005-11-13T14:20:09.000000000.
-    2025-04-24 23:38:04,897 - thuner.utils - INFO - Domain mask found in dataset. Getting boundary coordinates.
-    2025-04-24 23:38:04,932 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-    2025-04-24 23:38:05,108 - thuner.utils - INFO - Domain mask found in dataset. Getting boundary coordinates.
-    2025-04-24 23:38:05,144 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-    2025-04-24 23:38:05,452 - thuner.visualize.attribute - INFO - Saving mcs_attributes figure for 2005-11-13T14:10:23.000000000.
-    2025-04-24 23:38:05,500 - thuner.visualize.attribute - INFO - Visualizing MCS at time 2005-11-13T14:30:09.000000000.
+    2025-06-14 19:13:55,957 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
+    2025-06-14 19:13:57,071 - thuner.visualize.attribute - INFO - Visualizing attributes at time 2005-11-13T14:00:09.000000000.
+    2025-06-14 19:13:57,375 - thuner.utils - INFO - Grid options not set. Inferring from dataset.
+    2025-06-14 19:13:57,382 - thuner.utils - INFO - Domain mask found in dataset. Getting boundary coordinates.
+    2025-06-14 19:13:59,718 - thuner.visualize.attribute - INFO - Saving mcs_attributes figure for 2005-11-13T14:00:09.000000000.
+    2025-06-14 19:14:22,438 - thuner.visualize.attribute - INFO - Visualizing attributes at time 2005-11-13T14:10:23.000000000.
+    2025-06-14 19:14:23,126 - thuner.visualize.attribute - INFO - Visualizing attributes at time 2005-11-13T14:20:09.000000000.
+    2025-06-14 19:14:23,521 - thuner.visualize.attribute - INFO - Visualizing attributes at time 2005-11-13T14:30:09.000000000.
+    2025-06-14 19:14:23,586 - thuner.visualize.attribute - INFO - Visualizing attributes at time 2005-11-13T14:40:09.000000000.
+    2025-06-14 19:14:25,460 - thuner.utils - INFO - Domain mask found in dataset. Getting boundary coordinates.
+    2025-06-14 19:14:26,338 - thuner.utils - INFO - Domain mask found in dataset. Getting boundary coordinates.
+    2025-06-14 19:14:26,631 - thuner.utils - INFO - Domain mask found in dataset. Getting boundary coordinates.
+    2025-06-14 19:14:26,739 - thuner.utils - INFO - Domain mask found in dataset. Getting boundary coordinates.
+    2025-06-14 19:14:30,792 - thuner.visualize.attribute - INFO - Saving mcs_attributes figure for 2005-11-13T14:10:23.000000000.
+    2025-06-14 19:14:31,747 - thuner.visualize.attribute - INFO - Saving mcs_attributes figure for 2005-11-13T14:20:09.000000000.
     ...
 
 Note we can achieve the same result in this case by modifying
@@ -457,7 +440,7 @@ fly. We will also switch off the runtime figure generation.
     options_directory = output_parent / "options"
     options_directory.mkdir(parents=True, exist_ok=True)
     
-    if output_parent.exists():
+    if output_parent.exists() & remove_existing_outputs:
         shutil.rmtree(output_parent)
     
     # Recreate the original cpol dataset options
@@ -476,9 +459,9 @@ fly. We will also switch off the runtime figure generation.
 
 .. code-block:: text
 
-    2025-04-24 23:39:36,386 - thuner.data.aura - INFO - Generating cpol filepaths.
-    2025-04-24 23:39:36,407 - thuner.option.grid - WARNING - altitude not specified. Using default altitudes.
-    2025-04-24 23:39:36,409 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
+    2025-06-14 20:08:57,866 - thuner.data.aura - INFO - Generating cpol filepaths.
+    2025-06-14 20:08:57,914 - thuner.option.grid - WARNING - altitude not specified. Using default altitudes.
+    2025-06-14 20:08:57,915 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
 
 .. code-block:: python3
     :linenos:
@@ -518,35 +501,36 @@ fly. We will also switch off the runtime figure generation.
 
 .. code-block:: text
 
-    2025-04-24 23:41:10,736 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-    2025-04-24 23:41:10,969 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
+    2025-06-14 19:32:23,367 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
+    2025-06-14 19:32:24,846 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
 
 .. code-block:: python3
     :linenos:
 
-    figure_name = "mcs_attributes"
-    kwargs = {"style": "presentation", "attributes": ["id", "velocity", "offset"]}
-    figure_options = option.visualize.HorizontalAttributeOptions(name=figure_name, **kwargs)
-    
-    args = [output_parent, start, end, figure_options]
+    style = "presentation"
+    attribute_handlers = default.grouped_attribute_handlers(output_parent, style)
+    kwargs = {"name": "mcs_attributes", "object_name": "mcs", "style": style}
+    kwargs.update({"attribute_handlers": attribute_handlers})
+    figure_options = option.visualize.GroupedHorizontalAttributeOptions(**kwargs)
+    args = [output_parent, start, end, figure_options, "cpol"]
     args_dict = {"parallel_figure": True, "by_date": False, "num_processes": 4}
-    visualize.attribute.mcs_series(*args, **args_dict)
+    visualize.attribute.series(*args, **args_dict)
 
 .. code-block:: text
 
-    2025-04-24 23:41:11,669 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-    2025-04-24 23:41:11,916 - thuner.visualize.attribute - INFO - Visualizing MCS at time 2005-11-13T14:00:09.000000000.
-    2025-04-24 23:41:11,919 - thuner.data.aura - INFO - Updating cpol dataset for 2005-11-13T14:00:09.
-    2025-04-24 23:41:12,081 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-    2025-04-24 23:41:12,548 - thuner.visualize.attribute - INFO - Saving mcs_attributes figure for 2005-11-13T14:00:09.000000000.
-    2025-04-24 23:41:20,079 - thuner.visualize.attribute - INFO - Visualizing MCS at time 2005-11-13T14:10:23.000000000.
-    2025-04-24 23:41:20,083 - thuner.data.aura - INFO - Updating cpol dataset for 2005-11-13T14:10:23.
-    2025-04-24 23:41:20,199 - thuner.visualize.attribute - INFO - Visualizing MCS at time 2005-11-13T14:20:09.000000000.
-    2025-04-24 23:41:20,202 - thuner.data.aura - INFO - Updating cpol dataset for 2005-11-13T14:20:09.
-    2025-04-24 23:41:20,801 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-    2025-04-24 23:41:20,947 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-    2025-04-24 23:41:21,346 - thuner.visualize.attribute - INFO - Saving mcs_attributes figure for 2005-11-13T14:10:23.000000000.
-    2025-04-24 23:41:21,451 - thuner.visualize.attribute - INFO - Visualizing MCS at time 2005-11-13T14:30:09.000000000.
-    2025-04-24 23:41:21,454 - thuner.data.aura - INFO - Updating cpol dataset for 2005-11-13T14:30:09.
-    2025-04-24 23:41:21,504 - thuner.visualize.attribute - INFO - Saving mcs_attributes figure for 2005-11-13T14:20:09.000000000.
+    2025-06-14 20:09:09,749 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
+    2025-06-14 20:09:11,010 - thuner.visualize.attribute - INFO - Visualizing attributes at time 2005-11-13T14:00:09.000000000.
+    2025-06-14 20:09:11,150 - thuner.data.aura - INFO - Updating cpol dataset for 2005-11-13T14:00:09.
+    2025-06-14 20:09:11,334 - thuner.utils - INFO - Grid options not set. Inferring from dataset.
+    2025-06-14 20:09:12,541 - thuner.visualize.attribute - INFO - Saving mcs_attributes figure for 2005-11-13T14:00:09.000000000.
+    2025-06-14 20:09:27,088 - thuner.visualize.attribute - INFO - Visualizing attributes at time 2005-11-13T14:10:23.000000000.
+    2025-06-14 20:09:27,277 - thuner.visualize.attribute - INFO - Visualizing attributes at time 2005-11-13T14:20:09.000000000.
+    2025-06-14 20:09:27,299 - thuner.data.aura - INFO - Updating cpol dataset for 2005-11-13T14:10:23.
+    2025-06-14 20:09:27,476 - thuner.data.aura - INFO - Updating cpol dataset for 2005-11-13T14:20:09.
+    2025-06-14 20:09:28,239 - thuner.visualize.attribute - INFO - Visualizing attributes at time 2005-11-13T14:30:09.000000000.
+    2025-06-14 20:09:28,440 - thuner.visualize.attribute - INFO - Visualizing attributes at time 2005-11-13T14:40:09.000000000.
+    2025-06-14 20:09:28,485 - thuner.data.aura - INFO - Updating cpol dataset for 2005-11-13T14:30:09.
+    2025-06-14 20:09:28,653 - thuner.data.aura - INFO - Updating cpol dataset for 2005-11-13T14:40:09.
+    2025-06-14 20:09:30,808 - thuner.visualize.attribute - INFO - Saving mcs_attributes figure for 2005-11-13T14:20:09.000000000.
+    2025-06-14 20:09:30,833 - thuner.visualize.attribute - INFO - Saving mcs_attributes figure for 2005-11-13T14:10:23.000000000.
     ...

@@ -1,6 +1,10 @@
 # # Testing: Synthetic Data
 
-# For more detailed explanations of THUNER's usage and features, see the GridRad Severe demo/tutorial.
+# The synthetic module is a work in progress. The idea is to allow synthetic meteorological
+# datasets to be readily created for testing purposes. While an entire synthetic dataset
+# could be created first, then fed into THUNER in the usual way (see previous tutorials/demos)
+# with this module we instead generate the synthetic data as we go. The approach avoids the
+# need for storing large datasets.
 
 """Synthetic data demo/test."""
 
@@ -13,13 +17,16 @@ import thuner.track.track as track
 import thuner.option as option
 import thuner.data.synthetic as synthetic
 
+# Set a flag for whether or not to remove existing output directories
+remove_existing_outputs = True
+
 # Parent directory for saving outputs
 base_local = Path.home() / "THUNER_output"
 start = "2005-11-13T00:00:00"
 end = "2005-11-13T02:00:00"
 
 output_parent = base_local / "runs/synthetic/geographic"
-if output_parent.exists():
+if output_parent.exists() and remove_existing_outputs:
     shutil.rmtree(output_parent)
 options_directory = output_parent / "options"
 options_directory.mkdir(parents=True, exist_ok=True)
@@ -80,7 +87,7 @@ grid_options = option.grid.GridOptions(
 grid_options.to_yaml(options_directory / "grid.yml")
 
 output_parent = base_local / "runs/synthetic/cartesian"
-if output_parent.exists():
+if output_parent.exists() & remove_existing_outputs:
     shutil.rmtree(output_parent)
 
 times = np.arange(

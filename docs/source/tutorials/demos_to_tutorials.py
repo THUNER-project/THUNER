@@ -97,11 +97,12 @@ def convert_notebook_to_tutorial(notebook_path, rst_path):
         f.write(rst)
 
 
-demo_dir = Path(__file__).parent.parent.parent.parent / "demo"
-tutorial_dir = Path(__file__).parent
+if __name__ == "__main__":
+    demo_dir = Path(__file__).parent.parent.parent.parent / "demo"
+    tutorial_dir = Path(__file__).parent
 
-# Iterate over items in the demo directory
-for item in demo_dir.iterdir():
-    if item.is_file() and item.suffix == ".ipynb":
-        # Convert the notebook to a test script
-        convert_notebook_to_tutorial(item, tutorial_dir / f"{item.stem}.rst")
+    # Iterate over items in the demo directory
+    for item in demo_dir.iterdir():
+        if item.is_file() and item.suffix == ".ipynb":
+            # Convert the notebook to a test script
+            convert_notebook_to_tutorial(item, tutorial_dir / f"{item.stem}.rst")

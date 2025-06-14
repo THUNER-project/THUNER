@@ -1,6 +1,6 @@
 """Classes for managing tracking related options."""
 
-from typing import List, Annotated, Literal, Union
+from typing import List, Annotated, Literal
 from pydantic import Field, model_validator
 from thuner.log import setup_logger
 from thuner.option.attribute import Attributes

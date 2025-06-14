@@ -9,7 +9,8 @@ import thuner.grid as grid
 from thuner.match.object import get_object_center
 import thuner.grid as grid
 import thuner.attribute.utils as utils
-from thuner.option.attribute import Retrieval, Attribute, AttributeGroup, AttributeType
+from thuner.option.attribute import Attribute, AttributeGroup, AttributeType
+from thuner.utils import Retrieval
 from thuner.attribute.utils import get_ids
 
 logger = setup_logger(__name__)

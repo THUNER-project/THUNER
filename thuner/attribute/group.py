@@ -6,7 +6,8 @@ from thuner.log import setup_logger
 import thuner.attribute.core as core
 import numpy as np
 import thuner.grid as grid
-from thuner.option.attribute import Retrieval, Attribute, AttributeType, AttributeGroup
+from thuner.option.attribute import Attribute, AttributeType, AttributeGroup
+from thuner.utils import Retrieval
 from thuner.attribute.utils import get_current_mask, get_ids
 
 logger = setup_logger(__name__)

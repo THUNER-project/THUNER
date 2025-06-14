@@ -8,8 +8,7 @@ al. (2023) <https://doi.org/10.1175/MWR-D-22-0146.1>`__ for
 methodological details. By the end of the notebook, you should be able
 to generate the animation below.
 
-.. figure::
-   https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/mcs_gridrad_20100120.gif
+.. figure:: https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/mcs_gridrad_20100120.gif
    :alt: Animation depicting tracked MCSs.
 
    Animation depicting tracked MCSs.
@@ -69,6 +68,9 @@ directory is ``Path.home() / THUNER_output``.
 .. code-block:: python3
     :linenos:
 
+    # Set a flag for whether or not to remove existing output directories
+    remove_existing_outputs = False
+    
     # Parent directory for saving outputs
     base_local = config.get_outputs_directory()
     output_parent = base_local / f"runs/gridrad/gridrad_demo"
@@ -76,7 +78,7 @@ directory is ``Path.home() / THUNER_output``.
     visualize_directory = output_parent / "visualize"
     
     # Delete the output directory for the run if it already exists
-    if output_parent.exists():
+    if output_parent.exists() & remove_existing_outputs:
         shutil.rmtree(output_parent)
 
 Next download the demo data for the tutorial, if you haven’t already.
@@ -126,7 +128,7 @@ dataset.
 
 .. code-block:: text
 
-    2025-04-24 23:52:15,463 - thuner.data.gridrad - INFO - Generating GridRad filepaths.
+    2025-06-14 22:06:30,111 - thuner.data.gridrad - INFO - Generating GridRad filepaths.
 
 Options instances can be examined using the ``model_dump`` method, which
 converts the instance to a dictionary.
@@ -187,15 +189,15 @@ datasets to detected objects.
     name: <class 'str'>, Name of the dataset.
     start: str | numpy.datetime64, Tracking start time.
     end: str | numpy.datetime64, Tracking end time.
-    fields: list[str] | None, List of dataset fields, i.e. variables, to use. Fields should be given 
-        using their thuner, i.e. CF-Conventions, names, e.g. 'reflectivity'.
-    parent_remote: str | None, Data parent directory on remote storage.
-    parent_local: str | pathlib.Path | None, Data parent directory on local storage.
-    converted_options: <class 'thuner.utils.ConvertedOptions'>, Options for converted data.
-    filepaths: list[str] | dict, List of filepaths to used for tracking.
+    fields: list[str] | None, List of dataset fields, i.e. variables, to use. Fields should be given using their thuner, i.e. CF-Conventions, names, e.g. 'reflectivity'.
+    parent_remote: str | None, Parent directory of the dataset on remote storage.
+    parent_local: str | pathlib.Path | None, Parent directory of the dataset on local storage.
+    converted_options: <class 'thuner.utils.ConvertedOptions'>, Options for saving and loading converted data.
+    filepaths: list[str] | dict, List of filepaths for the dataset.
     attempt_download: <class 'bool'>, Whether to attempt to download the data.
-    deque_length: <class 'int'>, Number of current/previous grids from this dataset to keep in memory. 
-        Most tracking algorithms require at least two current/previous grids.
+    deque_length: <class 'int'>, Number of current/previous grids from this dataset to keep in memory. Most tracking algorithms require a 'next' grid, 'current' grid, and at least two previous grids.
+    use: typing.Literal['track', 'tag', 'both'], Whether this dataset will be used for tagging, tracking or both.
+    start_buffer: <class 'int'>, Minutes before interval start time to include. Useful for tagging when one wants to record pre-storm ambient profiles.
     ...
 
 We will also create dataset options for ERA5 single-level and
@@ -213,8 +215,8 @@ temperature.
 
 .. code-block:: text
 
-    2025-04-24 23:52:18,541 - thuner.data.era5 - INFO - Generating era5 filepaths.
-    2025-04-24 23:52:18,552 - thuner.data.era5 - INFO - Generating era5 filepaths.
+    2025-06-14 22:06:35,930 - thuner.data.era5 - INFO - Generating era5 filepaths.
+    2025-06-14 22:06:35,932 - thuner.data.era5 - INFO - Generating era5 filepaths.
 
 All the dataset options are grouped into a single
 :class:`thuner.option.data.DataOptions` object, which is passed to the THUNER
@@ -243,8 +245,8 @@ these from the tracking dataset.
 
 .. code-block:: text
 
-    2025-04-24 23:52:21,009 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
-    2025-04-24 23:52:21,019 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
+    2025-06-14 22:06:39,183 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
+    2025-06-14 22:06:39,184 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
 
 Finally, we create options describing how the tracking should be
 performed. In multi-feature tracking, some objects, like mesoscale
@@ -397,21 +399,21 @@ together.
 
 .. code-block:: text
 
-    2025-04-25 00:04:34,883 - thuner.parallel - INFO - Beginning parallel tracking with 4 processes.
-    2025-04-25 00:04:41,830 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/gridrad/gridrad_demo/interval_0.
-    2025-04-25 00:04:41,844 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/gridrad/gridrad_demo/interval_1.
-    2025-04-25 00:04:42,208 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/gridrad/gridrad_demo/interval_2.
-    2025-04-25 00:04:42,523 - thuner.track.track - INFO - Processing 2010-01-20T18:00:00.
-    2025-04-25 00:04:42,524 - thuner.utils - INFO - Updating gridrad input record for 2010-01-20T18:00:00.
-    2025-04-25 00:04:42,645 - thuner.track.track - INFO - Processing 2010-01-20T20:20:00.
-    2025-04-25 00:04:42,646 - thuner.utils - INFO - Updating gridrad input record for 2010-01-20T20:20:00.
-    2025-04-25 00:04:42,689 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/gridrad/gridrad_demo/interval_3.
-    2025-04-25 00:04:42,940 - thuner.track.track - INFO - Processing 2010-01-20T22:40:00.
-    2025-04-25 00:04:42,952 - thuner.utils - INFO - Updating gridrad input record for 2010-01-20T22:40:00.
-    2025-04-25 00:04:43,968 - thuner.track.track - INFO - Processing 2010-01-21T01:00:00.
-    2025-04-25 00:04:43,971 - thuner.utils - INFO - Updating gridrad input record for 2010-01-21T01:00:00.
-    2025-04-25 00:04:48,608 - thuner.track.track - INFO - Processing hierarchy level 0.
-    2025-04-25 00:04:48,609 - thuner.track.track - INFO - Tracking convective.
+    2025-06-14 20:32:01,845 - thuner.parallel - INFO - Beginning parallel tracking with 4 processes.
+    2025-06-14 20:32:12,185 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/gridrad/gridrad_demo/interval_0.
+    2025-06-14 20:32:12,321 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/gridrad/gridrad_demo/interval_1.
+    2025-06-14 20:32:12,631 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/gridrad/gridrad_demo/interval_2.
+    2025-06-14 20:32:12,769 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/gridrad/gridrad_demo/interval_3.
+    2025-06-14 20:32:13,400 - thuner.track.track - INFO - Processing 2010-01-20T18:00:00.
+    2025-06-14 20:32:13,403 - thuner.utils - INFO - Updating gridrad input record for 2010-01-20T18:00:00.
+    2025-06-14 20:32:13,522 - thuner.track.track - INFO - Processing 2010-01-20T20:20:00.
+    2025-06-14 20:32:13,523 - thuner.utils - INFO - Updating gridrad input record for 2010-01-20T20:20:00.
+    2025-06-14 20:32:13,705 - thuner.track.track - INFO - Processing 2010-01-20T22:40:00.
+    2025-06-14 20:32:13,707 - thuner.utils - INFO - Updating gridrad input record for 2010-01-20T22:40:00.
+    2025-06-14 20:32:13,861 - thuner.track.track - INFO - Processing 2010-01-21T01:00:00.
+    2025-06-14 20:32:13,862 - thuner.utils - INFO - Updating gridrad input record for 2010-01-21T01:00:00.
+    2025-06-14 20:32:18,992 - thuner.utils - INFO - Grid options not set. Inferring from dataset.
+    2025-06-14 20:32:19,001 - thuner.utils - WARNING - Altitude spacing not uniform.
     ...
 
 The outputs of the tracking run are saved in the ``output_parent``
@@ -590,10 +592,10 @@ al. (2023) <https://doi.org/10.1175/MWR-D-22-0146.1>`__.
 
 .. code-block:: text
 
-    2025-04-25 00:17:05,742 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
-    2025-04-25 00:17:05,744 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-    2025-04-25 00:17:06,105 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
-    2025-04-25 00:17:06,106 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
+    2025-06-14 22:07:40,836 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
+    2025-06-14 22:07:40,837 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
+    2025-06-14 22:07:41,368 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
+    2025-06-14 22:07:41,370 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
 
 .. code-block:: text
 
@@ -627,31 +629,31 @@ start of the notebook.
 .. code-block:: python3
     :linenos:
 
-    figure_name = f"mcs_gridrad_{event_start.replace('-', '')}"
-    kwargs = {"name": figure_name, "style": "presentation"}
-    kwargs.update({"attributes": ["velocity", "offset"]})
-    figure_options = option.visualize.HorizontalAttributeOptions(**kwargs)
-    start_time = np.datetime64(start)
-    end_time = np.datetime64(end)
-    args = [output_parent, start_time, end_time, figure_options]
-    args_dict = {"parallel_figure": True, "dt": 7200, "by_date": False, "num_processes": 4}
-    visualize.attribute.mcs_series(*args, **args_dict)
+    name = f"mcs_gridrad_{event_start.replace('-', '')}"
+    style = "presentation"
+    attribute_handlers = default.grouped_attribute_handlers(output_parent, style)
+    kwargs = {"name": name, "object_name": "mcs", "style": style}
+    kwargs.update({"attribute_handlers": attribute_handlers, "dt": 7200})
+    figure_options = option.visualize.GroupedHorizontalAttributeOptions(**kwargs)
+    args = [output_parent, start, end, figure_options, "gridrad"]
+    args_dict = {"parallel_figure": True, "by_date": False, "num_processes": 4}
+    visualize.attribute.series(*args, **args_dict)
 
 .. code-block:: text
 
-    2025-04-25 00:17:08,359 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
-    2025-04-25 00:17:08,360 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-    2025-04-25 00:17:08,720 - thuner.visualize.attribute - INFO - Visualizing MCS at time 2010-01-20T18:00:00.000000000.
-    2025-04-25 00:17:12,783 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
-    2025-04-25 00:17:12,783 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-    2025-04-25 00:17:14,097 - thuner.visualize.attribute - INFO - Saving mcs_gridrad_20100120 figure for 2010-01-20T18:00:00.000000000.
-    2025-04-25 00:17:23,473 - thuner.visualize.attribute - INFO - Visualizing MCS at time 2010-01-20T18:20:00.000000000.
-    2025-04-25 00:17:23,476 - thuner.visualize.attribute - INFO - Visualizing MCS at time 2010-01-20T18:30:00.000000000.
-    2025-04-25 00:17:23,476 - thuner.visualize.attribute - INFO - Visualizing MCS at time 2010-01-20T18:10:00.000000000.
-    2025-04-25 00:17:25,051 - thuner.visualize.attribute - INFO - Visualizing MCS at time 2010-01-20T18:40:00.000000000.
-    2025-04-25 00:17:30,954 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
-    2025-04-25 00:17:30,954 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-    2025-04-25 00:17:31,311 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
-    2025-04-25 00:17:31,311 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-    2025-04-25 00:17:31,517 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
+    2025-06-14 22:10:32,424 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
+    2025-06-14 22:10:32,425 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
+    2025-06-14 22:10:32,598 - thuner.visualize.attribute - INFO - Visualizing attributes at time 2010-01-20T18:00:00.000000000.
+    2025-06-14 22:10:34,083 - thuner.utils - INFO - Grid options not set. Inferring from dataset.
+    2025-06-14 22:10:34,087 - thuner.utils - WARNING - Altitude spacing not uniform.
+    2025-06-14 22:10:35,989 - thuner.visualize.attribute - INFO - Saving mcs_gridrad_20100120 figure for 2010-01-20T18:00:00.000000000.
+    2025-06-14 22:10:43,327 - thuner.visualize.attribute - INFO - Visualizing attributes at time 2010-01-20T18:10:00.000000000.
+    2025-06-14 22:10:43,402 - thuner.visualize.attribute - INFO - Visualizing attributes at time 2010-01-20T18:20:00.000000000.
+    2025-06-14 22:10:44,405 - thuner.visualize.attribute - INFO - Visualizing attributes at time 2010-01-20T18:30:00.000000000.
+    2025-06-14 22:10:46,599 - thuner.visualize.attribute - INFO - Visualizing attributes at time 2010-01-20T18:40:00.000000000.
+    2025-06-14 22:10:49,211 - thuner.visualize.attribute - INFO - Saving mcs_gridrad_20100120 figure for 2010-01-20T18:20:00.000000000.
+    2025-06-14 22:10:49,999 - thuner.visualize.attribute - INFO - Saving mcs_gridrad_20100120 figure for 2010-01-20T18:10:00.000000000.
+    2025-06-14 22:10:51,012 - thuner.visualize.attribute - INFO - Saving mcs_gridrad_20100120 figure for 2010-01-20T18:30:00.000000000.
+    2025-06-14 22:10:52,520 - thuner.visualize.attribute - INFO - Visualizing attributes at time 2010-01-20T18:50:00.000000000.
+    2025-06-14 22:10:52,974 - thuner.visualize.attribute - INFO - Saving mcs_gridrad_20100120 figure for 2010-01-20T18:40:00.000000000.
     ...

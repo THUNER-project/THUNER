@@ -326,11 +326,10 @@ def convert_cpol(time, filepath, track_options, dataset_options, grid_options):
         # Interpolate vertically
         ds = cpol.interp(altitude=grid_options.altitude, method="linear")
 
+    # THUNER convention uses longitude in the range [0, 360]
+    ds["longitude"] = ds["longitude"] % 360
     # Update grid_options if necessary
     utils.infer_grid_options(ds, grid_options)
-
-    # Define grid shape and gridcell areas
-    # grid_options.shape = [len(ds[dims[0]].values), len(ds[dims[1]].values)]
     cell_areas = grid.get_cell_areas(grid_options)
     ds["gridcell_area"] = (dims, cell_areas)
     new_entries = {"units": "km^2", "standard_name": "area", "valid_min": 0}
@@ -339,8 +338,6 @@ def convert_cpol(time, filepath, track_options, dataset_options, grid_options):
         grid_options.altitude = ds["altitude"].values
     else:
         ds = ds.interp(altitude=grid_options.altitude, method="linear")
-    # THUNER convention uses longitude in the range [0, 360]
-    ds["longitude"] = ds["longitude"] % 360
 
     # Get the domain mask and domain boundary. Note this is the region where data
     # exists, not the detected object masks from the detect module.

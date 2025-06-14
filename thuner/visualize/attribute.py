@@ -2,8 +2,9 @@
 
 import gc
 from pathlib import Path
-from pydantic import Field, BaseModel, model_validator, ConfigDict
-from typing import Any, Callable, Dict, Literal
+from pydantic import Field, model_validator
+from functools import partial
+from typing import Any, Dict
 from time import sleep
 import multiprocessing as mp
 import numpy as np
@@ -13,18 +14,19 @@ import matplotlib
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import thuner.visualize.horizontal as horizontal
-from thuner.utils import initialize_process, check_results, DataObject
+from thuner.utils import initialize_process, check_results
+from thuner.utils import format_time, new_angle, circular_mean
+from thuner.utils import BaseHandler, AttributeHandler
 from thuner.attribute.utils import read_attribute_csv
 from thuner.analyze.utils import read_options
 import thuner.detect.detect as detect
-from thuner.utils import format_time, new_angle, circular_mean
 import thuner.visualize.utils as utils
 import thuner.visualize.visualize as visualize
-from thuner.option.visualize import FigureOptions
+from thuner.option.visualize import FigureOptions, GroupedHorizontalAttributeOptions
 from thuner.log import setup_logger, logging_listener
 
 
-__all__ = ["mcs_series", "mcs_horizontal"]
+__all__ = ["series", "grouped_horizontal"]
 
 logger = setup_logger(__name__)
 proj = ccrs.PlateCarree()
@@ -33,24 +35,32 @@ proj = ccrs.PlateCarree()
 mcs_legend_options = {"ncol": 3, "loc": "lower center"}
 
 
-def get_altitude_labels(track_options, mcs_name="mcs", mcs_level=1):
+def get_altitude_labels(
+    track_options,
+    object_name="mcs",
+    object_level=1,
+    member_objects=None,
+    member_levels=None,
+):
     """Get altitude labels for convective and stratiform objects."""
-    mcs_options = track_options.levels[mcs_level].object_by_name(mcs_name)
-    convective = mcs_options.grouping.member_objects[0]
-    convective_level = mcs_options.grouping.member_levels[0]
-    stratiform = mcs_options.grouping.member_objects[-1]
-    stratiform_level = mcs_options.grouping.member_levels[-1]
-    convective_options = track_options.levels[convective_level]
-    convective_options = convective_options.object_by_name(convective)
-    stratiform_options = track_options.levels[stratiform_level]
-    stratiform_options = stratiform_options.object_by_name(stratiform)
-    convective_altitudes = np.array(convective_options.detection.altitudes)
-    stratiform_altitudes = np.array(stratiform_options.detection.altitudes)
-    convective_altitudes = np.round(convective_altitudes / 1e3, 1)
-    stratiform_altitudes = np.round(stratiform_altitudes / 1e3, 1)
-    convective_label = f"{convective_altitudes[0]:g} to {convective_altitudes[1]:g} km"
-    stratiform_label = f"{stratiform_altitudes[0]:g} to {stratiform_altitudes[1]:g} km"
-    return convective_label + " Altitude", stratiform_label + " Altitude"
+    object_options = track_options.levels[object_level].object_by_name(object_name)
+    if member_objects is None:
+        member_objects = object_options.grouping.member_objects
+    if member_levels is None:
+        all_member_objects = object_options.grouping.member_objects
+        all_member_levels = object_options.grouping.member_levels
+        member_levels = []
+        for i, level in enumerate(all_member_levels):
+            if all_member_objects[i] in member_objects:
+                member_levels.append(level)
+    labels = []
+    for i, obj in enumerate(member_objects):
+        level = member_levels[i]
+        options = track_options.levels[level].object_by_name(obj)
+        altitudes = np.array(options.detection.altitudes)
+        altitudes = np.round(altitudes / 1e3, 1)
+        labels.append(f"{altitudes[0]:g} to {altitudes[1]:g} km")
+    return labels
 
 
 def series(
@@ -61,58 +71,64 @@ def series(
     dataset_name,
     animate=True,
     parallel_figure=False,
-    dt=3600,
     by_date=True,
     num_processes=4,
 ):
-    """Visualize mcs attributes at specified times."""
+    """Visualize attributes at specified times."""
+
+    # Setup plt backend
     plt.close("all")
     original_backend = matplotlib.get_backend()
     matplotlib.use("Agg")
 
+    # Setup times and masks
     start_time = np.datetime64(start_time)
     end_time = np.datetime64(end_time)
     options = read_options(output_directory)
-    track_options = options["track"]
-
     masks_filepath = output_directory / "masks/mcs.zarr"
     masks = xr.open_dataset(masks_filepath, engine="zarr")
     times = masks.time.values
     times = times[(times >= start_time) & (times <= end_time)]
 
-    # Get colors
-    color_angle_df = get_color_angle_df(output_directory)
+    # Get the figure function and kwargs
+    # figure_function = figure_options.method.function
+    figure_function = grouped_horizontal
+    # figure_kwargs = figure_options.method.keyword_arguments
+    # figure_function = partial(figure_func, **figure_kwargs)
 
-    record_filepath = output_directory / f"records/filepaths/{dataset_name}.csv"
-    filepaths = read_attribute_csv(record_filepath, columns=[dataset_name])
     # Start with first time
     time = times[0]
-    args = [time, filepaths, masks, output_directory, figure_options]
-    args += [options, dataset_name, dt, color_angle_df]
-    create_figure(*args)
+    args = [time, masks, output_directory, figure_options.model_dump()]
+    args += [options, dataset_name]
+    figure_function(*args)
     if len(times) == 1:
         # Switch back to original backend
         plt.close("all")
         matplotlib.use(original_backend)
         return
+
     if parallel_figure:
         kwargs = {"initializer": initialize_process, "processes": num_processes}
         with logging_listener(), mp.get_context("spawn").Pool(**kwargs) as pool:
             results = []
             for time in times[1:]:
                 sleep(2)
-                args = [time, filepaths, masks, output_directory, figure_options]
-                args += [options, dataset_name, dt, color_angle_df]
+                # Note need to define a new args for each iteration! Can't simply
+                # change the first element, or we break parallization! Note also it's
+                # bad practice to pass dataframes to mp workers.
+                args = [time, masks, output_directory]
+                args += [figure_options.model_dump()]
+                args += [options, dataset_name]
                 args = tuple(args)
-                results.append(pool.apply_async(create_figure, args))
+                results.append(pool.apply_async(figure_function, args))
             pool.close()
             pool.join()
             check_results(results)
     else:
         for time in times[1:]:
-            args = [time, filepaths, masks, output_directory, figure_options]
-            args += [options, dataset_name, dt, color_angle_df]
-            create_figure(*args)
+            args[0] = time
+            figure_function(*args)
+
     if animate:
         figure_name = figure_options.name
         save_directory = output_directory / f"visualize"
@@ -120,18 +136,18 @@ def series(
         args = [figure_name, "mcs", output_directory, save_directory]
         args += [figure_directory, figure_name]
         visualize.animate_object(*args, by_date=by_date)
-    # Switch back to original backend
+    # Close all figures to clear memory
     plt.close("all")
+    # Switch back to original backend
     matplotlib.use(original_backend)
 
 
 def get_mask_grid_boundary(
-    object_name, time, color_angle_df, filepaths, masks, dataset_name, options
+    object_name, time, filepaths_df, masks, dataset_name, options
 ):
     """Get the mask and grid for a given time."""
-    logger.info(f"Visualizing attribtues at time {time}.")
 
-    filepath = filepaths[dataset_name].loc[time]
+    filepath = filepaths_df[dataset_name].loc[time]
     dataset_options = options["data"].dataset_by_name(dataset_name)
 
     args = [time, filepath, options["track"], options["grid"]]
@@ -145,6 +161,13 @@ def get_mask_grid_boundary(
     processed_grid = detect.rebuild_processed_grid(*args)
     del grid
     mask = masks.sel(time=time).load()
+
+    grid_time = processed_grid.time.values
+    mask_time = mask.time.values
+    if grid_time != time or mask_time != time:
+        message = f"Grid or mask time {grid_time} does not match requested time {time}."
+        raise ValueError(message)
+
     return mask, processed_grid, simple_boundary_coords
 
 
@@ -157,41 +180,50 @@ def get_object_colors(time, color_angle_df):
 
 
 def grouped_horizontal(
-    object_name,
-    time,
-    filepaths,
-    masks,
-    output_directory,
-    figure_options,
-    options,
-    dataset_name,
-    dt,
-    color_angle_df,
+    time, masks, output_directory, figure_options_dict, options, dataset_name
 ):
     """Create a horizontal cross section plot."""
-    logger.info(f"Visualizing attribtues at time {time}.")
-    args = [object_name, time, color_angle_df, filepaths, masks, dataset_name, options]
+    logger.info(f"Visualizing attributes at time {time}.")
+
+    # Rebuild the figure options
+    figure_options = GroupedHorizontalAttributeOptions(**figure_options_dict)
+
+    # Get filepaths dataframe
+    record_filepath = output_directory / f"records/filepaths/{dataset_name}.csv"
+    filepaths_df = read_attribute_csv(record_filepath, columns=[dataset_name])
+
+    # Setup colors
+    color_angle_df = get_color_angle_df(output_directory)
+
+    grid_options = options["grid"]
+    obj_name = figure_options.object_name
+    args = [obj_name, time, filepaths_df, masks, dataset_name, options]
     mask, grid, boundary_coords = get_mask_grid_boundary(*args)
     object_colors = get_object_colors(time, color_angle_df)
 
-    grid_options = options["grid"]
-    track_options = options["track"]
-    obj_name = figure_options.object_name
-
-    grid = processed_grid
     time = grid.time.values
     style = figure_options.style
 
+    member_objects = figure_options.member_objects
+    attribute_handlers = figure_options.attribute_handlers
     args = [grid, mask, grid_options, figure_options, member_objects]
     args += [boundary_coords]
     kwargs = {"object_colors": object_colors}
 
-    with plt.style.context(
-        visualize.visualize.styles[style]
-    ), visualize.visualize.set_style(style):
-        figure_features = visualize.horizontal.grouped_mask(*args, **kwargs)
+    with plt.style.context(visualize.styles[style]), visualize.set_style(style):
+        figure_features = horizontal.grouped_mask(*args, **kwargs)
         fig, subplot_axes, colorbar_axes, legend_axes = figure_features
 
+    # Set the subplot figure titles to altitudes if specified
+    if figure_options.altitude_titles:
+        # Get altitude labels for the member objects
+        track_options = options["track"]
+        args = [track_options, obj_name, 1, member_objects]
+        altitude_labels = get_altitude_labels(*args)
+        for i, label in enumerate(altitude_labels):
+            subplot_axes[i].set_title(label)
+
+    # Create the grouped object figure instance
     kwargs = {"object_name": "mcs", "time": time, "grid": grid, "mask": mask}
     kwargs.update({"boundary_coordinates": boundary_coords})
     kwargs.update({"attribute_handlers": attribute_handlers})
@@ -203,132 +235,116 @@ def grouped_horizontal(
     base_directory = output_directory / f"attributes/{obj_name}/"
     filepaths_list = [str(base_directory / f"{obj}/core.csv") for obj in member_objects]
     kwargs["member_core_filepaths"] = dict(zip(member_objects, filepaths_list))
-    grouped_figure = visualize.attribute.GroupedObjectFigure(**kwargs)
+    grouped_figure = GroupedObjectFigure(**kwargs)
+    # Remove duplicate mask and grid from memory after generating the figure
+    del mask, grid, boundary_coords
+    add_attributes(time, grouped_figure)
+    create_legend(grouped_figure, grid_options, figure_options)
 
-    # Remove mask and processed_grid from memory after generating the figure
-    del mask, processed_grid
     filename = f"{format_time(time)}.png"
-    filepath = output_directory / f"visualize/{figure_options.figure_name}/{filename}"
+    filepath = output_directory / f"visualize/{figure_options.name}/{filename}"
     filepath.parent.mkdir(parents=True, exist_ok=True)
-    logger.info(f"Saving {figure_options.figure_name} figure for {time}.")
-    fig.savefig(filepath, bbox_inches="tight")
+    logger.info(f"Saving {figure_options.name} figure for {time}.")
+    with plt.style.context(visualize.styles[style]), visualize.set_style(style):
+        grouped_figure.figure.savefig(filepath, bbox_inches="tight")
+    del grouped_figure
     utils.reduce_color_depth(filepath)
-    plt.clf()
-    plt.close()
-    gc.collect()
+    plt.clf(), plt.close(), gc.collect()
 
 
-def create_figure(
-    object_name,
-    time,
-    filepaths,
-    masks,
-    output_directory,
-    figure_options,
-    options,
-    track_options,
-    dataset_name,
-    dt,
-    color_angle_df,
+def add_attribute(
+    ax, object_name, handler, attribute_artists, legend_artists, time, figure
 ):
-    """Create an attributes figure for a given time."""
-    logger.info(f"Visualizing attribtues at time {time}.")
+    """Add an attribute to the figure for a given object."""
+    # Get attribute df
+    attribute_artists[object_name][handler.name] = {}
+    attribute_df = read_attribute_csv(handler.filepath, times=[time])
+    kwargs = {"times": [time], "columns": handler.quality_variables}
+    quality_df = read_attribute_csv(handler.quality_filepath, **kwargs)
+    if handler.quality_method == "all":
+        quality_df = quality_df.all(axis=1)
+    elif handler.quality_method == "any":
+        quality_df = quality_df.any(axis=1)
 
-    # Get object colors
-    keys = color_angle_df.loc[color_angle_df["time"] == time]["universal_id"].values
-    values = color_angle_df.loc[color_angle_df["time"] == time]["color_angle"].values
-    values = [visualize.mask_colormap(v / (2 * np.pi)) for v in values]
-    object_colors = dict(zip(keys, values))
+    try:
+        id_type = "universal_id"
+        object_ids = attribute_df.reset_index()[id_type].values
+    except KeyError:
+        id_type = "id"
+        object_ids = attribute_df.reset_index()[id_type].values
 
-    filepath = filepaths[dataset_name].loc[time]
-    dataset_options = options["data"].dataset_by_name(dataset_name)
+    # Will also need to load in core attributes
+    core_filepath = figure.member_core_filepaths[object_name]
+    core_df = read_attribute_csv(core_filepath, times=[time])
+    # Join the core attributes with the attribute df
+    # Prepend column names with handler name if necessary
+    for col in core_df.columns:
+        if col in attribute_df.columns:
+            core_df.rename(columns={col: f"{handler.name}_{col}"}, inplace=True)
+    attribute_df = attribute_df.join(core_df)
 
-    args = [time, filepath, track_options, options["grid"]]
-    ds, boundary_coords, simple_boundary_coords = dataset_options.convert_dataset(*args)
-    del boundary_coords
-    logger.debug(f"Getting grid from dataset at time {time}.")
-    grid = dataset_options.grid_from_dataset(ds, "reflectivity", time)
-    del ds
-    logger.debug(f"Rebuilding processed grid for time {time}.")
-    processed_grid = detect.rebuild_processed_grid(grid, track_options, object_name, 1)
-    del grid
-    mask = masks.sel(time=time).load()
-    args = [output_directory, processed_grid, mask, simple_boundary_coords]
-    args += [figure_options, options["grid"]]
-    figure_name, style = figure_options.name, figure_options.style
+    leg_method = handler.legend_method
+    if leg_method is not None and handler.name not in legend_artists.keys():
+        # Create the legend artist
+        func = leg_method.function
+        keyword_arguments = leg_method.keyword_arguments
+        legend_artist = func(**keyword_arguments)
+        legend_artists[handler.label] = legend_artist
+
+    for obj_id in object_ids:
+        # Add the attribute for the given object to the figure
+        object_df = attribute_df.xs(obj_id, level=id_type, drop_level=False)
+        obj_quality_df = quality_df.xs(obj_id, level=id_type, drop_level=False)
+        attributes = handler.attributes
+        func = handler.method.function
+        kwargs = handler.method.keyword_arguments
+        artist = func(ax, attributes, object_df, obj_quality_df, **kwargs)
+        attribute_artists[object_name][handler.name][obj_id] = artist
+
+
+def add_attributes(time, figure):
+    """Add all the requisite attributes to the figure."""
+    legend_artists = {}
+    attribute_artists = {}
+    for i, obj in enumerate(figure.member_objects):
+        attribute_artists[obj] = {}
+        for handler in figure.attribute_handlers[obj]:
+            ax = figure.subplot_axes[i]
+            args = [ax, obj, handler, attribute_artists, legend_artists, time]
+            args += [figure]
+            add_attribute(*args)
+    figure.legend_artists = legend_artists
+    figure.attribute_artists = attribute_artists
+
+
+def create_legend(figure, grid_options, figure_options):
+    """Create a legend for the grouped object figure."""
+    legend_options = {"ncol": 3, "loc": "lower center"}
+
+    scale = visualize.utils.get_extent(grid_options)[1]
+    handles, labels = [], []
+    handle, handler = horizontal.mask_legend_artist()
+    handles += [handle]
+    labels += ["Object Masks"]
+    handle = horizontal.domain_boundary_legend_artist()
+    handles += [handle]
+    labels += ["Domain Boundary"]
+    handles += list(figure.legend_artists.values())
+    labels += list(figure.legend_artists.keys())
+    legend_color = visualize.figure_colors[figure_options.style]["legend"]
+    args = [handles, labels]
+    style = figure_options.style
+    leg_ax = figure.legend_axes[0]
 
     with plt.style.context(visualize.styles[style]), visualize.set_style(style):
-        fig, ax = mcs_horizontal(*args, dt=dt, object_colors=object_colors)
-        # Remove mask and processed_grid from memory after generating the figure
-        del mask, processed_grid
-        filename = f"{format_time(time)}.png"
-        filepath = output_directory / f"visualize/{figure_name}/{filename}"
-        filepath.parent.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Saving {figure_name} figure for {time}.")
-        fig.savefig(filepath, bbox_inches="tight")
-        utils.reduce_color_depth(filepath)
-        plt.clf()
-        plt.close()
-        gc.collect()
-
-
-class BaseHandler(BaseModel):
-    """Base class for figure handlers defined in this module."""
-
-    # Allow arbitrary types in the input record classes.
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-
-class AttributeVisualizeMethod(BaseHandler):
-    """
-    Class for handling the visualization of a group of attributes. Includes a reference
-    to a function, and requisite keyword arguments.
-    """
-
-    _desc = "The function used to visualize the attributes."
-    function: Callable | str | None = Field(None, description=_desc)
-    _desc = "Keyword arguments for the visualization function."
-    keyword_arguments: dict = Field({}, description=_desc)
-
-
-class LegendArtistMethod(BaseHandler):
-    """
-    Class for handling the visualization of a legend artist. Includes a reference
-    to a function, and requisite keyword arguments.
-    """
-
-    _desc = "The function used to create the legend artist."
-    function: Callable | str | None = Field(None, description=_desc)
-    _desc = "Keyword arguments for the legend artist function."
-    keyword_arguments: dict = Field({}, description=_desc)
-
-
-class AttributeHandler(BaseHandler):
-    """
-    Class for handling the visualization of attributes, e.g. orientation, or groups of
-    attributes visualized together, e.g. u, v.
-    """
-
-    _desc = "The name of the attribute or attributes being handled, e.g. velocity."
-    name: str = Field(..., description=_desc)
-    _desc = "The axes in which the attributes are to be visualized."
-    axes: list[Any] = Field([], description=_desc)
-    _desc = "The label to appear in legends etc for this attribute."
-    label: str = Field(..., description=_desc)
-    _desc = "The names of the attributes to be visualized."
-    attributes: list[str] = Field(..., description=_desc)
-    _desc = "The filepath to the attribute file, i.e. an attribute type csv file."
-    filepath: str = Field(..., description=_desc)
-    _desc = "The method used to visualize the attributes."
-    method: AttributeVisualizeMethod = Field(..., description=_desc)
-    _desc = "The method used to create the legend artist for this attribute."
-    legend_method: LegendArtistMethod | None = Field(None, description=_desc)
-    _desc = "The filepath of the quality control file."
-    quality_filepath: str | None = Field(None, description=_desc)
-    _desc = "The quality control variables for this attribute."
-    quality_variables: list[str] = Field([], description=_desc)
-    _desc = "The logic used to determine if an object is of sufficient quality."
-    quality_method: Literal["any", "all"] = Field("all", description=_desc)
+        if scale == 1:
+            legend = leg_ax.legend(*args, **mcs_legend_options, handler_map=handler)
+        elif scale == 2:
+            legend_options["loc"] = "lower left"
+            legend_options["bbox_to_anchor"] = (-0.0, -0.425)
+            legend = leg_ax.legend(*args, **mcs_legend_options, handler_map=handler)
+    legend.get_frame().set_alpha(None)
+    legend.get_frame().set_facecolor(legend_color)
 
 
 class BaseFigure(BaseHandler):
@@ -384,117 +400,6 @@ class GroupedObjectFigure(BaseFigure):
             raise ValueError(message)
 
 
-# def mcs_horizontal(
-#     output_directory,
-#     grid,
-#     mask,
-#     boundary_coordinates,
-#     figure_options,
-#     grid_options,
-#     convective_label="convective",
-#     anvil_label="anvil",
-#     dt=3600,
-#     object_colors=None,
-# ):
-#     """Create a horizontal cross section plot."""
-#     member_objects = [convective_label, anvil_label]
-#     options = read_options(output_directory)
-#     track_options = options["track"]
-
-#     time = grid.time.values
-#     logger.debug(f"Creating grouped mask figure at time {time}.")
-#     try:
-#         filepath = output_directory / "analysis/quality.csv"
-#         kwargs = {"times": [time], "columns": ["duration", "parents"]}
-#         object_quality = read_attribute_csv(filepath, **kwargs).loc[time]
-#         object_quality = object_quality.any(axis=1).to_dict()
-#     except (FileNotFoundError, KeyError):
-#         object_quality = None
-
-#     args = [grid, mask, grid_options, figure_options, member_objects]
-#     args += [boundary_coordinates]
-#     kwargs = {"object_colors": object_colors, "mask_quality": object_quality}
-#     fig, axes, colorbar_axes, legend_axes = horizontal.grouped_mask(*args, **kwargs)
-
-#     try:
-#         filepath = output_directory / "attributes/mcs/core.csv"
-#         columns = ["latitude", "longitude"]
-#         core = read_attribute_csv(filepath, times=[time], columns=columns).loc[time]
-#         filepath = output_directory / "attributes/mcs/group.csv"
-#         group = read_attribute_csv(filepath, times=[time]).loc[time]
-#         filepath = output_directory / "analysis/velocities.csv"
-#         velocities = read_attribute_csv(filepath, times=[time]).loc[time]
-#         # filepath = output_directory / "analysis/classification.csv"
-#         # classification = read_attribute_csv(filepath, times=[time]).loc[time]
-#         filepath = output_directory / f"attributes/mcs/{convective_label}/ellipse.csv"
-#         ellipse = read_attribute_csv(filepath, times=[time]).loc[time]
-#         new_names = {"latitude": "ellipse_latitude", "longitude": "ellipse_longitude"}
-#         ellipse = ellipse.rename(columns=new_names)
-#         filepath = output_directory / "analysis/quality.csv"
-#         quality = read_attribute_csv(filepath, times=[time]).loc[time]
-#         attributes = pd.concat([core, ellipse, group, velocities, quality], axis=1)
-#         objs = group.reset_index()["universal_id"].values
-#     except KeyError:
-#         # If no attributes, set objs=[]
-#         objs = []
-
-#     for obj_id in objs:
-#         obj_attr = attributes.loc[obj_id]
-#         args = [axes, figure_options, obj_attr]
-#         velocity_attributes_horizontal(*args, dt=dt)
-#         displacement_attributes_horizontal(*args)
-#         ellipse_attributes(*args)
-#         if object_quality[obj_id]:
-#             text_attributes_horizontal(*args, object_quality=object_quality)
-
-#     style = figure_options.style
-#     scale = utils.get_extent(grid_options)[1]
-
-#     key_color = visualize.figure_colors[style]["key"]
-#     horizontal.vector_key(axes[0], color=key_color, dt=dt, scale=scale)
-#     kwargs = {"mcs_name": "mcs", "mcs_level": 1}
-#     convective_label, stratiform_label = get_altitude_labels(track_options, **kwargs)
-
-#     axes[0].set_title(convective_label)
-#     axes[1].set_title(stratiform_label)
-
-#     # Get legend proxy artists
-#     handles = []
-#     labels = []
-#     handle = horizontal.domain_boundary_legend_artist()
-#     handles += [handle]
-#     labels += ["Domain Boundary"]
-#     handle = horizontal.ellipse_legend_artist("Major Axis", figure_options.style)
-#     handles += [handle]
-#     labels += ["Major Axis"]
-#     attribute_names = figure_options.attributes
-#     for name in [attr for attr in attribute_names if attr != "id"]:
-#         color = colors_dispatcher[name]
-#         label = label_dispatcher[name]
-#         handle = horizontal.displacement_legend_artist(color, label)
-#         handles.append(handle)
-#         labels.append(label)
-
-#     handle, handler = horizontal.mask_legend_artist()
-#     handles += [handle]
-#     labels += ["Object Masks"]
-#     legend_color = visualize.figure_colors[figure_options.style]["legend"]
-#     handles, labels = handles[::-1], labels[::-1]
-
-#     args = [handles, labels]
-#     leg_ax = legend_axes[0]
-#     if scale == 1:
-#         legend = leg_ax.legend(*args, **mcs_legend_options, handler_map=handler)
-#     elif scale == 2:
-#         mcs_legend_options["loc"] = "lower left"
-#         mcs_legend_options["bbox_to_anchor"] = (-0.0, -0.425)
-#         legend = leg_ax.legend(*args, **mcs_legend_options, handler_map=handler)
-#     legend.get_frame().set_alpha(None)
-#     legend.get_frame().set_facecolor(legend_color)
-
-#     return fig, axes
-
-
 def velocity_horizontal(
     ax, attributes, object_df, quality_df, color="tab:red", dt=3600
 ):
@@ -524,22 +429,10 @@ def text_horizontal(
     if formatter is not None:
         label = formatter(label)
     args = [ax, label, longitude, latitude]
-    if quality_df.values:
+    if quality_df.values[0]:
         return horizontal.embossed_text(*args)
     else:
         return None
-
-
-def get_quality(quality_names, object_attributes, method="all"):
-    if quality_names is None:
-        quality = True
-    else:
-        qualities = object_attributes[quality_names]
-        if method == "all":
-            quality = qualities.all()
-        elif method == "any":
-            quality = qualities.any()
-    return quality
 
 
 def orientation_horizontal(ax, attributes, object_df, quality_df=None):

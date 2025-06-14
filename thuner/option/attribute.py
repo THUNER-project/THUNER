@@ -2,9 +2,8 @@
 
 import importlib
 import numpy as np
-from typing import Callable
 from pydantic import Field, model_validator
-from thuner.utils import BaseOptions
+from thuner.utils import BaseOptions, Retrieval
 
 __all__ = [
     "Attribute",
@@ -13,34 +12,6 @@ __all__ = [
     "Attributes",
     "Retrieval",
 ]
-
-
-class Retrieval(BaseOptions):
-    """
-    Class for attribute retrieval methods. Generally a function and a dictionary of
-    kwargs.
-    """
-
-    _desc = "The function used to retrieve the attribute."
-    function: Callable | str | None = Field(None, description=_desc)
-    _desc = "Keyword arguments for the retrieval function."
-    keyword_arguments: dict = Field({}, description=_desc)
-
-    @model_validator(mode="after")
-    def check_function(cls, values):
-        """Ensure that the function is callable, and available to thuner."""
-        if isinstance(values.function, str):
-            module_name, function_name = values.function.rsplit(".", 1)
-            try:
-                module = importlib.import_module(module_name)
-                values.function = getattr(module, function_name)
-            except ImportError:
-                message = f"Could not import function {values.function}."
-                raise ImportError(message)
-            except AttributeError:
-                message = f"Function {values.function} not found in {module_name}."
-                raise AttributeError(message)
-        return values
 
 
 class Attribute(BaseOptions):

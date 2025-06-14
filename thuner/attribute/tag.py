@@ -7,7 +7,8 @@ from thuner.log import setup_logger
 import thuner.attribute.core as core
 import thuner.attribute.utils as utils
 import xarray as xr
-from thuner.option.attribute import Retrieval, Attribute, AttributeGroup, AttributeType
+from thuner.option.attribute import Attribute, AttributeGroup, AttributeType
+from thuner.utils import Retrieval
 
 logger = setup_logger(__name__)
 

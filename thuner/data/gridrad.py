@@ -428,8 +428,8 @@ def convert_gridrad(time, filepath, track_options, dataset_options, grid_options
         ds[field] = ds[field].expand_dims("time")
         ds[field].attrs["long_name"] = field
 
-    utils.infer_grid_options(ds, grid_options)
     ds["longitude"] = ds["longitude"] % 360
+    utils.infer_grid_options(ds, grid_options)
 
     # Get the domain mask associated with the given object
     # Note the relevant domain mask is a function of how the object is detected, e.g.
