@@ -74,7 +74,8 @@ def coordinates_from_match_record(
         raise ValueError("Attribute names should be 'latitude' and 'longitude'.")
 
     pixel_coordinates = object_tracks.match_record["centers"]
-    latitude, longitude = grid_options.latitude, grid_options.longitude
+    latitude = np.array(grid_options.latitude)
+    longitude = np.array(grid_options.longitude)
     latitudes, longitudes = [], []
     for pixel_coordinate in pixel_coordinates:
         if grid_options.name == "geographic":
@@ -198,12 +199,13 @@ def coordinates_from_mask(
     for obj_id in ids:
         args = [obj_id, mask, grid_options, gridcell_area]
         row, col = get_object_center(*args)[:2]
+        lats, lons = np.array(grid_options.latitude), np.array(grid_options.longitude)
         if grid_options.name == "geographic":
-            latitude.append(grid_options.latitude[row])
-            longitude.append(grid_options.longitude[col])
+            latitude.append(lats[row])
+            longitude.append(lons[col])
         elif grid_options.name == "cartesian":
-            latitude.append(grid_options.latitude[row, col])
-            longitude.append(grid_options.longitude[row, col])
+            latitude.append(lons[row, col])
+            longitude.append(lons[row, col])
 
     data_type = attribute_group.attributes[0].data_type
     latitude = np.array(latitude).astype(data_type).tolist()

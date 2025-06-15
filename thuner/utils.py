@@ -378,8 +378,8 @@ def infer_grid_options(dataset: DataObject, grid_options):
             grid_options.shape = [len(dataset.latitude), len(dataset.longitude)]
             lat_spacing = np.round(np.diff(dataset.latitude).flatten(), decimals=8)
             lon_spacing = np.round(np.diff(dataset.longitude).flatten(), decimals=8)
-            lat_spacing = np.unique(lat_spacing)
-            lon_spacing = np.unique(lon_spacing)
+            lat_spacing = np.unique(lat_spacing).tolist()
+            lon_spacing = np.unique(lon_spacing).tolist()
             if len(lat_spacing) == 1 and len(lon_spacing) == 1:
                 grid_options.geographic_spacing = [lat_spacing[0], lon_spacing[0]]
             else:
@@ -389,8 +389,8 @@ def infer_grid_options(dataset: DataObject, grid_options):
             grid_options.y = dataset.y.values.tolist()
             grid_options.x = dataset.x.values.tolist()
             grid_options.shape = [len(dataset.y), len(dataset.x)]
-            y_spacing = np.unique(np.diff(grid_options.y).flatten())
-            x_spacing = np.unique(np.diff(grid_options.x).flatten())
+            y_spacing = np.unique(np.diff(grid_options.y).flatten()).tolist()
+            x_spacing = np.unique(np.diff(grid_options.x).flatten()).tolist()
             if len(y_spacing) == 1 and len(x_spacing) == 1:
                 grid_options.cartesian_spacing = [y_spacing[0], x_spacing[0]]
             else:
@@ -407,7 +407,7 @@ def infer_grid_options(dataset: DataObject, grid_options):
         if "altitude" in dataset:
             grid_options.altitude = dataset.altitude.values.tolist()
             alt_spacing = np.round(np.diff(dataset.altitude).flatten(), decimals=8)
-            alt_spacing = np.unique(alt_spacing)
+            alt_spacing = np.unique(alt_spacing).tolist()
             if len(alt_spacing) == 1:
                 grid_options.altitude_spacing = alt_spacing[0]
             else:

@@ -34,15 +34,34 @@ def convert_notebook_to_script(notebook_path, script_path):
             line = "remove_existing_outputs = True"
 
         cleaned_lines.append(line)
+
     script = "\n".join(cleaned_lines)
     # Remove leading and trailing whitespace
     script = script.strip()
     # Remove duplicate empty lines
     script = re.sub(r"\n{3,}", "\n\n", script)
+    lines = script.split("\n")
+    lines = [l + "\n" for l in lines if l.strip() != ""]
 
-    # Save the script to a file
+    import_lines = []
+    code_lines = []
+    for line in lines:
+        if line.strip().startswith("import ") or line.strip().startswith("from "):
+            import_lines.append(line)
+        else:
+            code_lines.append(line)
+
     with open(script_path, "w", encoding="utf-8") as f:
-        f.write(script)
+        for line in import_lines:
+            f.write(line)
+        f.write(f"\n\ndef test_{notebook_path.stem}():\n")
+        for line in code_lines:
+            if line.strip():
+                f.write("    " + line)
+            else:
+                f.write(line)
+        f.write("\n\nif __name__ == '__main__':\n")
+        f.write(f"    test_{notebook_path.stem}()\n")
 
 
 if __name__ == "__main__":
