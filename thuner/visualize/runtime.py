@@ -275,9 +275,9 @@ def visualize_tint_match(
 
 def create_mask_figure_dispatcher(object_options):
     """Dispatch the mask figure creation based on the method."""
-    if "detection" in object_options.model_fields:
+    if "detection" in object_options.__class__.model_fields:
         return detected_mask
-    elif "grouping" in object_options.model_fields:
+    elif "grouping" in object_options.__class__.model_fields:
         return grouped_mask
     else:
         return None

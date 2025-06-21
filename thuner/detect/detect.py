@@ -84,9 +84,9 @@ flattener_dispatcher = {
 def rebuild_processed_grid(grid_data, track_options, obj, level):
     grid_dict = {}
     object_options = track_options.levels[level].object_by_name(obj)
-    if "detection" in object_options.model_fields:
+    if "detection" in object_options.__class__.model_fields:
         grid_dict[f"{obj}_grid"] = process_grid(grid_data, object_options)
-    elif "grouping" in object_options.model_fields:
+    elif "grouping" in object_options.__class__.model_fields:
         member_objects = object_options.grouping.member_objects
         member_levels = object_options.grouping.member_levels
         for member_obj, member_level in zip(member_objects, member_levels):

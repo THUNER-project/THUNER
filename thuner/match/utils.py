@@ -19,7 +19,7 @@ def get_masks(object_tracks, object_options, matched=False, num_previous=1):
     pre_masks = getattr(object_tracks, f"{mask_type}s")
     masks = [pre_masks[-i] for i in range(1, num_previous + 1)]
     all_masks = [next_mask] + masks
-    if "grouping" in object_options.model_fields:
+    if "grouping" in object_options.__class__.model_fields:
         matched_object = object_options.tracking.matched_object
         for i in range(len(all_masks)):
             if all_masks[i] is not None:
@@ -34,7 +34,7 @@ def get_grids(object_tracks, object_options, num_previous=1):
     next_grid = object_tracks.next_grid
     grids = [object_tracks.grids[-i] for i in range(1, num_previous + 1)]
     all_grids = [next_grid] + grids
-    if "grouping" in object_options.model_fields:
+    if "grouping" in object_options.__class__.model_fields:
         matched_object = object_options.tracking.matched_object
         for i in range(len(all_grids)):
             if all_grids[i] is not None:

@@ -77,7 +77,7 @@ class BaseOptions(BaseModel):
     @model_validator(mode="after")
     def convert_floats(cls, values):
         """Convert all floats to np.float32."""
-        for field in values.model_fields:
+        for field in values.__class__.model_fields:
             if type(getattr(values, field)) is float:
                 setattr(values, field, np.float32(getattr(values, field)))
         return values
@@ -110,7 +110,7 @@ class BaseOptions(BaseModel):
         """Change the default values of the model fields if not set by user."""
         for key, value in kwargs.items():
             if hasattr(self, key):
-                if key not in self.model_fields_set:
+                if key not in self.__class__.model_fields_set:
                     setattr(self, key, value)
             else:
                 raise KeyError(f"{key} is not a valid option.")

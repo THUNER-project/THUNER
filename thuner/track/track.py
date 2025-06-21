@@ -141,7 +141,7 @@ def track_level(
     def get_track_object_args(obj, level_options):
         logger.info("Tracking %s.", obj)
         object_options = level_options.object_by_name(obj)
-        if "dataset" not in object_options.model_fields:
+        if "dataset" not in object_options.__class__.model_fields:
             dataset_options = None
         else:
             dataset_options = data_options.dataset_by_name(object_options.dataset)
@@ -190,9 +190,9 @@ def track_object(
         object_tracks._last_write_time = next_time
 
     # Detect objects at next_time
-    if "grouping" in object_options.model_fields:
+    if "grouping" in object_options.__class__.model_fields:
         get_objects = group.group
-    elif "detection" in object_options.model_fields:
+    elif "detection" in object_options.__class__.model_fields:
         get_objects = detect.detect
     else:
         raise ValueError("No known method for obtaining objects provided.")

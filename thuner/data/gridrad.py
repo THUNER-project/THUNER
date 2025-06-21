@@ -36,11 +36,11 @@ class GridRadSevereOptions(utils.BaseDatasetOptions):
         """
         If unset by user, change default values inherited from the base class.
         """
-        if "name" not in self.model_fields_set:
+        if "name" not in self.__class__.model_fields_set:
             self.name = "gridrad"
-        if "fields" not in self.model_fields_set:
+        if "fields" not in self.__class__.model_fields_set:
             self.fields = ["reflectivity"]
-        if "parent_remote" not in self.model_fields_set:
+        if "parent_remote" not in self.__class__.model_fields_set:
             self.parent_remote = "https://data.rda.ucar.edu"
 
     # Define additional fields for CPOL
@@ -462,7 +462,7 @@ def get_domain_mask(ds, track_options, dataset_options):
     dataset_name = dataset_options.name
     for level_options in track_options.levels:
         for object_options in level_options.objects:
-            detected = "detection" in object_options.model_fields
+            detected = "detection" in object_options.__class__.model_fields
             uses_dataset = dataset_name == object_options.dataset
             if detected and uses_dataset:
                 args = [ds, dataset_options, object_options]

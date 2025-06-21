@@ -22,7 +22,7 @@ def overlap_from_mask(
 ):
     """Get boundary overlap from mask."""
 
-    if "dataset" not in object_options.model_fields:
+    if "dataset" not in object_options.__class__.model_fields:
         raise ValueError("Dataset must be specified in object_options.")
     object_dataset = object_options.dataset
     try:
