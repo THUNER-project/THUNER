@@ -92,7 +92,7 @@ def test_cpol():
     visualize_options.to_yaml(options_directory / "visualize.yml")
     # We can now perform our tracking run; note the run will be slow as we are generating runtime figures for both convective and MCS objects, and not using parallelization. To make the run go much faster, set `visualize_options = None` and use the the parallel tracking function.
     times = utils.generate_times(data_options.dataset_by_name("cpol").filepaths)
-    args = [times, data_options, grid_options, track_options, visualize_options]
+    args = [times, data_options, grid_options, track_options, None]
     # parallel.track(*args, output_directory=output_parent)
     track.track(*args, output_directory=output_parent)
     # Once completed, outputs are available in the `output_parent` directory. The visualization

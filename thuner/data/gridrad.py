@@ -36,11 +36,11 @@ class GridRadSevereOptions(utils.BaseDatasetOptions):
         """
         If unset by user, change default values inherited from the base class.
         """
-        if "name" not in self.__class__.model_fields_set:
+        if "name" not in self.model_fields_set:
             self.name = "gridrad"
-        if "fields" not in self.__class__.model_fields_set:
+        if "fields" not in self.model_fields_set:
             self.fields = ["reflectivity"]
-        if "parent_remote" not in self.__class__.model_fields_set:
+        if "parent_remote" not in self.model_fields_set:
             self.parent_remote = "https://data.rda.ucar.edu"
 
     # Define additional fields for CPOL

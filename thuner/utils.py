@@ -110,7 +110,7 @@ class BaseOptions(BaseModel):
         """Change the default values of the model fields if not set by user."""
         for key, value in kwargs.items():
             if hasattr(self, key):
-                if key not in self.__class__.model_fields_set:
+                if key not in self.model_fields_set:
                     setattr(self, key, value)
             else:
                 raise KeyError(f"{key} is not a valid option.")

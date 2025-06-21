@@ -47,7 +47,8 @@ def get_demo_data(output_parent=None, remote_directory=None):
     if not Path(output_parent).is_absolute():
         raise ValueError(f"{output_parent} must be an absolute path.")
     # Remove "s3://thuner-storage/" from the remote directory and append result to output parent
-    directory_structure = remote_directory.replace("s3://thuner-storage/", "")
+    base_url = "s3://thuner-storage/THUNER_output/"
+    directory_structure = remote_directory.replace(base_url, "")
     output_directory = output_parent / directory_structure
     command = f"aws s3 sync {remote_directory} {output_directory}"
     logger.info("Syncing directory %s. Please wait.", output_directory)
