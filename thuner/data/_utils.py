@@ -10,7 +10,6 @@ else:
     print(message)
 
 import multiprocessing
-from typing import Generator, Dict
 import threading
 import subprocess
 import zipfile
@@ -50,7 +49,8 @@ def get_demo_data(output_parent=None, remote_directory=None):
     # Remove "s3://thuner-storage/" from the remote directory and append result to output parent
     directory_structure = remote_directory.replace("s3://thuner-storage/", "")
     output_directory = output_parent / directory_structure
-    command = f"aws s3 cp {remote_directory} {output_directory} --recursive"
+    command = f"aws s3 sync {remote_directory} {output_directory}"
+    logger.info("Syncing directory %s. Please wait.", output_directory)
     subprocess.run(command, shell=True, check=True)
 
 

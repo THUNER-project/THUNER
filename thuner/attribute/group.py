@@ -12,12 +12,22 @@ from thuner.attribute.utils import get_current_mask, get_ids
 
 logger = setup_logger(__name__)
 
+# __all__ = [
+#     "offset_from_centers",
+#     "default",
+#     "XOffset",
+#     "YOffset",
+#     "Offset",
+# ]
+
 __all__ = [
     "offset_from_centers",
     "default",
-    "XOffset",
-    "YOffset",
-    "Offset",
+    "x_offset",
+    "y_offset",
+    "offset",
+    "member_ids",
+    "membership_attribute_group",
 ]
 
 
@@ -92,47 +102,74 @@ def members_from_masks(
     return member_object_ids
 
 
-class XOffset(Attribute):
-    """Zonal offset between member objects."""
-
-    name: str = "x_offset"
-    data_type: type = float
-    precision: int = 1
-    units: str = "km"
-    description: str = "x offset of one object from another in km."
+def x_offset():
+    """Convenience function to build an x_offset attribute."""
+    kwargs = {"name": "x_offset", "data_type": float, "precision": 1}
+    _desc = "x offset of one object from another in km."
+    kwargs.update({"description": _desc, "units": "km"})
+    return Attribute(**kwargs)
 
 
-class YOffset(Attribute):
-    """Meridional offset between member objects."""
+# class XOffset(Attribute):
+#     """Zonal offset between member objects."""
 
-    name: str = "y_offset"
-    data_type: type = float
-    precision: int = 1
-    units: str = "km"
-    description: str = "y offset of one object from another in km."
-
-
-class Offset(AttributeGroup):
-    """Attribute describing horizontal offset vector between objects."""
-
-    name: str = "offset"
-    description: str = "Offset of one object from another."
-    attributes: list[Attribute] = [XOffset(), YOffset()]
-    retrieval: Retrieval = Retrieval(
-        function=offset_from_centers,
-        keyword_arguments={"objects": ["convective", "anvil"]},
-    )
+#     name: str = "x_offset"
+#     data_type: type = float
+#     precision: int = 1
+#     units: str = "km"
+#     description: str = "x offset of one object from another in km."
 
 
-class MemberIDs(Attribute):
-    """Member IDs of the group."""
+def y_offset():
+    """Convenience function to build a y_offset attribute."""
+    kwargs = {"name": "y_offset", "data_type": float, "precision": 1}
+    _desc = "y offset of one object from another in km."
+    kwargs.update({"description": _desc, "units": "km"})
+    return Attribute(**kwargs)
 
-    name: str = ""  # Replace this with the actual object name
-    data_type: type = str
-    description: str = "IDs of the member objects in the grouped object."
+
+# class YOffset(Attribute):
+#     """Meridional offset between member objects."""
+
+#     name: str = "y_offset"
+#     data_type: type = float
+#     precision: int = 1
+#     units: str = "km"
+#     description: str = "y offset of one object from another in km."
 
 
-def build_membership_attribute_group(
+def offset():
+    """Convenience function to build an offset attribute group."""
+    attributes = [x_offset(), y_offset()]
+    ret_kwargs = {"objects": ["convective", "anvil"]}
+    _retrieval = Retrieval(function=offset_from_centers, keyword_arguments=ret_kwargs)
+    _desc = "Offset of one object from another in km, e.g. anvil from convective echo."
+    kwargs = {"name": "offset", "description": _desc, "attributes": attributes}
+    kwargs.update({"retrieval": _retrieval})
+    return AttributeGroup(**kwargs)
+
+
+# class Offset(AttributeGroup):
+#     """Attribute describing horizontal offset vector between objects."""
+
+#     name: str = "offset"
+#     description: str = "Offset of one object from another."
+#     attributes: list[Attribute] = [XOffset(), YOffset()]
+#     retrieval: Retrieval = Retrieval(
+#         function=offset_from_centers,
+#         keyword_arguments={"objects": ["convective", "anvil"]},
+#     )
+
+
+def member_ids():
+    """Convenience function to build a member_ids attribute."""
+    kwargs = {"name": "", "data_type": str}
+    _desc = "IDs of the member objects in the grouped object."
+    kwargs.update({"description": _desc})
+    return Attribute(**kwargs)
+
+
+def membership_attribute_group(
     member_objects=["convective", "middle", "anvil"],
     matched=True,
     members_matched=[True, False, False],
@@ -167,8 +204,8 @@ def build_membership_attribute_group(
 def default(matched=True):
     """Create the default group attribute type."""
 
-    attributes_list = core.retrieve_core(attributes_list=[core.Time()], matched=matched)
-    attributes_list.append(Offset())
+    attributes_list = core.retrieve_core(attributes_list=[core.time()], matched=matched)
+    attributes_list.append(offset())
     description = "Attributes associated with grouped objects, e.g. offset of "
     description += "stratiform echo from convective echo."
     kwargs = {"name": "group", "attributes": attributes_list}

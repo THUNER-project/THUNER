@@ -77,7 +77,7 @@ def test_cpol():
     # We will also modify the mcs tracking options to save a record of the member object ids
     mcs_attributes = track_options.levels[1].object_by_name("mcs").attributes
     mcs_group_attr = mcs_attributes.attribute_type_by_name("group")
-    membership = attribute.group.build_membership_attribute_group()
+    membership = attribute.group.membership_attribute_group()
     mcs_group_attr.attributes.append(membership)
     mcs_group_attr.revalidate()
     track_options.to_yaml(options_directory / "track.yml")

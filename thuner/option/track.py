@@ -30,19 +30,19 @@ class TintOptions(BaseOptions):
 
     name: str = "tint"
     _desc = "Margin in km for object matching. Does not affect flow vectors."
-    search_margin: float = Field(10, description=_desc, gt=0)
+    search_margin: float = Field(10.0, description=_desc, gt=0)
     _desc = "Margin in km around object for phase correlation."
-    local_flow_margin: float = Field(10, description=_desc, gt=0)
+    local_flow_margin: float = Field(10.0, description=_desc, gt=0)
     _desc = "Margin in km around object for global flow vectors."
-    global_flow_margin: float = Field(150, description=_desc, gt=0)
+    global_flow_margin: float = Field(150.0, description=_desc, gt=0)
     _desc = "If True, create unique global flow vectors for each object."
     unique_global_flow: bool = Field(True, description=_desc)
     _desc = "Maximum allowable matching cost. Units of km."
     max_cost: float = Field(2e2, description=_desc, gt=0, lt=1e3)
     _desc = "Maximum allowable shift velocity magnitude. Units of m/s."
-    max_velocity_mag: float = Field(60, description=_desc, gt=0)
+    max_velocity_mag: float = Field(60.0, description=_desc, gt=0)
     _desc = "Maximum allowable shift difference. Units of m/s."
-    max_velocity_diff: float = Field(60, description=_desc, gt=0)
+    max_velocity_diff: float = Field(60.0, description=_desc, gt=0)
     _desc = "Name of object used for matching/tracking."
     matched_object: str | None = Field(None, description=_desc)
 
@@ -54,11 +54,11 @@ class MintOptions(TintOptions):
 
     name: str = "mint"
     _desc = "Margin in km for object matching. Does not affect flow vectors."
-    search_margin: int = Field(25, description=_desc, gt=0)
+    search_margin: float = Field(25.0, description=_desc, gt=0)
     _desc = "Margin in km around object for phase correlation."
-    local_flow_margin: int = Field(35, description=_desc, gt=0)
+    local_flow_margin: float = Field(35.0, description=_desc, gt=0)
     _desc = "Alternative max shift difference used by MINT."
-    max_velocity_diff_alt: int = Field(25, description=_desc, gt=0)
+    max_velocity_diff_alt: float = Field(25.0, description=_desc, gt=0)
 
 
 class MaskOptions(BaseOptions):
@@ -117,6 +117,14 @@ class DetectionOptions(BaseOptions):
         return values
 
 
+def _check_mask_values(values):
+    """Check if masks saved if tracking options provided."""
+    if values.tracking is not None and not values.mask_options.save:
+        message = "Masks must be saved when objects are being tracked."
+        raise ValueError(message)
+    return values
+
+
 class DetectedObjectOptions(BaseObjectOptions):
     """Options for detected objects."""
 
@@ -132,10 +140,7 @@ class DetectedObjectOptions(BaseObjectOptions):
     @model_validator(mode="after")
     def _check_mask(cls, values):
         """Check if masks saved if tracking options provided."""
-        if values.tracking is not None and not values.mask_options.save:
-            message = "Masks must be saved when objects are being tracked."
-            raise ValueError(message)
-        return values
+        return _check_mask_values(values)
 
 
 # Define a custom type with constraints
@@ -177,6 +182,11 @@ class GroupedObjectOptions(BaseObjectOptions):
     _desc = "Options for grouping objects."
     grouping: GroupingOptions = Field(GroupingOptions(), description=_desc)
     tracking: AnyTrackingOptions = Field(MintOptions(), description="Tracking options.")
+
+    @model_validator(mode="after")
+    def _check_mask(cls, values):
+        """Check if masks saved if tracking options provided."""
+        return _check_mask_values(values)
 
 
 # Unclear why an additional discriminator is needed here. Perhaps due to the list.

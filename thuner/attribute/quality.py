@@ -10,7 +10,7 @@ from thuner.utils import Retrieval
 
 logger = setup_logger(__name__)
 
-__all__ = ["overlap_from_mask", "default", "BoundaryOverlap"]
+__all__ = ["overlap_from_mask", "default", "boundary_overlap"]
 
 
 def overlap_from_mask(
@@ -56,26 +56,34 @@ def overlap_from_mask(
     return {"boundary_overlap": overlaps}
 
 
-class BoundaryOverlap(Attribute):
-    """Fraction of object pixels overlapping the domain boundary."""
+def boundary_overlap():
+    """Convenience function to build a BoundaryOverlap attribute."""
+    kwargs = {"name": "boundary_overlap", "data_type": float, "precision": 4}
+    _desc = "Fraction of object area comprised of boundary gridcells."
+    _retrieval = Retrieval(function=overlap_from_mask)
+    kwargs.update({"description": _desc, "retrieval": _retrieval})
+    return Attribute(**kwargs)
 
-    name: str = "boundary_overlap"
-    data_type: type = float
-    precision: int = 4
-    description: str = "Fraction of object area comprised of boundary gridcells."
-    retrieval: Retrieval = Retrieval(function=overlap_from_mask)
+
+# class BoundaryOverlap(Attribute):
+#     """Fraction of object pixels overlapping the domain boundary."""
+
+#     name: str = "boundary_overlap"
+#     data_type: type = float
+#     precision: int = 4
+#     description: str = "Fraction of object area comprised of boundary gridcells."
+#     retrieval: Retrieval = Retrieval(function=overlap_from_mask)
 
 
 # Convenience functions for creating default ellipse attribute type
 def default(matched=True, member_object=None):
     """Create the default quality attribute type."""
 
-    attributes_list = core.retrieve_core(attributes_list=[core.Time()], matched=matched)
-    boundary_overlap = BoundaryOverlap()
-    boundary_overlap.retrieval.keyword_arguments["member_object"] = member_object
-    attributes_list.append(boundary_overlap)
+    _attributes = core.retrieve_core(attributes_list=[core.time()], matched=matched)
+    _boundary_overlap = boundary_overlap()
+    _boundary_overlap.retrieval.keyword_arguments["member_object"] = member_object
+    _attributes.append(_boundary_overlap)
     description = "Attributes associated with quality control, e.g. boundary overlap."
-    kwargs = {"name": "quality", "attributes": attributes_list}
+    kwargs = {"name": "quality", "attributes": _attributes}
     kwargs.update({"description": description})
-
     return AttributeType(**kwargs)

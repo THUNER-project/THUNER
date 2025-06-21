@@ -14,7 +14,7 @@ from thuner.log import setup_logger
 logger = setup_logger(__name__)
 
 
-__all__ = ["read_attribute_csv", "AttributesRecord"]
+__all__ = ["read_attribute_csv", "AttributesRecord", "time_offset"]
 
 
 def get_ids(object_tracks, matched, member_object):
@@ -128,17 +128,25 @@ string_to_data_type = {
 }
 
 
-class TimeOffset(Attribute):
-    """
-    Attribute describing the time offsets to use when tagging objects using other datasets.
-    For instance, we may wish to tag storms with the ERA5 ambient winds 1-hour before the
-    storm detection time to provide an assessment of the pre-storm environment.
-    """
+def time_offset():
+    """Convenience function to build a TimeOffset attribute."""
+    kwargs = {"name": "time_offset", "data_type": int, "units": "min"}
+    _desc = "Time offset in minutes from object detection time."
+    kwargs.update({"description": _desc})
+    return Attribute(**kwargs)
 
-    name: str = "time_offset"
-    data_type: type = int
-    units: str = "min"
-    description: str = "Time offset in minutes from object detection time."
+
+# class TimeOffset(Attribute):
+#     """
+#     Attribute describing the time offsets to use when tagging objects using other datasets.
+#     For instance, we may wish to tag storms with the ERA5 ambient winds 1-hour before the
+#     storm detection time to provide an assessment of the pre-storm environment.
+#     """
+
+#     name: str = "time_offset"
+#     data_type: type = int
+#     units: str = "min"
+#     description: str = "Time offset in minutes from object detection time."
 
 
 def setup_interp(

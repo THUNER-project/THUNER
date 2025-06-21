@@ -18,7 +18,7 @@ __all__ = [
     "default",
     "CAPE",
     "CIN",
-    "TagCenter",
+    "tag_center",
 ]
 
 
@@ -127,60 +127,95 @@ def from_masks(
     return tag_dict
 
 
-class CAPE(Attribute):
-    """Convective available potential energy (CAPE)."""
-
-    name: str = "cape"
-    data_type: type = float
-    precision: int = 1
-    units: str = "J/kg"
-    description: str = "Convective available potential energy."
-
-
-class CIN(Attribute):
-    """Convective inhibition."""
-
-    name: str = "cin"
-    data_type: type = float
-    precision: int = 1
-    units: str = "J/kg"
-    description: str = "Convective inhibition."
+def CAPE():
+    """Convenience function to build a CAPE attribute."""
+    kwargs = {"name": "cape", "data_type": float, "precision": 1, "units": "J/kg"}
+    kwargs.update({"description": "Convective available potential energy."})
+    _retrieval = Retrieval(function=from_centers)
+    kwargs.update({"retrieval": _retrieval})
+    return Attribute(**kwargs)
 
 
-class TagCenter(AttributeGroup):
-    """Tags at the object center."""
+# class CAPE(Attribute):
+#     """Convective available potential energy (CAPE)."""
 
-    name: str = "tags_center"
-    retrieval: Retrieval = Retrieval(
-        function=from_centers,
-        keyword_arguments={
-            "center_type": "area_weighted",
-            "time_offsets": [-120, -60, 0],
-        },
-    )
-    attributes: list[Attribute] = [
-        core.Time(retrieval=None),
-        utils.TimeOffset(),
-        core.Latitude(retrieval=None),
-        core.Longitude(retrieval=None),
-        CAPE(),
-        CIN(),
-    ]
-    description: str = "Tags at object centers, e.g. cape and cin."
+#     name: str = "cape"
+#     data_type: type = float
+#     precision: int = 1
+#     units: str = "J/kg"
+#     description: str = "Convective available potential energy."
+
+
+def CIN():
+    """Convenience function to build a CIN attribute."""
+    kwargs = {"name": "cin", "data_type": float, "precision": 1, "units": "J/kg"}
+    kwargs.update({"description": "Convective inhibition."})
+    _retrieval = Retrieval(function=from_centers)
+    kwargs.update({"retrieval": _retrieval})
+    return Attribute(**kwargs)
+
+
+# class CIN(Attribute):
+#     """Convective inhibition."""
+
+#     name: str = "cin"
+#     data_type: type = float
+#     precision: int = 1
+#     units: str = "J/kg"
+#     description: str = "Convective inhibition."
+
+
+def tag_center(dataset):
+    """Convenience function to build a TagCenter attribute group."""
+    _ret_kwargs = {"center_type": "area_weighted", "time_offsets": [-120, -60, 0]}
+    _ret_kwargs.update({"dataset": dataset})
+    _retrieval = Retrieval(function=from_centers, keyword_arguments=_ret_kwargs)
+    _time, _lat, _lon = core.time(), core.latitude(), core.longitude()
+    _time.retrieval, _lat.retrieval, _lon.retrieval = None, None, None
+    _attributes = [_time, utils.time_offset(), _lat, _lon, CAPE(), CIN()]
+    _desc = "Tags, e.g. CAPE and CIN, at object centers"
+    kwargs = {"name": "tags_center", "retrieval": _retrieval}
+    kwargs.update({"attributes": _attributes, "description": _desc})
+    return AttributeGroup(**kwargs)
+
+
+# class TagCenter(AttributeGroup):
+#     """Tags at the object center."""
+
+#     name: str = "tags_center"
+#     retrieval: Retrieval = Retrieval(
+#         function=from_centers,
+#         keyword_arguments={
+#             "center_type": "area_weighted",
+#             "time_offsets": [-120, -60, 0],
+#         },
+#     )
+#     attributes: list[Attribute] = [
+#         core.Time(retrieval=None),
+#         utils.TimeOffset(),
+#         core.Latitude(retrieval=None),
+#         core.Longitude(retrieval=None),
+#         CAPE(),
+#         CIN(),
+#     ]
+#     description: str = "Tags at object centers, e.g. cape and cin."
 
 
 def default(dataset: str, matched=True):
     """Create the default tag attribute type."""
 
-    tag_center = TagCenter()
+    _tag_center = tag_center(dataset)
     # Add the appropriate ID attribute
     if matched:
-        tag_center.attributes.insert(2, core.RecordUniversalID(retrieval=None))
+        _record_id = core.record_universal_id()
+        _record_id.retrieval = None
+        _tag_center.attributes.insert(2, _record_id)
     else:
-        tag_center.attributes.insert(2, core.RecordID(retrieval=None))
-    # Add the appropriate dataset attribute
-    tag_center.retrieval.keyword_arguments.update({"dataset": dataset})
+        _record_id = core.record_id()
+        _record_id.retrieval = None
+        _tag_center.attributes.insert(2, _record_id)
+    # Add the appropriate dataset keyword argument pair
     description = "Tag attributes, e.g. cape and cin, at object center."
-    kwargs = {"name": f"{dataset}_tag", "attributes": [tag_center]}
+    kwargs = {"name": f"{dataset}_tag", "attributes": [_tag_center]}
     kwargs.update({"description": description})
     return AttributeType(**kwargs)

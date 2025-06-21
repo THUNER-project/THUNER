@@ -67,7 +67,7 @@ def mcs(tracking_dataset="cpol", profile_dataset="era5_pl", tag_dataset="era5_sl
 
     mcs_core = core.default_tracked()
     # Add echo top height attribute to the mcs core attributes
-    echo_top_height = core.EchoTopHeight()
+    echo_top_height = core.echo_top_height()
     mcs_core.attributes += [echo_top_height]
 
     attribute_types = [mcs_core, group.default()]

@@ -14,17 +14,31 @@ from thuner.option.grid import GridOptions
 logger = setup_logger(__name__)
 
 
+# __all__ = [
+#     "from_centers",
+#     "from_masks",
+#     "default",
+#     "Altitude",
+#     "U",
+#     "V",
+#     "Temperature",
+#     "Pressure",
+#     "RelativeHumidity",
+#     "ProfileCenter",
+# ]
+
+
 __all__ = [
     "from_centers",
     "from_masks",
     "default",
-    "Altitude",
-    "U",
-    "V",
-    "Temperature",
-    "Pressure",
-    "RelativeHumidity",
-    "ProfileCenter",
+    "altitude",
+    "u_wind",
+    "v_wind",
+    "temperature",
+    "pressure",
+    "relative_humidity",
+    "profile_center",
 ]
 
 
@@ -187,106 +201,167 @@ def _interp_profile(profile: xr.DataArray | xr.Dataset, new_altitudes: np.ndarra
     return profile
 
 
-class Altitude(Attribute):
-    """Altitude coordinate of profile."""
-
-    name: str = "altitude"
-    data_type: type = float
-    precision: int = 1
-    units: str = "m"
-    description: str = "Altitude coordinate of profile."
+def altitude():
+    """Convenience function to build an altitude attribute."""
+    kwargs = {"name": "altitude", "data_type": float, "precision": 1}
+    kwargs.update({"units": "m", "description": "Altitude coordinate of profile."})
+    return Attribute(**kwargs)
 
 
-class U(Attribute):
-    """Zonal winds."""
+# class Altitude(Attribute):
+#     """Altitude coordinate of profile."""
 
-    name: str = "u"
-    data_type: type = float
-    precision: int = 1
-    units: str = "m/s"
-    description: str = "u component of wind."
-
-
-class V(Attribute):
-    """Meridional winds."""
-
-    name: str = "v"
-    data_type: type = float
-    precision: int = 1
-    units: str = "m/s"
-    description: str = "v component of wind."
+#     name: str = "altitude"
+#     data_type: type = float
+#     precision: int = 1
+#     units: str = "m"
+#     description: str = "Altitude coordinate of profile."
 
 
-class Temperature(Attribute):
-    """Temperature in Kelvin."""
-
-    name: str = "temperature"
-    data_type: type = float
-    precision: int = 2
-    units: str = "K"
-    description: str = "Temperature profile."
+def u_wind():
+    """Convenience function to build a u wind component attribute."""
+    kwargs = {"name": "u", "data_type": float, "precision": 1}
+    kwargs.update({"units": "m/s", "description": "u component of wind."})
+    return Attribute(**kwargs)
 
 
-class Pressure(Attribute):
-    """Pressure in hPa."""
+# class U(Attribute):
+#     """Zonal winds."""
 
-    name: str = "pressure"
-    data_type: type = float
-    precision: int = 1
-    units: str = "hPa"
-    description: str = "Pressure profile."
+#     name: str = "u"
+#     data_type: type = float
+#     precision: int = 1
+#     units: str = "m/s"
+#     description: str = "u component of wind."
 
 
-class RelativeHumidity(Attribute):
-    """Relative humidity as percentage."""
+def v_wind():
+    """Convenience function to build a v wind component attribute."""
+    kwargs = {"name": "v", "data_type": float, "precision": 1}
+    kwargs.update({"units": "m/s", "description": "v component of wind."})
+    return Attribute(**kwargs)
 
-    name: str = "relative_humidity"
-    data_type: type = float
-    precision: int = 1
-    units: str = "%"
-    description: str = "Relative humidity profile."
+
+# class V(Attribute):
+#     """Meridional winds."""
+
+#     name: str = "v"
+#     data_type: type = float
+#     precision: int = 1
+#     units: str = "m/s"
+#     description: str = "v component of wind."
+
+
+def temperature():
+    """Convenience function to build a temperature attribute."""
+    kwargs = {"name": "temperature", "data_type": float, "precision": 2}
+    kwargs.update({"units": "K", "description": "Temperature profile."})
+    return Attribute(**kwargs)
+
+
+# class Temperature(Attribute):
+#     """Temperature in Kelvin."""
+
+#     name: str = "temperature"
+#     data_type: type = float
+#     precision: int = 2
+#     units: str = "K"
+#     description: str = "Temperature profile."
+
+
+def pressure():
+    """Convenience function to build a pressure attribute."""
+    kwargs = {"name": "pressure", "data_type": float, "precision": 1}
+    kwargs.update({"units": "hPa", "description": "Pressure profile."})
+    return Attribute(**kwargs)
+
+
+# class Pressure(Attribute):
+#     """Pressure in hPa."""
+
+#     name: str = "pressure"
+#     data_type: type = float
+#     precision: int = 1
+#     units: str = "hPa"
+#     description: str = "Pressure profile."
+
+
+def relative_humidity():
+    """Convenience function to build a relative humidity attribute."""
+    kwargs = {"name": "relative_humidity", "data_type": float, "precision": 1}
+    kwargs.update({"units": "%", "description": "Relative humidity profile."})
+    return Attribute(**kwargs)
+
+
+# class RelativeHumidity(Attribute):
+#     """Relative humidity as percentage."""
+
+#     name: str = "relative_humidity"
+#     data_type: type = float
+#     precision: int = 1
+#     units: str = "%"
+#     description: str = "Relative humidity profile."
+
+
+def profile_center(dataset: str):
+    """Convenience function to build a profile center attribute group."""
+
+    _time, _lat, _lon = core.time(), core.latitude(), core.longitude()
+    _time.retrieval, _lat.retrieval, _lon.retrieval = None, None, None
+
+    _attributes = [_time, utils.time_offset(), _lat, _lon, altitude()]
+    _attributes += [u_wind(), v_wind(), temperature(), pressure(), relative_humidity()]
+    _ret_kwargs = {"center_type": "area_weighted", "time_offsets": [-120, -60, 0]}
+    _ret_kwargs.update({"dataset": dataset})
+    _retrieval = Retrieval(function=from_centers, keyword_arguments=_ret_kwargs)
+    _desc = "Environmental profiles at object center."
+    kwargs = {"name": "profiles", "attributes": _attributes, "retrieval": _retrieval}
+    kwargs.update({"description": _desc})
+    return AttributeGroup(**kwargs)
 
 
 # Create a convenience attribute group, as they are typically all retrieved at once
-class ProfileCenter(AttributeGroup):
-    """Attribute group describing profiles obtained at the object center."""
+# class ProfileCenter(AttributeGroup):
+#     """Attribute group describing profiles obtained at the object center."""
 
-    name: str = "profiles"
-    attributes: list[Attribute] = [
-        core.Time(retrieval=None),
-        utils.TimeOffset(),
-        core.Latitude(retrieval=None),
-        core.Longitude(retrieval=None),
-        Altitude(),
-        U(),
-        V(),
-        Temperature(),
-        Pressure(),
-        RelativeHumidity(),
-    ]
-    retrieval: Retrieval = Retrieval(
-        function=from_centers,
-        keyword_arguments={
-            "center_type": "area_weighted",
-            "time_offsets": [-120, -60, 0],
-        },
-    )
-    description: str = "Environmental profiles at object center."
+#     name: str = "profiles"
+#     attributes: list[Attribute] = [
+#         core.Time(retrieval=None),
+#         utils.TimeOffset(),
+#         core.Latitude(retrieval=None),
+#         core.Longitude(retrieval=None),
+#         Altitude(),
+#         U(),
+#         V(),
+#         Temperature(),
+#         Pressure(),
+#         RelativeHumidity(),
+#     ]
+#     retrieval: Retrieval = Retrieval(
+#         function=from_centers,
+#         keyword_arguments={
+#             "center_type": "area_weighted",
+#             "time_offsets": [-120, -60, 0],
+#         },
+#     )
+#     description: str = "Environmental profiles at object center."
 
 
 def default(dataset, matched=True):
     """Create the default profile attribute type."""
-
-    profile_center = ProfileCenter()
+    _profile_center = profile_center(dataset)
     # Add the appropriate ID attribute
     if matched:
-        profile_center.attributes.insert(2, core.RecordUniversalID(retrieval=None))
+        _record_id = core.record_universal_id()
+        _record_id.retrieval = None
+        _profile_center.attributes.insert(2, _record_id)
     else:
-        profile_center.attributes.insert(2, core.RecordID(retrieval=None))
-    # Add the appropriate dataset attribute
-    profile_center.retrieval.keyword_arguments.update({"dataset": dataset})
+        _record_id = core.record_id()
+        _record_id.retrieval = None
+        _profile_center.attributes.insert(2, _record_id)
+    # Add the appropriate dataset keyword argument pair
     description = "Attributes corresponding to profiles taken from a tagging dataset, "
     description += "e.g. ambient winds, temperature and humidity."
-    kwargs = {"name": f"{dataset}_profile", "attributes": [profile_center]}
+    kwargs = {"name": f"{dataset}_profile", "attributes": [_profile_center]}
     kwargs.update({"description": description, "dataset": dataset})
     return AttributeType(**kwargs)
