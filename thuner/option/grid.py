@@ -2,6 +2,7 @@
 
 import numpy as np
 from pydantic import Field, model_validator
+from typing import Literal
 from thuner.utils import BaseOptions
 from thuner.log import setup_logger
 
@@ -13,7 +14,8 @@ logger = setup_logger(__name__)
 class GridOptions(BaseOptions):
     """Class for grid options."""
 
-    name: str = "geographic"
+    _desc = "Name of the grid."
+    name: Literal["geographic", "cartesian"] = Field("geographic", description=_desc)
     _desc = "z-coordinates for the dataset."
     altitude: list[float] | None = Field(None, description=_desc)
     _desc = "latitudes for the dataset."
@@ -66,4 +68,39 @@ class GridOptions(BaseOptions):
             values.shape = (len(values.y), len(values.x))
         else:
             logger.warning("shape not specified. Will attempt to infer from input.")
+        return values
+
+    @model_validator(mode="after")
+    def _check_spacing(cls, values):
+        """Ensure spacing is consistent with input dimensions."""
+
+        def check_diffs(coord, coord_name, spacing, spacing_name):
+            """
+            Check if the coordinate is evenly spaced, and if so whether spacing matches
+            provided spacing.
+            """
+            diffs = list(set(np.round(np.diff(coord), 8)))
+            if len(diffs) != 1:
+                message = f"{spacing_name} and {coord_name} provided, but {coord_name} "
+                message += f"not evenly spaced."
+                raise ValueError(message)
+            if diffs[0] != spacing:
+                message = f"{spacing_name} and {coord_name} provided, but actual "
+                message += f"{coord_name} spacing {diffs[0]} does not match {spacing}."
+                raise ValueError(message)
+
+        if values.cartesian_spacing is not None and values.y is not None:
+            args = [values.y, "y", values.cartesian_spacing[0], "cartesian_spacing"]
+            check_diffs(*args)
+        if values.cartesian_spacing is not None and values.x is not None:
+            args = [values.x, "x", values.cartesian_spacing[1], "cartesian_spacing"]
+            check_diffs(*args)
+        if values.geographic_spacing is not None and values.latitude is not None:
+            args = [values.latitude, "latitude", values.geographic_spacing[0]]
+            args += ["geographic_spacing"]
+            check_diffs(*args)
+        if values.geographic_spacing is not None and values.longitude is not None:
+            args = [values.longitude, "longitude", values.geographic_spacing[1]]
+            args += ["geographic_spacing"]
+            check_diffs(*args)
         return values
