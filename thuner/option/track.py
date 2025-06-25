@@ -1,7 +1,7 @@
 """Classes for managing tracking related options."""
 
 from typing import List, Annotated, Literal
-from pydantic import Field, model_validator
+from pydantic import Field, model_validator, ValidationError
 from thuner.log import setup_logger
 from thuner.option.attribute import Attributes
 from thuner.utils import BaseOptions
@@ -222,6 +222,34 @@ class LevelOptions(BaseOptions):
         return self._object_lookup.get(obj_name)
 
 
+def _check_grouped_object(object_options, object_levels):
+    """
+    Helper function to check a grouped object lists member object heierachy level
+    correctly.
+    """
+    for i, member_name in enumerate(object_options.grouping.member_objects):
+        if member_name not in object_levels:
+            message = f"Grouped object '{object_options.name}' references member "
+            message += f"object '{member_name}' which doesn't exist in track options."
+            raise ValidationError(message)
+
+        member_level = object_levels[member_name]
+        expected_level = object_options.grouping.member_levels[i]
+
+        if member_level != expected_level:
+            message = f"Grouped object '{object_options.name}' expects member "
+            message += f"'{member_name}' at level {expected_level}, "
+            message += f"but it's actually at level {member_level}."
+            raise ValidationError(message)
+
+        if member_level >= object_options.hierarchy_level:
+            message = f"Grouped object '{object_options.name}' at level "
+            message += f"{object_options.hierarchy_level} cannot reference member "
+            message += f"'{member_name}' at level {member_level}. "
+            message += f"Member objects must be at lower hierarchy levels."
+            raise ValidationError(message)
+
+
 class TrackOptions(BaseOptions):
     """
     Options for the levels of a tracking hierarchy.
@@ -254,3 +282,22 @@ class TrackOptions(BaseOptions):
         except KeyError:
             message = f"Object {obj_name} not found in object lookup."
             raise KeyError(message)
+
+    @model_validator(mode="after")
+    def _validate_grouped_objects(cls, values):
+        """
+        Validate that the tracking hierarchy is consistent - grouped objects should
+        only reference objects from lower hierarchy levels.
+        """
+        # Build a mapping of object names to their hierarchy levels
+        object_levels = {}
+        for level in values.levels:
+            for obj in level.objects:
+                object_levels[obj.name] = obj.hierarchy_level
+
+        # Check grouped objects reference appropriate member objects
+        for level in values.levels:
+            for obj in level.objects:
+                if hasattr(obj, "grouping") and obj.grouping:
+                    _check_grouped_object(obj, object_levels)
+        return values
