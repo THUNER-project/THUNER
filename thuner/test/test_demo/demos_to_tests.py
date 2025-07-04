@@ -65,11 +65,11 @@ def convert_notebook_to_script(notebook_path, script_path):
 
 
 if __name__ == "__main__":
-    demo_dir = Path(__file__).parent.parent.parent / "demo"
-    test_dir = Path(__file__).parent
+    demo_dir = Path(__file__).parent.parent.parent.parent / "demo"
+    test_demo_dir = Path(__file__).parent
 
     # Iterate over items in the demo directory
     for item in demo_dir.iterdir():
         if item.is_file() and item.suffix == ".ipynb":
             # Convert the notebook to a test script
-            convert_notebook_to_script(item, test_dir / f"test_{item.stem}.py")
+            convert_notebook_to_script(item, test_demo_dir / f"test_{item.stem}.py")

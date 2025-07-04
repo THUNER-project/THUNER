@@ -80,12 +80,12 @@ def new_geographic_grid(lats, lons, dlat, dlon):
     Get the geographic grid.
     """
 
-    min_lat = np.floor(lats.min() / dlat) * dlat
-    max_lat = np.ceil(lats.max() / dlat) * dlat
-    min_lon = np.floor(lons.min() / dlon) * dlon
-    max_lon = np.ceil(lons.max() / dlon) * dlon
-    new_lats = np.arange(min_lat, max_lat + dlat, dlat)
-    new_lons = np.arange(min_lon, max_lon + dlon, dlon)
+    min_lat = int(np.floor(np.nanmin(lats) / dlat)) * dlat
+    max_lat = int(np.ceil(np.nanmax(lats) / dlat)) * dlat
+    min_lon = int(np.floor(np.nanmin(lons) / dlon)) * dlon
+    max_lon = int(np.ceil(np.nanmax(lons) / dlon)) * dlon
+    new_lats = np.arange(min_lat, max_lat + dlat, dlat).round(8)
+    new_lons = np.arange(min_lon, max_lon + dlon, dlon).round(8)
 
     return list(new_lats), list(new_lons)
 
