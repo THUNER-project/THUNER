@@ -9,6 +9,7 @@ import thuner.attribute.core as core
 from thuner.attribute.utils import read_attribute_csv
 from thuner.option.attribute import Attribute, AttributeType
 import thuner.write as write
+import pandas as pd
 
 
 __all__ = ["read_options"]
@@ -16,7 +17,6 @@ __all__ = ["read_options"]
 
 def quality_control(
     object_name,
-    object_level,
     output_directory,
     analysis_options,
     analysis_directory=None,
@@ -41,9 +41,6 @@ def quality_control(
     if analysis_directory is None:
         analysis_directory = output_directory / "analysis"
 
-    options = read_options(output_directory)
-    object_options = options["track"].levels[object_level].object_by_name(object_name)
-
     # Determine if the system is sufficiently contained within the domain
     filepath = output_directory / f"attributes/{object_name}/quality.csv"
     quality = read_attribute_csv(filepath)
@@ -62,19 +59,13 @@ def quality_control(
     # Check system area is of appropriate size, treating the system area as the maximum
     # area of the member objects
     filepath = output_directory / f"attributes/{object_name}/core.csv"
+    parents = read_attribute_csv(filepath, columns=["parents"])
     area = read_attribute_csv(filepath, columns=["area"])
     area = area.rename(columns={"area": f"{object_name}_area"})
 
     min_area, max_area = analysis_options.min_area, analysis_options.max_area
     area_check = (area >= min_area) & (area <= max_area)
     area_check.name = "area"
-
-    # Check the stratiform offset is sufficiently large
-    filepath = output_directory / f"attributes/mcs/group.csv"
-    offset = read_attribute_csv(filepath, columns=["x_offset", "y_offset"])
-    offset_magnitude = offset.pow(2).sum(axis=1).pow(0.5)
-    offset_check = offset_magnitude >= analysis_options.min_offset
-    offset_check.name = "offset"
 
     # Check the duration of the system is sufficiently long
     # First get the duration of each object from the velocity dataframe
@@ -88,25 +79,24 @@ def quality_control(
     duration_check = duration_check.set_index(velocities.index.names)
 
     # Check if the object fails boundary overlap checks when first detected
-    both_contained = pd.concat([convective_check, anvil_check], axis=1).all(axis=1)
-    id_group = both_contained.reset_index().groupby("universal_id")
-    initial_check = id_group.agg(lambda x: x.iloc[0])
-    initial_check = initial_check.drop(columns="time")
-    new_name = {0: "initially_contained"}
-    initial_check = initial_check.rename(columns=new_name)
+    id_group = overlap_check.reset_index().groupby("universal_id")
+    initially_contained = id_group.agg(lambda x: x.iloc[0])
+    initially_contained = initially_contained.drop(columns="time")
+    new_name = {"contained": "initially_contained"}
+    initially_contained = initially_contained.rename(columns=new_name)
     dummy_df = velocities[[]].reset_index()
-    initial_check = dummy_df.merge(initial_check, **merge_kwargs)
-    initial_check = initial_check.set_index(velocities.index.names)
+    initially_contained = dummy_df.merge(initially_contained, **merge_kwargs)
+    initially_contained = initially_contained.set_index(velocities.index.names)
 
     # Check whether the object has parents. When plotting we may only wish to filter out
     # short duration objects if they are not part of a larger system
-    parents_check = mcs.reset_index().groupby("universal_id")["parents"]
+    parents_check = parents.reset_index().groupby("universal_id")["parents"]
     parents_check = parents_check.agg(lambda x: x.notna().any())
     parents_check = dummy_df.merge(parents_check, on="universal_id", how="left")
     parents_check = parents_check.set_index(velocities.index.names)
 
     # Record whether the given object has children, using the parents column
-    has_parents = mcs["parents"].dropna()
+    has_parents = parents["parents"].dropna()
     children_check = pd.Series(False, index=velocities.index, name="children")
     children_check = children_check.reset_index()
     for i in range(len(has_parents)):
@@ -117,7 +107,7 @@ def quality_control(
     children_check = children_check.set_index(velocities.index.names)
 
     # Check the linearity of the system
-    filepath = output_directory / f"attributes/mcs/{convective_label}/ellipse.csv"
+    filepath = output_directory / f"attributes/{object_name}/ellipse.csv"
     ellipse = read_attribute_csv(filepath, columns=["major", "minor"])
     major_check = ellipse["major"] >= analysis_options.min_major_axis_length
     major_check.name = "major_axis"
@@ -125,29 +115,19 @@ def quality_control(
     axis_ratio_check = axis_ratio >= analysis_options.min_axis_ratio
     axis_ratio_check.name = "axis_ratio"
 
-    names = ["convective_contained", "anvil_contained", "initially_contained"]
-    names += ["velocity", "shear", "relative_velocity", "area", "offset"]
+    names = ["contained", "initially_contained", "velocity", "area"]
     names += ["major_axis", "axis_ratio", "duration", "parents", "children"]
     descriptions = [
-        "Is the system convective region sufficiently contained within the domain?",
-        "Is the system anvil region sufficiently contained within the domain?",
-        "Is the system contained within the domain when first detected?",
-        "Is the system velocity sufficiently large?",
-        "Is the system shear sufficiently large?",
-        "Is the system relative velocity sufficiently large?",
-        "Is the system area sufficiently large?",
-        "Is the system stratiform offset sufficiently large?",
-        "Is the system major axis length sufficiently large?",
-        "Is the system axis ratio sufficiently large?",
-        "Is the system duration sufficiently long?",
-        "Does the system have parent systems?",
-        "Does the system have children systems?",
+        "Is the object sufficiently contained within the domain?",
+        "Is the object contained within the domain when first detected?",
+        "Is the object velocity sufficiently large?",
+        "Is the object area sufficiently large?",
+        "Is the object major axis length sufficiently large?",
+        "Is the object axis ratio sufficiently large?",
+        "Is the object duration sufficiently long?",
+        "Does the object have parents?",
+        "Does the object have children?",
     ]
-    if "u_shear" not in velocities.columns:
-        names.remove("shear")
-        names.remove("relative_velocity")
-        descriptions.remove("Is the system shear sufficiently large?")
-        descriptions.remove("Is the system relative velocity sufficiently large?")
 
     data_type, precision, units, retrieval = bool, None, None, None
     attributes = []
@@ -161,16 +141,15 @@ def quality_control(
     attributes.append(core.record_universal_id())
     attribute_type = AttributeType(name="quality", attributes=attributes)
     filepath = analysis_directory / "quality.csv"
-    quality = [convective_check, anvil_check, initial_check, velocity_check, area_check]
-    quality += [offset_check, major_check, axis_ratio_check, duration_check]
+    quality = [overlap_check, initially_contained, velocity_check, area_check]
+    quality += [major_check, axis_ratio_check, duration_check]
     quality += [parents_check, children_check]
-    if "u_shear" in velocities.columns:
-        quality += [shear_check, relative_velocity_check]
     quality = pd.concat(quality, axis=1)
     quality = write.attribute.write_csv(filepath, quality, attribute_type)
 
 
 def smooth_flow_velocities(filepath, output_directory, window_size=6):
+    """Smooth the flow velocities."""
     velocities = read_attribute_csv(filepath, columns=["u_flow", "v_flow"])
 
     velocities = temporal_smooth(velocities, window_size=window_size)
