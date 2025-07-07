@@ -49,6 +49,8 @@ def convert_value(value: Any) -> Any:
         return {convert_value(k): convert_value(v) for k, v in value.items()}
     if isinstance(value, list):
         return [convert_value(v) for v in value]
+    if isinstance(value, tuple):
+        return [convert_value(v) for v in value]
     if isinstance(value, bool):
         return int(value)
     if isinstance(value, type):
@@ -193,6 +195,8 @@ class BaseDatasetOptions(BaseOptions):
     _desc = "Minutes after interval end time to include. Useful for tagging when "
     _desc += "one wants to record post-storm ambient profiles."
     end_buffer: int = Field(0, description=_desc)
+    _desc = "Whether to save and reuse an xesmf regridder for this dataset."
+    reuse_regridder: bool = Field(False, description=_desc)
 
     # Create basic functions for getting filepaths etc for already converted datasets.
     # These are overridden in the subclasses.
@@ -226,10 +230,14 @@ class BaseDatasetOptions(BaseOptions):
         conv_options = self.converted_options
         input_record._current_file_index += 1
         filepath = self.filepaths[input_record._current_file_index]
+        regridder = input_record.regridder
         if conv_options.load is False:
             args = [time, filepath, track_options, grid_options]
-            dataset, boundary_coords = self.convert_dataset(*args)[:2]
+            outs = self.convert_dataset(*args, regridder=regridder)
+            dataset, boundary_coords, simple_boundary_coords, regridder = outs
             infer_grid_options(dataset, grid_options)
+            if self.reuse_regridder:
+                input_record.regridder = regridder
         else:
             dataset = xr.open_dataset(filepath)
             infer_grid_options(dataset, grid_options)

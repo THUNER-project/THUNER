@@ -1,10 +1,11 @@
 """Classes for managing tracking related options."""
 
-from typing import List, Annotated, Literal
+from typing import List, Annotated, Literal, Callable
 from pydantic import Field, model_validator, ValidationError
 from thuner.log import setup_logger
 from thuner.option.attribute import Attributes
-from thuner.utils import BaseOptions
+from thuner.utils import BaseOptions, Retrieval
+from thuner.detect.preprocess import vertical_max
 
 __all__ = [
     "TintOptions",
@@ -80,7 +81,6 @@ class BaseObjectOptions(BaseOptions):
     hierarchy_level: int = Field(0, description=_desc, ge=0)
     _desc = "Method used to obtain the object, i.e. detect or group."
     method: Literal["detect", "group"] = Field("detect", description=_desc)
-    # TODO: Create validator to check datasets here are present in DataOptions instance.
     _desc = "Name of the dataset used for detection if applicable."
     dataset: str = Field(..., description=_desc, examples=["cpol", "gridrad"])
     _desc = "Length of the deque used for tracking."
@@ -103,11 +103,15 @@ class DetectionOptions(BaseOptions):
     _desc = "Altitudes over which to detect objects."
     altitudes: List[int] = Field([], description=_desc)
     _desc = "Method used to flatten the grid before detection if relevant."
-    flatten_method: str = Field("vertical_max", description=_desc)
+    flatten_method: Retrieval | None = Field(
+        Retrieval(function=vertical_max), description=_desc
+    )
     _desc = "Minimum area of the object in km squared."
     min_area: int = Field(10, description=_desc)
     _desc = "Threshold used for detection if required."
     threshold: int | None = Field(None, description=_desc)
+    _desc = "Threshold type, i.e. a minima or maxima threshold."
+    threshold_type: Literal["minima", "maxima"] = Field("minima", description=_desc)
 
     @model_validator(mode="after")
     def _check_threshold(cls, values):

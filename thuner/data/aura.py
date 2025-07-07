@@ -42,7 +42,7 @@ class AURAOptions(utils.BaseDatasetOptions):
         If unset by user, change default values inherited from the base class.
         """
         super().model_post_init(__context)
-        self._change_defaults(fields=["reflectivity"])
+        self._change_defaults(fields=["reflectivity"], reuse_regridder=True)
 
     # Define additional fields for AURA
     range: float = Field(142.5, description="Range of the radar in km.")
@@ -69,9 +69,10 @@ class CPOLOptions(AURAOptions):
         """Get CPOL fielpaths."""
         return get_cpol_filepaths(self)
 
-    def convert_dataset(self, time, filepath, track_options, grid_options):
+    def convert_dataset(self, time, filepath, track_options, grid_options, regridder):
         """Convert CPOL dataset."""
-        return convert_cpol(time, filepath, track_options, self, grid_options)
+        args = [time, filepath, track_options, self, grid_options, regridder]
+        return convert_cpol(*args)
 
     def update_boundary_data(self, dataset, input_record, boundary_coords):
         """Update CPOL boundary data."""
@@ -162,12 +163,20 @@ class OperationalOptions(AURAOptions):
 
     # Overwrite the default values from the base class. Note these objects are still
     # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
-    name: str = "operational"
-    parent_remote: str = "https://dapds00.nci.org.au/thredds/fileServer/rq0"
+
+    def model_post_init(self, __context):
+        """
+        If unset by user, change default values inherited from the base class.
+        """
+        super().model_post_init(__context)
+        url = "https://dapds00.nci.org.au/thredds/fileServer/rq0"
+        kwargs = {"name": "operational", "parent_remote": url}
+        kwargs.update({"fields": ["reflectivity"], "reuse_regridder": False})
+        self._change_defaults(**kwargs)
 
     # Define additional fields for the operational radar
-    level: str = "1"
-    data_format: str = "ODIM"
+    level: str = Field("1")
+    data_format: str = Field("ODIM")
     radar: int = Field(63, description="Radar ID number.")
     _desc = "Weighting function used by pyart to reconstruct the grid from ODIM."
     weighting_function: str = Field("Barnes2", description=_desc)
@@ -265,7 +274,9 @@ def update_cpol_boundary_data(dataset, input_record, boundary_coords):
         # objects being detected, and the required threshold on number of observations.
 
 
-def convert_cpol(time, filepath, track_options, dataset_options, grid_options):
+def convert_cpol(
+    time, filepath, track_options, dataset_options, grid_options, regridder=None
+):
     """Convert CPOL data to a standard format. Retrieve the boundary data."""
 
     time_str = utils.format_time(time, filename_safe=False)
@@ -311,8 +322,9 @@ def convert_cpol(time, filepath, track_options, dataset_options, grid_options):
         dims_dict = {"latitude": latitude, "longitude": longitude}
         # ds = xr.Dataset({dim: ([dim], getattr(grid_options, dim)) for dim in dims})
         ds = xr.Dataset({dim: ([dim], dims_dict[dim]) for dim in dims})
-        regrid_options = {"periodic": False, "extrap_method": None}
-        regridder = xe.Regridder(cpol, ds, "bilinear", **regrid_options)
+        if regridder is None:
+            regrid_options = {"periodic": False, "extrap_method": None}
+            regridder = xe.Regridder(cpol, ds, "bilinear", **regrid_options)
         ds = regridder(cpol)
         for var in ds.data_vars:
             if var in cpol.data_vars:
@@ -349,7 +361,7 @@ def convert_cpol(time, filepath, track_options, dataset_options, grid_options):
 
     ds = _utils.apply_mask(ds, grid_options)
 
-    return ds, boundary_coords, simple_boundary_coords
+    return ds, boundary_coords, simple_boundary_coords, regridder
 
 
 def convert_operational():

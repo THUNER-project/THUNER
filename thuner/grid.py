@@ -8,7 +8,31 @@ from thuner.log import setup_logger
 
 logger = setup_logger(__name__)
 
-grid_name_message = "Grid name must be 'cartesian' or 'geographic'."
+
+def subset_curvilinear(dataset, lat_min, lat_max, lon_min, lon_max):
+    """
+    Subset a curvilinear dataset based on latitude and longitude bounds.
+    """
+    # Ensure the dataset has latitude and longitude coordinates
+    if "latitude" not in dataset.coords or "longitude" not in dataset.coords:
+        raise ValueError("Dataset must contain 'latitude' and 'longitude' coordinates.")
+    if "y" not in dataset.coords or "x" not in dataset.coords:
+        raise ValueError("Dataset must have 'y' and 'x' dimensions.")
+
+    latitude = dataset["latitude"].values
+    longitude = dataset["longitude"].values
+
+    lat_cond = (latitude >= lat_min) & (latitude <= lat_max)
+    lon_cond = (longitude >= lon_min) & (longitude <= lon_max)
+    mask = lat_cond & lon_cond
+
+    rows, cols = np.where(mask)
+    if len(rows) == 0 or len(cols) == 0:
+        raise ValueError("No points found in the specified lat/lon range!")
+    row_min, row_max = rows.min(), rows.max()
+    col_min, col_max = cols.min(), cols.max()
+
+    return dataset.isel(y=slice(row_min, row_max + 1), x=slice(col_min, col_max + 1))
 
 
 def cartesian_to_geographic_lcc(grid_options, x, y):
@@ -112,8 +136,6 @@ def get_cell_areas(grid_options):
         return cell_areas
     elif grid_options.name == "geographic":
         return get_geographic_cell_areas(grid_options.latitude, grid_options.longitude)
-    else:
-        raise ValueError(grid_name_message)
 
 
 def get_coordinate_names(grid_options):
@@ -122,8 +144,6 @@ def get_coordinate_names(grid_options):
         return ["y", "x"]
     elif grid_options.name == "geographic":
         return ["latitude", "longitude"]
-    else:
-        raise ValueError(grid_name_message)
 
 
 def get_coordinates(grid_options, row, col):
@@ -213,24 +233,12 @@ def get_horizontal_coordinates(grid_options):
 def get_horizontal_spacing(grid_options):
     """
     Get the grid spacing.
-
-    Parameters
-    ----------
-    grid_options : dict
-        Dictionary containing the grid grid_options.
-
-    Returns
-    -------
-    tuple
-        The grid spacing as a tuple of (dlat, dlon, dz).
     """
 
     if grid_options.name == "cartesian":
         return grid_options.cartesian_spacing
     elif grid_options.name == "geographic":
         return grid_options.geographic_spacing
-    else:
-        raise ValueError(grid_name_message)
 
 
 def pixel_to_cartesian_vector(row, col, vector, grid_options):
@@ -272,8 +280,6 @@ def pixel_to_cartesian_vector(row, col, vector, grid_options):
         return geographic_to_cartesian_displacement(
             start_lat, start_lon, end_lat, end_lon
         )
-    else:
-        raise ValueError(grid_name_message)
 
 
 geod = Geod(ellps="WGS84")
@@ -317,8 +323,6 @@ def get_pixels_geographic(rows, cols, grid_options):
     elif grid_options.name == "geographic":
         # lats, lons are 1D arrays
         lats, lons = [latitudes[row] for row in rows], [longitudes[col] for col in cols]
-    else:
-        raise ValueError(grid_name_message)
     if scalar_input:
         lats = lats[0]
         lons = lons[0]

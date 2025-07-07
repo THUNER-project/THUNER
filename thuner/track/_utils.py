@@ -4,7 +4,7 @@ from collections import deque
 from pydantic import BaseModel, Field, model_validator, ConfigDict
 import numpy as np
 import xarray as xr
-from typing import Dict
+from typing import Dict, Callable
 from thuner.attribute.utils import AttributesRecord
 from thuner.option.data import DataOptions
 from thuner.option.track import TrackOptions, BaseObjectOptions, LevelOptions
@@ -32,6 +32,9 @@ class BaseInputRecord(BaseModel):
     _desc += "xarray.Dataset corresponding to a single file. A `grid` is a single time "
     _desc += "step extracted from a dataset."
     dataset: DataObject | None = Field(None, description=_desc)
+    _desc = "The regridder function for this dataset. This should be left as None and"
+    _desc += " inferred during tracking."
+    regridder: Callable | None = Field(None, description=_desc)
 
     # Index of the file corresponding to the currently stored dataset.
     # Initially set to -1 to indicate no file has been read yet.

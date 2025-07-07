@@ -5,9 +5,198 @@ import yaml
 import glob
 import numpy as np
 import thuner.option as option
+import thuner.attribute.core as core
+from thuner.attribute.utils import read_attribute_csv
+from thuner.option.attribute import Attribute, AttributeType
+import thuner.write as write
 
 
 __all__ = ["read_options"]
+
+
+def quality_control(
+    object_name,
+    object_level,
+    output_directory,
+    analysis_options,
+    analysis_directory=None,
+):
+    """
+    Perform quality control on MCSs based on the provided options.
+
+    Parameters
+    ----------
+    output_directory : str
+        Path to the thuner run output directory.
+    analysis_options : AnalysisOptions
+        Options for analysis and quality control checks.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame describing quality control checks.
+    """
+
+    output_directory = Path(output_directory)
+    if analysis_directory is None:
+        analysis_directory = output_directory / "analysis"
+
+    options = read_options(output_directory)
+    object_options = options["track"].levels[object_level].object_by_name(object_name)
+
+    # Determine if the system is sufficiently contained within the domain
+    filepath = output_directory / f"attributes/{object_name}/quality.csv"
+    quality = read_attribute_csv(filepath)
+
+    max_boundary_overlap = analysis_options.max_boundary_overlap
+    quality = quality.rename(columns={"boundary_overlap": "contained"})
+    overlap_check = quality["contained"] <= max_boundary_overlap
+
+    # Check if velocity/shear vectors are sufficiently large
+    filepath = analysis_directory / "velocities.csv"
+    velocities = read_attribute_csv(filepath)
+    velocity_magnitude = velocities[["u", "v"]].pow(2).sum(axis=1).pow(0.5)
+    velocity_check = velocity_magnitude >= analysis_options.min_velocity
+    velocity_check.name = "velocity"
+
+    # Check system area is of appropriate size, treating the system area as the maximum
+    # area of the member objects
+    filepath = output_directory / f"attributes/{object_name}/core.csv"
+    area = read_attribute_csv(filepath, columns=["area"])
+    area = area.rename(columns={"area": f"{object_name}_area"})
+
+    min_area, max_area = analysis_options.min_area, analysis_options.max_area
+    area_check = (area >= min_area) & (area <= max_area)
+    area_check.name = "area"
+
+    # Check the stratiform offset is sufficiently large
+    filepath = output_directory / f"attributes/mcs/group.csv"
+    offset = read_attribute_csv(filepath, columns=["x_offset", "y_offset"])
+    offset_magnitude = offset.pow(2).sum(axis=1).pow(0.5)
+    offset_check = offset_magnitude >= analysis_options.min_offset
+    offset_check.name = "offset"
+
+    # Check the duration of the system is sufficiently long
+    # First get the duration of each object from the velocity dataframe
+    id_group = velocities.reset_index().groupby("universal_id")["time"]
+    duration = id_group.agg(lambda x: x.max() - x.min())
+    duration_check = duration >= np.timedelta64(analysis_options.min_duration, "m")
+    duration_check.name = "duration"
+    dummy_df = velocities[[]].reset_index()
+    merge_kwargs = {"on": "universal_id", "how": "left"}
+    duration_check = dummy_df.merge(duration_check, **merge_kwargs)
+    duration_check = duration_check.set_index(velocities.index.names)
+
+    # Check if the object fails boundary overlap checks when first detected
+    both_contained = pd.concat([convective_check, anvil_check], axis=1).all(axis=1)
+    id_group = both_contained.reset_index().groupby("universal_id")
+    initial_check = id_group.agg(lambda x: x.iloc[0])
+    initial_check = initial_check.drop(columns="time")
+    new_name = {0: "initially_contained"}
+    initial_check = initial_check.rename(columns=new_name)
+    dummy_df = velocities[[]].reset_index()
+    initial_check = dummy_df.merge(initial_check, **merge_kwargs)
+    initial_check = initial_check.set_index(velocities.index.names)
+
+    # Check whether the object has parents. When plotting we may only wish to filter out
+    # short duration objects if they are not part of a larger system
+    parents_check = mcs.reset_index().groupby("universal_id")["parents"]
+    parents_check = parents_check.agg(lambda x: x.notna().any())
+    parents_check = dummy_df.merge(parents_check, on="universal_id", how="left")
+    parents_check = parents_check.set_index(velocities.index.names)
+
+    # Record whether the given object has children, using the parents column
+    has_parents = mcs["parents"].dropna()
+    children_check = pd.Series(False, index=velocities.index, name="children")
+    children_check = children_check.reset_index()
+    for i in range(len(has_parents)):
+        parents = [int(p) for p in has_parents.iloc[i].split(" ")]
+        for parent in parents:
+            row_cond = children_check["universal_id"] == parent
+            children_check.loc[row_cond, "children"] = True
+    children_check = children_check.set_index(velocities.index.names)
+
+    # Check the linearity of the system
+    filepath = output_directory / f"attributes/mcs/{convective_label}/ellipse.csv"
+    ellipse = read_attribute_csv(filepath, columns=["major", "minor"])
+    major_check = ellipse["major"] >= analysis_options.min_major_axis_length
+    major_check.name = "major_axis"
+    axis_ratio = ellipse["major"] / ellipse["minor"]
+    axis_ratio_check = axis_ratio >= analysis_options.min_axis_ratio
+    axis_ratio_check.name = "axis_ratio"
+
+    names = ["convective_contained", "anvil_contained", "initially_contained"]
+    names += ["velocity", "shear", "relative_velocity", "area", "offset"]
+    names += ["major_axis", "axis_ratio", "duration", "parents", "children"]
+    descriptions = [
+        "Is the system convective region sufficiently contained within the domain?",
+        "Is the system anvil region sufficiently contained within the domain?",
+        "Is the system contained within the domain when first detected?",
+        "Is the system velocity sufficiently large?",
+        "Is the system shear sufficiently large?",
+        "Is the system relative velocity sufficiently large?",
+        "Is the system area sufficiently large?",
+        "Is the system stratiform offset sufficiently large?",
+        "Is the system major axis length sufficiently large?",
+        "Is the system axis ratio sufficiently large?",
+        "Is the system duration sufficiently long?",
+        "Does the system have parent systems?",
+        "Does the system have children systems?",
+    ]
+    if "u_shear" not in velocities.columns:
+        names.remove("shear")
+        names.remove("relative_velocity")
+        descriptions.remove("Is the system shear sufficiently large?")
+        descriptions.remove("Is the system relative velocity sufficiently large?")
+
+    data_type, precision, units, retrieval = bool, None, None, None
+    attributes = []
+    for name, description in zip(names, descriptions):
+        kwargs = {"name": name, "retrieval": retrieval, "data_type": data_type}
+        kwargs.update({"precision": precision, "description": description})
+        kwargs.update({"units": units})
+        attributes.append(Attribute(**kwargs))
+
+    attributes.append(core.time())
+    attributes.append(core.record_universal_id())
+    attribute_type = AttributeType(name="quality", attributes=attributes)
+    filepath = analysis_directory / "quality.csv"
+    quality = [convective_check, anvil_check, initial_check, velocity_check, area_check]
+    quality += [offset_check, major_check, axis_ratio_check, duration_check]
+    quality += [parents_check, children_check]
+    if "u_shear" in velocities.columns:
+        quality += [shear_check, relative_velocity_check]
+    quality = pd.concat(quality, axis=1)
+    quality = write.attribute.write_csv(filepath, quality, attribute_type)
+
+
+def smooth_flow_velocities(filepath, output_directory, window_size=6):
+    velocities = read_attribute_csv(filepath, columns=["u_flow", "v_flow"])
+
+    velocities = temporal_smooth(velocities, window_size=window_size)
+    velocities = velocities.rename(columns={"u_flow": "u", "v_flow": "v"})
+
+    analysis_directory = output_directory / "analysis"
+
+    # Create metadata for the attributes
+    names = ["u", "v"]
+    descriptions = [
+        "System ground relative zonal velocity.",
+        "System ground relative meridional velocity.",
+    ]
+
+    data_type, precision, units, retrieval = float, 1, "m/s", None
+    attributes = []
+    for name, description in zip(names, descriptions):
+        kwargs = {"name": name, "retrieval": retrieval, "data_type": data_type}
+        kwargs.update({"precision": precision, "description": description})
+        kwargs.update({"units": units})
+        attributes.append(Attribute(**kwargs))
+    attributes.append(core.time())
+    attributes.append(core.record_universal_id())
+    attribute_type = AttributeType(name="velocities", attributes=attributes)
+    filepath = analysis_directory / "velocities.csv"
+    write.attribute.write_csv(filepath, velocities, attribute_type)
 
 
 def get_angle(u1, v1, u2, v2):

@@ -7,6 +7,7 @@ from thuner.utils import BaseOptions
 from thuner.option.grid import GridOptions
 from thuner.option.track import TrackOptions
 from thuner.option.data import DataOptions
+import numpy as np
 
 
 def _get_object_datasets(object_options, referenced_datasets):
@@ -51,3 +52,26 @@ class Options(BaseOptions):
             raise ValueError(message)
 
         return values
+
+    @model_validator(mode="after")
+    def _check_himawari_grid(cls, values):
+        """
+        Check latitude/longitude have been provided for Himawari data.
+        """
+        if "himawari" in values.data.dataset_names:
+            if values.grid.name != "geographic":
+                message = "Cartesian coordiantes not yet implemented for Himawari data."
+                raise ValueError(message)
+            if values.grid.latitude is None or values.grid.longitude is None:
+                message += "Please set latitude/longitude grid options explicitly, as "
+                message += "Regridding entire Himawari disk uses a lot of memory!"
+                raise ValueError(message)
+            lon = np.array(values.grid.longitude)
+            lat = np.array(values.grid.latitude)
+            if lon.min() < -180 or lon.max() > 180:
+                message = "Himawari longitude must be between -180 and 180 degrees."
+                raise ValueError(message)
+            if (lat.min() < -81.13867) or (lat.max() > 81.13867):
+                message = "Himawari latitude must be between -81.13867 and -81.13867 "
+                message += "degrees."
+                raise ValueError(message)

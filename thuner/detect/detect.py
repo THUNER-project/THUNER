@@ -21,7 +21,10 @@ def threshold(grid, object_options):
     if object_options.detection.method != "threshold":
         raise ValueError("Detection method not set to threshold.")
 
-    binary_grid = grid >= object_options.detection.threshold
+    if object_options.detection.threshold_type == "minima":
+        binary_grid = grid >= object_options.detection.threshold
+    elif object_options.detection.threshold_type == "maxima":
+        binary_grid = grid <= object_options.detection.threshold
     return binary_grid
 
 
@@ -75,13 +78,8 @@ detecter_dispatcher = {
 }
 
 
-flattener_dispatcher = {
-    "vertical_max": preprocess.vertical_max,
-    "cross_section": preprocess.cross_section,
-}
-
-
 def rebuild_processed_grid(grid_data, track_options, obj, level):
+    """Rebuild the processed grid for the given object and level."""
     grid_dict = {}
     object_options = track_options.levels[level].object_by_name(obj)
     if "detection" in object_options.__class__.model_fields:
@@ -97,14 +95,15 @@ def rebuild_processed_grid(grid_data, track_options, obj, level):
 
 
 def process_grid(grid, object_options):
+    """Apply a flatten method to produce a 2D grid."""
 
-    if object_options.detection.flatten_method is not None:
-        flatten_method = object_options.detection.flatten_method
+    retrieval = object_options.detection.flatten_method
+    if retrieval is not None:
+        func = retrieval.function
+        kwargs = retrieval.keyword_arguments
+        processed_grid = func(grid, object_options, **kwargs)
     else:
-        logger.warning("No flattening method specified. Taking column max.")
-        flatten_method = "vertical_max"
-    flattener = flattener_dispatcher.get(flatten_method)
-    processed_grid = flattener(grid, object_options)
+        processed_grid = grid
     return processed_grid
 
 

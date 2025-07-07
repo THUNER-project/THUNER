@@ -100,8 +100,31 @@ def track(dataset_name: str = "cpol"):
     level_0 = track_option.LevelOptions(objects=objects)
     level_1 = track_option.LevelOptions(objects=[mcs_options])
     levels = [level_0, level_1]
-    track_options = track_option.TrackOptions(levels=levels)
-    return track_options
+    return track_option.TrackOptions(levels=levels)
+
+
+def satellite_anvil(dataset="himawari"):
+    """Build default options for anvil objects."""
+    kwargs = {"name": "anvil", "dataset": dataset, "variable": "brightness_temperature"}
+    det_kwargs = {"method": "threshold", "threshold": 220, "threshold_type": "maxima"}
+    det_kwargs.update({"flatten_method": None, "min_area": 500})
+    kwargs.update({"detection": det_kwargs, "tracking": None})
+    attribute_types = [core.default_tracked()]
+    attribute_types += [quality.default()]
+    attribute_types += [ellipse.default()]
+    trck_kwargs = {"global_flow_margin": 70, "unique_global_flow": False}
+    tracking = track_option.MintOptions(**trck_kwargs)
+    attr_kwargs = {"name": "anvil", "attribute_types": attribute_types}
+    attributes = attribute_option.Attributes(**attr_kwargs)
+    kwargs.update({"tracking": tracking, "attributes": attributes})
+    return track_option.DetectedObjectOptions(**kwargs)
+
+
+def satellite_track(dataset_name: str = "himawari"):
+    """Build default options for tracking anvils in satellite data."""
+    anvil_options = satellite_anvil()
+    level = track_option.LevelOptions(objects=[anvil_options])
+    return track_option.TrackOptions(levels=[level])
 
 
 def runtime(visualize_directory, objects=["mcs"]):
