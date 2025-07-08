@@ -1,6 +1,7 @@
 """General display functions."""
 
 import random
+import copy
 from PIL import Image
 import imageio
 import colorsys
@@ -104,11 +105,24 @@ reflectivity_norm = mcolors.BoundaryNorm(
     reflectivity_levels, ncolors=desaturated_homeyer_rainbow.N, clip=True
 )
 
+brightness_rainbow = desaturate_colormap(pcm.HomeyerRainbow, factor=0.35)
+brightness_rainbow.set_over((0, 0, 0, 0))  # Set over color to transparent
+brightness_rainbow.set_under((0, 0, 0, 0))
+brightness_levels = np.arange(180, 250 + 10, 10)
+brightness_norm = mcolors.BoundaryNorm(
+    brightness_levels, ncolors=brightness_rainbow.N, clip=False
+)
+
 pcolormesh_style = {
     "reflectivity": {
         "cmap": desaturated_homeyer_rainbow,
         "shading": "nearest",
         "norm": reflectivity_norm,
+    },
+    "brightness_temperature": {
+        "cmap": brightness_rainbow,
+        "shading": "nearest",
+        "norm": brightness_norm,
     },
 }
 

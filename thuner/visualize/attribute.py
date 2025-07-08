@@ -23,6 +23,7 @@ import thuner.detect.detect as detect
 import thuner.visualize.utils as utils
 import thuner.visualize.visualize as visualize
 from thuner.option.visualize import FigureOptions, GroupedHorizontalAttributeOptions
+from thuner.option.visualize import HorizontalAttributeOptions
 from thuner.log import setup_logger, logging_listener
 
 
@@ -85,22 +86,21 @@ def series(
     start_time = np.datetime64(start_time)
     end_time = np.datetime64(end_time)
     options = read_options(output_directory)
-    masks_filepath = output_directory / "masks/mcs.zarr"
+    object_name = figure_options.object_name
+    masks_filepath = output_directory / f"masks/{object_name}.zarr"
     masks = xr.open_dataset(masks_filepath, engine="zarr")
     times = masks.time.values
     times = times[(times >= start_time) & (times <= end_time)]
 
-    # Get the figure function and kwargs
-    # figure_function = figure_options.method.function
-    figure_function = grouped_horizontal
-    # figure_kwargs = figure_options.method.keyword_arguments
-    # figure_function = partial(figure_func, **figure_kwargs)
+    figure_function = figure_options.method.function
 
     # Start with first time
     time = times[0]
     args = [time, masks, output_directory, figure_options.model_dump()]
     args += [options, dataset_name]
-    figure_function(*args)
+    regridder = figure_function(*args)
+    if not options["data"].dataset_by_name(dataset_name).reuse_regridder:
+        regridder = None
     if len(times) == 1:
         # Switch back to original backend
         plt.close("all")
@@ -118,13 +118,14 @@ def series(
                 # bad practice to pass dataframes to mp workers.
                 args = [time, masks, output_directory]
                 args += [figure_options.model_dump()]
-                args += [options, dataset_name]
+                args += [options, dataset_name, regridder]
                 args = tuple(args)
                 results.append(pool.apply_async(figure_function, args))
             pool.close()
             pool.join()
             check_results(results)
     else:
+        args += [regridder]
         for time in times[1:]:
             args[0] = time
             figure_function(*args)
@@ -143,21 +144,27 @@ def series(
 
 
 def get_mask_grid_boundary(
-    object_name, time, filepaths_df, masks, dataset_name, options
+    object_name, time, filepaths_df, masks, dataset_name, options, regridder=None
 ):
     """Get the mask and grid for a given time."""
 
     filepath = filepaths_df[dataset_name].loc[time]
     dataset_options = options["data"].dataset_by_name(dataset_name)
+    object_level = options["track"].object_by_name(object_name).hierarchy_level
 
-    args = [time, filepath, options["track"], options["grid"]]
-    ds, boundary_coords, simple_boundary_coords = dataset_options.convert_dataset(*args)
+    args = [time, filepath, options["track"], options["grid"], regridder]
+    outs = dataset_options.convert_dataset(*args)
+    ds, boundary_coords, simple_boundary_coords, regridder = outs
     del boundary_coords
     logger.debug(f"Getting grid from dataset at time {time}.")
-    grid = dataset_options.grid_from_dataset(ds, "reflectivity", time)
+
+    if len(dataset_options.fields) > 1:
+        raise ValueError("Non-unique dataset field.")
+
+    grid = dataset_options.grid_from_dataset(ds, dataset_options.fields[0], time)
     del ds
     logger.debug(f"Rebuilding processed grid for time {time}.")
-    args = [grid, options["track"], object_name, 1]
+    args = [grid, options["track"], object_name, object_level]
     processed_grid = detect.rebuild_processed_grid(*args)
     del grid
     mask = masks.sel(time=time).load()
@@ -168,7 +175,7 @@ def get_mask_grid_boundary(
         message = f"Grid or mask time {grid_time} does not match requested time {time}."
         raise ValueError(message)
 
-    return mask, processed_grid, simple_boundary_coords
+    return mask, processed_grid, simple_boundary_coords, regridder
 
 
 def get_object_colors(time, color_angle_df):
@@ -179,8 +186,81 @@ def get_object_colors(time, color_angle_df):
     return dict(zip(keys, values))
 
 
+def detected_horizontal(
+    time,
+    masks,
+    output_directory,
+    figure_options_dict,
+    options,
+    dataset_name,
+    regridder=None,
+):
+    """Create a horizontal cross section plot."""
+    logger.info(f"Visualizing attributes at time {time}.")
+
+    # Rebuild the figure options
+    figure_options = HorizontalAttributeOptions(**figure_options_dict)
+    object_name = figure_options.object_name
+
+    # Get filepaths dataframe
+    record_filepath = output_directory / f"records/filepaths/{dataset_name}.csv"
+    filepaths_df = read_attribute_csv(record_filepath, columns=[dataset_name])
+
+    # Setup colors
+    color_angle_df = get_color_angle_df(object_name, output_directory)
+
+    grid_options = options["grid"]
+    obj_name = figure_options.object_name
+    args = [obj_name, time, filepaths_df, masks, dataset_name, options, regridder]
+    mask, grid, boundary_coords, new_regridder = get_mask_grid_boundary(*args)
+    mask = mask[obj_name + "_mask"]
+    object_colors = get_object_colors(time, color_angle_df)
+
+    time = grid.time.values
+    style = figure_options.style
+
+    attribute_handlers = figure_options.attribute_handlers
+    args = [grid, mask, grid_options, figure_options, boundary_coords]
+    kwargs = {"object_colors": object_colors}
+
+    with plt.style.context(visualize.styles[style]), visualize.set_style(style):
+        figure_features = horizontal.detected_mask(*args, **kwargs)
+        fig, subplot_axes, colorbar_axes, legend_axes = figure_features
+
+    # Create the grouped object figure instance
+    kwargs = {"object_name": object_name, "time": time, "grid": grid, "mask": mask}
+    kwargs.update({"boundary_coordinates": boundary_coords})
+    kwargs.update({"attribute_handlers": attribute_handlers})
+    kwargs.update({"figure": fig, "subplot_axes": subplot_axes})
+    kwargs.update({"colorbar_axes": colorbar_axes, "legend_axes": legend_axes})
+    core_filepath = output_directory / f"attributes/{obj_name}/core.csv"
+    kwargs["core_filepath"] = str(core_filepath)
+    detected_figure = BaseFigure(**kwargs)
+    # Remove duplicate mask and grid from memory after generating the figure
+    del mask, grid, boundary_coords
+    add_attributes(time, detected_figure)
+    create_legend(detected_figure, grid_options, figure_options)
+
+    filename = f"{format_time(time)}.png"
+    filepath = output_directory / f"visualize/{figure_options.name}/{filename}"
+    filepath.parent.mkdir(parents=True, exist_ok=True)
+    logger.info(f"Saving {figure_options.name} figure for {time}.")
+    with plt.style.context(visualize.styles[style]), visualize.set_style(style):
+        detected_figure.figure.savefig(filepath, bbox_inches="tight")
+    del detected_figure
+    utils.reduce_color_depth(filepath)
+    plt.clf(), plt.close(), gc.collect()
+    return new_regridder
+
+
 def grouped_horizontal(
-    time, masks, output_directory, figure_options_dict, options, dataset_name
+    time,
+    masks,
+    output_directory,
+    figure_options_dict,
+    options,
+    dataset_name,
+    regridder=None,
 ):
     """Create a horizontal cross section plot."""
     logger.info(f"Visualizing attributes at time {time}.")
@@ -191,14 +271,14 @@ def grouped_horizontal(
     # Get filepaths dataframe
     record_filepath = output_directory / f"records/filepaths/{dataset_name}.csv"
     filepaths_df = read_attribute_csv(record_filepath, columns=[dataset_name])
+    obj_name = figure_options.object_name
 
     # Setup colors
-    color_angle_df = get_color_angle_df(output_directory)
+    color_angle_df = get_color_angle_df(obj_name, output_directory)
 
     grid_options = options["grid"]
-    obj_name = figure_options.object_name
-    args = [obj_name, time, filepaths_df, masks, dataset_name, options]
-    mask, grid, boundary_coords = get_mask_grid_boundary(*args)
+    args = [obj_name, time, filepaths_df, masks, dataset_name, options, regridder]
+    mask, grid, boundary_coords, new_regridder = get_mask_grid_boundary(*args)
     object_colors = get_object_colors(time, color_angle_df)
 
     time = grid.time.values
@@ -224,7 +304,7 @@ def grouped_horizontal(
             subplot_axes[i].set_title(label)
 
     # Create the grouped object figure instance
-    kwargs = {"object_name": "mcs", "time": time, "grid": grid, "mask": mask}
+    kwargs = {"object_name": obj_name, "time": time, "grid": grid, "mask": mask}
     kwargs.update({"boundary_coordinates": boundary_coords})
     kwargs.update({"attribute_handlers": attribute_handlers})
     kwargs.update({"member_objects": member_objects})
@@ -250,6 +330,7 @@ def grouped_horizontal(
     del grouped_figure
     utils.reduce_color_depth(filepath)
     plt.clf(), plt.close(), gc.collect()
+    return new_regridder
 
 
 def add_attribute(
@@ -274,7 +355,10 @@ def add_attribute(
         object_ids = attribute_df.reset_index()[id_type].values
 
     # Will also need to load in core attributes
-    core_filepath = figure.member_core_filepaths[object_name]
+    if hasattr(figure, "member_core_filepaths"):
+        core_filepath = figure.member_core_filepaths[object_name]
+    elif hasattr(figure, "core_filepath"):
+        core_filepath = figure.core_filepath
     core_df = read_attribute_csv(core_filepath, times=[time])
     # Join the core attributes with the attribute df
     # Prepend column names with handler name if necessary
@@ -306,7 +390,7 @@ def add_attributes(time, figure):
     """Add all the requisite attributes to the figure."""
     legend_artists = {}
     attribute_artists = {}
-    for i, obj in enumerate(figure.member_objects):
+    for i, obj in enumerate(figure.attribute_handlers.keys()):
         attribute_artists[obj] = {}
         for handler in figure.attribute_handlers[obj]:
             ax = figure.subplot_axes[i]
@@ -318,7 +402,7 @@ def add_attributes(time, figure):
 
 
 def create_legend(figure, grid_options, figure_options):
-    """Create a legend for the grouped object figure."""
+    """Create a legend for the figure."""
     legend_options = {"ncol": 3, "loc": "lower center"}
 
     scale = visualize.utils.get_extent(grid_options)[1]
@@ -401,7 +485,7 @@ class GroupedObjectFigure(BaseFigure):
 
 
 def velocity_horizontal(
-    ax, attributes, object_df, quality_df, color="tab:red", dt=3600
+    ax, attributes, object_df, quality_df, color="tab:red", dt=3600, reverse=False
 ):
     """
     Add velocity attributes. Assumes the attribtes dataframe has already
@@ -411,7 +495,8 @@ def velocity_horizontal(
     longitude = object_df["longitude"].values[0]
     u, v = object_df[attributes[0]].values[0], object_df[attributes[1]].values[0]
     args = [ax, latitude, longitude, u, v, color]
-    return horizontal.cartesian_velocity(*args, quality=quality_df.values, dt=dt)
+    kwargs = {"quality": quality_df.values, "dt": dt, "reverse": reverse}
+    return horizontal.cartesian_velocity(*args, **kwargs)
 
 
 def text_horizontal(
@@ -529,13 +614,13 @@ def update_color_angle(df, row, color_dict, previous_time, universal_id):
         return circular_mean(*args)
 
 
-def get_color_angle_df(output_parent, filepath=None):
+def get_color_angle_df(object_name, output_parent, filepath=None):
     """
     Get a dictionary containing color angles, i.e. indices, for displaying masks.
     The color angle is calculated to reflect object splits/merges.
     """
     if filepath is None:
-        filepath = output_parent / "attributes/mcs/core.csv"
+        filepath = output_parent / f"attributes/{object_name}/core.csv"
     df = read_attribute_csv(filepath, columns=["parents", "area"])
     color_dict = {"time": [], "universal_id": [], "color_angle": []}
     times = sorted(np.unique(df.reset_index().time))

@@ -102,6 +102,14 @@ class HorizontalAttributeOptions(VisualizeOptions):
     _desc = "Show the altitudes the objects were detected at as titles."
     altitude_titles: bool = Field(True, description=_desc)
 
+    @model_validator(mode="after")
+    def _initialize_method(cls, values):
+        """Initialize the method for generating the figure."""
+        if values.method is None:
+            func = "thuner.visualize.attribute.detected_horizontal"
+            values.method = Retrieval(function=func)
+        return values
+
 
 class GroupedHorizontalAttributeOptions(HorizontalAttributeOptions):
     """Class for grouped horizontal attribute visualization options."""

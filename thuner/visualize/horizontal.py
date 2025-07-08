@@ -40,7 +40,7 @@ def show_grid(grid, ax, grid_options, add_colorbar=True):
         LON, LAT = grid_options.longitude, grid_options.latitude
 
     title = ax.get_title()
-    mesh_style = visualize.pcolormesh_style[grid.attrs["long_name"].lower()]
+    mesh_style = visualize.pcolormesh_style[grid.attrs["field_name"].lower()]
     mesh_style["transform"] = proj
     pcm = ax.pcolormesh(LON, LAT, grid.values, zorder=1, **mesh_style)
     ax.set_title(title)
@@ -526,14 +526,23 @@ def cartesian_displacement(
 
 
 def cartesian_velocity(
-    ax, start_latitude, start_longitude, u, v, color, dt=3600, quality=True, clip=True
+    ax,
+    start_latitude,
+    start_longitude,
+    u,
+    v,
+    color,
+    dt=3600,
+    quality=True,
+    clip=True,
+    reverse=False,
 ):
     """Plot a velocity provided in cartesian coordinates."""
 
     # Scale velocities so they represent the displacement after dt seconds
     dx, dy = u * dt, v * dt
     args = [ax, start_latitude, start_longitude, dx, dy, color, quality]
-    return cartesian_displacement(*args, clip=clip)
+    return cartesian_displacement(*args, clip=clip, reverse=reverse)
 
 
 def pixel_vector(
@@ -593,40 +602,79 @@ def plot_box(
     ax.plot(lons, lats, **box_style)
 
 
-def detected_mask_template(grid, figure_options, extent):
+def detected_mask_template(grid, figure_options, extent, scale):
     """Create a template figure for masks."""
-    fig = plt.figure(figsize=(6, 3.5))
-    ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
-    cartographic_features(ax, scale="10m", extent=extent)
-    if "instrument" in grid.attrs.keys() and "radar" in grid.attrs["instrument"]:
-        radar_longitude = float(grid.attrs["origin_longitude"])
-        radar_latitude = float(grid.attrs["origin_latitude"])
-        radar_features(ax, radar_longitude, radar_latitude, extent)
-    return fig, ax
+    # fig = plt.figure(figsize=(6, 3.5))
+    # ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
+    # cartographic_features(ax, scale="10m", extent=extent)
+    # if "instrument" in grid.attrs.keys() and "radar" in grid.attrs["instrument"]:
+    #     radar_longitude = float(grid.attrs["origin_longitude"])
+    #     radar_latitude = float(grid.attrs["origin_latitude"])
+    #     radar_features(ax, radar_longitude, radar_latitude, extent)
+    # return fig, ax
+
+    """Create a template figure for grouped masks."""
+    rows, columns = 1, 1
+
+    if scale == 1:
+        subplot_width = 4  # Default subplot width in inches
+    elif scale == 2:
+        subplot_width = 8
+
+    kwargs = {"extent": extent, "subplot_width": subplot_width, "rows": rows}
+    kwargs.update({"columns": columns, "colorbar": True, "legend_rows": 2})
+    kwargs.update({"shared_legends": "all"})
+    layout = PanelledUniformMaps(**kwargs)
+    fig, subplot_axes, colorbar_axes, legend_axes = layout.initialize_layout()
+
+    object_name = figure_options.object_name
+
+    ax = subplot_axes[0]
+    ax.set_title(object_name.replace("_", " ").title(), y=1)
+    if grid is not None:
+        keys = grid.attrs.keys()
+        if "instrument" in keys and "radar" in grid.attrs["instrument"]:
+            radar_longitude = float(grid.attrs["origin_longitude"])
+            radar_latitude = float(grid.attrs["origin_latitude"])
+            radar_features(ax, radar_longitude, radar_latitude, extent)
+    return fig, subplot_axes, colorbar_axes, legend_axes, layout
 
 
-def detected_mask(grid, mask, grid_options, figure_options, boundary_coordinates):
+def detected_mask(
+    grid,
+    mask,
+    grid_options,
+    figure_options,
+    boundary_coordinates,
+    object_colors=None,
+    mask_quality=None,
+):
     """Plot masks for a detected object."""
 
     extent, scale = get_extent(grid_options)
     single_color = figure_options.single_color
     if figure_options.template is None:
-        fig, ax = detected_mask_template(grid, figure_options, extent)
-        figure_options.template = fig
-    fig = copy.deepcopy(figure_options.template)
+        args = [grid, figure_options, extent, scale]
+        figure_options.template = detected_mask_template(*args)
+    template = copy.deepcopy(figure_options.template)
+    [fig, subplot_axes, colorbar_axes, legend_axes, layout] = template
     ax = fig.axes[0]
+    pcm, colorbar_label = None, None
     if grid is not None:
         pcm = show_grid(grid, ax, grid_options, add_colorbar=False)
+        colorbar_label = grid.attrs["field_name"].replace("_", " ").title()
+        colorbar_label += f" [{grid.attrs['units']}]"
     if mask is not None:
-        show_mask(mask, ax, grid_options, single_color)
+        show_mask(mask, ax, grid_options, single_color, object_colors, mask_quality)
     if boundary_coordinates is not None:
         domain_boundary(ax, boundary_coordinates, grid_options)
-    cbar_label = grid.name.title() + f" [{grid.units}]"
-    fig.colorbar(pcm, label=cbar_label)
+    if pcm is not None and colorbar_label is not None:
+        fig.colorbar(pcm, cax=colorbar_axes[0], label=colorbar_label)
+
     ax.set_title(f"{grid.time.values.astype('datetime64[s]')} UTC")
     ax.set_extent(extent, crs=proj)
 
-    return fig, ax
+    return fig, subplot_axes, colorbar_axes, legend_axes
 
 
 def grouped_mask_template(grid, extent, member_objects, scale):
@@ -681,8 +729,7 @@ def grouped_mask(
 
     template = copy.deepcopy(figure_options.template)
     [fig, subplot_axes, colorbar_axes, legend_axes, layout] = template
-    pcm = None
-    colorbar_label = None
+    pcm, colorbar_label = None, None
     for i in range(len(member_objects)):
         ax = subplot_axes[i]
         mask_i = mask[f"{member_objects[i]}_mask"]
@@ -696,7 +743,7 @@ def grouped_mask(
         grid_i = grid[f"{member_objects[i]}_grid"]
         if grid_i is not None:
             pcm = show_grid(grid_i, ax, grid_options, add_colorbar=False)
-            colorbar_label = grid_i.attrs["long_name"].title()
+            colorbar_label = grid_i.attrs["field_name"].replace("_", " ").title()
             colorbar_label += f" [{grid_i.attrs['units']}]"
         ax.set_extent(extent, crs=proj)
     if pcm is not None and colorbar_label is not None:

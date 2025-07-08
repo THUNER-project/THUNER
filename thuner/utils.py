@@ -271,9 +271,12 @@ class BaseDatasetOptions(BaseOptions):
         for attr in ["origin_longitude", "origin_latitude", "instrument"]:
             if attr in dataset.attrs:
                 grid.attrs[attr] = dataset.attrs[attr]
+        grid.attrs["field_name"] = variable
         return grid
 
-    def convert_dataset(self, time, filepath, track_options, grid_options):
+    def convert_dataset(
+        self, time, filepath, track_options, grid_options, regridder=None
+    ):
         """
         Convert the dataset. Note if the base class is used directly, the data is
         assumed to be already converted, and hence this function just opens the dataset.
@@ -293,7 +296,7 @@ class BaseDatasetOptions(BaseOptions):
             boundary_coords = None
             simple_boundary_coords = None
 
-        return dataset, boundary_coords, simple_boundary_coords
+        return dataset, boundary_coords, simple_boundary_coords, regridder
 
     @model_validator(mode="after")
     def _check_name(cls, values):

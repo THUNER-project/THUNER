@@ -170,6 +170,117 @@ def synthetic_runtime(visualize_directory):
     return visualize_options
 
 
+def build_velocity_handler(
+    output_parent,
+    attributes,
+    quality_variables,
+    name="velocity",
+    color="tab:purple",
+    label="Object Velocity",
+    reverse=False,
+):
+    """Convenience function to build a velocity attribute handler."""
+    velocity_filepath = str(output_parent / "analysis/velocities.csv")
+    quality_filepath = str(output_parent / "analysis/quality.csv")
+    vis_func = "thuner.visualize.attribute.velocity_horizontal"
+    vis_kwargs = {"color": color, "reverse": reverse}
+    method = Retrieval(function=vis_func, keyword_arguments=vis_kwargs)
+    leg_func = "thuner.visualize.horizontal.displacement_legend_artist"
+    leg_kwargs = {"color": color, "label": label}
+    legend_method = Retrieval(function=leg_func, keyword_arguments=leg_kwargs)
+    kwargs = {"name": name, "attributes": attributes}
+    kwargs.update({"filepath": velocity_filepath})
+    kwargs.update({"method": method, "label": label, "legend_method": legend_method})
+    kwargs.update({"quality_filepath": quality_filepath})
+    kwargs.update({"quality_variables": quality_variables})
+    return AttributeHandler(**kwargs)
+
+
+def build_horizontal_text_handler(
+    output_parent, attributes, quality_variables, name="universal_id"
+):
+    """Convenience function to build a horizontal text attribute handler."""
+    velocity_filepath = str(output_parent / "analysis/velocities.csv")
+    quality_filepath = str(output_parent / "analysis/quality.csv")
+    vis_func = "thuner.visualize.attribute.text_horizontal"
+    vis_kwargs = {"labelled_attribute": "universal_id"}
+    method = Retrieval(function=vis_func, keyword_arguments=vis_kwargs)
+    kwargs = {"name": name, "attributes": attributes, "filepath": velocity_filepath}
+    kwargs.update({"method": method, "label": "Object ID"})
+    kwargs.update({"quality_filepath": quality_filepath})
+    kwargs.update({"quality_variables": quality_variables})
+    return AttributeHandler(**kwargs)
+
+
+def build_displacement_handler(
+    output_parent,
+    attributes,
+    quality_variables,
+    name="offset",
+    color="tab:blue",
+    label="Stratiform Offset",
+    reverse=False,
+):
+    """Convenience function to build a displacement attribute handler."""
+    group_filepath = str(output_parent / "attributes/mcs/group.csv")
+    quality_filepath = str(output_parent / "analysis/quality.csv")
+    vis_func = "thuner.visualize.attribute.displacement_horizontal"
+    vis_kwargs = {"color": color, "reverse": reverse}
+    method = Retrieval(function=vis_func, keyword_arguments=vis_kwargs)
+    leg_kwargs = {"color": color, "label": label}
+    leg_func = "thuner.visualize.horizontal.displacement_legend_artist"
+    legend_method = Retrieval(function=leg_func, keyword_arguments=leg_kwargs)
+    kwargs = {"name": name, "attributes": attributes}
+    kwargs.update({"method": method, "filepath": group_filepath})
+    kwargs.update({"label": "Stratiform Offset", "legend_method": legend_method})
+    kwargs.update({"quality_filepath": quality_filepath})
+    kwargs.update({"quality_variables": quality_variables})
+    return AttributeHandler(**kwargs)
+
+
+def build_orientation_handler(
+    output_parent,
+    quality_variables,
+    attributes=["major", "orientation"],
+    name="orientation",
+    style="presentation",
+    label="Major Axis",
+):
+    """Convenience function to build an orientation attribute handler."""
+    ellipse_filepath = str(output_parent / "attributes/mcs/convective/ellipse.csv")
+    quality_filepath = str(output_parent / "analysis/quality.csv")
+    vis_func = "thuner.visualize.attribute.orientation_horizontal"
+    method = Retrieval(function=vis_func)
+    label = "Major Axis"
+    leg_func = "thuner.visualize.horizontal.orientation_legend_artist"
+    leg_kwargs = {"label": label, "style": style}
+    legend_method = Retrieval(function=leg_func, keyword_arguments=leg_kwargs)
+    kwargs = {"name": name, "attributes": attributes}
+    kwargs.update({"method": method, "filepath": ellipse_filepath, "label": label})
+    kwargs.update({"quality_filepath": quality_filepath})
+    kwargs.update({"legend_method": legend_method})
+    kwargs.update({"quality_variables": quality_variables})
+    return AttributeHandler(**kwargs)
+
+
+def detected_attribute_handlers(
+    output_parent, object_name, style="presentation", attributes=None
+):
+    """Build default attribute handlers for detected objects."""
+    if attributes is None:
+        attributes = ["universal_id", "velocity"]
+    base_qualities = ["contained", "duration"]
+
+    args = [output_parent, ["u", "v"], base_qualities + ["velocity"]]
+    kwargs = {"name": "velocity", "color": "tab:purple", "label": "System Velocity"}
+    velocity_handler = build_velocity_handler(*args, **kwargs)
+
+    args = [output_parent, ["universal_id"], base_qualities]
+    id_handler = build_horizontal_text_handler(*args)
+
+    return {object_name: [id_handler, velocity_handler]}
+
+
 def grouped_attribute_handlers(
     output_parent, style="presentation", member_objects=None, attributes=None
 ):
@@ -186,106 +297,44 @@ def grouped_attribute_handlers(
         attributes[member_objects[1]] = anv_attr
 
     base_qualities = ["convective_contained", "anvil_contained", "duration"]
-    velocity_filepath = str(output_parent / "analysis/velocities.csv")
-    quality_filepath = str(output_parent / "analysis/quality.csv")
 
-    vis_func = "thuner.visualize.attribute.velocity_horizontal"
-    color, label = "tab:purple", "System Velocity"
-    vis_kwargs = {"color": color}
-    method = Retrieval(function=vis_func, keyword_arguments=vis_kwargs)
-    leg_func = "thuner.visualize.horizontal.displacement_legend_artist"
-    leg_kwargs = {"color": color, "label": label}
-    legend_method = Retrieval(function=leg_func, keyword_arguments=leg_kwargs)
-    kwargs = {"name": "velocity", "attributes": ["u", "v"]}
-    kwargs.update({"filepath": velocity_filepath})
-    kwargs.update({"method": method, "label": label, "legend_method": legend_method})
-    kwargs.update({"quality_filepath": quality_filepath})
-    kwargs.update({"quality_variables": base_qualities + ["velocity", "duration"]})
-    velocity_handler = AttributeHandler(**kwargs)
+    args = [output_parent, ["u", "v"], base_qualities + ["velocity"]]
+    kwargs = {"name": "velocity", "color": "tab:purple", "label": "System Velocity"}
+    velocity_handler = build_velocity_handler(*args, **kwargs)
 
-    color, label = "tab:red", "Ambient Wind"
-    vis_kwargs = {"color": color}
-    method = Retrieval(function=vis_func, keyword_arguments=vis_kwargs)
-    leg_kwargs = {"color": color, "label": label}
-    legend_method = Retrieval(function=leg_func, keyword_arguments=leg_kwargs)
-    kwargs = {"name": "ambient", "attributes": ["u_ambient", "v_ambient"]}
-    kwargs.update({"method": method, "filepath": velocity_filepath})
-    kwargs.update({"label": label, "legend_method": legend_method})
-    kwargs.update({"quality_filepath": quality_filepath})
-    kwargs.update({"quality_variables": base_qualities + ["duration"]})
-    ambient_handler = AttributeHandler(**kwargs)
+    args = [output_parent, ["u_ambient", "v_ambient"], base_qualities]
+    kwargs = {"name": "ambient", "color": "tab:red", "label": "Ambient Wind"}
+    ambient_handler = build_velocity_handler(*args, **kwargs)
 
-    color, label = "darkblue", "Ambient Shear"
-    vis_kwargs = {"color": color}
-    method = Retrieval(function=vis_func, keyword_arguments=vis_kwargs)
-    leg_kwargs = {"color": color, "label": label}
-    legend_method = Retrieval(function=leg_func, keyword_arguments=leg_kwargs)
-    kwargs = {"name": "shear", "attributes": ["u_shear", "v_shear"]}
-    kwargs.update({"method": method, "filepath": velocity_filepath})
-    kwargs.update({"label": label, "legend_method": legend_method})
-    kwargs.update({"quality_filepath": quality_filepath})
-    kwargs.update({"quality_variables": base_qualities + ["shear", "duration"]})
-    shear_handler = AttributeHandler(**kwargs)
+    args = [output_parent, ["u_shear", "v_shear"], base_qualities + ["shear"]]
+    kwargs = {"name": "shear", "color": "darkblue", "label": "Ambient Shear"}
+    shear_handler = build_velocity_handler(*args, **kwargs)
 
-    color, label = "darkgreen", "Relative System Velocity"
-    vis_kwargs = {"color": color}
-    method = Retrieval(function=vis_func, keyword_arguments=vis_kwargs)
-    leg_kwargs = {"color": color, "label": label}
-    legend_method = Retrieval(function=leg_func, keyword_arguments=leg_kwargs)
-    kwargs = {"name": "relative", "attributes": ["u_relative", "v_relative"]}
-    kwargs.update({"method": method, "filepath": velocity_filepath})
-    kwargs.update({"label": label, "legend_method": legend_method})
-    kwargs.update({"quality_filepath": quality_filepath})
-    quality_vars = base_qualities + ["relative_velocity", "duration"]
-    kwargs.update({"quality_variables": quality_vars})
-    relative_handler = AttributeHandler(**kwargs)
+    args = [output_parent, ["u_relative", "v_relative"]]
+    args += [base_qualities + ["relative_velocity"]]
+    kwargs = {"color": "darkgreen", "label": "Relative System Velocity"}
+    kwargs.update({"name": "relative"})
+    relative_handler = build_velocity_handler(*args, **kwargs)
 
-    vis_func = "thuner.visualize.attribute.text_horizontal"
-    vis_kwargs = {"labelled_attribute": "universal_id"}
-    method = Retrieval(function=vis_func, keyword_arguments=vis_kwargs)
-    kwargs = {"name": "universal_id", "attributes": ["universal_id"]}
-    kwargs.update({"filepath": velocity_filepath})
-    kwargs.update({"method": method, "label": "Object ID"})
-    kwargs.update({"quality_filepath": quality_filepath})
-    kwargs.update({"quality_variables": base_qualities})
-    id_handler = AttributeHandler(**kwargs)
+    args = [output_parent, ["u_relative", "v_relative"]]
+    args += [base_qualities + ["relative_velocity"]]
+    kwargs = {"color": "darkgreen", "label": "System Relative Inflow"}
+    kwargs.update({"name": "inflow", "reverse": True})
+    inflow_handler = build_velocity_handler(*args, **kwargs)
 
-    group_filepath = str(output_parent / "attributes/mcs/group.csv")
-    vis_func = "thuner.visualize.attribute.displacement_horizontal"
-    color, label = "tab:blue", "Stratiform Offset"
-    vis_kwargs = {"color": color}
-    method = Retrieval(function=vis_func, keyword_arguments=vis_kwargs)
-    leg_kwargs = {"color": color, "label": label}
-    legend_method = Retrieval(function=leg_func, keyword_arguments=leg_kwargs)
-    kwargs = {"name": "offset", "attributes": ["x_offset", "y_offset"]}
-    kwargs.update({"method": method, "filepath": group_filepath})
-    kwargs.update({"label": "Stratiform Offset", "legend_method": legend_method})
-    kwargs.update({"quality_filepath": quality_filepath})
-    kwargs.update({"quality_variables": base_qualities + ["offset", "duration"]})
-    offset_handler_convective = AttributeHandler(**kwargs)
-    vis_kwargs["reverse"] = True
-    method = Retrieval(function=vis_func, keyword_arguments=vis_kwargs)
-    kwargs["method"] = method
-    offset_handler_anvil = AttributeHandler(**kwargs)
+    args = [output_parent, ["universal_id"], base_qualities]
+    id_handler = build_horizontal_text_handler(*args)
 
-    ellipse_filepath = str(output_parent / "attributes/mcs/convective/ellipse.csv")
-    vis_func = "thuner.visualize.attribute.orientation_horizontal"
-    method = Retrieval(function=vis_func)
-    label = "Major Axis"
-    leg_func = "thuner.visualize.horizontal.orientation_legend_artist"
-    leg_kwargs = {"label": label, "style": style}
-    legend_method = Retrieval(function=leg_func, keyword_arguments=leg_kwargs)
+    args = [output_parent, ["x_offset", "y_offset"], base_qualities + ["offset"]]
+    offset_handler_convective = build_displacement_handler(*args)
+    offset_handler_anvil = build_displacement_handler(*args, reverse=True)
 
-    kwargs = {"name": "orientation", "attributes": ["major", "orientation"]}
-    kwargs.update({"method": method, "filepath": ellipse_filepath, "label": label})
-    kwargs.update({"quality_filepath": quality_filepath})
-    kwargs.update({"legend_method": legend_method})
-    kwargs.update({"quality_variables": base_qualities + ["axis_ratio", "duration"]})
-    orientation_handler = AttributeHandler(**kwargs)
+    kwargs = {"quality_variables": base_qualities + ["axis_ratio"], "style": style}
+    orientation_handler = build_orientation_handler(output_parent, **kwargs)
 
     all_conv = [id_handler, velocity_handler, ambient_handler]
-    all_conv += [shear_handler, relative_handler]
-    all_conv += [offset_handler_convective, orientation_handler]
+    all_conv += [shear_handler, relative_handler, offset_handler_convective]
+    all_conv += [inflow_handler, orientation_handler]
     all_anvil = [id_handler, offset_handler_anvil]
     conv_handlers = [h for h in all_conv if h.name in attributes[member_objects[0]]]
     anvil_handlers = [h for h in all_anvil if h.name in attributes[member_objects[1]]]

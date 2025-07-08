@@ -204,7 +204,7 @@ def coordinates_from_mask(
             latitude.append(lats[row])
             longitude.append(lons[col])
         elif grid_options.name == "cartesian":
-            latitude.append(lons[row, col])
+            latitude.append(lats[row, col])
             longitude.append(lons[row, col])
 
     data_type = attribute_group.attributes[0].data_type
