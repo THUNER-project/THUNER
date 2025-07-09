@@ -604,16 +604,6 @@ def plot_box(
 
 def detected_mask_template(grid, figure_options, extent, scale):
     """Create a template figure for masks."""
-    # fig = plt.figure(figsize=(6, 3.5))
-    # ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
-    # cartographic_features(ax, scale="10m", extent=extent)
-    # if "instrument" in grid.attrs.keys() and "radar" in grid.attrs["instrument"]:
-    #     radar_longitude = float(grid.attrs["origin_longitude"])
-    #     radar_latitude = float(grid.attrs["origin_latitude"])
-    #     radar_features(ax, radar_longitude, radar_latitude, extent)
-    # return fig, ax
-
-    """Create a template figure for grouped masks."""
     rows, columns = 1, 1
 
     if scale == 1:

@@ -11,4 +11,4 @@ import thuner.data.wrf as wrf
 import thuner.data.synthetic as synthetic
 from thuner.data._utils import get_demo_data
 
-__all__ = ["aura", "era5", "gridrad", "synthetic", "get_demo_data"]
+__all__ = ["aura", "era5", "gridrad", "synthetic", "himawari", "get_demo_data"]

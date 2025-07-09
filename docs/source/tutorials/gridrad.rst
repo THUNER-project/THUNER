@@ -40,25 +40,6 @@ First, import the requisite modules.
     import thuner.config as config
     import thuner.utils as utils
 
-.. code-block:: text
-
-    
-    Welcome to the Thunderstorm Event Reconnaissance (THUNER) package 
-    v0.0.16! This package is still in testing and development. Please visit 
-    github.com/THUNER-project/THUNER for examples, and to report issues or contribute.
-     
-    THUNER is a flexible toolkit for performing multi-feature detection, 
-    tracking, tagging and analysis of events within meteorological datasets. 
-    The intended application is to convective weather events. For examples 
-    and instructions, see https://github.com/THUNER-project/THUNER and 
-    https://thuner.readthedocs.io/en/latest/. If you use THUNER in your research, consider 
-    citing the following papers;
-    
-    Short et al. (2023), doi: 10.1175/MWR-D-22-0146.1
-    Raut et al. (2021), doi: 10.1175/JAMC-D-20-0119.1
-    Fridlind et al. (2019), doi: 10.5194/amt-12-2979-2019
-    ...
-
 Next, specify the folders where THUNER outputs will be saved. Note that
 THUNER stores a fallback output directory in a config file, accessible
 via the functions :func:`thuner.config.set_outputs_directory` and
@@ -93,11 +74,6 @@ Next download the demo data for the tutorial, if you haven’t already.
     remote_directory += "era5_monthly_39N_102W_27N_89W"
     data.get_demo_data(base_local, remote_directory)
 
-.. code-block:: text
-
-    2025-07-09 17:02:45,218 - thuner.data._utils - INFO - Syncing directory /home/ewan/THUNER_output/input_data/raw/d81006. Please wait.
-    2025-07-09 17:02:46,368 - thuner.data._utils - INFO - Syncing directory /home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W. Please wait.
-
 Options
 -------
 
@@ -120,10 +96,6 @@ dataset.
     gridrad_dict = {"event_start": event_start}
     gridrad_options = data.gridrad.GridRadSevereOptions(**times_dict, **gridrad_dict)
 
-.. code-block:: text
-
-    2025-07-09 17:02:48,733 - thuner.data.gridrad - INFO - Generating GridRad filepaths.
-
 Options instances can be examined using the ``model_dump`` method, which
 converts the instance to a dictionary.
 
@@ -131,25 +103,6 @@ converts the instance to a dictionary.
     :linenos:
 
     gridrad_options.model_dump()
-
-.. code-block:: text
-
-    {'type': 'GridRadSevereOptions',
-     'name': 'gridrad',
-     'start': '2010-01-20T18:00:00',
-     'end': '2010-01-21T03:30:00',
-     'fields': ['reflectivity'],
-     'parent_remote': 'https://data.rda.ucar.edu',
-     'parent_local': '/home/ewan/THUNER_output/input_data/raw',
-     'converted_options': {'type': 'ConvertedOptions',
-      'save': False,
-      'load': False,
-      'parent_converted': '/home/ewan/THUNER_output/input_data/converted'},
-     'filepaths': ['/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T180000Z.nc',
-      '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T181000Z.nc',
-      '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T182000Z.nc',
-      '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T183000Z.nc',
-    ...
 
 The ``model_summary()`` method of an options instance returns a string
 summary of the fields in the model. Note the ``parent_local`` field,
@@ -175,25 +128,6 @@ datasets to detected objects.
 
     print(gridrad_options.model_summary())
 
-.. code-block:: text
-
-    Field Name: Type, Description
-    -------------------------------------
-    type: typing.Literal['GridRadSevereOptions'], None
-    name: <class 'str'>, Name of the dataset.
-    start: str | numpy.datetime64, Tracking start time.
-    end: str | numpy.datetime64, Tracking end time.
-    fields: list[str] | None, List of dataset fields, i.e. variables, to use. Fields should be given using their thuner, i.e. CF-Conventions, names, e.g. 'reflectivity'.
-    parent_remote: str | None, Parent directory of the dataset on remote storage.
-    parent_local: str | pathlib.Path | None, Parent directory of the dataset on local storage.
-    converted_options: <class 'thuner.utils.ConvertedOptions'>, Options for saving and loading converted data.
-    filepaths: list[str] | dict, List of filepaths for the dataset.
-    attempt_download: <class 'bool'>, Whether to attempt to download the data.
-    deque_length: <class 'int'>, Number of current/previous grids from this dataset to keep in memory. Most tracking algorithms require a 'next' grid, 'current' grid, and at least two previous grids.
-    use: typing.Literal['track', 'tag', 'both'], Whether this dataset will be used for tagging, tracking or both.
-    start_buffer: <class 'int'>, Minutes before interval start time to include. Useful for tagging when one wants to record pre-storm ambient profiles.
-    ...
-
 We will also create dataset options for ERA5 single-level and
 pressure-level data, which we use for tagging the storms detected in the
 GridRad Severe dataset with other attributes, e.g. ambient winds and
@@ -206,11 +140,6 @@ temperature.
     era5_pl_options = data.era5.ERA5Options(**times_dict, **era5_dict)
     era5_dict.update({"data_format": "single-levels"})
     era5_sl_options = data.era5.ERA5Options(**times_dict, **era5_dict)
-
-.. code-block:: text
-
-    2025-07-09 17:02:53,390 - thuner.data.era5 - INFO - Generating era5 filepaths.
-    2025-07-09 17:02:53,392 - thuner.data.era5 - INFO - Generating era5 filepaths.
 
 All the dataset options are grouped into a single
 :class:`thuner.option.data.DataOptions` object, which is passed to the THUNER
@@ -236,11 +165,6 @@ these from the tracking dataset.
     kwargs.update({"geographic_spacing": None})
     grid_options = option.grid.GridOptions(**kwargs)
     grid_options.to_yaml(options_directory / "grid.yml")
-
-.. code-block:: text
-
-    2025-07-09 17:02:55,334 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
-    2025-07-09 17:02:55,335 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
 
 Finally, we create options describing how the tracking should be
 performed. In multi-feature tracking, some objects, like mesoscale
@@ -276,11 +200,6 @@ the module :mod:`thuner.default`.
     # Show the options for the level 1 objects
     print(f"Level 1 objects list: {track_options.levels[1].object_names}")
 
-.. code-block:: text
-
-    Level 0 objects list: ['convective', 'middle', 'anvil']
-    Level 1 objects list: ['mcs']
-
 Note a core component of the options for each object is the
 ``atributes`` field, which describes how object attributes like
 position, velocity and area, are to be retrieved and stored. In THUNER,
@@ -314,25 +233,6 @@ below we print the MCS object’s “core” attribute type options.
     mcs_attributes = track_options.object_by_name("mcs").attributes
     core_mcs_attributes = mcs_attributes.attribute_type_by_name("core")
     core_mcs_attributes.model_dump()
-
-.. code-block:: text
-
-    {'type': 'AttributeType',
-     'name': 'core',
-     'description': 'Core attributes of tracked object, e.g. position and velocities.',
-     'attributes': [{'type': 'Attribute',
-       'name': 'time',
-       'retrieval': {'type': 'Retrieval',
-        'function': <function thuner.attribute.core.time_from_tracks(attribute: thuner.option.attribute.Attribute, object_tracks)>,
-        'keyword_arguments': {}},
-       'data_type': numpy.datetime64,
-       'precision': None,
-       'description': 'Time taken from the tracking process.',
-       'units': 'yyyy-mm-dd hh:mm:ss'},
-      {'type': 'Attribute',
-       'name': 'universal_id',
-       'retrieval': {'type': 'Retrieval',
-    ...
 
 The default :class:`thuner.option.track.TrackOptions` use “local” and
 “global” cross-correlations to measure object velocities, as described
@@ -390,25 +290,6 @@ together.
     # for tracking, so the subinterval data_options can be generated correctly
     kwargs.update({"dataset_name": "gridrad"})
     parallel.track(*args, **kwargs)
-
-.. code-block:: text
-
-    2025-07-09 17:03:08,621 - thuner.parallel - INFO - Beginning parallel tracking with 4 processes.
-    2025-07-09 17:03:15,233 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/gridrad/gridrad_demo/interval_0.
-    2025-07-09 17:03:15,538 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/gridrad/gridrad_demo/interval_1.
-    2025-07-09 17:03:15,623 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/gridrad/gridrad_demo/interval_2.
-    2025-07-09 17:03:15,732 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/gridrad/gridrad_demo/interval_3.
-    2025-07-09 17:03:16,005 - thuner.track.track - INFO - Processing 2010-01-20T18:00:00.
-    2025-07-09 17:03:16,006 - thuner.utils - INFO - Updating gridrad input record for 2010-01-20T18:00:00.
-    2025-07-09 17:03:16,198 - thuner.track.track - INFO - Processing 2010-01-20T20:20:00.
-    2025-07-09 17:03:16,199 - thuner.utils - INFO - Updating gridrad input record for 2010-01-20T20:20:00.
-    2025-07-09 17:03:16,460 - thuner.track.track - INFO - Processing 2010-01-20T22:40:00.
-    2025-07-09 17:03:16,462 - thuner.utils - INFO - Updating gridrad input record for 2010-01-20T22:40:00.
-    2025-07-09 17:03:16,817 - thuner.track.track - INFO - Processing 2010-01-21T01:00:00.
-    2025-07-09 17:03:16,819 - thuner.utils - INFO - Updating gridrad input record for 2010-01-21T01:00:00.
-    2025-07-09 17:03:22,065 - thuner.utils - INFO - Grid options not set. Inferring from dataset.
-    2025-07-09 17:03:22,069 - thuner.utils - WARNING - Altitude spacing not uniform.
-    ...
 
 The outputs of the tracking run are saved in the ``output_parent``
 directory. The options for the run are saved in human-readable YAML

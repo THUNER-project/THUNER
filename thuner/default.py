@@ -13,7 +13,15 @@ import thuner.visualize.runtime as vis_runtime
 from thuner.utils import Retrieval, AttributeHandler
 
 
-__all__ = ["convective", "middle", "anvil", "mcs", "track"]
+__all__ = [
+    "convective",
+    "middle",
+    "anvil",
+    "mcs",
+    "track",
+    "satellite_anvil",
+    "satellite_track",
+]
 
 
 def convective(dataset="cpol"):

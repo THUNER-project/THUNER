@@ -25,6 +25,7 @@ import thuner.utils as utils
 
 logger = setup_logger(__name__)
 
+__all__ = ["HimawariOptions", "get_himawari_filepaths"]
 
 Bands = Literal[
     "B01",

@@ -4,7 +4,13 @@ Himawari
 This tutorial/demo provides a quick and dirty example of how THUNER can
 be applied to
 `Himawari <https://geonetwork.nci.org.au/geonetwork/srv/eng/catalog.search#/metadata/f8433_0020_1861_5916>`__
-observations.
+observations. By the end of this tutorial you should be able to generate
+figures like that below.
+
+.. figure:: https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/himawari_anvil_20230101.gif
+   :alt: Animation depicting anvils defined from brightness temperature.
+
+   Animation depicting anvils defined from brightness temperature.
 
 Setup
 -----
@@ -28,11 +34,6 @@ Setup
     import thuner.parallel as parallel
     import thuner.utils as utils
     import thuner.config as config
-
-.. code-block:: text
-
-    The autoreload extension is already loaded. To reload it, use:
-      %reload_ext autoreload
 
 .. code-block:: python3
     :linenos:
@@ -60,10 +61,6 @@ haven’t already.
     # Download the demo data
     remote_directory = "s3://thuner-storage/THUNER_output/input_data/raw/satellite-products"
     data.get_demo_data(base_local, remote_directory)
-
-.. code-block:: text
-
-    2025-07-09 19:18:47,562 - thuner.data._utils - INFO - Syncing directory /home/ewan/THUNER_output/input_data/raw/satellite-products. Please wait.
 
 Options
 -------
@@ -96,13 +93,6 @@ Options
     track_options = default.satellite_track(dataset_name="himawari")
     track_options.to_yaml(options_directory / "track.yml")
 
-.. code-block:: text
-
-    2025-07-09 17:20:14,108 - thuner.data.himawari - INFO - Generating Himawari filepaths.
-    2025-07-09 17:20:14,119 - thuner.data.himawari - INFO - Generating coordinates filepath.
-    2025-07-09 17:20:14,157 - thuner.option.grid - WARNING - altitude not specified. Using default altitudes.
-    2025-07-09 17:20:14,158 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-
 Track
 -----
 
@@ -113,25 +103,6 @@ Track
     args = [times, data_options, grid_options, track_options]
     parallel.track(*args, output_directory=output_parent, dataset_name="himawari", num_processes=2)
     # track.track(*args, output_directory=output_parent)
-
-.. code-block:: text
-
-    2025-07-09 17:20:24,849 - thuner.parallel - INFO - Beginning parallel tracking with 2 processes.
-    2025-07-09 17:20:31,071 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/himawari/interval_0.
-    2025-07-09 17:20:31,072 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/himawari/interval_1.
-    2025-07-09 17:20:31,679 - thuner.track.track - INFO - Processing 2023-01-01T12:00:00.
-    2025-07-09 17:20:31,680 - thuner.utils - INFO - Updating himawari input record for 2023-01-01T12:00:00.
-    2025-07-09 17:20:31,680 - thuner.data.himawari - INFO - Converting himawari dataset for time 2023-01-01T12:00:00.
-    2025-07-09 17:20:31,685 - thuner.track.track - INFO - Processing 2023-01-01T00:00:00.
-    2025-07-09 17:20:31,686 - thuner.utils - INFO - Updating himawari input record for 2023-01-01T00:00:00.
-    2025-07-09 17:20:31,686 - thuner.data.himawari - INFO - Converting himawari dataset for time 2023-01-01T00:00:00.
-    2025-07-09 17:20:36,465 - thuner.data.himawari - INFO - Regridding Himawari data.
-    2025-07-09 17:20:36,467 - thuner.data._utils - INFO - Building regridder; this can take a while for large grids.
-    2025-07-09 17:20:36,521 - thuner.data.himawari - INFO - Regridding Himawari data.
-    2025-07-09 17:20:36,522 - thuner.data._utils - INFO - Building regridder; this can take a while for large grids.
-    2025-07-09 17:21:00,395 - thuner.track.track - INFO - Processing hierarchy level 0.
-    2025-07-09 17:21:00,395 - thuner.track.track - INFO - Processing hierarchy level 0.
-    ...
 
 Analyze/Visualize
 -----------------
@@ -156,22 +127,3 @@ Analyze/Visualize
     args = [output_parent, start, end, figure_options, "himawari"]
     args_dict = {"parallel_figure": True, "by_date": False, "num_processes": 4}
     visualize.attribute.series(*args, **args_dict)
-
-.. code-block:: text
-
-    2025-07-09 17:28:04,167 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-    2025-07-09 17:28:04,289 - thuner.visualize.attribute - INFO - Visualizing attributes at time 2023-01-01T00:00:00.000000000.
-    2025-07-09 17:28:06,194 - thuner.data.himawari - INFO - Converting himawari dataset for time 2023-01-01T00:00:00.
-    2025-07-09 17:28:09,755 - thuner.data.himawari - INFO - Regridding Himawari data.
-    2025-07-09 17:28:09,758 - thuner.data._utils - INFO - Loading regridder from file.
-    2025-07-09 17:28:14,670 - thuner.visualize.attribute - INFO - Saving himawari_anvil figure for 2023-01-01T00:00:00.000000000.
-    2025-07-09 17:28:26,831 - thuner.visualize.attribute - INFO - Visualizing attributes at time 2023-01-01T00:30:00.000000000.
-    2025-07-09 17:28:26,837 - thuner.visualize.attribute - INFO - Visualizing attributes at time 2023-01-01T00:20:00.000000000.
-    2025-07-09 17:28:26,837 - thuner.visualize.attribute - INFO - Visualizing attributes at time 2023-01-01T00:10:00.000000000.
-    2025-07-09 17:28:28,502 - thuner.data.himawari - INFO - Converting himawari dataset for time 2023-01-01T00:30:00.
-    2025-07-09 17:28:28,705 - thuner.visualize.attribute - INFO - Visualizing attributes at time 2023-01-01T00:40:00.000000000.
-    2025-07-09 17:28:28,725 - thuner.data.himawari - INFO - Converting himawari dataset for time 2023-01-01T00:10:00.
-    2025-07-09 17:28:28,749 - thuner.data.himawari - INFO - Converting himawari dataset for time 2023-01-01T00:20:00.
-    2025-07-09 17:28:32,860 - thuner.data.himawari - INFO - Converting himawari dataset for time 2023-01-01T00:40:00.
-    2025-07-09 17:28:36,140 - thuner.data.himawari - INFO - Regridding Himawari data.
-    ...
