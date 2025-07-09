@@ -90,11 +90,14 @@ def test_cpol():
     }
     visualize_options = default.runtime(**kwargs)
     visualize_options.to_yaml(options_directory / "visualize.yml")
+    visualize_options = None
     # We can now perform our tracking run; note the run will be slow as we are generating runtime figures for both convective and MCS objects, and not using parallelization. To make the run go much faster, set `visualize_options = None` and use the the parallel tracking function.
     times = utils.generate_times(data_options.dataset_by_name("cpol").filepaths)
-    args = [times, data_options, grid_options, track_options, None]
-    # parallel.track(*args, output_directory=output_parent)
-    track.track(*args, output_directory=output_parent)
+    args = [times, data_options, grid_options, track_options]
+    parallel.track(
+        *args, output_directory=output_parent, dataset_name="cpol", debug_mode=False
+    )
+    # track.track(*args, visualize_options=visualize_options, output_directory=output_parent)
     # Once completed, outputs are available in the `output_parent` directory. The visualization
     # folder will contain figures like that below, which illustrate the matching process.
     # Currently THUNER supports the TINT/MINT matching approach, but the goal is to eventually
@@ -205,7 +208,8 @@ def test_cpol():
     times = utils.generate_times(data_options.dataset_by_name("cpol").filepaths)
     args = [times, data_options, grid_options, track_options, visualize_options]
     kwargs = {"output_directory": output_parent, "dataset_name": "cpol"}
-    parallel.track(*args, **kwargs)
+    # parallel.track(*args, **kwargs)
+    track.track(*args, output_directory=output_parent)
     analysis_options = analyze.mcs.AnalysisOptions()
     analysis_options.to_yaml(options_directory / "analysis.yml")
     analyze.mcs.process_velocities(output_parent)
@@ -217,7 +221,7 @@ def test_cpol():
     kwargs.update({"attribute_handlers": attribute_handlers})
     figure_options = option.visualize.GroupedHorizontalAttributeOptions(**kwargs)
     args = [output_parent, start, end, figure_options, "cpol"]
-    args_dict = {"parallel_figure": True, "by_date": False, "num_processes": 4}
+    args_dict = {"parallel_figure": False, "by_date": False, "num_processes": 1}
     visualize.attribute.series(*args, **args_dict)
 
 

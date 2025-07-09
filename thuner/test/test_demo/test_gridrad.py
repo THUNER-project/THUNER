@@ -173,6 +173,8 @@ def test_gridrad():
     args = [output_parent, start, end, figure_options, "gridrad"]
     args_dict = {"parallel_figure": True, "by_date": False, "num_processes": 4}
     visualize.attribute.series(*args, **args_dict)
+    # ## Relabelling
+    # Sometimes we need to define new objects based on the split-merge history of the objects tracked during a THUNER run.
 
 
 if __name__ == "__main__":
