@@ -26,8 +26,22 @@ approach avoids the need for storing large datasets.
 
 .. code-block:: text
 
-    The autoreload extension is already loaded. To reload it, use:
-      %reload_ext autoreload
+    
+    Welcome to the Thunderstorm Event Reconnaissance (THUNER) package 
+    v0.0.16! This package is still in testing and development. Please visit 
+    github.com/THUNER-project/THUNER for examples, and to report issues or contribute.
+     
+    THUNER is a flexible toolkit for performing multi-feature detection, 
+    tracking, tagging and analysis of events within meteorological datasets. 
+    The intended application is to convective weather events. For examples 
+    and instructions, see https://github.com/THUNER-project/THUNER and 
+    https://thuner.readthedocs.io/en/latest/. If you use THUNER in your research, consider 
+    citing the following papers;
+    
+    Short et al. (2023), doi: 10.1175/MWR-D-22-0146.1
+    Raut et al. (2021), doi: 10.1175/JAMC-D-20-0119.1
+    Fridlind et al. (2019), doi: 10.5194/amt-12-2979-2019
+    ...
 
 .. code-block:: python3
     :linenos:
@@ -78,8 +92,8 @@ approach avoids the need for storing large datasets.
 
 .. code-block:: text
 
-    2025-06-14 22:18:26,663 - thuner.option.grid - WARNING - altitude not specified. Using default altitudes.
-    2025-06-14 22:18:26,666 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
+    2025-06-21 15:45:06,890 - thuner.option.grid - WARNING - altitude not specified. Using default altitudes.
+    2025-06-21 15:45:06,893 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
 
 .. code-block:: python3
     :linenos:
@@ -94,22 +108,74 @@ approach avoids the need for storing large datasets.
 
 .. code-block:: text
 
-    2025-06-14 22:18:29,705 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/synthetic/geographic.
-    2025-06-14 22:18:29,726 - thuner.track.track - INFO - Processing 2005-11-13T00:00:00.
-    2025-06-14 22:18:29,728 - thuner.data.synthetic - INFO - Updating synthetic dataset for 2005-11-13T00:00:00.
-    2025-06-14 22:18:33,493 - thuner.track.track - INFO - Processing hierarchy level 0.
-    2025-06-14 22:18:33,495 - thuner.track.track - INFO - Tracking convective.
-    2025-06-14 22:18:33,507 - thuner.detect.steiner - INFO - Compiling thuner.detect.steiner.steiner_scheme with Numba. Please wait.
-    2025-06-14 22:18:48,017 - thuner.match.match - INFO - Matching convective objects.
-    2025-06-14 22:18:48,027 - thuner.match.match - INFO - No current mask, or no objects in current mask.
-    2025-06-14 22:18:48,031 - thuner.visualize.runtime - INFO - Creating runtime visualization figures.
-    2025-06-14 22:18:50,663 - thuner.track.track - INFO - Processing 2005-11-13T00:10:00.
-    2025-06-14 22:18:50,664 - thuner.data.synthetic - INFO - Updating synthetic dataset for 2005-11-13T00:10:00.
-    2025-06-14 22:18:53,531 - thuner.track.track - INFO - Processing hierarchy level 0.
-    2025-06-14 22:18:53,532 - thuner.track.track - INFO - Tracking convective.
-    2025-06-14 22:18:53,542 - thuner.write.mask - INFO - Writing convective masks to /home/ewan/THUNER_output/runs/synthetic/geographic/masks/convective.zarr.
-    2025-06-14 22:18:53,692 - thuner.match.match - INFO - Matching convective objects.
+    2025-06-21 15:45:11,851 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/synthetic/geographic.
+    2025-06-21 15:45:11,867 - thuner.track.track - INFO - Processing 2005-11-13T00:00:00.
+    2025-06-21 15:45:11,869 - thuner.data.synthetic - INFO - Updating synthetic dataset for 2005-11-13T00:00:00.
+    2025-06-21 15:45:32,267 - thuner.track.track - INFO - Processing hierarchy level 0.
+    2025-06-21 15:45:32,268 - thuner.track.track - INFO - Tracking convective.
+    2025-06-21 15:45:32,290 - thuner.detect.steiner - INFO - Compiling thuner.detect.steiner.steiner_scheme with Numba. Please wait.
+    2025-06-21 15:45:59,187 - thuner.match.match - INFO - Matching convective objects.
+    2025-06-21 15:45:59,201 - thuner.match.match - INFO - No current mask, or no objects in current mask.
+    2025-06-21 15:45:59,216 - thuner.visualize.runtime - INFO - Creating runtime visualization figures.
+    2025-06-21 15:46:05,368 - thuner.track.track - INFO - Processing 2005-11-13T00:10:00.
+    2025-06-21 15:46:05,369 - thuner.data.synthetic - INFO - Updating synthetic dataset for 2005-11-13T00:10:00.
+    2025-06-21 15:46:22,396 - thuner.track.track - INFO - Processing hierarchy level 0.
+    2025-06-21 15:46:22,397 - thuner.track.track - INFO - Tracking convective.
+    2025-06-21 15:46:22,414 - thuner.write.mask - INFO - Writing convective masks to /home/ewan/THUNER_output/runs/synthetic/geographic/masks/convective.zarr.
+    2025-06-21 15:46:22,689 - thuner.match.match - INFO - Matching convective objects.
     ...
+
+::
+
+    ---------------------------------------------------------------------------
+
+    AttributeError                            Traceback (most recent call last)
+
+    Cell In[3], line 7
+          1 times = np.arange(
+          2     np.datetime64(start),
+          3     np.datetime64(end) + np.timedelta64(10, "m"),
+          4     np.timedelta64(10, "m"),
+          5 )
+          6 args = [times, data_options, grid_options, track_options, visualize_options]
+    ----> 7 track.track(*args, output_directory=output_parent)
+
+    File ~/Documents/THUNER/thuner/track/track.py:110, in track(times, data_options, grid_options, track_options, visualize_options, output_directory)
+        108         track_level_args += [data_options, grid_options, track_options]
+        109         track_level_args += [visualize_options, output_directory]
+    --> 110         track_level(*track_level_args)
+        112     current_time = next_time
+        114 # Write final data to file
+        115 # write.mask.write_final(tracks, track_options, output_directory)
+
+    File ~/Documents/THUNER/thuner/track/track.py:155, in track_level(next_time, level_index, tracks, input_records, data_options, grid_options, track_options, visualize_options, output_directory)
+        153 for obj in level_tracks.objects.keys():
+        154     track_object_args = get_track_object_args(obj, level_options)
+    --> 155     track_object(*track_object_args)
+        157 return level_tracks
+
+    File ~/Documents/THUNER/thuner/track/track.py:212, in track_object(next_time, level_index, obj, tracks, input_records, dataset_options, grid_options, track_options, visualize_options, output_directory)
+        210 if object_tracks.times[-1] is not None:
+        211     args = [input_records, tracks, object_options, grid_options]
+    --> 212     attribute.record(*args)
+
+    File ~/Documents/THUNER/thuner/attribute/attribute.py:77, in record(input_records, tracks, object_options, grid_options)
+         75 for attribute_type in object_options.attributes.attribute_types:
+         76     for attribute in attribute_type.attributes:
+    ---> 77         attr = retrieve_attribute(kwargs, attribute)
+         78         obj_attributes.attribute_types[attribute_type.name].update(attr)
+         80 # Append the current attributes to the attributes dictionary
+
+    File ~/Documents/THUNER/thuner/attribute/attribute.py:16, in retrieve_attribute(general_kwargs, attribute, member_object)
+         13 def retrieve_attribute(general_kwargs, attribute, member_object=None):
+         14     # Get the retrieval function and arguments for the attribute
+         15     func_kwargs = general_kwargs.copy()
+    ---> 16     keyword_arguments = attribute.retrieval.keyword_arguments
+         17     func_kwargs.update(keyword_arguments)
+         18     # Retrieval functions expect either "attribute" or "attribute_group"
+         19     # keyword arguments. Infer correct argument name from attribute type.
+
+    AttributeError: 'NoneType' object has no attribute 'keyword_arguments'
 
 .. figure:: https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/synthetic.gif
    :alt: THUNER applied to synthetic data.
@@ -134,10 +200,6 @@ approach avoids the need for storing large datasets.
     )
     grid_options.to_yaml(options_directory / "grid.yml")
 
-.. code-block:: text
-
-    2025-06-14 22:20:10,712 - thuner.option.grid - WARNING - altitude not specified. Using default altitudes.
-
 .. code-block:: python3
     :linenos:
 
@@ -153,22 +215,3 @@ approach avoids the need for storing large datasets.
     
     args = [times, data_options, grid_options, track_options, visualize_options]
     track.track(*args, output_directory=output_parent)
-
-.. code-block:: text
-
-    2025-06-14 22:20:10,790 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/synthetic/cartesian.
-    2025-06-14 22:20:10,798 - thuner.track.track - INFO - Processing 2005-11-13T00:00:00.
-    2025-06-14 22:20:10,800 - thuner.data.synthetic - INFO - Updating synthetic dataset for 2005-11-13T00:00:00.
-    2025-06-14 22:20:13,611 - thuner.track.track - INFO - Processing hierarchy level 0.
-    2025-06-14 22:20:13,612 - thuner.track.track - INFO - Tracking convective.
-    2025-06-14 22:20:13,672 - thuner.match.match - INFO - Matching convective objects.
-    2025-06-14 22:20:13,673 - thuner.match.match - INFO - No current mask, or no objects in current mask.
-    2025-06-14 22:20:13,677 - thuner.visualize.runtime - INFO - Creating runtime visualization figures.
-    2025-06-14 22:20:16,757 - thuner.track.track - INFO - Processing 2005-11-13T00:10:00.
-    2025-06-14 22:20:16,759 - thuner.data.synthetic - INFO - Updating synthetic dataset for 2005-11-13T00:10:00.
-    2025-06-14 22:20:19,597 - thuner.track.track - INFO - Processing hierarchy level 0.
-    2025-06-14 22:20:19,599 - thuner.track.track - INFO - Tracking convective.
-    2025-06-14 22:20:19,610 - thuner.write.mask - INFO - Writing convective masks to /home/ewan/THUNER_output/runs/synthetic/cartesian/masks/convective.zarr.
-    2025-06-14 22:20:19,694 - thuner.match.match - INFO - Matching convective objects.
-    2025-06-14 22:20:19,797 - thuner.match.match - INFO - New matchable objects. Initializing match record.
-    ...

@@ -14,3 +14,4 @@ in the `THUNER Github repository <https://github.com/THUNER-project/THUNER>`__.
    tutorials/gadi_workflow
    tutorials/cpol
    tutorials/synthetic
+   tutorials/himawari

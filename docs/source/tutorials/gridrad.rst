@@ -95,14 +95,8 @@ Next download the demo data for the tutorial, if you haven’t already.
 
 .. code-block:: text
 
-    download: s3://thuner-storage/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/single-levels/reanalysis/cape/2010/cape_era5_oper_sfc_20100101-20100131.nc to ../../../THUNER_output/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/single-levels/reanalysis/cape/2010/cape_era5_oper_sfc_20100101-20100131.nc
-    download: s3://thuner-storage/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/single-levels/reanalysis/cin/2010/cin_era5_oper_sfc_20100101-20100131.nc to ../../../THUNER_output/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/single-levels/reanalysis/cin/2010/cin_era5_oper_sfc_20100101-20100131.nc
-    download: s3://thuner-storage/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/v/2010/v_era5_oper_pl_20100101-20100131.nc to ../../../THUNER_output/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/v/2010/v_era5_oper_pl_20100101-20100131.nc
-    download: s3://thuner-storage/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/q/2010/q_era5_oper_pl_20100101-20100131.nc to ../../../THUNER_output/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/q/2010/q_era5_oper_pl_20100101-20100131.nc
-    download: s3://thuner-storage/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/u/2010/u_era5_oper_pl_20100101-20100131.nc to ../../../THUNER_output/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/u/2010/u_era5_oper_pl_20100101-20100131.nc
-    download: s3://thuner-storage/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/z/2010/z_era5_oper_pl_20100101-20100131.nc to ../../../THUNER_output/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/z/2010/z_era5_oper_pl_20100101-20100131.nc
-    download: s3://thuner-storage/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/t/2010/t_era5_oper_pl_20100101-20100131.nc to ../../../THUNER_output/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/t/2010/t_era5_oper_pl_20100101-20100131.nc
-    download: s3://thuner-storage/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/r/2010/r_era5_oper_pl_20100101-20100131.nc to ../../../THUNER_output/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W/era5/pressure-levels/reanalysis/r/2010/r_era5_oper_pl_20100101-20100131.nc
+    2025-07-09 17:02:45,218 - thuner.data._utils - INFO - Syncing directory /home/ewan/THUNER_output/input_data/raw/d81006. Please wait.
+    2025-07-09 17:02:46,368 - thuner.data._utils - INFO - Syncing directory /home/ewan/THUNER_output/input_data/raw/era5_monthly_39N_102W_27N_89W. Please wait.
 
 Options
 -------
@@ -128,7 +122,7 @@ dataset.
 
 .. code-block:: text
 
-    2025-06-14 22:06:30,111 - thuner.data.gridrad - INFO - Generating GridRad filepaths.
+    2025-07-09 17:02:48,733 - thuner.data.gridrad - INFO - Generating GridRad filepaths.
 
 Options instances can be examined using the ``model_dump`` method, which
 converts the instance to a dictionary.
@@ -185,7 +179,7 @@ datasets to detected objects.
 
     Field Name: Type, Description
     -------------------------------------
-    type: <class 'str'>, Type of the options, i.e. the subclass name.
+    type: typing.Literal['GridRadSevereOptions'], None
     name: <class 'str'>, Name of the dataset.
     start: str | numpy.datetime64, Tracking start time.
     end: str | numpy.datetime64, Tracking end time.
@@ -215,8 +209,8 @@ temperature.
 
 .. code-block:: text
 
-    2025-06-14 22:06:35,930 - thuner.data.era5 - INFO - Generating era5 filepaths.
-    2025-06-14 22:06:35,932 - thuner.data.era5 - INFO - Generating era5 filepaths.
+    2025-07-09 17:02:53,390 - thuner.data.era5 - INFO - Generating era5 filepaths.
+    2025-07-09 17:02:53,392 - thuner.data.era5 - INFO - Generating era5 filepaths.
 
 All the dataset options are grouped into a single
 :class:`thuner.option.data.DataOptions` object, which is passed to the THUNER
@@ -245,8 +239,8 @@ these from the tracking dataset.
 
 .. code-block:: text
 
-    2025-06-14 22:06:39,183 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
-    2025-06-14 22:06:39,184 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
+    2025-07-09 17:02:55,334 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
+    2025-07-09 17:02:55,335 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
 
 Finally, we create options describing how the tracking should be
 performed. In multi-feature tracking, some objects, like mesoscale
@@ -326,7 +320,7 @@ below we print the MCS object’s “core” attribute type options.
     {'type': 'AttributeType',
      'name': 'core',
      'description': 'Core attributes of tracked object, e.g. position and velocities.',
-     'attributes': [{'type': 'Time',
+     'attributes': [{'type': 'Attribute',
        'name': 'time',
        'retrieval': {'type': 'Retrieval',
         'function': <function thuner.attribute.core.time_from_tracks(attribute: thuner.option.attribute.Attribute, object_tracks)>,
@@ -335,7 +329,7 @@ below we print the MCS object’s “core” attribute type options.
        'precision': None,
        'description': 'Time taken from the tracking process.',
        'units': 'yyyy-mm-dd hh:mm:ss'},
-      {'type': 'RecordUniversalID',
+      {'type': 'Attribute',
        'name': 'universal_id',
        'retrieval': {'type': 'Retrieval',
     ...
@@ -399,21 +393,21 @@ together.
 
 .. code-block:: text
 
-    2025-06-14 20:32:01,845 - thuner.parallel - INFO - Beginning parallel tracking with 4 processes.
-    2025-06-14 20:32:12,185 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/gridrad/gridrad_demo/interval_0.
-    2025-06-14 20:32:12,321 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/gridrad/gridrad_demo/interval_1.
-    2025-06-14 20:32:12,631 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/gridrad/gridrad_demo/interval_2.
-    2025-06-14 20:32:12,769 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/gridrad/gridrad_demo/interval_3.
-    2025-06-14 20:32:13,400 - thuner.track.track - INFO - Processing 2010-01-20T18:00:00.
-    2025-06-14 20:32:13,403 - thuner.utils - INFO - Updating gridrad input record for 2010-01-20T18:00:00.
-    2025-06-14 20:32:13,522 - thuner.track.track - INFO - Processing 2010-01-20T20:20:00.
-    2025-06-14 20:32:13,523 - thuner.utils - INFO - Updating gridrad input record for 2010-01-20T20:20:00.
-    2025-06-14 20:32:13,705 - thuner.track.track - INFO - Processing 2010-01-20T22:40:00.
-    2025-06-14 20:32:13,707 - thuner.utils - INFO - Updating gridrad input record for 2010-01-20T22:40:00.
-    2025-06-14 20:32:13,861 - thuner.track.track - INFO - Processing 2010-01-21T01:00:00.
-    2025-06-14 20:32:13,862 - thuner.utils - INFO - Updating gridrad input record for 2010-01-21T01:00:00.
-    2025-06-14 20:32:18,992 - thuner.utils - INFO - Grid options not set. Inferring from dataset.
-    2025-06-14 20:32:19,001 - thuner.utils - WARNING - Altitude spacing not uniform.
+    2025-07-09 17:03:08,621 - thuner.parallel - INFO - Beginning parallel tracking with 4 processes.
+    2025-07-09 17:03:15,233 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/gridrad/gridrad_demo/interval_0.
+    2025-07-09 17:03:15,538 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/gridrad/gridrad_demo/interval_1.
+    2025-07-09 17:03:15,623 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/gridrad/gridrad_demo/interval_2.
+    2025-07-09 17:03:15,732 - thuner.track.track - INFO - Beginning thuner tracking. Saving output to /home/ewan/THUNER_output/runs/gridrad/gridrad_demo/interval_3.
+    2025-07-09 17:03:16,005 - thuner.track.track - INFO - Processing 2010-01-20T18:00:00.
+    2025-07-09 17:03:16,006 - thuner.utils - INFO - Updating gridrad input record for 2010-01-20T18:00:00.
+    2025-07-09 17:03:16,198 - thuner.track.track - INFO - Processing 2010-01-20T20:20:00.
+    2025-07-09 17:03:16,199 - thuner.utils - INFO - Updating gridrad input record for 2010-01-20T20:20:00.
+    2025-07-09 17:03:16,460 - thuner.track.track - INFO - Processing 2010-01-20T22:40:00.
+    2025-07-09 17:03:16,462 - thuner.utils - INFO - Updating gridrad input record for 2010-01-20T22:40:00.
+    2025-07-09 17:03:16,817 - thuner.track.track - INFO - Processing 2010-01-21T01:00:00.
+    2025-07-09 17:03:16,819 - thuner.utils - INFO - Updating gridrad input record for 2010-01-21T01:00:00.
+    2025-07-09 17:03:22,065 - thuner.utils - INFO - Grid options not set. Inferring from dataset.
+    2025-07-09 17:03:22,069 - thuner.utils - WARNING - Altitude spacing not uniform.
     ...
 
 The outputs of the tracking run are saved in the ``output_parent``
@@ -431,25 +425,6 @@ passing this to the appropriate ``pydantic`` model.
         # Prepending with ** unpacks the dictionary into keyword/argument pairs.
     data_options.model_dump()
 
-.. code-block:: text
-
-    {'type': 'DataOptions',
-     'datasets': [{'type': 'GridRadSevereOptions',
-       'name': 'gridrad',
-       'start': '2010-01-20T18:00:00',
-       'end': '2010-01-21T03:30:00',
-       'fields': ['reflectivity'],
-       'parent_remote': 'https://data.rda.ucar.edu',
-       'parent_local': '/home/ewan/THUNER_output/input_data/raw',
-       'converted_options': {'type': 'ConvertedOptions',
-        'save': False,
-        'load': False,
-        'parent_converted': '/home/ewan/THUNER_output/input_data/converted'},
-       'filepaths': ['/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T180000Z.nc',
-        '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T181000Z.nc',
-        '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T182000Z.nc',
-    ...
-
 The convenience function ``thuner.analyze.utils.read_options`` reloads
 all options in the above way, storing the different options in a
 dictionary.
@@ -459,30 +434,6 @@ dictionary.
 
     all_options = analyze.utils.read_options(output_parent)
     all_options["data"].model_dump()
-
-.. code-block:: text
-
-    2025-04-25 00:16:57,754 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
-    2025-04-25 00:16:57,755 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-
-.. code-block:: text
-
-    {'type': 'DataOptions',
-     'datasets': [{'type': 'GridRadSevereOptions',
-       'name': 'gridrad',
-       'start': '2010-01-20T18:00:00',
-       'end': '2010-01-21T03:30:00',
-       'fields': ['reflectivity'],
-       'parent_remote': 'https://data.rda.ucar.edu',
-       'parent_local': '/home/ewan/THUNER_output/input_data/raw',
-       'converted_options': {'type': 'ConvertedOptions',
-        'save': False,
-        'load': False,
-        'parent_converted': '/home/ewan/THUNER_output/input_data/converted'},
-       'filepaths': ['/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T180000Z.nc',
-        '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T181000Z.nc',
-        '/home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T182000Z.nc',
-    ...
 
 Object attributes, e.g. MCS position, area and velocity, are saved as
 CSV files in nested subfolders. Attribute metadata is recorded in YAML
@@ -496,25 +447,6 @@ the convenience function :func:`thuner.attribute.utils.read_attribute_csv`.
     core = attribute.utils.read_attribute_csv(output_parent / "attributes/mcs/core.csv")
     print(core.head(20).to_string())
 
-.. code-block:: text
-
-                                     parents  latitude  longitude    area  u_flow  v_flow  u_displacement  v_displacement  echo_top_height
-    time                universal_id                                                                                                      
-    2010-01-20 18:00:00 1                NaN   30.8229   270.1562   598.6     8.3     7.7            13.3             0.0          13000.0
-                        2                NaN   31.6979   270.6979   981.0     9.9     3.9            16.5             0.0          13000.0
-    2010-01-20 18:10:00 1                NaN   30.8229   270.2396   589.3    10.0     7.7             3.3            -3.8          12000.0
-                        2                NaN   31.6979   270.8021  1053.8     9.9     7.7             NaN             NaN          13000.0
-    2010-01-20 18:20:00 1                NaN   30.8021   270.2604   736.9    10.0     7.7            23.3             7.7          13000.0
-    2010-01-20 18:30:00 1                NaN   30.8438   270.4062   492.5    16.6     7.7             3.3            11.5          12000.0
-    2010-01-20 18:40:00 1                NaN   30.9062   270.4271   460.0    10.0     7.7             NaN             NaN          12000.0
-    2010-01-20 18:50:00 3                NaN   29.3854   269.5312   546.4    10.1    11.5             6.7             7.7          14000.0
-    2010-01-20 19:00:00 3                NaN   29.4271   269.5729   597.5     6.7     7.7             NaN             NaN          14000.0
-                        4                NaN   30.2812   267.0312   486.1    15.0     9.6            13.4            15.4          13000.0
-    2010-01-20 19:10:00 4                NaN   30.3646   267.1146   619.8    10.0    11.6            13.3             7.7          13000.0
-    2010-01-20 19:20:00 4                NaN   30.4062   267.1979   739.8    13.3     7.7             NaN             NaN          14000.0
-    2010-01-20 21:20:00 5                NaN   31.2188   268.4896   779.4     8.3     3.9            23.2             0.0          14000.0
-    ...
-
 Records of the filepaths corresponding to each time of the tracking run
 are saved in the ``records`` folder. These records are useful for
 generating figures after a tracking run.
@@ -526,25 +458,6 @@ generating figures after a tracking run.
     records = attribute.utils.read_attribute_csv(filepath)
     print(records.head(20).to_string())
 
-.. code-block:: text
-
-                                                                                                                          gridrad
-    time                                                                                                                         
-    2010-01-20 18:00:00  /home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T180000Z.nc
-    2010-01-20 18:10:00  /home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T181000Z.nc
-    2010-01-20 18:20:00  /home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T182000Z.nc
-    2010-01-20 18:30:00  /home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T183000Z.nc
-    2010-01-20 18:40:00  /home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T184000Z.nc
-    2010-01-20 18:50:00  /home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T185000Z.nc
-    2010-01-20 19:00:00  /home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T190000Z.nc
-    2010-01-20 19:10:00  /home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T191000Z.nc
-    2010-01-20 19:20:00  /home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T192000Z.nc
-    2010-01-20 19:30:00  /home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T193000Z.nc
-    2010-01-20 19:40:00  /home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T194000Z.nc
-    2010-01-20 19:50:00  /home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T195000Z.nc
-    2010-01-20 20:00:00  /home/ewan/THUNER_output/input_data/raw/d841006/volumes/2010/20100120/nexrad_3d_v4_2_20100120T200000Z.nc
-    ...
-
 Object masks are saved as ZARR files, which can be read using
 :mod:`xarray`.
 
@@ -552,25 +465,6 @@ Object masks are saved as ZARR files, which can be read using
     :linenos:
 
     xr.open_dataset(output_parent / "masks/mcs.zarr").info()
-
-.. code-block:: text
-
-    xarray.Dataset {
-    dimensions:
-    	time = 57 ;
-    	latitude = 576 ;
-    	longitude = 624 ;
-    
-    variables:
-    	uint32 anvil_mask(time, latitude, longitude) ;
-    	uint32 convective_mask(time, latitude, longitude) ;
-    	float32 latitude(latitude) ;
-    	float32 longitude(longitude) ;
-    	uint32 middle_mask(time, latitude, longitude) ;
-    	datetime64[ns] time(time) ;
-    
-    // global attributes:
-    ...
 
 Analysis and Visualization
 --------------------------
@@ -589,32 +483,6 @@ al. (2023) <https://doi.org/10.1175/MWR-D-22-0146.1>`__.
     filepath = output_parent / "analysis/classification.csv"
     classifications = attribute.utils.read_attribute_csv(filepath)
     print("\n" + classifications.head(20).to_string())
-
-.. code-block:: text
-
-    2025-06-14 22:07:40,836 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
-    2025-06-14 22:07:40,837 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-    2025-06-14 22:07:41,368 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
-    2025-06-14 22:07:41,370 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-
-.. code-block:: text
-
-    
-                                     stratiform_offset inflow relative_stratiform_offset                 tilt          propagation
-    time                universal_id                                                                                              
-    2010-01-20 18:00:00 1                      leading  right                       left           down-shear  shear-perpendicular
-                        2                      leading  right                       left           down-shear  shear-perpendicular
-    2010-01-20 18:10:00 1                      leading  right                       left           down-shear           down-shear
-                        2                      leading  right                       left  shear-perpendicular  shear-perpendicular
-    2010-01-20 18:20:00 1                      leading  right                       left           down-shear           down-shear
-    2010-01-20 18:30:00 1                      leading  right                       left  shear-perpendicular  shear-perpendicular
-    2010-01-20 18:40:00 1                      leading  right                       left           down-shear           down-shear
-    2010-01-20 18:50:00 3                        right  right                       left           down-shear           down-shear
-    2010-01-20 19:00:00 3                     trailing  right                    leading  shear-perpendicular           down-shear
-                        4                      leading  right                    leading           down-shear           down-shear
-    2010-01-20 19:10:00 4                        right  right                    leading           down-shear           down-shear
-    2010-01-20 19:20:00 4                      leading  right                    leading           down-shear           down-shear
-    ...
 
 We can also generate figures and animations from the output. Below we
 visualize the convective and stratiform regions of each MCS, displaying
@@ -639,21 +507,8 @@ start of the notebook.
     args_dict = {"parallel_figure": True, "by_date": False, "num_processes": 4}
     visualize.attribute.series(*args, **args_dict)
 
-.. code-block:: text
+Relabelling
+-----------
 
-    2025-06-14 22:10:32,424 - thuner.option.grid - WARNING - altitude_spacing not specified. Will attempt to infer from input.
-    2025-06-14 22:10:32,425 - thuner.option.grid - WARNING - shape not specified. Will attempt to infer from input.
-    2025-06-14 22:10:32,598 - thuner.visualize.attribute - INFO - Visualizing attributes at time 2010-01-20T18:00:00.000000000.
-    2025-06-14 22:10:34,083 - thuner.utils - INFO - Grid options not set. Inferring from dataset.
-    2025-06-14 22:10:34,087 - thuner.utils - WARNING - Altitude spacing not uniform.
-    2025-06-14 22:10:35,989 - thuner.visualize.attribute - INFO - Saving mcs_gridrad_20100120 figure for 2010-01-20T18:00:00.000000000.
-    2025-06-14 22:10:43,327 - thuner.visualize.attribute - INFO - Visualizing attributes at time 2010-01-20T18:10:00.000000000.
-    2025-06-14 22:10:43,402 - thuner.visualize.attribute - INFO - Visualizing attributes at time 2010-01-20T18:20:00.000000000.
-    2025-06-14 22:10:44,405 - thuner.visualize.attribute - INFO - Visualizing attributes at time 2010-01-20T18:30:00.000000000.
-    2025-06-14 22:10:46,599 - thuner.visualize.attribute - INFO - Visualizing attributes at time 2010-01-20T18:40:00.000000000.
-    2025-06-14 22:10:49,211 - thuner.visualize.attribute - INFO - Saving mcs_gridrad_20100120 figure for 2010-01-20T18:20:00.000000000.
-    2025-06-14 22:10:49,999 - thuner.visualize.attribute - INFO - Saving mcs_gridrad_20100120 figure for 2010-01-20T18:10:00.000000000.
-    2025-06-14 22:10:51,012 - thuner.visualize.attribute - INFO - Saving mcs_gridrad_20100120 figure for 2010-01-20T18:30:00.000000000.
-    2025-06-14 22:10:52,520 - thuner.visualize.attribute - INFO - Visualizing attributes at time 2010-01-20T18:50:00.000000000.
-    2025-06-14 22:10:52,974 - thuner.visualize.attribute - INFO - Saving mcs_gridrad_20100120 figure for 2010-01-20T18:40:00.000000000.
-    ...
+Sometimes we need to define new objects based on the split-merge history
+of the objects tracked during a THUNER run.
