@@ -31,6 +31,7 @@ import os
 import platform
 from typing import Any, Dict, Literal, Generator, Callable
 from pydantic import Field, model_validator, BaseModel, model_validator, ConfigDict
+from pydantic._internal._model_construction import ModelMetaclass
 import multiprocessing
 from thuner.log import setup_logger
 from thuner.config import get_outputs_directory
@@ -74,26 +75,29 @@ def convert_value(value: Any) -> Any:
     return value
 
 
-def auto_type(cls):
-    """Inject `type: Literal[name] = name` into a subclass."""
-    name = cls.__name__
-    lit = Literal[name.lower()]
-    cls.__annotations__["type"] = lit
-    setattr(cls, "type", name.lower())
-    return cls
+class AutoTypeMeta(ModelMetaclass):
+    def __new__(mcls, name, bases, namespace, **kwargs):
+        # Skip the abstract root class itself
+        if name != "BaseOptions":
+            # Inject annotation if the subclass didn't set one explicitly
+            annotations = namespace.setdefault("__annotations__", {})
+            if "type" not in annotations:
+                annotations["type"] = Literal[name]
+                namespace["type"] = name  # default value
+        # Let Pydantic build the actual model class
+        return super().__new__(mcls, name, bases, namespace, **kwargs)
 
 
-class BaseOptions(BaseModel):
+class BaseOptions(BaseModel, metaclass=AutoTypeMeta):
     """
     The base class for all options classes. This class is built on the pydantic
     BaseModel, which is similar to python dataclasses but with type checking.
     """
 
-    _desc = "Type of the options, i.e. the subclass name."
-    type: Literal["BaseOptions"] = Field("BaseOptions", description=_desc)
+    type: Literal["BaseOptions"] = Field("BaseOptions")
 
     # Allow arbitrary types in the options classes.
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, discriminator="type")
 
     # Ensure that floats in all options classes are np.float32
     @model_validator(mode="after")
@@ -103,13 +107,6 @@ class BaseOptions(BaseModel):
             if type(getattr(values, field)) is float:
                 setattr(values, field, np.float32(getattr(values, field)))
         return values
-
-    # @model_validator(mode="after")
-    # def _set_type(cls, values):
-    #     """Set the type of the options class to the subclass name."""
-    #     if values.type is None:
-    #         values.type = cls.__name__
-    #     return values
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert the options to a dictionary."""
@@ -151,7 +148,6 @@ class BaseOptions(BaseModel):
 class Retrieval(BaseOptions):
     """Class for retrieval. Generally a function and a dictionary of kwargs."""
 
-    type: Literal["Retrieval"] = Field("BaseOptions")
     _desc = "The function used to retrieve the attribute."
     function: Callable | str | None = Field(None, description=_desc)
     _desc = "Keyword arguments for the retrieval function."

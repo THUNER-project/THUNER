@@ -1,6 +1,6 @@
 """Data options classes, convenience subclasses, and functions."""
 
-from typing import Dict, Union, List, Annotated
+from typing import Dict, Union, List
 from pydantic import Field, model_validator
 from thuner.log import setup_logger
 from thuner.utils import BaseOptions, BaseDatasetOptions
@@ -16,16 +16,13 @@ __all__ = ["DataOptions"]
 _summary = {"datasets": "List of dataset options."}
 
 
-AnyDatasetOptions = Annotated[
-    Union[
-        gridrad.GridRadSevereOptions,
-        aura.CPOLOptions,
-        aura.OperationalOptions,
-        era5.ERA5Options,
-        himawari.HimawariOptions,
-        BaseDatasetOptions,
-    ],
-    Field(discriminator="type"),
+AnyDatasetOptions = Union[
+    gridrad.GridRadSevereOptions,
+    aura.CPOLOptions,
+    aura.OperationalOptions,
+    era5.ERA5Options,
+    himawari.HimawariOptions,
+    BaseDatasetOptions,
 ]
 
 

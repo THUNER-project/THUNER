@@ -129,6 +129,9 @@ def _check_mask_values(values):
     return values
 
 
+AnyTrackingOptions = TintOptions | MintOptions
+
+
 class DetectedObjectOptions(BaseObjectOptions):
     """Options for detected objects."""
 
@@ -139,7 +142,8 @@ class DetectedObjectOptions(BaseObjectOptions):
     detection: DetectionOptions = Field(
         DetectionOptions(method="steiner"), description=_desc
     )
-    tracking: BaseOptions | None = Field(TintOptions(), description="Tracking options.")
+    _desc = "Options for tracking the object."
+    tracking: AnyTrackingOptions | None = Field(TintOptions(), description=_desc)
 
     @model_validator(mode="after")
     def _check_mask(cls, values):
@@ -176,16 +180,14 @@ class GroupingOptions(BaseOptions):
         return values
 
 
-AnyTrackingOptions = TintOptions | MintOptions
-
-
 class GroupedObjectOptions(BaseObjectOptions):
     """Options for grouped objects."""
 
     object_type: Literal["grouped"] = Field("grouped", description="Type of object.")
     _desc = "Options for grouping objects."
     grouping: GroupingOptions = Field(GroupingOptions(), description=_desc)
-    tracking: AnyTrackingOptions = Field(MintOptions(), description="Tracking options.")
+    _desc = "Options for tracking the object."
+    tracking: AnyTrackingOptions | None = Field(MintOptions(), description=_desc)
 
     @model_validator(mode="after")
     def _check_mask(cls, values):

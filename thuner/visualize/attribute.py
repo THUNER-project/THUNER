@@ -222,6 +222,7 @@ def detected_horizontal(
     args = [obj_name, time, filepaths_df, masks, dataset_name, options]
     mask, grid, boundary_coords = get_mask_grid_boundary(*args)
     mask = mask[obj_name + "_mask"]
+    grid = grid[obj_name + "_grid"]
     object_colors = get_object_colors(time, color_angle_df)
 
     time = grid.time.values
