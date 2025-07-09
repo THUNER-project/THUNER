@@ -91,8 +91,8 @@ def rebuild_processed_grid(grid_data, track_options, obj, level):
             args = [grid_data, track_options, member_obj, member_level]
             grid_dict.update(rebuild_processed_grid(*args))
     processed_grid = xr.Dataset(grid_dict)
-    if "detection" in object_options.__class__.model_fields:
-        processed_grid = processed_grid[f"{obj}_grid"]
+    # if "detection" in object_options.__class__.model_fields:
+    #     processed_grid = processed_grid[f"{obj}_grid"]
     return processed_grid
 
 

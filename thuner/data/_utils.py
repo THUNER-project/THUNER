@@ -2,11 +2,21 @@
 
 import os
 
+# Check if system is unix-like, as fcntl not supported on Windows
 if os.name == "posix":
     import fcntl
 else:
     message = "Note fcntl is not available on Windows. If you need to download data "
     message = "do so before running thuner, or use a unix based system."
+    print(message)
+
+
+# Check if system is unix-like, as xESMF is not supported on Windows
+if os.name == "posix":
+    import xesmf as xe
+else:
+    message = "Warning: Windows systems cannot run xESMF for regridding."
+    message += "If you need regridding, consider using a Linux or MacOS system."
     print(message)
 
 import multiprocessing
@@ -550,3 +560,41 @@ def get_encoding(ds):
     for var in ds.variables:
         encoding[var] = {"zlib": True, "complevel": 5}
     return encoding
+
+
+def get_geographic_regridder(
+    dataset, grid_options, dataset_options, latitude=None, longitude=None
+):
+    """Load an xesmf using stored weights if present."""
+    # Can probably abstract this part
+    weights_filepath = dataset_options.weights_filepath
+    if latitude is None or longitude is None:
+        latitude, longitude = grid_options.latitude, grid_options.longitude
+    dims_dict = {"latitude": latitude, "longitude": longitude}
+    dims = ["latitude", "longitude"]
+    ds = xr.Dataset({dim: ([dim], dims_dict[dim]) for dim in dims})
+    regrid_options = {"periodic": False, "extrap_method": None}
+    if not Path(weights_filepath).exists():
+        logger.info("Building regridder; this can take a while for large grids.")
+        regridder = xe.Regridder(dataset, ds, "bilinear", **regrid_options)
+        if dataset_options.reuse_regridder:
+            Path(weights_filepath).parent.mkdir(parents=True, exist_ok=True)
+            regridder.to_netcdf(weights_filepath)
+            # The filepath now exists, so the else case called next time
+    else:
+        logger.info("Loading regridder from file.")
+        regrid_options["weights"] = weights_filepath
+        regridder = xe.Regridder(dataset, ds, "bilinear", **regrid_options)
+    return regridder
+
+
+def copy_attributes(ds, old_ds):
+    """Copy attributes from one xarray dataset to another."""
+    for var in ds.data_vars:
+        if var in old_ds.data_vars:
+            ds[var].attrs = old_ds[var].attrs
+    for coord in ds.coords:
+        ds[coord].attrs = old_ds[coord].attrs
+    ds.attrs.update(old_ds.attrs)
+    ds.attrs["history"] += f", regridded using xesmf on " f"{np.datetime64('now')}"
+    return ds

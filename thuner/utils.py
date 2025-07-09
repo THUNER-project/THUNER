@@ -1,5 +1,15 @@
 "General utilities for the thuner package."
 
+import os
+
+# Check if system is unix-like, as xESMF is not supported on Windows
+if os.name == "posix":
+    import xesmf as xe
+else:
+    message = "Warning: Windows systems cannot run xESMF for regridding."
+    message += "If you need regridding, consider using a Linux or MacOS system."
+    print(message)
+
 import inspect
 import traceback
 import importlib
@@ -64,13 +74,23 @@ def convert_value(value: Any) -> Any:
     return value
 
 
+def auto_type(cls):
+    """Inject `type: Literal[name] = name` into a subclass."""
+    name = cls.__name__
+    lit = Literal[name.lower()]
+    cls.__annotations__["type"] = lit
+    setattr(cls, "type", name.lower())
+    return cls
+
+
 class BaseOptions(BaseModel):
     """
     The base class for all options classes. This class is built on the pydantic
     BaseModel, which is similar to python dataclasses but with type checking.
     """
 
-    type: str = Field(None, description="Type of the options, i.e. the subclass name.")
+    _desc = "Type of the options, i.e. the subclass name."
+    type: Literal["BaseOptions"] = Field("BaseOptions", description=_desc)
 
     # Allow arbitrary types in the options classes.
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -84,12 +104,12 @@ class BaseOptions(BaseModel):
                 setattr(values, field, np.float32(getattr(values, field)))
         return values
 
-    @model_validator(mode="after")
-    def _set_type(cls, values):
-        """Set the type of the options class to the subclass name."""
-        if values.type is None:
-            values.type = cls.__name__
-        return values
+    # @model_validator(mode="after")
+    # def _set_type(cls, values):
+    #     """Set the type of the options class to the subclass name."""
+    #     if values.type is None:
+    #         values.type = cls.__name__
+    #     return values
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert the options to a dictionary."""
@@ -131,6 +151,7 @@ class BaseOptions(BaseModel):
 class Retrieval(BaseOptions):
     """Class for retrieval. Generally a function and a dictionary of kwargs."""
 
+    type: Literal["Retrieval"] = Field("BaseOptions")
     _desc = "The function used to retrieve the attribute."
     function: Callable | str | None = Field(None, description=_desc)
     _desc = "Keyword arguments for the retrieval function."
@@ -197,6 +218,9 @@ class BaseDatasetOptions(BaseOptions):
     end_buffer: int = Field(0, description=_desc)
     _desc = "Whether to save and reuse an xesmf regridder for this dataset."
     reuse_regridder: bool = Field(False, description=_desc)
+    _desc = "The filepath to where the xesmf regridder weights should be saved/loaded."
+    _desc = "This should generally be left as None and inferred during tracking."
+    weights_filepath: str | None = Field(None, description=_desc)
 
     # Create basic functions for getting filepaths etc for already converted datasets.
     # These are overridden in the subclasses.
@@ -230,14 +254,11 @@ class BaseDatasetOptions(BaseOptions):
         conv_options = self.converted_options
         input_record._current_file_index += 1
         filepath = self.filepaths[input_record._current_file_index]
-        regridder = input_record.regridder
         if conv_options.load is False:
             args = [time, filepath, track_options, grid_options]
-            outs = self.convert_dataset(*args, regridder=regridder)
-            dataset, boundary_coords, simple_boundary_coords, regridder = outs
+            outs = self.convert_dataset(*args)
+            dataset, boundary_coords, simple_boundary_coords = outs
             infer_grid_options(dataset, grid_options)
-            if self.reuse_regridder:
-                input_record.regridder = regridder
         else:
             dataset = xr.open_dataset(filepath)
             infer_grid_options(dataset, grid_options)
@@ -274,9 +295,7 @@ class BaseDatasetOptions(BaseOptions):
         grid.attrs["field_name"] = variable
         return grid
 
-    def convert_dataset(
-        self, time, filepath, track_options, grid_options, regridder=None
-    ):
+    def convert_dataset(self, time, filepath, track_options, grid_options):
         """
         Convert the dataset. Note if the base class is used directly, the data is
         assumed to be already converted, and hence this function just opens the dataset.
@@ -296,7 +315,7 @@ class BaseDatasetOptions(BaseOptions):
             boundary_coords = None
             simple_boundary_coords = None
 
-        return dataset, boundary_coords, simple_boundary_coords, regridder
+        return dataset, boundary_coords, simple_boundary_coords
 
     @model_validator(mode="after")
     def _check_name(cls, values):

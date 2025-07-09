@@ -69,9 +69,9 @@ class CPOLOptions(AURAOptions):
         """Get CPOL fielpaths."""
         return get_cpol_filepaths(self)
 
-    def convert_dataset(self, time, filepath, track_options, grid_options, regridder):
+    def convert_dataset(self, time, filepath, track_options, grid_options):
         """Convert CPOL dataset."""
-        args = [time, filepath, track_options, self, grid_options, regridder]
+        args = [time, filepath, track_options, self, grid_options]
         return convert_cpol(*args)
 
     def update_boundary_data(self, dataset, input_record, boundary_coords):
@@ -274,9 +274,7 @@ def update_cpol_boundary_data(dataset, input_record, boundary_coords):
         # objects being detected, and the required threshold on number of observations.
 
 
-def convert_cpol(
-    time, filepath, track_options, dataset_options, grid_options, regridder=None
-):
+def convert_cpol(time, filepath, track_options, dataset_options, grid_options):
     """Convert CPOL data to a standard format. Retrieve the boundary data."""
 
     time_str = utils.format_time(time, filename_safe=False)
@@ -319,20 +317,40 @@ def convert_cpol(
             # If the lat/lon of the new grid were specified, use them
             latitude = grid_options.latitude
             longitude = grid_options.longitude
-        dims_dict = {"latitude": latitude, "longitude": longitude}
-        # ds = xr.Dataset({dim: ([dim], getattr(grid_options, dim)) for dim in dims})
-        ds = xr.Dataset({dim: ([dim], dims_dict[dim]) for dim in dims})
-        if regridder is None:
-            regrid_options = {"periodic": False, "extrap_method": None}
-            regridder = xe.Regridder(cpol, ds, "bilinear", **regrid_options)
+
+        # dims_dict = {"latitude": latitude, "longitude": longitude}
+        # # ds = xr.Dataset({dim: ([dim], getattr(grid_options, dim)) for dim in dims})
+        # ds = xr.Dataset({dim: ([dim], dims_dict[dim]) for dim in dims})
+        # if regridder is None:
+        #     regrid_options = {"periodic": False, "extrap_method": None}
+        #     regridder = xe.Regridder(cpol, ds, "bilinear", **regrid_options)
+
+        regridder = _utils.get_geographic_regridder(
+            cpol, grid_options, dataset_options, latitude=latitude, longitude=longitude
+        )
         ds = regridder(cpol)
-        for var in ds.data_vars:
-            if var in cpol.data_vars:
-                ds[var].attrs = cpol[var].attrs
-        for coord in ds.coords:
-            ds[coord].attrs = cpol[coord].attrs
-        ds.attrs.update(cpol.attrs)
-        ds.attrs["history"] += f", regridded using xesmf on " f"{np.datetime64('now')}"
+
+        # Can probably abstract this part
+        # dims_dict = {
+        #     "latitude": grid_options.latitude,
+        #     "longitude": grid_options.longitude,
+        # }
+        # dims = ["latitude", "longitude"]
+        # ds = xr.Dataset({dim: ([dim], dims_dict[dim]) for dim in dims})
+        # regrid_options = {"periodic": False, "extrap_method": None}
+        # if not Path(weights_filepath).exists():
+        #     logger.info("Building regridder; this can take a while for large grids.")
+        #     regridder = xe.Regridder(himawari, ds, "bilinear", **regrid_options)
+        #     if dataset_options.reuse_regridder:
+        #         Path(weights_filepath).parent.mkdir(parents=True, exist_ok=True)
+        #         regridder.to_netcdf(weights_filepath)
+        #         # The filepath now exists, so the else case called next time
+        # else:
+        #     logger.info("Loading regridder from file.")
+        #     regrid_options["weights"] = weights_filepath
+        #     regridder = xe.Regridder(himawari, ds, "bilinear", **regrid_options)
+        ds = _utils.copy_attributes(ds, cpol)
+
     elif grid_options.name == "cartesian":
         dims = ["y", "x"]
         # Interpolate vertically
@@ -361,7 +379,7 @@ def convert_cpol(
 
     ds = _utils.apply_mask(ds, grid_options)
 
-    return ds, boundary_coords, simple_boundary_coords, regridder
+    return ds, boundary_coords, simple_boundary_coords
 
 
 def convert_operational():

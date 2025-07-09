@@ -207,7 +207,7 @@ def get_time_intervals(times, num_processes):
 
 def get_filepath_dicts(output_parent, intervals):
     """Get the filepaths for all csv and mask files."""
-    csv_file_dict, mask_file_dict, record_file_dict = {}, {}, {}
+    csv_file_dict, mask_file_dict, record_file_dict, weights_file_dict = {}, {}, {}, {}
     for i in range(len(intervals)):
         csv_filepath = output_parent / f"interval_{i}/attributes/**/*.csv"
         csv_file_dict[i] = sorted(glob.glob(str(csv_filepath), recursive=True))
@@ -344,6 +344,13 @@ def stitch_run(output_parent, intervals, cleanup=True):
     match_dicts, time_dicts = get_match_dicts(*args)
     number_attributes = len(csv_file_dict[0])
     stitch_records(record_file_dict, intervals)
+
+    # Copy the regridder weights folder from interval_0 to the output parent
+    weights_path_0 = output_parent / "interval_0" / "records" / "regridder_weights"
+    weights_path = output_parent / "records" / "regridder_weights"
+    if weights_path_0.exists():
+        shutil.copytree(weights_path_0, weights_path, dirs_exist_ok=True)
+
     id_dicts = {}
     logger.info("Stitching attribute files.")
     for i in range(number_attributes):

@@ -451,10 +451,7 @@ def convert_gridrad(time, filepath, track_options, dataset_options, grid_options
     ds = _utils.apply_mask(ds, grid_options)
     ds = ds.drop_vars(["number_of_observations", "number_of_echoes"])
 
-    # Set regridder to None for now, as regridding not yet implemented for GridRad
-    regridder = None
-
-    return ds, boundary_coords, simple_boundary_coords, regridder
+    return ds, boundary_coords, simple_boundary_coords
 
 
 def get_domain_mask(ds, track_options, dataset_options):

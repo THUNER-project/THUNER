@@ -87,9 +87,9 @@ class HimawariOptions(utils.BaseDatasetOptions):
         filepaths = sorted([fp for fp in filepaths if Path(fp).exists()])
         return filepaths
 
-    def convert_dataset(self, time, filepath, track_options, grid_options, regridder):
+    def convert_dataset(self, time, filepath, track_options, grid_options):
         """Convert Himawari dataset."""
-        args = [time, filepath, track_options, self, grid_options, regridder]
+        args = [time, filepath, track_options, self, grid_options]
         return convert_himawari(*args)
 
     def update_boundary_data(self, dataset, input_record, boundary_coords):
@@ -177,12 +177,16 @@ def get_himawari_ancillary_filepaths(options: HimawariOptions):
 
 
 def convert_himawari(
-    time, filepath, track_options, dataset_options, grid_options, regridder=None
+    time,
+    filepath,
+    track_options,
+    dataset_options,
+    grid_options,
 ):
     """
     Convert a Himawari dataset to a standard format.
     """
-    time_str = utils.format_time(time, filename_safe=True)
+    time_str = utils.format_time(time, filename_safe=False)
     logger.info(f"Converting {dataset_options.name} dataset for time {time_str}.")
 
     himawari = xr.open_dataset(filepath)
@@ -200,32 +204,19 @@ def convert_himawari(
     min_lon = grid_options.longitude[0]
     max_lon = grid_options.longitude[-1]
     himawari = grid.subset_curvilinear(himawari, min_lat, max_lat, min_lon, max_lon)
-
-    dims_dict = {"latitude": grid_options.latitude, "longitude": grid_options.longitude}
-    dims = ["latitude", "longitude"]
-    ds = xr.Dataset({dim: ([dim], dims_dict[dim]) for dim in dims})
     mask = np.isnan(himawari["latitude"]) | np.isnan(himawari["longitude"])
     himawari = himawari.where(~mask)
-    regrid_options = {"periodic": False, "extrap_method": None}
-    if regridder is None:
-        logger.info("Building regridder; this can take a while for large grids.")
-        regridder = xe.Regridder(himawari, ds, "bilinear", **regrid_options)
-    logger.info("Regridding Himawari data.")
-    ds = regridder(himawari)
 
-    for var in ds.data_vars:
-        if var in himawari.data_vars:
-            ds[var].attrs = himawari[var].attrs
-        for coord in ds.coords:
-            ds[coord].attrs = himawari[coord].attrs
-        ds.attrs.update(himawari.attrs)
-        ds.attrs["history"] += f", regridded using xesmf on " f"{np.datetime64('now')}"
+    logger.info("Regridding Himawari data.")
+    regridder = _utils.get_geographic_regridder(himawari, grid_options, dataset_options)
+    ds = regridder(himawari)
+    ds = _utils.copy_attributes(ds, himawari)
 
     ds["longitude"] = ds["longitude"] % 360
     # Update grid_options if necessary
     utils.infer_grid_options(ds, grid_options)
     cell_areas = grid.get_cell_areas(grid_options)
-    ds["gridcell_area"] = (dims, cell_areas)
+    ds["gridcell_area"] = (["latitude", "longitude"], cell_areas)
     new_entries = {"units": "km^2", "standard_name": "area", "valid_min": 0}
     ds["gridcell_area"].attrs.update(new_entries)
 
@@ -236,7 +227,7 @@ def convert_himawari(
 
     ds = _utils.apply_mask(ds, grid_options)
 
-    return ds, boundary_coords, simple_boundary_coords, regridder
+    return ds, boundary_coords, simple_boundary_coords
 
 
 def update_himawari_boundary_data(dataset, input_record, boundary_coords):

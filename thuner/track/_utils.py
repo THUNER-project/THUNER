@@ -34,7 +34,7 @@ class BaseInputRecord(BaseModel):
     dataset: DataObject | None = Field(None, description=_desc)
     _desc = "The regridder function for this dataset. This should be left as None and"
     _desc += " inferred during tracking."
-    regridder: Callable | None = Field(None, description=_desc)
+    weights_filepath: Callable | None = Field(None, description=_desc)
 
     # Index of the file corresponding to the currently stored dataset.
     # Initially set to -1 to indicate no file has been read yet.

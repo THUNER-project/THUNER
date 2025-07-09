@@ -27,6 +27,8 @@ class VisualizeOptions(BaseOptions):
     parent_local: str | PosixPath | None = Field(None, description=_desc)
     _desc = "The style of the figures. See thuner.visualize.styles for options."
     style: str = Field("presentation", description=_desc)
+    _desc = "Filepath to the regridder weights."
+    weights_filepath: str | None = Field(None, description=_desc)
 
     @model_validator(mode="after")
     def validate_parent_local(cls, values):

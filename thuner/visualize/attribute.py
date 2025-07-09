@@ -3,9 +3,10 @@
 import gc
 from pathlib import Path
 from pydantic import Field, model_validator
-from functools import partial
+import tempfile
 from typing import Any, Dict
 from time import sleep
+import xesmf as xe
 import multiprocessing as mp
 import numpy as np
 import pandas as pd
@@ -25,6 +26,7 @@ import thuner.visualize.visualize as visualize
 from thuner.option.visualize import FigureOptions, GroupedHorizontalAttributeOptions
 from thuner.option.visualize import HorizontalAttributeOptions
 from thuner.log import setup_logger, logging_listener
+from thuner.config import get_outputs_directory
 
 
 __all__ = ["series", "grouped_horizontal"]
@@ -94,17 +96,22 @@ def series(
 
     figure_function = figure_options.method.function
 
+    # Initialize the paths to save xesmf regridder weights
+    dataset_options = options["data"].dataset_by_name(dataset_name)
+    if dataset_options.reuse_regridder:
+        if dataset_options.weights_filepath is None:
+            filepath = output_directory / "records/regridder_weights"
+            filepath = filepath / f"{dataset_options.name}.nc"
+            dataset_options.weights_filepath = filepath
+
     # Start with first time
-    time = times[0]
-    args = [time, masks, output_directory, figure_options.model_dump()]
+    args = [times[0], masks, output_directory, figure_options.model_dump()]
     args += [options, dataset_name]
-    regridder = figure_function(*args)
-    if not options["data"].dataset_by_name(dataset_name).reuse_regridder:
-        regridder = None
+    figure_function(*args)
+
     if len(times) == 1:
         # Switch back to original backend
-        plt.close("all")
-        matplotlib.use(original_backend)
+        plt.close("all"), matplotlib.use(original_backend)
         return
 
     if parallel_figure:
@@ -118,14 +125,13 @@ def series(
                 # bad practice to pass dataframes to mp workers.
                 args = [time, masks, output_directory]
                 args += [figure_options.model_dump()]
-                args += [options, dataset_name, regridder]
+                args += [options, dataset_name]
                 args = tuple(args)
                 results.append(pool.apply_async(figure_function, args))
             pool.close()
             pool.join()
             check_results(results)
     else:
-        args += [regridder]
         for time in times[1:]:
             args[0] = time
             figure_function(*args)
@@ -144,7 +150,7 @@ def series(
 
 
 def get_mask_grid_boundary(
-    object_name, time, filepaths_df, masks, dataset_name, options, regridder=None
+    object_name, time, filepaths_df, masks, dataset_name, options
 ):
     """Get the mask and grid for a given time."""
 
@@ -152,9 +158,11 @@ def get_mask_grid_boundary(
     dataset_options = options["data"].dataset_by_name(dataset_name)
     object_level = options["track"].object_by_name(object_name).hierarchy_level
 
-    args = [time, filepath, options["track"], options["grid"], regridder]
+    message = f"Converting {dataset_name}."
+    logger.debug(message)
+    args = [time, filepath, options["track"], options["grid"]]
     outs = dataset_options.convert_dataset(*args)
-    ds, boundary_coords, simple_boundary_coords, regridder = outs
+    ds, boundary_coords, simple_boundary_coords = outs
     del boundary_coords
     logger.debug(f"Getting grid from dataset at time {time}.")
 
@@ -175,7 +183,7 @@ def get_mask_grid_boundary(
         message = f"Grid or mask time {grid_time} does not match requested time {time}."
         raise ValueError(message)
 
-    return mask, processed_grid, simple_boundary_coords, regridder
+    return mask, processed_grid, simple_boundary_coords
 
 
 def get_object_colors(time, color_angle_df):
@@ -193,7 +201,6 @@ def detected_horizontal(
     figure_options_dict,
     options,
     dataset_name,
-    regridder=None,
 ):
     """Create a horizontal cross section plot."""
     logger.info(f"Visualizing attributes at time {time}.")
@@ -211,8 +218,9 @@ def detected_horizontal(
 
     grid_options = options["grid"]
     obj_name = figure_options.object_name
-    args = [obj_name, time, filepaths_df, masks, dataset_name, options, regridder]
-    mask, grid, boundary_coords, new_regridder = get_mask_grid_boundary(*args)
+
+    args = [obj_name, time, filepaths_df, masks, dataset_name, options]
+    mask, grid, boundary_coords = get_mask_grid_boundary(*args)
     mask = mask[obj_name + "_mask"]
     object_colors = get_object_colors(time, color_angle_df)
 
@@ -250,7 +258,6 @@ def detected_horizontal(
     del detected_figure
     utils.reduce_color_depth(filepath)
     plt.clf(), plt.close(), gc.collect()
-    return new_regridder
 
 
 def grouped_horizontal(
@@ -260,7 +267,6 @@ def grouped_horizontal(
     figure_options_dict,
     options,
     dataset_name,
-    regridder=None,
 ):
     """Create a horizontal cross section plot."""
     logger.info(f"Visualizing attributes at time {time}.")
@@ -277,8 +283,8 @@ def grouped_horizontal(
     color_angle_df = get_color_angle_df(obj_name, output_directory)
 
     grid_options = options["grid"]
-    args = [obj_name, time, filepaths_df, masks, dataset_name, options, regridder]
-    mask, grid, boundary_coords, new_regridder = get_mask_grid_boundary(*args)
+    args = [obj_name, time, filepaths_df, masks, dataset_name, options]
+    mask, grid, boundary_coords = get_mask_grid_boundary(*args)
     object_colors = get_object_colors(time, color_angle_df)
 
     time = grid.time.values
@@ -330,7 +336,6 @@ def grouped_horizontal(
     del grouped_figure
     utils.reduce_color_depth(filepath)
     plt.clf(), plt.close(), gc.collect()
-    return new_regridder
 
 
 def add_attribute(

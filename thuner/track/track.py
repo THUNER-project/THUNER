@@ -72,11 +72,21 @@ def track(
         track_options, data_options, grid_options, visualize_options
     )
 
-    # Clear masks directory to prevent overwriting
+    # Clear masks, attributes and records directories to prevent overwriting
     if (output_directory / "masks").exists():
         shutil.rmtree(output_directory / "masks")
     if (output_directory / "attributes").exists():
         shutil.rmtree(output_directory / "attributes")
+    if (output_directory / "records").exists():
+        shutil.rmtree(output_directory / "records")
+
+    # Initialize the paths to save xesmf regridder weights
+    for dataset_options in data_options.datasets:
+        if dataset_options.reuse_regridder:
+            if dataset_options.weights_filepath is None:
+                filepath = output_directory / "records/regridder_weights"
+                filepath = filepath / f"{dataset_options.name}.nc"
+                dataset_options.weights_filepath = filepath
 
     current_time = None
     for next_time in times:
