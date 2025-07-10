@@ -114,7 +114,7 @@ def track(dataset_name: str = "cpol"):
 def satellite_anvil(dataset="himawari"):
     """Build default options for anvil objects."""
     kwargs = {"name": "anvil", "dataset": dataset, "variable": "brightness_temperature"}
-    det_kwargs = {"method": "threshold", "threshold": 220, "threshold_type": "maxima"}
+    det_kwargs = {"method": "threshold", "threshold": 235, "threshold_type": "maxima"}
     det_kwargs.update({"flatten_method": None, "min_area": 500})
     kwargs.update({"detection": det_kwargs, "tracking": None})
     attribute_types = [core.default_tracked()]
