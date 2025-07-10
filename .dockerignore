@@ -1,0 +1,10 @@
+*
+!**/*.py
+!requirements.txt
+!run_tests.sh
+!templates/
+!environment.yml
+!pyproject.toml
+!entrypoint.sh
+!build_docker.sh
+!run_tests.sh

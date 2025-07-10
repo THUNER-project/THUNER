@@ -65,4 +65,3 @@ Attribute visualization is also separated out from the core figure generation co
 .. autopydantic_model:: thuner.utils.AttributeHandler
 
 Some typical combinations of figure options and attribute handlers are included in the :mod:`thuner.default` module.
-
