@@ -66,7 +66,7 @@ class TestOptionsClasses(unittest.TestCase):
                 loaded_data_options = option.data.DataOptions(**yaml.safe_load(f))
             self.assertEqual(data_options, loaded_data_options)
 
-    def test_data_options_validation(self):
+    def test_cpol_data_options_validation(self):
         """Test the data options class validation."""
         # Check bad data options raise ValidationError
         with self.assertRaises(ValidationError):
@@ -78,6 +78,20 @@ class TestOptionsClasses(unittest.TestCase):
             # Check bad time range raises ValidationError
             times_dict = {"start": "1998-12-05T00:00", "end": "2005-11-13T19:00"}
             data.aura.CPOLOptions(**times_dict)
+
+    def test_himawari_data_options_validation(self):
+        """Test the Himawari data options class validation."""
+        # Check bad data options raise ValidationError
+        with self.assertRaises(ValidationError):
+            start = "2019-01-01T00:00:00"
+            end = "2019-01-02T00:00:00"
+            times_dict = {"start": start, "end": end}
+            data.himawari.HimawariOptions(**times_dict, time_frame="abc")
+            data.himawari.HimawariOptions(**times_dict, band="B21")
+            data.himawari.HimawariOptions(**times_dict, resolution="1500")
+            data.himawari.HimawariOptions(**times_dict, version="alpha")
+            times_dict = {"start": "2011-12-05T00:00", "end": "2011-12-06T00:00"}
+            data.himawari.HimawariOptions(**times_dict)
 
     def test_track_options_save_load(self):
         """Test track options can be saved and loaded correctly."""

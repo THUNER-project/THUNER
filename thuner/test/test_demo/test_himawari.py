@@ -13,7 +13,9 @@ import thuner.config as config
 
 def test_himawari():
     # # Himawari
-    # This tutorial/demo provides a quick and dirty example of how THUNER can be applied to [Himawari](https://geonetwork.nci.org.au/geonetwork/srv/eng/catalog.search#/metadata/f8433_0020_1861_5916) observations.
+    # This tutorial/demo provides a quick and dirty example of how THUNER can be applied to [Himawari](https://geonetwork.nci.org.au/geonetwork/srv/eng/catalog.search#/metadata/f8433_0020_1861_5916) observations. By the end of this tutorial you should be able to generate figures like that below.
+    #
+    # ![Animation depicting anvils defined from brightness temperature.](https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/himawari_anvil_20230101.gif)
     # ## Setup
     # Set a flag for whether or not to remove existing output directories
     remove_existing_outputs = True
@@ -33,10 +35,8 @@ def test_himawari():
     data.get_demo_data(base_local, remote_directory)
     # ## Options
     # Create the dataset options
-    start = "2023-01-01T00:00:00"
-    # Note the CPOL times are usually a few seconds off the 10 m interval, so add 30 seconds
-    # to ensure we capture 19:00:00
-    end = "2023-01-02T00:00:00"
+    start = "2023-01-01T13:00:00"
+    end = "2023-01-01T20:05:00"
     times_dict = {"start": start, "end": end}
     himawari_options = data.himawari.HimawariOptions(**times_dict)
     data_options = option.data.DataOptions(datasets=[himawari_options])
@@ -58,7 +58,7 @@ def test_himawari():
     times = utils.generate_times(data_options.dataset_by_name("himawari").filepaths)
     args = [times, data_options, grid_options, track_options]
     parallel.track(
-        *args, output_directory=output_parent, dataset_name="himawari", num_processes=2
+        *args, output_directory=output_parent, dataset_name="himawari", num_processes=3
     )
     # track.track(*args, output_directory=output_parent)
     # ## Analyze/Visualize

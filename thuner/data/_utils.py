@@ -60,7 +60,7 @@ def get_demo_data(output_parent=None, remote_directory=None):
     base_url = "s3://thuner-storage/THUNER_output/"
     directory_structure = remote_directory.replace(base_url, "")
     output_directory = output_parent / directory_structure
-    command = f"aws s3 sync {remote_directory} {output_directory}"
+    command = f"aws s3 sync {remote_directory} {output_directory} --no-sign-request"
     logger.info("Syncing directory %s. Please wait.", output_directory)
     subprocess.run(command, shell=True, check=True)
 
@@ -582,7 +582,7 @@ def get_geographic_regridder(
             regridder.to_netcdf(weights_filepath)
             # The filepath now exists, so the else case called next time
     else:
-        logger.info("Loading regridder from file.")
+        logger.info("Loading regridder weights from file.")
         regrid_options["weights"] = weights_filepath
         regridder = xe.Regridder(dataset, ds, "bilinear", **regrid_options)
     return regridder
