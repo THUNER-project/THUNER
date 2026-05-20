@@ -84,7 +84,7 @@ def convert_notebook_to_tutorial(notebook_path, rst_path):
         "thuner.utils.generate_times",
         "thuner.parallel.track",
         "thuner.analyze.read_options",
-        "thuner.attribute.utils.read_attribute_csv",
+        "thuner.attribute.utils.read_attribute",
         "thuner.config.set_outputs_directory",
         "thuner.config.get_outputs_directory",
         "xarray.open_dataset",

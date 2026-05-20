@@ -11,6 +11,8 @@ import thuner.attribute as attribute
 import thuner.default as default
 import thuner.config as config
 import thuner.utils as utils
+import xarray as xr
+from thuner.config import get_zarr_store_name
 
 
 def test_gridrad():
@@ -140,24 +142,28 @@ def test_gridrad():
     # The convenience function `thuner.analyze.utils.read_options` reloads all options in the above way, storing the different options in a dictionary.
     all_options = analyze.utils.read_options(output_parent)
     all_options["data"].model_dump()
-    # Object attributes, e.g. MCS position, area and velocity, are saved as CSV files in nested subfolders. Attribute metadata is recorded in YAML files. One can then load attribute data using `pandas.read_csv`. One can also create an appropriately formatted `pandas.DataFrame` using the convenience function `thuner.attribute.utils.read_attribute_csv`.
-    core = attribute.utils.read_attribute_csv(output_parent / "attributes/mcs/core.csv")
+    # Object attributes, masks and filepath records are all stored inside a single unified zarr store at the run root (`output.zarr` by default; configurable via `thuner.config.get_zarr_store_name`), under hierarchical groups (e.g. `attributes/mcs/core`, `masks/mcs`, `records/filepaths/gridrad`). Attribute metadata is distributed across each group's dataset and variable `.attrs` - no separate YAML sidecars. Use the convenience function `thuner.attribute.utils.read_attribute` to load any attribute table as a `pandas.DataFrame`.
+    core = attribute.utils.read_attribute(output_parent, "attributes", "mcs", "core")
     print(core.head(20).to_string())
     # Records of the filepaths corresponding to each time of the tracking run are saved in
     # the `records` folder. These records are useful for generating figures after a tracking run.
-    filepath = output_parent / "records/filepaths/gridrad.csv"
-    records = attribute.utils.read_attribute_csv(filepath)
+    records = attribute.utils.read_attribute(
+        output_parent, "records", "filepaths", "gridrad"
+    )
     print(records.head(20).to_string())
     # Object masks are saved as ZARR files, which can be read using `xarray`.
-    xr.open_dataset(output_parent / "masks/mcs.zarr").info()
+    xr.open_dataset(
+        output_parent / get_zarr_store_name(), engine="zarr", group="masks/mcs"
+    ).info()
     # ## Analysis and Visualization
     # We can then perform analysis on the tracking run outputs. Below we perform the MCS classifications discussed by [Short et al. (2023)](https://doi.org/10.1175/MWR-D-22-0146.1).
     analysis_options = analyze.mcs.AnalysisOptions()
     analyze.mcs.process_velocities(output_parent, profile_dataset="era5_pl")
     analyze.mcs.quality_control(output_parent, analysis_options)
     analyze.mcs.classify_all(output_parent, analysis_options)
-    filepath = output_parent / "analysis/classification.csv"
-    classifications = attribute.utils.read_attribute_csv(filepath)
+    classifications = attribute.utils.read_attribute(
+        output_parent, "analysis", "classification"
+    )
     print("\n" + classifications.head(20).to_string())
     # We can also generate figures and animations from the output. Below we visualize the
     # convective and stratiform regions of each MCS, displaying each system's velocity and

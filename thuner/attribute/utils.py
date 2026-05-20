@@ -1,20 +1,23 @@
 """General utilities for object attributes."""
 
-from pydantic import ValidationError, ConfigDict
-import yaml
 from pathlib import Path
-import pandas as pd
-import dask.dataframe as dd
-import xarray as xr
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, ConfigDict, model_validator
 import numpy as np
+import pandas as pd
+import xarray as xr
 from thuner.option.attribute import Attribute, AttributeGroup, AttributeType, Attributes
 from thuner.log import setup_logger
+from thuner.config import get_zarr_store_name
 
 logger = setup_logger(__name__)
 
 
-__all__ = ["read_attribute_csv", "AttributesRecord", "time_offset"]
+__all__ = [
+    "read_attribute_zarr",
+    "read_attribute",
+    "AttributesRecord",
+    "time_offset",
+]
 
 
 def get_ids(object_tracks, matched, member_object):
@@ -136,19 +139,6 @@ def time_offset():
     return Attribute(**kwargs)
 
 
-# class TimeOffset(Attribute):
-#     """
-#     Attribute describing the time offsets to use when tagging objects using other datasets.
-#     For instance, we may wish to tag storms with the ERA5 ambient winds 1-hour before the
-#     storm detection time to provide an assessment of the pre-storm environment.
-#     """
-
-#     name: str = "time_offset"
-#     data_type: type = int
-#     units: str = "min"
-#     description: str = "Time offset in minutes from object detection time."
-
-
 def setup_interp(
     attribute_group: AttributeGroup,
     input_records,
@@ -223,18 +213,6 @@ def attributes_dataframe(recorded_attributes, attribute_type):
     return df
 
 
-def read_metadata_yml(filepath):
-    """Read metadata from a yml file."""
-    with open(filepath, "r") as file:
-        kwargs = yaml.safe_load(file)
-        try:
-            attribute_type = AttributeType(**kwargs)
-        except ValidationError:
-            logger.warning("Invalid metadata file found for %s.", filepath)
-            attribute_type = None
-    return attribute_type
-
-
 def get_indexes(attribute_type: AttributeType):
     """Get the indexes for the attribute DataFrame."""
     all_indexes = ["time", "time_offset", "event_start", "universal_id", "id"]
@@ -249,94 +227,6 @@ def get_indexes(attribute_type: AttributeType):
             if attribute.name in all_indexes:
                 indexes.append(attribute.name)
     return indexes
-
-
-def read_attribute_csv(
-    filepath, attribute_type=None, columns=None, times=None, dask=False
-):
-    """
-    Read a CSV file and return a DataFrame.
-
-    Parameters
-    ----------
-    filepath : str
-        Filepath to the CSV file.
-
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame containing the CSV data.
-    """
-
-    filepath = Path(filepath)
-
-    data_types = None
-    if attribute_type is None:
-        try:
-            meta_path = filepath.with_suffix(".yml")
-            attribute_type = read_metadata_yml(meta_path)
-            data_types = get_data_type_dict(attribute_type)
-        except FileNotFoundError:
-            logger.warning("No metadata file found for %s.", filepath)
-        except ValidationError:
-            logger.warning("Invalid metadata file found for %s.", filepath)
-        except AttributeError:
-            logger.warning("Invalid metadata file found for %s.", filepath)
-
-    if attribute_type is None:
-        message = "No metadata; loading entire dataframe and data types not enforced."
-        logger.warning(message)
-        kwargs = {"na_values": ["", "NA"], "keep_default_na": True}
-        if dask:
-            df = dd.read_csv(filepath, **kwargs)
-        else:
-            df = pd.read_csv(filepath, **kwargs)
-        return df
-
-    # Get attributes with np.datetime64 data type
-    time_attrs = []
-    for attribute in attribute_type.attributes:
-        if isinstance(attribute, AttributeGroup):
-            for attr in attribute.attributes:
-                if attr.data_type is np.datetime64:
-                    time_attrs.append(attr.name)
-        else:
-            if attribute.data_type is np.datetime64:
-                time_attrs.append(attribute.name)
-
-    indexes = get_indexes(attribute_type)
-    if columns is None:
-        columns = get_names(attribute_type)
-    all_columns = indexes + [col for col in columns if col not in indexes]
-    data_types = get_data_type_dict(attribute_type)
-    # Remove time columns as pd handles these separately
-    for name in time_attrs:
-        data_types.pop(name, None)
-    if times is not None and not dask:
-        kwargs = {"usecols": ["time"], "parse_dates": time_attrs}
-        kwargs.update({"na_values": ["", "NA"], "keep_default_na": True})
-        index_df = pd.read_csv(filepath, **kwargs)
-        row_numbers = index_df[~index_df["time"].isin(times)].index.tolist()
-        # Increment row numbers by 1 to account for header
-        row_numbers = [i + 1 for i in row_numbers]
-    else:
-        if dask:
-            logger.warning("Row skipping not yet implemented with dask dataframes.")
-        row_numbers = None
-
-    if dask:
-        kwargs = {"dtype": data_types, "parse_dates": time_attrs}
-        kwargs.update({"na_values": ["", "NA"], "keep_default_na": True})
-        df = dd.read_csv(filepath, **kwargs)
-        message = "Index not set for dask dataframe."
-        logger.warning(message)
-    else:
-        kwargs = {"usecols": all_columns, "dtype": data_types}
-        kwargs.update({"parse_dates": time_attrs, "skiprows": row_numbers})
-        kwargs.update({"na_values": ["", "NA"], "keep_default_na": True})
-        df = pd.read_csv(filepath, **kwargs)
-        df = df.set_index(indexes)
-    return df
 
 
 def get_names(attribute_type: AttributeType):
@@ -376,3 +266,55 @@ def get_data_type_dict(attribute_type: AttributeType):
         else:
             data_type_dict[attribute.name] = attribute.data_type
     return data_type_dict
+
+
+def read_attribute_zarr(store_path, group, columns=None, times=None):
+    """Read a zarr attribute group and return a multi-indexed DataFrame.
+
+    The group's index columns are read from ``ds.attrs["index_columns"]`` —
+    persisted by the writer alongside the per-variable metadata — so the
+    reader doesn't need to reconstruct an ``AttributeType``.
+
+    Parameters
+    ----------
+    store_path : str | Path
+        Path to the unified zarr store for a run.
+    group : str
+        Group path within the store, e.g. ``attributes/cell/core``.
+    columns : list[str], optional
+        Subset of (non-index) columns to keep.
+    times : iterable, optional
+        Subset of times to keep (matched against the 'time' column).
+    """
+    ds = xr.open_zarr(store_path, group=group)
+    df = ds.to_dataframe()
+    if df.index.name == "record" or "record" in df.index.names:
+        df = df.reset_index(drop=True)
+
+    # Missing strings round-trip from zarr as "" (untouched) or "nan" (e.g.
+    # written by stitching's relabel_parents) — fold both back to NaN.
+    obj_cols = [c for c in df.columns if df[c].dtype == object]
+    for c in obj_cols:
+        df[c] = df[c].where(~df[c].isin(["", "nan"]), np.nan)
+
+    if times is not None and "time" in df.columns:
+        df = df[df["time"].isin(list(times))]
+
+    indexes = [c for c in ds.attrs.get("index_columns", []) if c in df.columns]
+    if columns is not None:
+        keep = indexes + [c for c in columns if c not in indexes and c in df.columns]
+        df = df[keep]
+    if indexes:
+        df = df.set_index(indexes).sort_index()
+    return df
+
+
+def read_attribute(output_directory, *parts, columns=None, times=None):
+    """Read an attribute table from the unified zarr store.
+
+    ``parts`` are joined with ``/`` to form the group path inside
+    ``<output_directory>/<configured zarr store name>``.
+    """
+    store = Path(output_directory) / get_zarr_store_name()
+    group = "/".join(str(p) for p in parts)
+    return read_attribute_zarr(store, group, columns=columns, times=times)

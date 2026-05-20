@@ -10,6 +10,11 @@ import thuner.attribute as attribute
 import thuner.parallel as parallel
 import thuner.utils as utils
 import thuner.config as config
+from pathlib import Path
+import os
+import xarray as xr
+from thuner.attribute.utils import read_attribute_zarr
+from thuner.config import get_zarr_store_name
 
 
 def test_cpol():
@@ -120,9 +125,12 @@ def test_cpol():
     # Recall that when setting up the options above, we instructed THUNER to keep a record of the IDs of
     # each member object (convective, middle and stratiform echoes) comprising each grouped
     # mcs object. Note that only the mcs and convective objects are matched between times.
-    filepath = output_parent / "attributes/mcs/group.csv"
     columns = ["convective_ids", "middle_ids", "anvil_ids"]
-    print(attribute.utils.read_attribute_csv(filepath, columns=columns).to_string())
+    print(
+        attribute.utils.read_attribute(
+            output_parent, "attributes", "mcs", "group", columns=columns
+        ).to_string()
+    )
     # We can also perform analysis on, and visualization of, the MCS objects.
     analysis_options = analyze.mcs.AnalysisOptions()
     analysis_options.to_yaml(options_directory / "analysis.yml")
@@ -223,6 +231,37 @@ def test_cpol():
     args = [output_parent, start, end, figure_options, "cpol"]
     args_dict = {"parallel_figure": False, "by_date": False, "num_processes": 1}
     visualize.attribute.series(*args, **args_dict)
+    # ## ZARR output layout
+    #
+    # THUNER outputs are stored in a single unified zarr store at the run root (`output.zarr` by default; configurable via `thuner.config.get_zarr_store_name`), with hierarchical groups for masks, attributes and filepath records. Attribute metadata is distributed across each group's dataset and variable `.attrs`. Each parallel-tracking interval worker writes its own store in `interval_{i}/`; the stitcher then relabels universal_ids and merges everything into the unified run-level store. The cell below verifies that layout end-to-end and exercises the analyze module against the zarr output.
+    store_path = output_parent / get_zarr_store_name()
+    assert store_path.exists(), "Unified zarr store was not created."
+    interval_dirs = sorted(output_parent.glob("interval_*"))
+    assert (
+        not interval_dirs
+    ), f"interval_* dirs should be cleaned up after stitching, found {interval_dirs}"
+    # Find one attribute group from each tracked object and confirm it round-trips.
+    leaf_groups = []
+    for root, dirs, files in os.walk(store_path / "attributes"):
+        if any((Path(root) / d / ".zarray").exists() for d in dirs):
+            rel = Path(root).relative_to(store_path).as_posix()
+            leaf_groups.append(rel)
+    assert leaf_groups, "No attribute groups written to zarr store."
+    print(f"Found {len(leaf_groups)} attribute groups.")
+    for g in leaf_groups:
+        df_g = read_attribute_zarr(store_path, g)
+        assert len(df_g) > 0, f"Attribute group {g} round-trips empty."
+    print("All attribute groups round-trip non-empty.")
+    # Confirm a mask group is non-empty.
+    mask_groups = [d for d in (store_path / "masks").iterdir() if d.is_dir()]
+    assert mask_groups, "No mask groups written to zarr store."
+    ds_mask = xr.open_zarr(store_path, group=f"masks/{mask_groups[0].name}")
+    print(f"masks/{mask_groups[0].name}:", dict(ds_mask.sizes))
+    # Confirm analysis outputs round-trip too.
+    for analysis_group in ["velocities", "quality", "classification"]:
+        df_a = read_attribute_zarr(store_path, f"analysis/{analysis_group}")
+        assert len(df_a) > 0, f"analysis/{analysis_group} round-trips empty."
+        print(f"analysis/{analysis_group}: {len(df_a)} rows, cols={list(df_a.columns)}")
 
 
 if __name__ == "__main__":

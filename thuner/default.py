@@ -11,6 +11,7 @@ import thuner.attribute.ellipse as ellipse
 import thuner.attribute.quality as quality
 import thuner.visualize.runtime as vis_runtime
 from thuner.utils import Retrieval, AttributeHandler
+from thuner.config import get_zarr_store_name
 
 
 __all__ = [
@@ -188,8 +189,10 @@ def build_velocity_handler(
     reverse=False,
 ):
     """Convenience function to build a velocity attribute handler."""
-    velocity_filepath = str(output_parent / "analysis/velocities.csv")
-    quality_filepath = str(output_parent / "analysis/quality.csv")
+    velocity_filepath = str(
+        output_parent / get_zarr_store_name() / "analysis/velocities"
+    )
+    quality_filepath = str(output_parent / get_zarr_store_name() / "analysis/quality")
     vis_func = "thuner.visualize.attribute.velocity_horizontal"
     vis_kwargs = {"color": color, "reverse": reverse}
     method = Retrieval(function=vis_func, keyword_arguments=vis_kwargs)
@@ -208,8 +211,10 @@ def build_horizontal_text_handler(
     output_parent, attributes, quality_variables, name="universal_id"
 ):
     """Convenience function to build a horizontal text attribute handler."""
-    velocity_filepath = str(output_parent / "analysis/velocities.csv")
-    quality_filepath = str(output_parent / "analysis/quality.csv")
+    velocity_filepath = str(
+        output_parent / get_zarr_store_name() / "analysis/velocities"
+    )
+    quality_filepath = str(output_parent / get_zarr_store_name() / "analysis/quality")
     vis_func = "thuner.visualize.attribute.text_horizontal"
     vis_kwargs = {"labelled_attribute": "universal_id"}
     method = Retrieval(function=vis_func, keyword_arguments=vis_kwargs)
@@ -230,8 +235,8 @@ def build_displacement_handler(
     reverse=False,
 ):
     """Convenience function to build a displacement attribute handler."""
-    group_filepath = str(output_parent / "attributes/mcs/group.csv")
-    quality_filepath = str(output_parent / "analysis/quality.csv")
+    group_filepath = str(output_parent / get_zarr_store_name() / "attributes/mcs/group")
+    quality_filepath = str(output_parent / get_zarr_store_name() / "analysis/quality")
     vis_func = "thuner.visualize.attribute.displacement_horizontal"
     vis_kwargs = {"color": color, "reverse": reverse}
     method = Retrieval(function=vis_func, keyword_arguments=vis_kwargs)
@@ -255,8 +260,10 @@ def build_orientation_handler(
     label="Major Axis",
 ):
     """Convenience function to build an orientation attribute handler."""
-    ellipse_filepath = str(output_parent / "attributes/mcs/convective/ellipse.csv")
-    quality_filepath = str(output_parent / "analysis/quality.csv")
+    ellipse_filepath = str(
+        output_parent / get_zarr_store_name() / "attributes/mcs/convective/ellipse"
+    )
+    quality_filepath = str(output_parent / get_zarr_store_name() / "analysis/quality")
     vis_func = "thuner.visualize.attribute.orientation_horizontal"
     method = Retrieval(function=vis_func)
     label = "Major Axis"

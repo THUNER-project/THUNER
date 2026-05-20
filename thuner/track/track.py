@@ -12,7 +12,7 @@ import thuner.group.group as group
 import thuner.visualize.runtime as runtime
 import thuner.visualize.visualize as visualize
 import thuner.match.match as match
-from thuner.config import get_outputs_directory
+from thuner.config import get_outputs_directory, get_zarr_store_name
 import thuner.utils as utils
 import thuner.write as write
 import thuner.attribute.attribute as attribute
@@ -72,13 +72,10 @@ def track(
         track_options, data_options, grid_options, visualize_options
     )
 
-    # Clear masks, attributes and records directories to prevent overwriting
-    if (output_directory / "masks").exists():
-        shutil.rmtree(output_directory / "masks")
-    if (output_directory / "attributes").exists():
-        shutil.rmtree(output_directory / "attributes")
-    if (output_directory / "records").exists():
-        shutil.rmtree(output_directory / "records")
+    # Clear the unified zarr store if it exists to prevent overwriting
+    store_path = output_directory / get_zarr_store_name()
+    if store_path.exists():
+        shutil.rmtree(store_path)
 
     # Initialize the paths to save xesmf regridder weights
     for dataset_options in data_options.datasets:
@@ -122,13 +119,8 @@ def track(
         current_time = next_time
 
     # Write final data to file
-    # write.mask.write_final(tracks, track_options, output_directory)
     write.attribute.write_final(tracks, track_options, output_directory)
     write.filepath.write_final(input_records.track, output_directory)
-    # Aggregate files previously written to file
-    # write.mask.aggregate(track_options, output_directory)
-    write.attribute.aggregate(track_options, output_directory)
-    write.filepath.aggregate(input_records.track, output_directory)
     # Animate the relevant figures
     visualize.animate_all(visualize_options, output_directory)
 
@@ -192,7 +184,6 @@ def track_object(
     object_tracks.next_time = next_time
 
     if object_options.mask_options.save:
-        # Write masks to zarr file
         write.mask.write(object_tracks, object_options, output_directory)
     # Write existing data to file if necessary
     if write.utils.write_interval_reached(next_time, object_tracks, object_options):

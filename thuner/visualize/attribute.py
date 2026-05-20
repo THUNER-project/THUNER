@@ -18,7 +18,7 @@ import thuner.visualize.horizontal as horizontal
 from thuner.utils import initialize_process, check_results
 from thuner.utils import format_time, new_angle, circular_mean
 from thuner.utils import BaseHandler, AttributeHandler
-from thuner.attribute.utils import read_attribute_csv
+from thuner.attribute.utils import read_attribute_zarr
 from thuner.analyze.utils import read_options
 import thuner.detect.detect as detect
 import thuner.visualize.utils as utils
@@ -26,13 +26,36 @@ import thuner.visualize.visualize as visualize
 from thuner.option.visualize import FigureOptions, GroupedHorizontalAttributeOptions
 from thuner.option.visualize import HorizontalAttributeOptions
 from thuner.log import setup_logger, logging_listener
-from thuner.config import get_outputs_directory
+from thuner.config import get_outputs_directory, get_zarr_store_name
 
 
 __all__ = ["series", "grouped_horizontal"]
 
 logger = setup_logger(__name__)
 proj = ccrs.PlateCarree()
+
+
+def _split_zarr_path(path):
+    """Split ``<store>/<store_name>/<group>`` into ``(store, group)``.
+
+    Accepts a Path or string referencing a group inside the unified zarr
+    store. Returns the store path as ``Path`` and the group as a posix-style
+    string.
+    """
+    store_name = get_zarr_store_name()
+    parts = Path(path).parts
+    if store_name not in parts:
+        raise ValueError(f"Path {path!r} is not inside a {store_name} store.")
+    i = parts.index(store_name)
+    store = Path(*parts[: i + 1])
+    group = "/".join(parts[i + 1 :])
+    return store, group
+
+
+def _read_zarr_attribute(path, **kwargs):
+    """Read an attribute table given a ``<store>/<store_name>/<group>`` path."""
+    store, group = _split_zarr_path(path)
+    return read_attribute_zarr(store, group, **kwargs)
 
 
 mcs_legend_options = {"ncol": 3, "loc": "lower center"}
@@ -89,8 +112,8 @@ def series(
     end_time = np.datetime64(end_time)
     options = read_options(output_directory)
     object_name = figure_options.object_name
-    masks_filepath = output_directory / f"masks/{object_name}.zarr"
-    masks = xr.open_dataset(masks_filepath, engine="zarr")
+    store_path = output_directory / get_zarr_store_name()
+    masks = xr.open_dataset(store_path, engine="zarr", group=f"masks/{object_name}")
     times = masks.time.values
     times = times[(times >= start_time) & (times <= end_time)]
 
@@ -210,8 +233,10 @@ def detected_horizontal(
     object_name = figure_options.object_name
 
     # Get filepaths dataframe
-    record_filepath = output_directory / f"records/filepaths/{dataset_name}.csv"
-    filepaths_df = read_attribute_csv(record_filepath, columns=[dataset_name])
+    store_path = output_directory / get_zarr_store_name()
+    filepaths_df = read_attribute_zarr(
+        store_path, f"records/filepaths/{dataset_name}", columns=[dataset_name]
+    )
 
     # Setup colors
     color_angle_df = get_color_angle_df(object_name, output_directory)
@@ -242,7 +267,9 @@ def detected_horizontal(
     kwargs.update({"attribute_handlers": attribute_handlers})
     kwargs.update({"figure": fig, "subplot_axes": subplot_axes})
     kwargs.update({"colorbar_axes": colorbar_axes, "legend_axes": legend_axes})
-    core_filepath = output_directory / f"attributes/{obj_name}/core.csv"
+    core_filepath = (
+        output_directory / get_zarr_store_name() / "attributes" / obj_name / "core"
+    )
     kwargs["core_filepath"] = str(core_filepath)
     detected_figure = BaseFigure(**kwargs)
     # Remove duplicate mask and grid from memory after generating the figure
@@ -276,8 +303,10 @@ def grouped_horizontal(
     figure_options = GroupedHorizontalAttributeOptions(**figure_options_dict)
 
     # Get filepaths dataframe
-    record_filepath = output_directory / f"records/filepaths/{dataset_name}.csv"
-    filepaths_df = read_attribute_csv(record_filepath, columns=[dataset_name])
+    store_path = output_directory / get_zarr_store_name()
+    filepaths_df = read_attribute_zarr(
+        store_path, f"records/filepaths/{dataset_name}", columns=[dataset_name]
+    )
     obj_name = figure_options.object_name
 
     # Setup colors
@@ -317,10 +346,12 @@ def grouped_horizontal(
     kwargs.update({"member_objects": member_objects})
     kwargs.update({"figure": fig, "subplot_axes": subplot_axes})
     kwargs.update({"colorbar_axes": colorbar_axes, "legend_axes": legend_axes})
-    core_filepath = output_directory / f"attributes/{obj_name}/core.csv"
+    core_filepath = (
+        output_directory / get_zarr_store_name() / "attributes" / obj_name / "core"
+    )
     kwargs["core_filepath"] = str(core_filepath)
-    base_directory = output_directory / f"attributes/{obj_name}/"
-    filepaths_list = [str(base_directory / f"{obj}/core.csv") for obj in member_objects]
+    base_directory = output_directory / get_zarr_store_name() / "attributes" / obj_name
+    filepaths_list = [str(base_directory / obj / "core") for obj in member_objects]
     kwargs["member_core_filepaths"] = dict(zip(member_objects, filepaths_list))
     grouped_figure = GroupedObjectFigure(**kwargs)
     # Remove duplicate mask and grid from memory after generating the figure
@@ -345,9 +376,9 @@ def add_attribute(
     """Add an attribute to the figure for a given object."""
     # Get attribute df
     attribute_artists[object_name][handler.name] = {}
-    attribute_df = read_attribute_csv(handler.filepath, times=[time])
+    attribute_df = _read_zarr_attribute(handler.filepath, times=[time])
     kwargs = {"times": [time], "columns": handler.quality_variables}
-    quality_df = read_attribute_csv(handler.quality_filepath, **kwargs)
+    quality_df = _read_zarr_attribute(handler.quality_filepath, **kwargs)
     if handler.quality_method == "all":
         quality_df = quality_df.all(axis=1)
     elif handler.quality_method == "any":
@@ -365,7 +396,7 @@ def add_attribute(
         core_filepath = figure.member_core_filepaths[object_name]
     elif hasattr(figure, "core_filepath"):
         core_filepath = figure.core_filepath
-    core_df = read_attribute_csv(core_filepath, times=[time])
+    core_df = _read_zarr_attribute(core_filepath, times=[time])
     # Join the core attributes with the attribute df
     # Prepend column names with handler name if necessary
     for col in core_df.columns:
@@ -626,8 +657,10 @@ def get_color_angle_df(object_name, output_parent, filepath=None):
     The color angle is calculated to reflect object splits/merges.
     """
     if filepath is None:
-        filepath = output_parent / f"attributes/{object_name}/core.csv"
-    df = read_attribute_csv(filepath, columns=["parents", "area"])
+        filepath = (
+            output_parent / get_zarr_store_name() / "attributes" / object_name / "core"
+        )
+    df = _read_zarr_attribute(filepath, columns=["parents", "area"])
     color_dict = {"time": [], "universal_id": [], "color_angle": []}
     times = sorted(np.unique(df.reset_index().time))
     previous_time = None

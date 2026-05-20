@@ -6,7 +6,7 @@ import glob
 import numpy as np
 import thuner.option as option
 import thuner.attribute.core as core
-from thuner.attribute.utils import read_attribute_csv
+from thuner.attribute.utils import read_attribute
 from thuner.option.attribute import Attribute, AttributeType
 import thuner.write as write
 import pandas as pd
@@ -42,25 +42,27 @@ def quality_control(
         analysis_directory = output_directory / "analysis"
 
     # Determine if the system is sufficiently contained within the domain
-    filepath = output_directory / f"attributes/{object_name}/quality.csv"
-    quality = read_attribute_csv(filepath)
+    quality = read_attribute(output_directory, "attributes", object_name, "quality")
 
     max_boundary_overlap = analysis_options.max_boundary_overlap
     quality = quality.rename(columns={"boundary_overlap": "contained"})
     overlap_check = quality["contained"] <= max_boundary_overlap
 
-    # Check if velocity/shear vectors are sufficiently large
-    filepath = analysis_directory / "velocities.csv"
-    velocities = read_attribute_csv(filepath)
+    # Check if velocity/shear vectors are sufficiently large.
+    # Analysis outputs follow the same format as the parent run.
+    velocities = read_attribute(output_directory, "analysis", "velocities")
     velocity_magnitude = velocities[["u", "v"]].pow(2).sum(axis=1).pow(0.5)
     velocity_check = velocity_magnitude >= analysis_options.min_velocity
     velocity_check.name = "velocity"
 
     # Check system area is of appropriate size, treating the system area as the maximum
     # area of the member objects
-    filepath = output_directory / f"attributes/{object_name}/core.csv"
-    parents = read_attribute_csv(filepath, columns=["parents"])
-    area = read_attribute_csv(filepath, columns=["area"])
+    parents = read_attribute(
+        output_directory, "attributes", object_name, "core", columns=["parents"]
+    )
+    area = read_attribute(
+        output_directory, "attributes", object_name, "core", columns=["area"]
+    )
     area = area.rename(columns={"area": f"{object_name}_area"})
 
     min_area, max_area = analysis_options.min_area, analysis_options.max_area
@@ -107,8 +109,13 @@ def quality_control(
     children_check = children_check.set_index(velocities.index.names)
 
     # Check the linearity of the system
-    filepath = output_directory / f"attributes/{object_name}/ellipse.csv"
-    ellipse = read_attribute_csv(filepath, columns=["major", "minor"])
+    ellipse = read_attribute(
+        output_directory,
+        "attributes",
+        object_name,
+        "ellipse",
+        columns=["major", "minor"],
+    )
     major_check = ellipse["major"] >= analysis_options.min_major_axis_length
     major_check.name = "major_axis"
     axis_ratio = ellipse["major"] / ellipse["minor"]
@@ -140,17 +147,28 @@ def quality_control(
     attributes.append(core.time())
     attributes.append(core.record_universal_id())
     attribute_type = AttributeType(name="quality", attributes=attributes)
-    filepath = analysis_directory / "quality.csv"
     quality = [overlap_check, initially_contained, velocity_check, area_check]
     quality += [major_check, axis_ratio_check, duration_check]
     quality += [parents_check, children_check]
     quality = pd.concat(quality, axis=1)
-    quality = write.attribute.write_csv(filepath, quality, attribute_type)
+    quality = write.attribute.write_attribute(
+        output_directory,
+        "analysis",
+        "quality",
+        df=quality,
+        attribute_type=attribute_type,
+    )
 
 
-def smooth_flow_velocities(filepath, output_directory, window_size=6):
-    """Smooth the flow velocities."""
-    velocities = read_attribute_csv(filepath, columns=["u_flow", "v_flow"])
+def smooth_flow_velocities(object_name, output_directory, window_size=6):
+    """Smooth the flow velocities for ``object_name`` from the unified zarr store."""
+    velocities = read_attribute(
+        output_directory,
+        "attributes",
+        object_name,
+        "core",
+        columns=["u_flow", "v_flow"],
+    )
 
     velocities = temporal_smooth(velocities, window_size=window_size)
     velocities = velocities.rename(columns={"u_flow": "u", "v_flow": "v"})
@@ -174,8 +192,13 @@ def smooth_flow_velocities(filepath, output_directory, window_size=6):
     attributes.append(core.time())
     attributes.append(core.record_universal_id())
     attribute_type = AttributeType(name="velocities", attributes=attributes)
-    filepath = analysis_directory / "velocities.csv"
-    write.attribute.write_csv(filepath, velocities, attribute_type)
+    write.attribute.write_attribute(
+        output_directory,
+        "analysis",
+        "velocities",
+        df=velocities,
+        attribute_type=attribute_type,
+    )
 
 
 def get_angle(u1, v1, u2, v2):

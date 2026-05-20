@@ -6,7 +6,14 @@ import os
 import json
 from pathlib import Path
 
-__all__ = ["set_outputs_directory", "get_outputs_directory"]
+__all__ = [
+    "set_outputs_directory",
+    "get_outputs_directory",
+    "get_zarr_store_name",
+]
+
+
+DEFAULT_ZARR_STORE_NAME = "output.zarr"
 
 
 def create_user_config(output_directory=Path.home() / "THUNER_output"):
@@ -18,7 +25,12 @@ def create_user_config(output_directory=Path.home() / "THUNER_output"):
     config_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Create a new config.json with initial settings
-    write_config({"outputs_directory": str(output_directory)})
+    write_config(
+        {
+            "outputs_directory": str(output_directory),
+            "zarr_store_name": DEFAULT_ZARR_STORE_NAME,
+        }
+    )
 
     return str(config_path)
 
@@ -82,3 +94,13 @@ def get_outputs_directory():
         message = f"{config_path} not found. Ensure write_config has been run first."
         raise FileNotFoundError(message)
     return Path(config["outputs_directory"])
+
+
+def get_zarr_store_name():
+    """Return the configured name for the per-run unified zarr store."""
+    try:
+        config_path = get_config_path()
+        config = read_config(config_path)
+    except FileNotFoundError:
+        return DEFAULT_ZARR_STORE_NAME
+    return config.get("zarr_store_name", DEFAULT_ZARR_STORE_NAME)

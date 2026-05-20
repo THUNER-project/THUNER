@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from pydantic import Field
-from thuner.attribute.utils import read_attribute_csv
+from thuner.attribute.utils import read_attribute
 import thuner.analyze.utils as utils
 import thuner.write as write
 import thuner.attribute.core as core
@@ -54,15 +54,21 @@ def process_velocities(
     convective_options = options["track"].levels[0].object_by_name(convective_label)
     altitudes = convective_options.detection.altitudes
 
-    filepath = output_directory / "attributes/mcs/core.csv"
-    velocities = read_attribute_csv(filepath, columns=["u_flow", "v_flow"])
+    velocities = read_attribute(
+        output_directory, "attributes", "mcs", "core", columns=["u_flow", "v_flow"]
+    )
 
     velocities = utils.temporal_smooth(velocities, window_size=window_size)
     velocities = velocities.rename(columns={"u_flow": "u", "v_flow": "v"})
 
     if profile_dataset is not None:
-        filepath = output_directory / f"attributes/mcs/{profile_dataset}_profile.csv"
-        winds = read_attribute_csv(filepath, columns=["u", "v"])
+        winds = read_attribute(
+            output_directory,
+            "attributes",
+            "mcs",
+            f"{profile_dataset}_profile",
+            columns=["u", "v"],
+        )
         winds = winds.xs(0, level="time_offset").sort_index()
 
         indexer = pd.IndexSlice[:, :, altitudes[0] : altitudes[1]]
@@ -122,8 +128,13 @@ def process_velocities(
     attributes.append(core.time())
     attributes.append(core.record_universal_id())
     attribute_type = AttributeType(name="velocities", attributes=attributes)
-    filepath = analysis_directory / "velocities.csv"
-    all_velocities = write.attribute.write_csv(filepath, all_velocities, attribute_type)
+    all_velocities = write.attribute.write_attribute(
+        output_directory,
+        "analysis",
+        "velocities",
+        df=all_velocities,
+        attribute_type=attribute_type,
+    )
 
 
 _summary = {
@@ -197,12 +208,15 @@ def quality_control(
     anvil_label = member_objects[1]
 
     # Determine if the system is sufficiently contained within the domain
-    filepath = output_directory / f"attributes/mcs/{convective_label}/quality.csv"
-    convective = read_attribute_csv(filepath)
-    filepath = output_directory / f"attributes/mcs/{anvil_label}/quality.csv"
-    anvil = read_attribute_csv(filepath)
-    filepath = output_directory / "attributes/mcs/core.csv"
-    mcs = read_attribute_csv(filepath, columns=["parents"])
+    convective = read_attribute(
+        output_directory, "attributes", "mcs", convective_label, "quality"
+    )
+    anvil = read_attribute(
+        output_directory, "attributes", "mcs", anvil_label, "quality"
+    )
+    mcs = read_attribute(
+        output_directory, "attributes", "mcs", "core", columns=["parents"]
+    )
     max_boundary_overlap = analysis_options.max_boundary_overlap
     convective = convective.rename(columns={"boundary_overlap": "convective_contained"})
     anvil = anvil.rename(columns={"boundary_overlap": "anvil_contained"})
@@ -210,8 +224,7 @@ def quality_control(
     anvil_check = anvil["anvil_contained"] < max_boundary_overlap
 
     # Check if velocity/shear vectors are sufficiently large
-    filepath = analysis_directory / "velocities.csv"
-    velocities = read_attribute_csv(filepath)
+    velocities = read_attribute(output_directory, "analysis", "velocities")
     velocity_magnitude = velocities[["u", "v"]].pow(2).sum(axis=1).pow(0.5)
     velocity_check = velocity_magnitude >= analysis_options.min_velocity
     velocity_check.name = "velocity"
@@ -229,8 +242,9 @@ def quality_control(
     # area of the member objects
     all_areas = []
     for obj in member_objects:
-        filepath = output_directory / f"attributes/mcs/{obj}/core.csv"
-        area = read_attribute_csv(filepath, columns=["area"])
+        area = read_attribute(
+            output_directory, "attributes", "mcs", obj, "core", columns=["area"]
+        )
         area = area.rename(columns={"area": f"{obj}_area"})
         all_areas.append(area)
     area = pd.concat(all_areas, axis=1).max(axis=1)
@@ -239,8 +253,9 @@ def quality_control(
     area_check.name = "area"
 
     # Check the stratiform offset is sufficiently large
-    filepath = output_directory / f"attributes/mcs/group.csv"
-    offset = read_attribute_csv(filepath, columns=["x_offset", "y_offset"])
+    offset = read_attribute(
+        output_directory, "attributes", "mcs", "group", columns=["x_offset", "y_offset"]
+    )
     offset_magnitude = offset.pow(2).sum(axis=1).pow(0.5)
     offset_check = offset_magnitude >= analysis_options.min_offset
     offset_check.name = "offset"
@@ -286,8 +301,14 @@ def quality_control(
     children_check = children_check.set_index(velocities.index.names)
 
     # Check the linearity of the system
-    filepath = output_directory / f"attributes/mcs/{convective_label}/ellipse.csv"
-    ellipse = read_attribute_csv(filepath, columns=["major", "minor"])
+    ellipse = read_attribute(
+        output_directory,
+        "attributes",
+        "mcs",
+        convective_label,
+        "ellipse",
+        columns=["major", "minor"],
+    )
     major_check = ellipse["major"] >= analysis_options.min_major_axis_length
     major_check.name = "major_axis"
     axis_ratio = ellipse["major"] / ellipse["minor"]
@@ -329,14 +350,19 @@ def quality_control(
     attributes.append(core.time())
     attributes.append(core.record_universal_id())
     attribute_type = AttributeType(name="quality", attributes=attributes)
-    filepath = analysis_directory / "quality.csv"
     quality = [convective_check, anvil_check, initial_check, velocity_check, area_check]
     quality += [offset_check, major_check, axis_ratio_check, duration_check]
     quality += [parents_check, children_check]
     if "u_shear" in velocities.columns:
         quality += [shear_check, relative_velocity_check]
     quality = pd.concat(quality, axis=1)
-    quality = write.attribute.write_csv(filepath, quality, attribute_type)
+    quality = write.attribute.write_attribute(
+        output_directory,
+        "analysis",
+        "quality",
+        df=quality,
+        attribute_type=attribute_type,
+    )
 
 
 ambiguity_quality_dispatcher = {
@@ -377,14 +403,23 @@ def classify_all(
         analysis_directory = output_directory / "analysis"
 
     if velocities_filepath is None:
-        velocities_filepath = analysis_directory / "velocities.csv"
-    velocities = read_attribute_csv(velocities_filepath)
+        velocities = read_attribute(output_directory, "analysis", "velocities")
+    else:
+        velocities = read_attribute(velocities_filepath)
     if offset_filepath is None:
-        offset_filepath = output_directory / "attributes/mcs/group.csv"
-    offset = read_attribute_csv(offset_filepath, columns=["x_offset", "y_offset"])
+        offset = read_attribute(
+            output_directory,
+            "attributes",
+            "mcs",
+            "group",
+            columns=["x_offset", "y_offset"],
+        )
+    else:
+        offset = read_attribute(offset_filepath, columns=["x_offset", "y_offset"])
     if quality_filepath is None:
-        quality_filepath = analysis_directory / "quality.csv"
-    quality = read_attribute_csv(quality_filepath)
+        quality = read_attribute(output_directory, "analysis", "quality")
+    else:
+        quality = read_attribute(quality_filepath)
 
     u, v = velocities["u"], velocities["v"]
 
@@ -453,9 +488,13 @@ def classify_all(
         all_classifications.append(classified)
 
     classifications = pd.concat(all_classifications, axis=1)
-    filepath = analysis_directory / "classification.csv"
-    args = [filepath, classifications, attribute_type]
-    classifications = write.attribute.write_csv(*args)
+    classifications = write.attribute.write_attribute(
+        output_directory,
+        "analysis",
+        "classification",
+        df=classifications,
+        attribute_type=attribute_type,
+    )
 
 
 def classify_angles(name, angles, category_labels):

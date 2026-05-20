@@ -6,6 +6,11 @@ import thuner.default as default
 import thuner.track.track as track
 import thuner.option as option
 import thuner.data.synthetic as synthetic
+from pathlib import Path
+import os
+import xarray as xr
+from thuner.attribute.utils import read_attribute_zarr
+from thuner.config import get_zarr_store_name
 
 
 def test_synthetic():
@@ -87,6 +92,35 @@ def test_synthetic():
     )
     args = [times, data_options, grid_options, track_options, visualize_options]
     track.track(*args, output_directory=output_parent)
+    # ## ZARR output layout
+    #
+    # THUNER consolidates all outputs into a single unified zarr store at the run root (`output.zarr` by default; configurable via `thuner.config.get_zarr_store_name`), with hierarchical groups for masks, attributes and filepath records. Attribute metadata is distributed across each group's dataset and variable `.attrs`. Below we verify the layout produced by the most recent (cartesian) run.
+    store_path = output_parent / get_zarr_store_name()
+    assert store_path.exists(), "Unified zarr store was not created."
+    # Find one attribute group and confirm it round-trips.
+    leaf_groups = []
+    for root, dirs, files in os.walk(store_path / "attributes"):
+        if any((Path(root) / d / ".zarray").exists() for d in dirs):
+            rel = Path(root).relative_to(store_path).as_posix()
+            leaf_groups.append(rel)
+    assert leaf_groups, "No attribute groups written to zarr store."
+    print(f"Found {len(leaf_groups)} attribute groups, e.g. {leaf_groups[0]}")
+    df = read_attribute_zarr(store_path, leaf_groups[0])
+    assert len(df) > 0, "Round-tripped attribute DataFrame is empty."
+    print(df.head())
+    # Confirm a mask group is non-empty.
+    mask_groups = [d for d in (store_path / "masks").iterdir() if d.is_dir()]
+    assert mask_groups, "No mask groups written to zarr store."
+    ds = xr.open_zarr(store_path, group=f"masks/{mask_groups[0].name}")
+    assert ds.sizes.get("time", 0) > 0, "Mask zarr group has no time dimension."
+    print(f"masks/{mask_groups[0].name}:", dict(ds.sizes))
+    # Confirm per-variable metadata is distributed (no giant JSON at root).
+    sample = xr.open_zarr(store_path, group=leaf_groups[0])
+    assert (
+        "attribute_type" not in sample.attrs
+    ), "Legacy giant-JSON metadata blob should no longer be present."
+    has_var_attrs = any(sample[v].attrs.get("data_type") for v in sample.variables)
+    assert has_var_attrs, "Expected distributed per-variable metadata."
 
 
 if __name__ == "__main__":

@@ -58,14 +58,13 @@ def test_himawari():
     times = utils.generate_times(data_options.dataset_by_name("himawari").filepaths)
     args = [times, data_options, grid_options, track_options]
     parallel.track(
-        *args, output_directory=output_parent, dataset_name="himawari", num_processes=3
+        *args, output_directory=output_parent, dataset_name="himawari", num_processes=2
     )
     # track.track(*args, output_directory=output_parent)
     # ## Analyze/Visualize
     analysis_options = analyze.mcs.AnalysisOptions()
     analysis_options.to_yaml(options_directory / "analysis.yml")
-    core_filepath = output_parent / "attributes/anvil/core.csv"
-    analyze.utils.smooth_flow_velocities(core_filepath, output_parent)
+    analyze.utils.smooth_flow_velocities("anvil", output_parent)
     analyze.utils.quality_control("anvil", output_parent, analysis_options)
     style = "presentation"
     attribute_handlers = default.detected_attribute_handlers(output_parent, style)

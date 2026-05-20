@@ -379,7 +379,7 @@ class AttributeHandler(BaseHandler):
     label: str = Field(..., description=_desc)
     _desc = "The names of the attributes to be visualized."
     attributes: list[str] = Field(..., description=_desc)
-    _desc = "The filepath to the attribute file, i.e. an attribute type csv file."
+    _desc = "Path to the attribute table inside the unified zarr store."
     filepath: str = Field(..., description=_desc)
     _desc = "The method used to visualize the attributes."
     method: Retrieval = Field(..., description=_desc)

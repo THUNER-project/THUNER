@@ -5,7 +5,6 @@ import gc
 import os
 import multiprocessing as mp
 import time
-import glob
 from pathlib import Path
 import pandas as pd
 import numpy as np
@@ -18,6 +17,7 @@ import thuner.data as data
 import thuner.track.track as thuner_track
 import thuner.option as option
 import thuner.utils as utils
+from thuner.config import get_zarr_store_name
 
 logger = setup_logger(__name__)
 
@@ -205,23 +205,6 @@ def get_time_intervals(times, num_processes):
     return intervals, num_processes
 
 
-def get_filepath_dicts(output_parent, intervals):
-    """Get the filepaths for all csv and mask files."""
-    csv_file_dict, mask_file_dict, record_file_dict, weights_file_dict = {}, {}, {}, {}
-    for i in range(len(intervals)):
-        csv_filepath = output_parent / f"interval_{i}/attributes/**/*.csv"
-        csv_file_dict[i] = sorted(glob.glob(str(csv_filepath), recursive=True))
-        mask_filepath = output_parent / f"interval_{i}/**/*.zarr"
-        mask_file_dict[i] = sorted(glob.glob(str(mask_filepath), recursive=True))
-        record_filepath = output_parent / f"interval_{i}/records/**/*.csv"
-        record_file_dict[i] = sorted(glob.glob(str(record_filepath), recursive=True))
-    if len(np.unique([len(l) for l in csv_file_dict.values()])) != 1:
-        raise ValueError("Different number of csv files output for each interval")
-    if len(np.unique([len(l) for l in mask_file_dict.values()])) != 1:
-        raise ValueError("Different number of mask files output for each interval")
-    return csv_file_dict, mask_file_dict, record_file_dict
-
-
 def match_dataarray(da_1, da_2):
     """Match the objects of two mask DataArrays."""
     matching_ids = {}
@@ -275,109 +258,6 @@ def get_tracked_objects(track_options):
     return tracked_objects, all_objects
 
 
-def get_match_dicts(intervals, mask_file_dict, tracked_objects):
-    """Get the match dictionaries for each interval."""
-    match_dicts = {}
-    time_dicts = {}
-    for i in range(len(intervals) - 1):
-        filepaths_1 = mask_file_dict[i]
-        filepaths_2 = mask_file_dict[i + 1]
-        objects_1 = [Path(filepath).stem for filepath in filepaths_1]
-        objects_2 = [Path(filepath).stem for filepath in filepaths_2]
-
-        if objects_1 != objects_2:
-            raise ValueError("Different objects in each filepath list.")
-        interval_match_dicts = {}
-        interval_time_dicts = {}
-
-        for j, obj in enumerate(objects_1):
-            ds_2 = xr.open_mfdataset(filepaths_2[j], chunks={}, engine="zarr")
-            ds_2 = ds_2.isel(time=0)
-            ds_2 = ds_2.load()
-            time = ds_2["time"].values
-            interval_time_dicts[obj] = time
-            ds_1 = xr.open_mfdataset(filepaths_1[j], chunks={}, engine="zarr")
-            if time not in ds_1.time:
-                if obj not in tracked_objects:
-                    interval_match_dicts[obj] = None
-                else:
-                    # Set the interval match dict to empty dict
-                    interval_match_dicts[obj] = {}
-                continue
-            ds_1 = ds_1.sel(time=time)
-            ds_1 = ds_1.load()
-            time = ds_1["time"].values
-            if obj not in tracked_objects:
-                interval_match_dicts[obj] = None
-            else:
-                interval_match_dicts[obj] = match_dataset(ds_1, ds_2)
-
-        match_dicts[i] = interval_match_dicts
-        time_dicts[i] = interval_time_dicts
-    return match_dicts, time_dicts
-
-
-def stitch_records(record_file_dict, intervals):
-    """Stitch together all record files."""
-    logger.info("Stitching record files.")
-    for i in range(len(record_file_dict[0])):
-        filepaths = [record_file_dict[j][i] for j in range(len(intervals))]
-        dfs = [attribute.utils.read_attribute_csv(filepath) for filepath in filepaths]
-        metadata_path = Path(filepaths[0]).with_suffix(".yml")
-        attribute_dict = attribute.utils.read_metadata_yml(metadata_path)
-        filepath = Path(filepaths[0])
-        filepath = Path(*[part for part in filepath.parts if part != "interval_0"])
-        filepath.parent.mkdir(parents=True, exist_ok=True)
-        df = pd.concat(dfs).sort_index().drop_duplicates()
-        write.attribute.write_csv(filepath, df, attribute_dict)
-
-
-def stitch_run(output_parent, intervals, cleanup=True):
-    """Stitch together all attribute files for a given run."""
-    logger.info("Stitching all attribute, mask and record files.")
-    options = analyze.utils.read_options(output_parent / "interval_0")
-    track_options = options["track"]
-    tracked_objects = get_tracked_objects(track_options)[0]
-    all_file_dicts = get_filepath_dicts(output_parent, intervals)
-    csv_file_dict, mask_file_dict, record_file_dict = all_file_dicts
-    args = [intervals, mask_file_dict, tracked_objects]
-    match_dicts, time_dicts = get_match_dicts(*args)
-    number_attributes = len(csv_file_dict[0])
-    stitch_records(record_file_dict, intervals)
-
-    # Copy the regridder weights folder from interval_0 to the output parent
-    weights_path_0 = output_parent / "interval_0" / "records" / "regridder_weights"
-    weights_path = output_parent / "records" / "regridder_weights"
-    if weights_path_0.exists():
-        shutil.copytree(weights_path_0, weights_path, dirs_exist_ok=True)
-
-    id_dicts = {}
-    logger.info("Stitching attribute files.")
-    for i in range(number_attributes):
-        filepaths = [csv_file_dict[j][i] for j in range(len(intervals))]
-        dfs = [attribute.utils.read_attribute_csv(filepath) for filepath in filepaths]
-        metadata_path = Path(filepaths[0]).with_suffix(".yml")
-        attribute_dict = attribute.utils.read_metadata_yml(metadata_path)
-        example_filepath = Path(filepaths[0])
-        attributes_index = example_filepath.parts.index("attributes")
-        obj = example_filepath.parts[attributes_index + 1]
-        attribute_type = example_filepath.stem
-        if Path(example_filepath.parts[attributes_index + 2]).stem == attribute_type:
-            member_object = False
-        else:
-            member_object = True
-        args = [dfs, obj, filepaths, attribute_dict, match_dicts, time_dicts, id_dicts]
-        args += [intervals, tracked_objects]
-        id_dict = stitch_attribute(*args)
-        if not member_object and obj in tracked_objects:
-            id_dicts[obj] = id_dict
-    stitch_masks(mask_file_dict, intervals, id_dicts)
-    # Remove all interval directories
-    if cleanup:
-        for i in range(len(intervals)):
-            shutil.rmtree(Path(output_parent / f"interval_{i}"))
-
-
 def apply_mapping(mapping, mask):
     """Apply mapping to mask."""
     new_mask = mask.copy()
@@ -398,52 +278,6 @@ def get_mapping(id_dicts, obj, interval):
     return mapping
 
 
-def stitch_mask(intervals, masks, id_dicts, filepaths, obj):
-    """Stitch together mask files for a given object."""
-    new_masks = []
-    for i in range(len(intervals)):
-        mask = masks[i]
-        mapping = get_mapping(id_dicts, obj, i)
-        new_mask = apply_mapping(mapping, mask)
-        if i > 0:
-            time = masks[i - 1].time[-1].values
-            if time not in np.array(masks[i].time.values):
-                message = "Time intervals have produced non-overlapping time domains "
-                message += "for masks. This can occur due to missing files at the "
-                message += " overlap time."
-                logger.warning(message)
-            else:
-                # Slice new mask, exluding times contained in the previous interval
-                # Note the actual "slice" function doesn't work with high precision
-                # datetime indexes! Use boolean indexing on time dimension instead
-                condition = new_mask.time.values > time
-                new_mask = new_mask.sel(time=condition)
-        new_masks.append(new_mask)
-    mask = xr.concat(new_masks, dim="time")
-    mask = mask.astype(np.uint32)
-    coords = [c for c in mask.coords if c in ["x", "y", "latitude", "longitude"]]
-    for coord in coords:
-        mask.coords[coord] = mask.coords[coord].astype(np.float32)
-    filepath = Path(filepaths[0])
-    filepath = Path(*[part for part in filepath.parts if part != "interval_0"])
-    filepath.parent.mkdir(parents=True, exist_ok=True)
-    mask.to_zarr(filepath, mode="w")
-
-
-def stitch_masks(mask_file_dict, intervals, id_dicts):
-    """Stitch together all mask files."""
-    logger.info("Stitching mask files.")
-    # Loop over all objects
-    for k in range(len(mask_file_dict[0])):
-        filepaths = [mask_file_dict[j][k] for j in range(len(intervals))]
-        example_filepath = filepaths[0]
-        kwargs = {"chunks": {"time": 1}, "engine": "zarr"}
-        masks = [xr.open_dataset(filepath, **kwargs) for filepath in filepaths]
-        obj = Path(example_filepath).stem
-        # Stitch together masks for that object
-        stitch_mask(intervals, masks, id_dicts, filepaths, obj)
-
-
 def relabel_id_string(i, df, column_name, id_dicts, mapping=None, object_name=None):
     """Relabel the ids in a space seperated string."""
     row = df.iloc[i]
@@ -461,10 +295,9 @@ def relabel_id_string(i, df, column_name, id_dicts, mapping=None, object_name=No
     df.at[i, column_name] = new_obj_ids
 
 
-def stitch_attribute(
+def _relabel_attribute_dfs(
     dfs,
     obj,
-    filepaths,
     attribute_dict,
     match_dicts,
     time_dicts,
@@ -472,7 +305,16 @@ def stitch_attribute(
     intervals,
     tracked_objects,
 ):
-    """Stitch together attribute files."""
+    """Relabel ids across per-interval attribute dfs and concatenate.
+
+    Pure DataFrame manipulation — does not touch disk. Used by both the CSV
+    and zarr stitching paths.
+
+    Returns
+    -------
+    (df, id_dict): concatenated/relabeled DataFrame and the per-interval
+        old-id → new-id lookup table for this object.
+    """
     new_dfs = []
     current_max_id = 0
 
@@ -539,12 +381,7 @@ def stitch_attribute(
 
     df = df.set_index(index_columns).sort_index()
     df = df.drop(["original_id", "interval"], axis=1)
-
-    filepath = Path(filepaths[0])
-    filepath = Path(*[part for part in filepath.parts if part != "interval_0"])
-    filepath.parent.mkdir(parents=True, exist_ok=True)
-    write.attribute.write_csv(filepath, df, attribute_dict)
-    return id_dict
+    return df, id_dict
 
 
 def relabel_tracked(intervals, match_dicts, obj, df):
@@ -576,6 +413,246 @@ def relabel_tracked(intervals, match_dicts, obj, df):
             df = relabel_parents(*args)
 
     return df
+
+
+def _interval_store(output_parent, i):
+    """Return the path to the zarr store for parallel interval ``i``."""
+    return Path(output_parent) / f"interval_{i}" / get_zarr_store_name()
+
+
+def _run_store(output_parent):
+    """Return the path to the unified zarr store at the run root."""
+    return Path(output_parent) / get_zarr_store_name()
+
+
+def _is_leaf_zarr_group(path: Path) -> bool:
+    """A leaf zarr group has children that are arrays (.zarray), not groups."""
+    if not path.is_dir():
+        return False
+    for child in path.iterdir():
+        if child.is_dir() and (child / ".zarray").exists():
+            return True
+    return False
+
+
+def list_leaf_groups(store_path: Path, parent_relpath: str):
+    """Yield posix-style relpaths of leaf groups under parent_relpath."""
+    root = Path(store_path) / parent_relpath
+    if not root.exists():
+        return
+    for path in sorted(root.rglob("*")):
+        if path.is_dir() and _is_leaf_zarr_group(path):
+            yield path.relative_to(store_path).as_posix()
+
+
+def get_group_dicts(output_parent, intervals):
+    """Discover zarr groups in each interval's unified zarr store.
+
+    Returns three dicts (attribute, mask, record) keyed by interval index.
+    Each value is a sorted list of group paths (relative to that interval's
+    store) so they line up across intervals.
+    """
+    attr_dict, mask_dict, record_dict = {}, {}, {}
+    for i in range(len(intervals)):
+        store = _interval_store(output_parent, i)
+        attr_dict[i] = sorted(list_leaf_groups(store, "attributes"))
+        mask_dict[i] = sorted(list_leaf_groups(store, "masks"))
+        record_dict[i] = sorted(list_leaf_groups(store, "records"))
+    if len(np.unique([len(l) for l in attr_dict.values()])) != 1:
+        raise ValueError("Different number of attribute groups for each interval")
+    if len(np.unique([len(l) for l in mask_dict.values()])) != 1:
+        raise ValueError("Different number of mask groups for each interval")
+    return attr_dict, mask_dict, record_dict
+
+
+def get_match_dicts(output_parent, intervals, mask_group_dict, tracked_objects):
+    """Build per-interval id-match dicts from per-interval zarr stores."""
+    match_dicts, time_dicts = {}, {}
+    for i in range(len(intervals) - 1):
+        groups_1 = mask_group_dict[i]
+        groups_2 = mask_group_dict[i + 1]
+        # Group is "masks/<obj>"; extract obj from the last component
+        objects_1 = [g.rsplit("/", 1)[-1] for g in groups_1]
+        objects_2 = [g.rsplit("/", 1)[-1] for g in groups_2]
+        if objects_1 != objects_2:
+            raise ValueError("Different objects in each interval's mask groups.")
+        store_1 = _interval_store(output_parent, i)
+        store_2 = _interval_store(output_parent, i + 1)
+
+        interval_match_dicts, interval_time_dicts = {}, {}
+        for j, obj in enumerate(objects_1):
+            kwargs = {"engine": "zarr", "chunks": {}}
+            ds_2 = xr.open_dataset(store_2, group=groups_2[j], **kwargs)
+            ds_2 = ds_2.isel(time=0).load()
+            time = ds_2["time"].values
+            interval_time_dicts[obj] = time
+            ds_1 = xr.open_dataset(store_1, group=groups_1[j], **kwargs)
+            if time not in ds_1.time:
+                if obj not in tracked_objects:
+                    interval_match_dicts[obj] = None
+                else:
+                    interval_match_dicts[obj] = {}
+                continue
+            ds_1 = ds_1.sel(time=time).load()
+            if obj not in tracked_objects:
+                interval_match_dicts[obj] = None
+            else:
+                interval_match_dicts[obj] = match_dataset(ds_1, ds_2)
+
+        match_dicts[i] = interval_match_dicts
+        time_dicts[i] = interval_time_dicts
+    return match_dicts, time_dicts
+
+
+def _build_attribute_type_lookup(track_options):
+    """Build a ``{group_path: AttributeType}`` lookup from track options.
+
+    Covers both top-level object attribute types and member-object attribute
+    types. Filepath-records groups are handled separately because they aren't
+    in ``track_options``.
+    """
+    lookup: dict[str, "attribute.utils.AttributeType"] = {}
+    for level in track_options.levels:
+        for object_options in level.objects:
+            if object_options.attributes is None:
+                continue
+            obj_name = object_options.name
+            for attr_type in object_options.attributes.attribute_types:
+                lookup[f"attributes/{obj_name}/{attr_type.name}"] = attr_type
+            member_attrs = object_options.attributes.member_attributes
+            if member_attrs is None:
+                continue
+            for member, attrs in member_attrs.items():
+                for attr_type in attrs.attribute_types:
+                    key = f"attributes/{obj_name}/{member}/{attr_type.name}"
+                    lookup[key] = attr_type
+    return lookup
+
+
+def stitch_records(output_parent, intervals, record_group_dict):
+    """Stitch per-interval filepath records into the unified zarr store."""
+    logger.info("Stitching record groups.")
+    out_store = _run_store(output_parent)
+    n_groups = len(record_group_dict[0])
+    for k in range(n_groups):
+        group = record_group_dict[0][k]
+        # Filepath record groups have path ``records/filepaths/<dataset_name>``;
+        # rebuild the AttributeType deterministically from that name.
+        dataset_name = group.rsplit("/", 1)[-1]
+        attribute_type = write.filepath._filepath_attribute_type(dataset_name)
+        dfs = [
+            attribute.utils.read_attribute_zarr(
+                _interval_store(output_parent, i), group
+            )
+            for i in range(len(intervals))
+        ]
+        df = pd.concat(dfs).sort_index().drop_duplicates()
+        write.attribute.write_attributes(out_store, group, df, attribute_type)
+
+
+def stitch_masks(output_parent, intervals, mask_group_dict, id_dicts):
+    """Stitch per-interval mask groups into the unified zarr store."""
+    logger.info("Stitching mask groups.")
+    out_store = _run_store(output_parent)
+    n_groups = len(mask_group_dict[0])
+    for k in range(n_groups):
+        group = mask_group_dict[0][k]
+        obj = group.rsplit("/", 1)[-1]
+        masks = []
+        for i in range(len(intervals)):
+            store = _interval_store(output_parent, i)
+            kwargs = {"engine": "zarr", "chunks": {"time": 1}}
+            masks.append(xr.open_dataset(store, group=group, **kwargs))
+        new_masks = []
+        for i in range(len(intervals)):
+            mask = masks[i]
+            mapping = get_mapping(id_dicts, obj, i)
+            new_mask = apply_mapping(mapping, mask)
+            if i > 0:
+                time = masks[i - 1].time[-1].values
+                if time not in np.array(masks[i].time.values):
+                    message = (
+                        "Time intervals have produced non-overlapping time domains "
+                    )
+                    message += "for masks. This can occur due to missing files at the "
+                    message += " overlap time."
+                    logger.warning(message)
+                else:
+                    condition = new_mask.time.values > time
+                    new_mask = new_mask.sel(time=condition)
+            new_masks.append(new_mask)
+        mask = xr.concat(new_masks, dim="time")
+        mask = mask.astype(np.uint32)
+        coords = [c for c in mask.coords if c in ["x", "y", "latitude", "longitude"]]
+        for coord in coords:
+            mask.coords[coord] = mask.coords[coord].astype(np.float32)
+        out_store.parent.mkdir(parents=True, exist_ok=True)
+        # Overwrite the group inside the unified store
+        mask.to_zarr(out_store, group=group, mode="w")
+
+
+def stitch_run(output_parent, intervals, cleanup=True):
+    """Stitch per-interval zarr stores into a single unified ``<configured zarr store>``.
+
+    Reads each interval's unified zarr store store, relabels universal_ids, and writes
+    the unified result to ``<output_parent>/<configured zarr store>/``.
+    """
+    logger.info("Stitching all attribute, mask and record groups.")
+    options = analyze.utils.read_options(output_parent / "interval_0")
+    track_options = options["track"]
+    tracked_objects = get_tracked_objects(track_options)[0]
+    attr_group_dict, mask_group_dict, record_group_dict = get_group_dicts(
+        output_parent, intervals
+    )
+    args = [output_parent, intervals, mask_group_dict, tracked_objects]
+    match_dicts, time_dicts = get_match_dicts(*args)
+    stitch_records(output_parent, intervals, record_group_dict)
+
+    # Copy regridder weights folder if it exists.
+    weights_path_0 = output_parent / "interval_0" / "records" / "regridder_weights"
+    weights_path = output_parent / "records" / "regridder_weights"
+    if weights_path_0.exists():
+        shutil.copytree(weights_path_0, weights_path, dirs_exist_ok=True)
+
+    out_store = _run_store(output_parent)
+    id_dicts = {}
+    logger.info("Stitching attribute groups.")
+    attribute_type_lookup = _build_attribute_type_lookup(track_options)
+    for k in range(len(attr_group_dict[0])):
+        group = attr_group_dict[0][k]  # e.g. "attributes/mcs/conv/core"
+        # Group structure: attributes/<obj>/(<member>/)?<at_name>
+        parts = group.split("/")
+        obj = parts[1]
+        member_object = len(parts) != 3
+        attribute_type = attribute_type_lookup.get(group)
+        if attribute_type is None:
+            raise KeyError(
+                f"No AttributeType found in track options for group {group!r}."
+            )
+        dfs = [
+            attribute.utils.read_attribute_zarr(
+                _interval_store(output_parent, i), group
+            )
+            for i in range(len(intervals))
+        ]
+        df, id_dict = _relabel_attribute_dfs(
+            dfs,
+            obj,
+            attribute_type,
+            match_dicts,
+            time_dicts,
+            id_dicts,
+            intervals,
+            tracked_objects,
+        )
+        write.attribute.write_attributes(out_store, group, df, attribute_type)
+        if not member_object and obj in tracked_objects:
+            id_dicts[obj] = id_dict
+    stitch_masks(output_parent, intervals, mask_group_dict, id_dicts)
+
+    if cleanup:
+        for i in range(len(intervals)):
+            shutil.rmtree(Path(output_parent / f"interval_{i}"))
 
 
 def relabel_parents(df, next_interval, current_interval, reversed_match_dict):

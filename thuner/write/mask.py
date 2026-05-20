@@ -1,14 +1,25 @@
-"""Functions for writing object masks."""
+"""Write object masks to the unified zarr store."""
 
+from pathlib import Path
 import numpy as np
+
 from thuner.log import setup_logger
+import thuner.write.attribute as attribute
 
 
 logger = setup_logger(__name__)
 
 
+def _zarr_group_exists(store_path, group):
+    """Return True if a group already exists inside the zarr DirectoryStore."""
+    candidate = Path(store_path) / group
+    if not candidate.exists():
+        return False
+    return any(candidate.iterdir())
+
+
 def write(object_tracks, object_options, output_directory):
-    """Write masks to file."""
+    """Write a mask to the unified zarr store under ``masks/<object_name>``."""
 
     if object_options.tracking is None:
         mask_type = "next_mask"
@@ -18,29 +29,29 @@ def write(object_tracks, object_options, output_directory):
 
     if mask is None:
         return
-    else:
-        mask = mask.copy()
+    mask = mask.copy()
     mask = mask.expand_dims("time")
 
     object_name = object_options.name
+    store = attribute.store_path(output_directory)
+    group = f"masks/{object_name}"
+    store.parent.mkdir(parents=True, exist_ok=True)
 
-    filepath = output_directory / f"masks/{object_name}.zarr"
-    filepath.parent.mkdir(parents=True, exist_ok=True)
     mask = mask.astype(np.uint32)
     coords = [c for c in mask.coords if c in ["x", "y", "latitude", "longitude"]]
     for coord in coords:
         mask.coords[coord] = mask.coords[coord].astype(np.float32)
 
-    message = f"Writing {object_name} masks to {filepath}."
+    message = f"Writing {object_name} masks to {store}::{group}."
     logger.info(message)
-    if not filepath.exists():
-        mask.to_zarr(filepath, mode="w")
+    if _zarr_group_exists(store, group):
+        mask.to_zarr(store, group=group, mode="a", append_dim="time")
     else:
-        mask.to_zarr(filepath, mode="a", append_dim="time")
+        mask.to_zarr(store, group=group, mode="a")
 
 
 def write_final(tracks, track_options, output_directory):
-    """Write final masks to file."""
+    """Write final masks to the unified zarr store."""
 
     for index, level_options in enumerate(track_options.levels):
         for object_options in level_options.objects:
