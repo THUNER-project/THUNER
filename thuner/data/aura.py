@@ -74,10 +74,6 @@ class CPOLOptions(AURAOptions):
         args = [time, filepath, track_options, self, grid_options]
         return convert_cpol(*args)
 
-    def update_boundary_data(self, dataset, input_record, boundary_coords):
-        """Update CPOL boundary data."""
-        update_cpol_boundary_data(dataset, input_record, boundary_coords)
-
     @model_validator(mode="after")
     def _check_times(cls, values):
         if np.datetime64(values.start) < np.datetime64("1998-12-06T00:00:00"):
@@ -131,35 +127,16 @@ def get_cpol_filepaths(options: CPOLOptions):
                 f"{time.hour:02}{time.minute:02}{time.second:02}.nc"
             )
             filepaths.append(filepath)
-    # elif options.level == "2":
-    #     times = np.arange(
-    #         start.astype("datetime64[D]"),
-    #         end.astype("datetime64[D]") + np.timedelta64(1, "D"),
-    #         np.timedelta64(1, "D"),
-    #     )
-    #     times = pd.DatetimeIndex(times)
-
-    #     base_url += f"/cpol_level_2/v{options.version}/{options.data_format}"
-    #     try:
-    #         variable = options.variable
-    #         if variable == "equivalent_reflectivity_factor":
-    #             variable_short = "reflectivity"
-    #     except KeyError:
-    #         variable = "equivalent_reflectivity_factor"
-    #         variable_short = "reflectivity"
-
-    #     base_url += f"/{variable}"
-
-    #     for time in times:
-    #         url = f"{base_url}/twp1440cpol.{variable_short}.c1"
-    #         url += f".{time.year}{time.month:02}{time.day:02}.nc"
-    #         filepaths.append(filepath)
+    else:
+        raise NotImplementedError(
+            "Only level 1b CPOL data is currently supported. Convert manually first."
+        )
 
     return sorted(filepaths)
 
 
 class OperationalOptions(AURAOptions):
-    """Options for CPOL datasets."""
+    """Options for operational AURA datasets."""
 
     # Overwrite the default values from the base class. Note these objects are still
     # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
@@ -247,33 +224,6 @@ def setup_operational(data_options, grid_options, url, directory):
     return dataset
 
 
-# Note "get" functions both retrieve and convert the dataset, and update the
-# input_record boundary data.
-def update_cpol_boundary_data(dataset, input_record, boundary_coords):
-    """Update boundary data using domain mask."""
-    # Set data outside instrument range to NaN
-    keys = ["next_domain_mask", "next_boundary_coordinates"]
-    keys += ["next_boundary_mask"]
-    if any(getattr(input_record, k) is None for k in keys):
-        # Get the domain mask and domain boundary. Note this is the region where data
-        # exists, not the detected object masks from the detect module.
-        input_record.next_domain_mask = dataset["domain_mask"]
-        input_record.next_boundary_coordinates = boundary_coords
-        input_record.next_boundary_mask = dataset["boundary_mask"]
-    else:
-        domain_mask = copy.deepcopy(input_record.next_domain_mask)
-        boundary_mask = copy.deepcopy(input_record.next_boundary_mask)
-        boundary_coords = copy.deepcopy(input_record.next_boundary_coordinates)
-        input_record.domain_masks.append(domain_mask)
-        input_record.boundary_coodinates.append(boundary_coords)
-        input_record.boundary_masks.append(boundary_mask)
-        # Note for AURA data the domain mask is calculated using a fixed range
-        # (e.g. 150 km), which is constant for all times. Therefore, the mask is not
-        # updated for each new file. Contrast this with, for instance, GridRad, where a
-        # new mask is calculated for each time step based on the altitudes of the
-        # objects being detected, and the required threshold on number of observations.
-
-
 def convert_cpol(time, filepath, track_options, dataset_options, grid_options):
     """Convert CPOL data to a standard format. Retrieve the boundary data."""
 
@@ -299,60 +249,15 @@ def convert_cpol(time, filepath, track_options, dataset_options, grid_options):
 
     if grid_options.name == "geographic":
         dims = ["latitude", "longitude"]
-        if grid_options.latitude is None or grid_options.longitude is None:
-            # If the lat/lon of the new grid were not specified, construct from spacing
-            spacing = grid_options.geographic_spacing
-            message = f"Creating new geographic grid with spacing {spacing[0]} m, {spacing[1]} m."
-            logger.info(message)
-            if spacing is None:
-                raise ValueError("Spacing cannot be None if latitude/longitude None.")
-            old_lats = cpol["latitude"].values
-            old_lons = cpol["longitude"].values
-            args = [old_lats, old_lons, spacing[0], spacing[1]]
-            latitude, longitude = grid.new_geographic_grid(*args)
-            # grid_options.latitude = latitude
-            # grid_options.longitude = longitude
-            # grid_options.shape = [len(latitude), len(longitude)]
-        else:
-            # If the lat/lon of the new grid were specified, use them
-            latitude = grid_options.latitude
-            longitude = grid_options.longitude
-
-        # dims_dict = {"latitude": latitude, "longitude": longitude}
-        # # ds = xr.Dataset({dim: ([dim], getattr(grid_options, dim)) for dim in dims})
-        # ds = xr.Dataset({dim: ([dim], dims_dict[dim]) for dim in dims})
-        # if regridder is None:
-        #     regrid_options = {"periodic": False, "extrap_method": None}
-        #     regridder = xe.Regridder(cpol, ds, "bilinear", **regrid_options)
-
+        latitude, longitude = grid.infer_geographic_grid(grid_options, cpol)
         regridder = _utils.get_geographic_regridder(
             cpol, grid_options, dataset_options, latitude=latitude, longitude=longitude
         )
         ds = regridder(cpol)
-
-        # Can probably abstract this part
-        # dims_dict = {
-        #     "latitude": grid_options.latitude,
-        #     "longitude": grid_options.longitude,
-        # }
-        # dims = ["latitude", "longitude"]
-        # ds = xr.Dataset({dim: ([dim], dims_dict[dim]) for dim in dims})
-        # regrid_options = {"periodic": False, "extrap_method": None}
-        # if not Path(weights_filepath).exists():
-        #     logger.info("Building regridder; this can take a while for large grids.")
-        #     regridder = xe.Regridder(himawari, ds, "bilinear", **regrid_options)
-        #     if dataset_options.reuse_regridder:
-        #         Path(weights_filepath).parent.mkdir(parents=True, exist_ok=True)
-        #         regridder.to_netcdf(weights_filepath)
-        #         # The filepath now exists, so the else case called next time
-        # else:
-        #     logger.info("Loading regridder from file.")
-        #     regrid_options["weights"] = weights_filepath
-        #     regridder = xe.Regridder(himawari, ds, "bilinear", **regrid_options)
         ds = _utils.copy_attributes(ds, cpol)
-
     elif grid_options.name == "cartesian":
         dims = ["y", "x"]
+        # Implement cartesian regridding here.
         # Interpolate vertically
         ds = cpol.interp(altitude=grid_options.altitude, method="linear")
 
@@ -383,13 +288,12 @@ def convert_cpol(time, filepath, track_options, dataset_options, grid_options):
 
 
 def convert_operational():
-    """TBA."""
-    ds = None
-    return ds
+    """Convert operational AURA data."""
+    pass
 
 
 def update_operational_input_record(
     time, input_record, track_options, dataset_options, grid_options
 ):
-    """Update an AURA dataset."""
+    """Update an operational AURA dataset."""
     pass

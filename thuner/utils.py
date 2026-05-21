@@ -36,7 +36,6 @@ import multiprocessing
 from thuner.log import setup_logger
 from thuner.config import get_outputs_directory
 
-
 logger = setup_logger(__name__)
 
 __all__ = ["BaseOptions", "ConvertedOptions", "BaseDatasetOptions"]
@@ -268,18 +267,23 @@ class BaseDatasetOptions(BaseOptions):
         self.update_boundary_data(dataset, input_record, boundary_coords)
 
     def update_boundary_data(self, dataset, input_record, boundary_coords):
-        """Update the boundary data in the input record."""
-        current_domain_mask = copy.deepcopy(input_record.next_domain_mask)
-        current_boundary_coords = copy.deepcopy(input_record.next_boundary_coordinates)
-        current_boundary_mask = copy.deepcopy(input_record.next_boundary_mask)
-
-        input_record.domain_masks.append(current_domain_mask)
-        input_record.boundary_coodinates.append(current_boundary_coords)
-        input_record.boundary_masks.append(current_boundary_mask)
-
-        input_record.next_domain_mask = dataset["domain_mask"]
-        input_record.next_boundary_coordinates = boundary_coords
-        input_record.next_boundary_mask = dataset["boundary_mask"]
+        """Update boundary data using domain mask."""
+        # Set data outside instrument range to NaN
+        keys = ["next_domain_mask", "next_boundary_coordinates"]
+        keys += ["next_boundary_mask"]
+        if any(getattr(input_record, k) is None for k in keys):
+            # Get the domain mask and domain boundary. Note this is the region where data
+            # exists, not the detected object masks from the detect module.
+            input_record.next_domain_mask = dataset["domain_mask"]
+            input_record.next_boundary_coordinates = boundary_coords
+            input_record.next_boundary_mask = dataset["boundary_mask"]
+        else:
+            domain_mask = copy.deepcopy(input_record.next_domain_mask)
+            boundary_mask = copy.deepcopy(input_record.next_boundary_mask)
+            boundary_coords = copy.deepcopy(input_record.next_boundary_coordinates)
+            input_record.domain_masks.append(domain_mask)
+            input_record.boundary_coodinates.append(boundary_coords)
+            input_record.boundary_masks.append(boundary_mask)
 
     def grid_from_dataset(self, dataset, variable, time):
         """Get the grid from a generic/pre-converted dataset."""
@@ -396,39 +400,43 @@ class AttributeHandler(BaseHandler):
 def infer_grid_options(dataset: DataObject, grid_options):
     """Infer grid options from the dataset."""
     attrs = ["latitude", "longitude", "shape", "altitude"]
-    if any(getattr(grid_options, attr) is None for attr in attrs):
-        logger.info("Grid options not set. Inferring from dataset.")
-        if grid_options.name == "geographic":
+    if all(getattr(grid_options, attr) is not None for attr in attrs):
+        # Return early if all grid options are already set.
+        return
+
+    logger.info("Grid options not set. Inferring from dataset.")
+    if grid_options.name == "geographic":
+        grid_options.latitude = dataset.latitude.values.tolist()
+        grid_options.longitude = dataset.longitude.values.tolist()
+        grid_options.shape = [len(dataset.latitude), len(dataset.longitude)]
+        lat_spacing = np.round(np.diff(dataset.latitude).flatten(), decimals=8)
+        lon_spacing = np.round(np.diff(dataset.longitude).flatten(), decimals=8)
+        lat_spacing = np.unique(lat_spacing).tolist()
+        lon_spacing = np.unique(lon_spacing).tolist()
+        if len(lat_spacing) == 1 and len(lon_spacing) == 1:
+            grid_options.geographic_spacing = [lat_spacing[0], lon_spacing[0]]
+        else:
+            logger.warning("Latitude and longitude spacing not uniform.")
+            grid_options.geographic_spacing = None
+    elif grid_options.name == "cartesian":
+        grid_options.y = dataset.y.values.tolist()
+        grid_options.x = dataset.x.values.tolist()
+        grid_options.shape = [len(dataset.y), len(dataset.x)]
+        y_spacing = np.unique(np.diff(grid_options.y).flatten()).tolist()
+        x_spacing = np.unique(np.diff(grid_options.x).flatten()).tolist()
+        if len(y_spacing) == 1 and len(x_spacing) == 1:
+            grid_options.cartesian_spacing = [y_spacing[0], x_spacing[0]]
+        else:
+            logger.warning("x and y spacing not uniform.")
+            grid_options.cartesian_spacing = None
+        if "longitude" in dataset and "latitude" in dataset:
             grid_options.latitude = dataset.latitude.values.tolist()
             grid_options.longitude = dataset.longitude.values.tolist()
-            grid_options.shape = [len(dataset.latitude), len(dataset.longitude)]
-            lat_spacing = np.round(np.diff(dataset.latitude).flatten(), decimals=8)
-            lon_spacing = np.round(np.diff(dataset.longitude).flatten(), decimals=8)
-            lat_spacing = np.unique(lat_spacing).tolist()
-            lon_spacing = np.unique(lon_spacing).tolist()
-            if len(lat_spacing) == 1 and len(lon_spacing) == 1:
-                grid_options.geographic_spacing = [lat_spacing[0], lon_spacing[0]]
-            else:
-                logger.warning("Latitude and longitude spacing not uniform.")
-                grid_options.geographic_spacing = None
-        elif grid_options.name == "cartesian":
-            grid_options.y = dataset.y.values.tolist()
-            grid_options.x = dataset.x.values.tolist()
-            grid_options.shape = [len(dataset.y), len(dataset.x)]
-            y_spacing = np.unique(np.diff(grid_options.y).flatten()).tolist()
-            x_spacing = np.unique(np.diff(grid_options.x).flatten()).tolist()
-            if len(y_spacing) == 1 and len(x_spacing) == 1:
-                grid_options.cartesian_spacing = [y_spacing[0], x_spacing[0]]
-            else:
-                logger.warning("x and y spacing not uniform.")
-                grid_options.cartesian_spacing = None
-            if "longitude" in dataset and "latitude" in dataset:
-                grid_options.latitude = dataset.latitude.values.tolist()
-                grid_options.longitude = dataset.longitude.values.tolist()
-            else:
-                logger.warning("No latitude or longitude coordinates found in dataset.")
         else:
-            raise ValueError(f"Grid name {grid_options.name} not recognised.")
+            logger.warning("No latitude or longitude coordinates found in dataset.")
+    else:
+        raise ValueError(f"Grid name {grid_options.name} not recognised.")
+
     if grid_options.altitude is None:
         if "altitude" in dataset:
             grid_options.altitude = dataset.altitude.values.tolist()
@@ -440,8 +448,7 @@ def infer_grid_options(dataset: DataObject, grid_options):
                 logger.warning("Altitude spacing not uniform.")
                 grid_options.altitude_spacing = None
         else:
-            message = "No altitude coordinates found in dataset."
-            raise ValueError(message)
+            logger.warning("No altitude coordinates found in dataset.")
 
 
 def save_converted_dataset(raw_filepath, dataset, dataset_options):

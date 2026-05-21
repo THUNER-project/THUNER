@@ -566,7 +566,6 @@ def get_geographic_regridder(
     dataset, grid_options, dataset_options, latitude=None, longitude=None
 ):
     """Load an xesmf using stored weights if present."""
-    # Can probably abstract this part
     weights_filepath = dataset_options.weights_filepath
     if latitude is None or longitude is None:
         latitude, longitude = grid_options.latitude, grid_options.longitude
@@ -596,5 +595,9 @@ def copy_attributes(ds, old_ds):
     for coord in ds.coords:
         ds[coord].attrs = old_ds[coord].attrs
     ds.attrs.update(old_ds.attrs)
-    ds.attrs["history"] += f", regridded using xesmf on " f"{np.datetime64('now')}"
+    regrid_log = "Regridded using xesmf on " f"{np.datetime64('now')}"
+    if "history" not in ds.attrs:
+        ds.attrs["history"] = regrid_log
+    else:
+        ds.attrs["history"] += f", {regrid_log.lower()}"
     return ds

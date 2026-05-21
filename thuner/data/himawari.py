@@ -46,7 +46,7 @@ Bands = Literal[
     "B16",
 ]
 
-names_dict = {
+_names_dict = {
     "channel_0014_brightness_temperature": "brightness_temperature",
 }
 
@@ -92,10 +92,6 @@ class HimawariOptions(utils.BaseDatasetOptions):
         """Convert Himawari dataset."""
         args = [time, filepath, track_options, self, grid_options]
         return convert_himawari(*args)
-
-    def update_boundary_data(self, dataset, input_record, boundary_coords):
-        """Update Himawari boundary data."""
-        update_himawari_boundary_data(dataset, input_record, boundary_coords)
 
     @model_validator(mode="after")
     def _check_filepaths(cls, values):
@@ -191,7 +187,7 @@ def convert_himawari(
     logger.info(f"Converting {dataset_options.name} dataset for time {time_str}.")
 
     himawari = xr.open_dataset(filepath)
-    himawari = himawari.rename(names_dict)
+    himawari = himawari.rename(_names_dict)
     himawari = himawari[dataset_options.fields]
     coordinates = xr.open_dataset(dataset_options.coordinates_filepath)
     coord_names = ["lat", "lon", "invalid_navigation_mask"]
@@ -221,7 +217,6 @@ def convert_himawari(
     new_entries = {"units": "km^2", "standard_name": "area", "valid_min": 0}
     ds["gridcell_area"].attrs.update(new_entries)
 
-    ds["domain_mask"] = _utils.smooth_mask(ds["domain_mask"].astype(int))
     all_coords = utils.get_mask_boundary(ds["domain_mask"], grid_options)
     boundary_coords, simple_boundary_coords, boundary_mask = all_coords
     ds["boundary_mask"] = boundary_mask
@@ -229,31 +224,3 @@ def convert_himawari(
     ds = _utils.apply_mask(ds, grid_options)
 
     return ds, boundary_coords, simple_boundary_coords
-
-
-def update_himawari_boundary_data(dataset, input_record, boundary_coords):
-    """
-    Update Himawari boundary data.
-    """
-    """Update boundary data using domain mask."""
-    # Set data outside instrument range to NaN
-    keys = ["next_domain_mask", "next_boundary_coordinates"]
-    keys += ["next_boundary_mask"]
-    if any(getattr(input_record, k) is None for k in keys):
-        # Get the domain mask and domain boundary. Note this is the region where data
-        # exists, not the detected object masks from the detect module.
-        input_record.next_domain_mask = dataset["domain_mask"]
-        input_record.next_boundary_coordinates = boundary_coords
-        input_record.next_boundary_mask = dataset["boundary_mask"]
-    else:
-        domain_mask = copy.deepcopy(input_record.next_domain_mask)
-        boundary_mask = copy.deepcopy(input_record.next_boundary_mask)
-        boundary_coords = copy.deepcopy(input_record.next_boundary_coordinates)
-        input_record.domain_masks.append(domain_mask)
-        input_record.boundary_coodinates.append(boundary_coords)
-        input_record.boundary_masks.append(boundary_mask)
-        # Note for Himawari data the domain mask is calculated using a static file
-        # which is constant for all times. Therefore, the mask is not updated for each
-        # new file. Contrast this with, for instance, GridRad, where a
-        # new mask is calculated for each time step based on the altitudes of the
-        # objects being detected, and the required threshold on number of observations.

@@ -5,7 +5,6 @@ from pyproj import Geod, Proj, Transformer
 from thuner.utils import almost_equal, pad
 from thuner.log import setup_logger
 
-
 logger = setup_logger(__name__)
 
 
@@ -112,6 +111,27 @@ def new_geographic_grid(lats, lons, dlat, dlon):
     new_lons = np.arange(min_lon, max_lon + dlon, dlon).round(8)
 
     return list(new_lats), list(new_lons)
+
+
+def infer_geographic_grid(grid_options, ds):
+    """Infer a geographic grid from a dataset and the grid spacing."""
+    if grid_options.latitude is None or grid_options.longitude is None:
+        # If the lat/lon of the new grid were not specified, construct from spacing
+        spacing = grid_options.geographic_spacing
+        if spacing is None:
+            raise ValueError("Spacing cannot be None if latitude/longitude None.")
+        logger.info(
+            f"Creating new geographic grid with spacing {spacing[0]}, {spacing[1]}."
+        )
+        old_lats = ds["latitude"].values
+        old_lons = ds["longitude"].values
+        args = [old_lats, old_lons, spacing[0], spacing[1]]
+        latitude, longitude = new_geographic_grid(*args)
+    else:
+        # If the lat/lon of the new grid were specified, use them
+        latitude = grid_options.latitude
+        longitude = grid_options.longitude
+    return latitude, longitude
 
 
 def get_cell_areas(grid_options):

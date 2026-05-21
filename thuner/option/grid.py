@@ -42,6 +42,13 @@ class GridOptions(BaseOptions):
     shape: tuple[int, int] | None = Field(None, description=_desc)
     _desc = "Whether to attempt to regrid the dataset."
     regrid: bool = Field(True, description=_desc)
+    domain_mask: np.ndarray | None = Field(
+        None,
+        description=(
+            "Domain mask to apply to datasets. Should be 1 where data is kept, and 0 "
+            "where data is discarded."
+        ),
+    )
 
     @model_validator(mode="after")
     def _check_altitude(cls, values):

@@ -1,187 +1,178 @@
 """Process ACCESS data."""
 
+import os
+
+# Check if system is unix-like, as xESMF is not supported on Windows
+if os.name == "posix":
+    import xesmf as xe
+else:
+    message = "Warning: Windows systems cannot run xESMF for regridding."
+    message += "If you need regridding, consider using a Linux or MacOS system."
+    print(message)
+
+import copy
+from urllib.parse import urlparse
+import xarray as xr
 import numpy as np
 import pandas as pd
+from typing import Literal
+from pydantic import Field, model_validator
 from thuner.log import setup_logger
-from thuner.utils import format_string_list, drop_time
-from thuner.config import get_outputs_directory
-import yaml
+from thuner.data.odim import convert_odim
+import thuner.data._utils as _utils
+import thuner.grid as grid
+import thuner.utils as utils
 
+__all__ = ["ACCESSOptions", "get_access_filepaths"]
 
 logger = setup_logger(__name__)
 
-__all__ = []
+
+class ACCESSOptions(utils.BaseDatasetOptions):
+    """Options for ACCESS OPS3 datasets."""
+
+    def model_post_init(self, __context):
+        """Use model_post_init to change default inherited values."""
+        super().model_post_init(__context)
+        url = "https://thredds.nci.org.au/thredds/catalog/wr45/"
+        self._change_defaults(
+            name="access",
+            parent_remote=url,
+            reuse_regridder=True,
+            fields=["reflectivity"],
+        )
+
+    # Define additional fields for ACCESS
+    run_start: str | np.datetime64 = Field(..., description="Event start datetime.")
+    model: Literal["g", "ge", "c"] = Field(
+        "c", description="Model type; global, global ensemble, city etc."
+    )
+    domain: Literal["bn", "ph", "ad", "vt", "sy", "dn"] = Field(
+        "dn", description="Model domain; brisbane, perth, adelaide, etc."
+    )
+    mode: Literal["fc", "an", "fcmm"] = Field("fcmm", description="Mode type.")
+    levels: Literal["sfc", "ml"] = Field("sfc", description="Model level type.")
+    # By default we only keep forecast data from 12 to 36 hours.
+    # See Short & Lane (2023) https://doi.org/10.1175/MWR-D-23-0033.1.
+    lead_start: int = Field(12, description="Lead time to start from in hours.")
+    lead_end: int = Field(36, description="Lead time to end at in hours.")
+    filename: str = Field("radar_refl_1km.nc", description="Name of the file.")
+
+    # Override get_filepaths and grid_from_dataset with ACCESS specific versions.
+    def get_filepaths(self):
+        return get_access_filepaths(self)
+
+    # def convert_dataset(self, time, filepath, track_options, grid_options):
+    #     args = [time, filepath, track_options, self, grid_options]
+    #     return convert_access(*args)
+
+    # def update_boundary_data(self, dataset, input_record, boundary_coords):
+    #     update_access_boundary_data(dataset, input_record, boundary_coords)
+
+    @model_validator(mode="after")
+    def _check_run_start(cls, values):
+        # Check that the time of run start is 0000, 0600, 1200, or 1800 UTC.
+        valid_times = ["0000", "0600", "1200", "1800"]
+        run_start_str = utils.format_time(values.run_start, filename_safe=True)
+        if run_start_str[-4:] not in valid_times:
+            raise ValueError(f"run_start must be one of {valid_times}.")
+        return values
+
+    @model_validator(mode="after")
+    def _check_filepaths(cls, values):
+        if values.filepaths is None:
+            logger.info("Generating access filepaths.")
+            values.filepaths = get_access_filepaths(values)
+        if values.filepaths is None:
+            raise ValueError("filepaths not provided or badly formed.")
+        return values
 
 
-def create_options(
-    name="access",
-    start="2022-02-01T00:00:00",
-    end="2022-02-02T00:00:00",
-    model="c",
-    domain="dn",
-    mode="fcmm",
-    level="sfc",
-    init_time="0000",
-    parent_local="https://dapds00.nci.org.au/thredds/dodsC/wr45/ops_aps3",
-    fields=["radar_refl_1km", "maxcol_refl", "uwnd10m", "vwnd10m"],
-    save=False,
-    **kwargs,
+def get_access_filepaths(options: ACCESSOptions):
+    """
+    Get ACCESS filepaths assuming same filepath structure as remote location.
+    """
+
+    filepaths = []
+
+    base_url = utils.get_parent(options) + "/ops_aps3"
+
+    if options.model == "c":
+        # ACCESS-C only has 1 run per file. We will never match objects across distinct
+        # runs, so we will only ever track one file at a time for access-c.
+        time = pd.Timestamp(options.run_start)
+        base_url += f"/access-{options.domain}/1"
+        filepath = (
+            f"{base_url}/{time.year:04}{time.month:02}{time.day:02}/"
+            f"{time.hour:02}00/{options.mode}/{options.levels}/"
+            f"{options.filename}"
+        )
+        filepaths = [filepath]
+    else:
+        raise NotImplementedError(
+            "Only ACCESS-C converters implemented. Convert manually first."
+        )
+
+    return sorted(filepaths)
+
+
+_names_dict = {
+    "lat": "latitude",
+    "lon": "longitude",
+    "radar_refl_1km": "reflectivity",
+    "maxcol_refl": "max_col_refl",
+}
+
+
+def convert_access(
+    time,
+    filepath,
+    track_options,
+    dataset_options,
+    grid_options,
 ):
     """
-    Generate input options dictionary.
-
-    Parameters
-    ----------
-    name : str, optional
-        Name of the dataset; default is "access".
-    start : str, optional
-        Start time of the dataset in ISO format; default is "2022-02-01T00:00:00".
-    end : str, optional
-        End time of the dataset in ISO format; default is "2022-02-02T00:00:00".
-    model : str, optional
-        Model type; default is "c".
-    domain : str, optional
-        Domain type; default is "dn".
-    mode : str, optional
-        Mode type; default is "fcmm".
-    level : str, optional
-        Level type; default is "sfc".
-    init_time : str, optional
-        Initialization time; default is "0000".
-    parent : str, optional
-        Parent URL for the dataset; default is "https://dapds00.nci.org.au/thredds/dodsC/wr45/ops_aps3".
-    fields : list of str, optional
-        List of fields to be included in the dataset; default is ["radar_refl_1km", "maxcol_refl", "uwnd10m", "vwnd10m"].
-
-    save : bool, optional
-        Whether to save the dataset; default is True.
-    **kwargs
-        Additional keyword arguments.
-
-
-    Returns
-    -------
-    options : dict
-        Dictionary containing the input options.
+    Convert an ACCESS dataset to standard THUNER format.
     """
+    time_str = utils.format_time(time, filename_safe=False)
+    logger.info(f"Converting {dataset_options.name} dataset for time {time_str}.")
 
-    options = {
-        "name": name,
-        "start": start,
-        "end": end,
-        "model": model,
-        "domain": domain,
-        "mode": mode,
-        "level": level,
-        "init_time": init_time,
-        "parent_local": parent_local,
-        "fields": fields,
+    access = xr.open_dataset(filepath)
+    filtered_names_dict = {
+        k: v for k, v in _names_dict.items() if k in access.variables
     }
+    access = access.rename(filtered_names_dict)
+    access = access[dataset_options.fields]
 
-    for key, value in kwargs.items():
-        options[key] = value
+    latitude, longitude = grid.infer_geographic_grid(grid_options, access)
+    regridder = _utils.get_geographic_regridder(
+        access, grid_options, dataset_options, latitude=latitude, longitude=longitude
+    )
+    ds = regridder(access)
+    ds = _utils.copy_attributes(ds, access)
 
-    if save:
-        filepath = str(get_outputs_directory() / "option/access.yml")
-        logger.debug(f"Saving options to {filepath}")
-        with open(filepath, "w") as outfile:
-            yaml.dump(
-                options,
-                outfile,
-                default_flow_style=False,
-                allow_unicode=True,
-                sort_keys=False,
-            )
+    if grid_options.domain_mask is None:
+        # If no mask provided, use the whole grid.
+        mask = np.zeros_like(ds[dataset_options.fields[0]].isel(time=0, drop=True))
+        mask[1:-1, 1:-1] = 1
+        mask = xr.DataArray(
+            mask,
+            coords={"latitude": latitude, "longitude": longitude},
+            dims=("latitude", "longitude"),
+            name="domain_mask",
+        )
+    ds["domain_mask"] = mask
+    utils.infer_grid_options(ds, grid_options)
+    ds["longitude"] = ds["longitude"] % 360
+    cell_areas = grid.get_cell_areas(grid_options)
+    ds["gridcell_area"] = (["latitude", "longitude"], cell_areas)
+    new_entries = {"units": "km^2", "standard_name": "area", "valid_min": 0}
+    ds["gridcell_area"].attrs.update(new_entries)
 
-    return options
+    all_coords = utils.get_mask_boundary(ds["domain_mask"], grid_options)
+    boundary_coords, simple_boundary_coords, boundary_mask = all_coords
+    ds["boundary_mask"] = boundary_mask
 
+    ds = _utils.apply_mask(ds, grid_options)
 
-def check_options(options):
-    """
-    Check the input options.
-
-    Parameters
-    ----------
-    options : dict
-        Dictionary containing the input options.
-
-    Returns
-    -------
-    options : dict
-        Dictionary containing the input options.
-    """
-
-    models = ["g", "ge", "c"]
-    domains = ["bn", "ph", "ad", "vt", "sy", "dn"]
-    modes = ["fc", "an", "fcmm"]
-    if options.mode not in modes:
-        raise ValueError(f"mode must be one of {format_string_list(modes)}.")
-
-    levels = ["sfc", "ml"]
-    if options["level"] not in levels:
-        raise ValueError(f"level must be one of {format_string_list(levels)}.")
-
-    start = np.datetime64(options["start"])
-    min_start = np.datetime64("2019-07-23T01:00:00")
-    if start < min_start:
-        raise ValueError(f"start must be {min_start} or later.")
-
-    if options["model"] not in models:
-        raise ValueError(f"model must be one of {format_string_list(models)}.")
-
-    if options["model"] == "C":
-        if options["domain"] not in domains:
-            raise ValueError(f"domain must be one of {format_string_list(domains)}.")
-        init_times = ["0000", "0600", "1200", "1800"]
-        if options["init_time"] not in init_times:
-            raise ValueError(
-                f"init_time must be one of {format_string_list(init_times)}."
-            )
-
-
-def generate_access_urls(options):
-    """
-    Generate ACCESS URLs.
-
-    Parameters
-    ----------
-    options : dict
-        Dictionary containing the input options.
-
-
-    Returns
-    -------
-    urls : list
-        List of URLs.
-    times : list
-        Times associated with the URLs.
-    """
-
-    start = drop_time(np.datetime64(options["start"]))
-    end = drop_time(np.datetime64(options["end"]))
-
-    base_url = f"{options['parent']}"
-
-    domains = ["bn", "ph", "ad", "vt", "sy", "dn"]
-
-    urls = dict(zip(options.fields, [[] for i in range(len(options.fields))]))
-
-    if options["model"] == "g":
-        base_url += f"/access-{options['model']}/1"
-    elif options["model"] == "ge":
-        raise ValueError("No reflectivity data for global ensemble model.")
-    elif options["model"] == "c":
-        if options["domain"] not in domains:
-            raise ValueError(f"domain must be one of {format_string_list(domains)}.")
-        base_url += f"/access-{options['domain']}/1"
-    times = np.arange(start, end + np.timedelta64(1, "D"), np.timedelta64(1, "D"))
-    times = pd.DatetimeIndex(times)
-    for time in times:
-        for field in options.fields:
-            url = (
-                f"{base_url}/{time.year:04}{time.month:02}{time.day:02}/"
-                f"{options['init_time']}/{options.mode}"
-                f"/{options['level']}/{field}.nc"
-            )
-            urls[field].append(url)
-    return urls, times
+    return ds, boundary_coords, simple_boundary_coords
