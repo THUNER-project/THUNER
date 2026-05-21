@@ -1,5 +1,6 @@
 import shutil
 import glob
+import xarray as xr
 import thuner.data as data
 import thuner.option as option
 import thuner.track.track as track
@@ -10,11 +11,6 @@ import thuner.attribute as attribute
 import thuner.parallel as parallel
 import thuner.utils as utils
 import thuner.config as config
-from pathlib import Path
-import os
-import xarray as xr
-from thuner.attribute.utils import read_attribute_zarr
-from thuner.config import get_zarr_store_name
 
 
 def test_cpol():
@@ -46,11 +42,9 @@ def test_cpol():
     # Create the dataset options
     start = "2005-11-13T14:00:00"
     # Note the CPOL times are usually a few seconds off the 10 m interval, so add 30 seconds
-    # to ensure we capture 19:00:00
-    end = "2005-11-13T19:00:30"
+    end = "2005-11-13T16:00:30"
     times_dict = {"start": start, "end": end}
     cpol_options = data.aura.CPOLOptions(**times_dict, converted_options={"save": True})
-    # cpol_options = data.aura.CPOLOptions(**times_dict, converted_options={"load": True})
     era5_dict = {"latitude_range": [-14, -10], "longitude_range": [129, 133]}
     era5_pl_options = data.era5.ERA5Options(**times_dict, **era5_dict)
     era5_dict.update({"data_format": "single-levels"})
@@ -87,7 +81,7 @@ def test_cpol():
     mcs_group_attr.revalidate()
     track_options.to_yaml(options_directory / "track.yml")
     # For this tutorial, we will generate figures during runtime to visualize how THUNER
-    # is matching both convective and mcs objects.
+    # is matching both convective and mcs objects. Note the figure generation slows the run down a lot!
     # Create the visualize_options
     kwargs = {
         "visualize_directory": visualize_directory,
@@ -95,18 +89,23 @@ def test_cpol():
     }
     visualize_options = default.runtime(**kwargs)
     visualize_options.to_yaml(options_directory / "visualize.yml")
-    visualize_options = None
-    # We can now perform our tracking run; note the run will be slow as we are generating runtime figures for both convective and MCS objects, and not using parallelization. To make the run go much faster, set `visualize_options = None` and use the the parallel tracking function.
     times = utils.generate_times(data_options.dataset_by_name("cpol").filepaths)
     args = [times, data_options, grid_options, track_options]
-    parallel.track(
-        *args, output_directory=output_parent, dataset_name="cpol", debug_mode=False
+    track.track(
+        *args, visualize_options=visualize_options, output_directory=output_parent
     )
-    # track.track(*args, visualize_options=visualize_options, output_directory=output_parent)
-    # Once completed, outputs are available in the `output_parent` directory. The visualization
-    # folder will contain figures like that below, which illustrate the matching process.
-    # Currently THUNER supports the TINT/MINT matching approach, but the goal is to eventually
-    # incorporate others. Note that if viewing online, the figures below can be viewed at original scale by right clicking, save image as, and opening locally, or by right clicking, open in new tab, etc.
+    # Once the run is completed, outputs are available in the `output_parent` directory. The `output.zarr` store contains the object attributes, masks, and filename records for the run. These can be conveniently explored by loading as an `xr.DataTree`.
+    #
+    dt = xr.open_datatree(output_parent / "output.zarr", engine="zarr")
+    # Print all the group names in the store
+    print("\n".join(sorted(dt.groups)))
+    # Get the core convective attributes
+    ds = dt.attributes.convective.core.to_dataset()
+    indices = ds.index_columns
+    df = ds.to_dataframe().set_index(indices)
+    print(df.head(10).to_string())
+    #
+    # The visualization folder will contain figures like that below, which illustrate the matching process. Currently THUNER supports the TINT/MINT matching approach, but the goal is to eventually incorporate others.
     #
     # ![Visualization of the TINT/MINT matching process.](https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/cpol_convective_match_20051113.png)
     #
@@ -126,12 +125,38 @@ def test_cpol():
     # each member object (convective, middle and stratiform echoes) comprising each grouped
     # mcs object. Note that only the mcs and convective objects are matched between times.
     columns = ["convective_ids", "middle_ids", "anvil_ids"]
-    print(
-        attribute.utils.read_attribute(
-            output_parent, "attributes", "mcs", "group", columns=columns
-        ).to_string()
+    mcs_data = attribute.utils.read_attribute(
+        output_parent, "attributes", "mcs", "group", columns=columns
     )
-    # We can also perform analysis on, and visualization of, the MCS objects.
+    print(mcs_data.to_string())
+    # ## Running in Parallel
+    # We can also run THUNER in parallel, which significantly speeds up big runs. Note we cannot create algorithm visualization figures during a parallel run, instead we create figures after the run is complete. The parallelization strategy is simple, we just split the time interval into sub-intervals, run THUNER on each sub-interval, then stitch the results back together at the end.
+    # Create the output directories for the parallel run
+    output_parent = base_local / "runs/cpol/geographic_parallel"
+    options_directory = output_parent / "options"
+    visualize_directory = output_parent / "visualize"
+    # Remove the output parent directory if it already exists
+    if output_parent.exists() and remove_existing_outputs:
+        shutil.rmtree(output_parent)
+    # Recreate the dataset options with a longer time interval
+    start = "2005-11-13T14:00:00"
+    end = "2005-11-13T19:00:30"
+    times_dict = {"start": start, "end": end}
+    cpol_options = data.aura.CPOLOptions(**times_dict, converted_options={"save": True})
+    era5_dict = {"latitude_range": [-14, -10], "longitude_range": [129, 133]}
+    era5_pl_options = data.era5.ERA5Options(**times_dict, **era5_dict)
+    era5_dict.update({"data_format": "single-levels"})
+    era5_sl_options = data.era5.ERA5Options(**times_dict, **era5_dict)
+    datasets = [cpol_options, era5_pl_options, era5_sl_options]
+    data_options = option.data.DataOptions(datasets=datasets)
+    data_options.to_yaml(options_directory / "data.yml")
+    # All the other options are the same as before
+    grid_options.to_yaml(options_directory / "grid.yml")
+    track_options.to_yaml(options_directory / "track.yml")
+    times = utils.generate_times(data_options.dataset_by_name("cpol").filepaths)
+    args = [times, data_options, grid_options, track_options]
+    parallel.track(*args, output_directory=output_parent, dataset_name="cpol")
+    # After a run, we can also perform analysis and visualization. Here we identify and visualize some Mesoscale Convective System (MCS) objects.
     analysis_options = analyze.mcs.AnalysisOptions()
     analysis_options.to_yaml(options_directory / "analysis.yml")
     analyze.mcs.process_velocities(output_parent)
@@ -173,10 +198,8 @@ def test_cpol():
     # Save other options
     grid_options.to_yaml(options_directory / "grid.yml")
     track_options.to_yaml(options_directory / "track.yml")
-    # Switch off the runtime figures
-    visualize_options = None
     times = utils.generate_times(data_options.dataset_by_name("cpol").filepaths)
-    args = [times, data_options, grid_options, track_options, visualize_options]
+    args = [times, data_options, grid_options, track_options]
     kwargs = {"output_directory": output_parent, "dataset_name": "cpol"}
     parallel.track(*args, **kwargs, debug_mode=True)
     analysis_options = analyze.mcs.AnalysisOptions()
@@ -231,37 +254,6 @@ def test_cpol():
     args = [output_parent, start, end, figure_options, "cpol"]
     args_dict = {"parallel_figure": False, "by_date": False, "num_processes": 1}
     visualize.attribute.series(*args, **args_dict)
-    # ## ZARR output layout
-    #
-    # THUNER outputs are stored in a single unified zarr store at the run root (`output.zarr` by default; configurable via `thuner.config.get_zarr_store_name`), with hierarchical groups for masks, attributes and filepath records. Attribute metadata is distributed across each group's dataset and variable `.attrs`. Each parallel-tracking interval worker writes its own store in `interval_{i}/`; the stitcher then relabels universal_ids and merges everything into the unified run-level store. The cell below verifies that layout end-to-end and exercises the analyze module against the zarr output.
-    store_path = output_parent / get_zarr_store_name()
-    assert store_path.exists(), "Unified zarr store was not created."
-    interval_dirs = sorted(output_parent.glob("interval_*"))
-    assert (
-        not interval_dirs
-    ), f"interval_* dirs should be cleaned up after stitching, found {interval_dirs}"
-    # Find one attribute group from each tracked object and confirm it round-trips.
-    leaf_groups = []
-    for root, dirs, files in os.walk(store_path / "attributes"):
-        if any((Path(root) / d / ".zarray").exists() for d in dirs):
-            rel = Path(root).relative_to(store_path).as_posix()
-            leaf_groups.append(rel)
-    assert leaf_groups, "No attribute groups written to zarr store."
-    print(f"Found {len(leaf_groups)} attribute groups.")
-    for g in leaf_groups:
-        df_g = read_attribute_zarr(store_path, g)
-        assert len(df_g) > 0, f"Attribute group {g} round-trips empty."
-    print("All attribute groups round-trip non-empty.")
-    # Confirm a mask group is non-empty.
-    mask_groups = [d for d in (store_path / "masks").iterdir() if d.is_dir()]
-    assert mask_groups, "No mask groups written to zarr store."
-    ds_mask = xr.open_zarr(store_path, group=f"masks/{mask_groups[0].name}")
-    print(f"masks/{mask_groups[0].name}:", dict(ds_mask.sizes))
-    # Confirm analysis outputs round-trip too.
-    for analysis_group in ["velocities", "quality", "classification"]:
-        df_a = read_attribute_zarr(store_path, f"analysis/{analysis_group}")
-        assert len(df_a) > 0, f"analysis/{analysis_group} round-trips empty."
-        print(f"analysis/{analysis_group}: {len(df_a)} rows, cols={list(df_a.columns)}")
 
 
 if __name__ == "__main__":

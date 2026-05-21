@@ -609,8 +609,8 @@ def stitch_run(output_parent, intervals, cleanup=True):
     stitch_records(output_parent, intervals, record_group_dict)
 
     # Copy regridder weights folder if it exists.
-    weights_path_0 = output_parent / "interval_0" / "records" / "regridder_weights"
-    weights_path = output_parent / "records" / "regridder_weights"
+    weights_path_0 = output_parent / "interval_0" / "regridder_weights"
+    weights_path = output_parent / "regridder_weights"
     if weights_path_0.exists():
         shutil.copytree(weights_path_0, weights_path, dirs_exist_ok=True)
 

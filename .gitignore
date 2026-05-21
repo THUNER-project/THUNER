@@ -21,3 +21,4 @@ htmlcov
 conda_init_out.out
 docs/source/images/uml
 docs/source/api
+audit_*

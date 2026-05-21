@@ -1,6 +1,37 @@
 """Utilities for writing data to disk."""
 
+from pathlib import Path
 import numpy as np
+import xarray as xr
+
+
+def pin_datetime_encoding(data_object: xr.Dataset | xr.DataArray):
+    """Force a stable CF time encoding on every datetime variable."""
+
+    encoding = {
+        "units": "seconds since 1970-01-01",
+        "dtype": "int64",
+        "_FillValue": None,
+    }
+
+    if isinstance(data_object, xr.Dataset):
+        names = [data_object[name] for name in data_object.variables]
+    else:
+        names = []
+        if np.issubdtype(data_object.dtype, np.datetime64):
+            names.append(data_object)
+        names += [data_object.coords[name] for name in data_object.coords]
+    for var in names:
+        if np.issubdtype(var.dtype, np.datetime64):
+            var.encoding = dict(encoding)
+
+
+def zarr_group_exists(store_path, group):
+    """Return True if a group already exists inside the zarr DirectoryStore."""
+    candidate = Path(store_path) / group
+    if not candidate.exists():
+        return False
+    return any(candidate.iterdir())
 
 
 def write_interval_reached(next_time, object_tracks, object_options):

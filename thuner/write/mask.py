@@ -1,21 +1,13 @@
 """Write object masks to the unified zarr store."""
 
-from pathlib import Path
 import numpy as np
 
 from thuner.log import setup_logger
 import thuner.write.attribute as attribute
+import thuner.write.utils as utils
 
 
 logger = setup_logger(__name__)
-
-
-def _zarr_group_exists(store_path, group):
-    """Return True if a group already exists inside the zarr DirectoryStore."""
-    candidate = Path(store_path) / group
-    if not candidate.exists():
-        return False
-    return any(candidate.iterdir())
 
 
 def write(object_tracks, object_options, output_directory):
@@ -41,10 +33,11 @@ def write(object_tracks, object_options, output_directory):
     coords = [c for c in mask.coords if c in ["x", "y", "latitude", "longitude"]]
     for coord in coords:
         mask.coords[coord] = mask.coords[coord].astype(np.float32)
+    utils.pin_datetime_encoding(mask)
 
     message = f"Writing {object_name} masks to {store}::{group}."
     logger.info(message)
-    if _zarr_group_exists(store, group):
+    if utils.zarr_group_exists(store, group):
         mask.to_zarr(store, group=group, mode="a", append_dim="time")
     else:
         mask.to_zarr(store, group=group, mode="a")

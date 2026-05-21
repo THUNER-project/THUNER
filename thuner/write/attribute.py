@@ -20,6 +20,7 @@ from thuner.utils import format_time, convert_value
 from thuner.log import setup_logger
 from thuner.config import get_zarr_store_name
 import thuner.attribute.utils as utils
+import thuner.write.utils as write_utils
 from thuner.option.track import BaseObjectOptions
 from thuner.option.attribute import Attribute, AttributeGroup, AttributeType
 
@@ -90,15 +91,8 @@ def _df_to_dataset(
     if "index" in ds.dims:
         ds = ds.rename_dims({"index": "record"})
     _apply_attribute_type_metadata(ds, attribute_type)
+    write_utils.pin_datetime_encoding(ds)
     return ds
-
-
-def _zarr_group_exists(store_path: Path, group: str) -> bool:
-    """Return True if a group already exists inside the zarr DirectoryStore."""
-    candidate = Path(store_path) / group
-    if not candidate.exists():
-        return False
-    return any(candidate.iterdir())
 
 
 def store_path(output_directory) -> Path:
@@ -120,7 +114,7 @@ def write_attributes(store_path_, group, df, attribute_type):
     ds = _df_to_dataset(df, attribute_type)
     store_path_ = Path(store_path_)
     store_path_.parent.mkdir(parents=True, exist_ok=True)
-    if _zarr_group_exists(store_path_, group):
+    if write_utils.zarr_group_exists(store_path_, group):
         ds.to_zarr(store_path_, group=group, mode="a", append_dim="record")
     else:
         ds.to_zarr(store_path_, group=group, mode="a")

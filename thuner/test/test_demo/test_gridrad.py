@@ -41,7 +41,7 @@ def test_gridrad():
         shutil.rmtree(output_parent)
     # Next download the demo data for the tutorial, if you haven't already.
     # Download the demo data
-    remote_directory = "s3://thuner-storage/THUNER_output/input_data/raw/d81006"
+    remote_directory = "s3://thuner-storage/THUNER_output/input_data/raw/d841006"
     data.get_demo_data(base_local, remote_directory)
     remote_directory = "s3://thuner-storage/THUNER_output/input_data/raw/"
     remote_directory += "era5_monthly_39N_102W_27N_89W"
@@ -115,18 +115,12 @@ def test_gridrad():
     track_options.levels[1].objects[0].tracking.global_flow_margin = 70
     track_options.levels[1].objects[0].revalidate()
     track_options.to_yaml(options_directory / "track.yml")
-    # Users can also specify visualization options for generating figures during a tracking run.
-    # Uncomment the line below to generate figures that visualize the matching algorithm - naturally
-    # this makes a tracking run much slower.
-    visualize_options = None
-    # visualize_options = default.runtime(visualize_directory=visualize_directory)
-    # visualize_options.to_yaml(options_directory / "visualize.yml")
     # ## Tracking
     # To perform the tracking run, we need an iterable of the times at which objects will be
     # detected and tracked. The convenience function `thuner.utils.generate_times` creates a generator from the dataset options for the tracking dataset. We can then pass this generator, and the various options, to the tracking function `thuner.parallel.track`. During the tracking run, outputs will be created in the `output_parent` directory, within the subfolders `interval_0`, `interval_1` etc, which represent subintervals of the time period being tracked. At the end of the run, these outputs are stiched together.
     times = utils.generate_times(data_options.dataset_by_name("gridrad").filepaths)
-    args = [times, data_options, grid_options, track_options, visualize_options]
-    num_processes = 4  # If visualize_options is not None, num_processes must be 1
+    args = [times, data_options, grid_options, track_options]
+    num_processes = 4
     kwargs = {"output_directory": output_parent, "num_processes": num_processes}
     # In parallel tracking runs, we need to tell the tracking function which dataset to use
     # for tracking, so the subinterval data_options can be generated correctly
@@ -136,13 +130,11 @@ def test_gridrad():
     # the run are saved in human-readable YAML files within the `options` directory. For reproducibility, Python objects can be rebuilt from these YAML files by reading the YAML, and passing this to the appropriate `pydantic` model.
     with open(options_directory / "data.yml", "r") as f:
         data_options = option.data.DataOptions(**yaml.safe_load(f))
-        # Note yaml.safe_load(f) is a dictionary.
-        # Prepending with ** unpacks the dictionary into keyword/argument pairs.
     data_options.model_dump()
     # The convenience function `thuner.analyze.utils.read_options` reloads all options in the above way, storing the different options in a dictionary.
     all_options = analyze.utils.read_options(output_parent)
     all_options["data"].model_dump()
-    # Object attributes, masks and filepath records are all stored inside a single unified zarr store at the run root (`output.zarr` by default; configurable via `thuner.config.get_zarr_store_name`), under hierarchical groups (e.g. `attributes/mcs/core`, `masks/mcs`, `records/filepaths/gridrad`). Attribute metadata is distributed across each group's dataset and variable `.attrs` - no separate YAML sidecars. Use the convenience function `thuner.attribute.utils.read_attribute` to load any attribute table as a `pandas.DataFrame`.
+    # Object attributes, masks and filepath records are all stored inside a single unified zarr store at the run root (`output.zarr` by default; configurable via `thuner.config.get_zarr_store_name`), under hierarchical groups (e.g. `attributes/mcs/core`, `masks/mcs`, `records/filepaths/gridrad`). Use the convenience function `thuner.attribute.utils.read_attribute` to load any attribute table as a `pandas.DataFrame`.
     core = attribute.utils.read_attribute(output_parent, "attributes", "mcs", "core")
     print(core.head(20).to_string())
     # Records of the filepaths corresponding to each time of the tracking run are saved in
@@ -152,9 +144,10 @@ def test_gridrad():
     )
     print(records.head(20).to_string())
     # Object masks are saved as ZARR files, which can be read using `xarray`.
-    xr.open_dataset(
+    ds = xr.open_dataset(
         output_parent / get_zarr_store_name(), engine="zarr", group="masks/mcs"
-    ).info()
+    )
+    print(ds.info())
     # ## Analysis and Visualization
     # We can then perform analysis on the tracking run outputs. Below we perform the MCS classifications discussed by [Short et al. (2023)](https://doi.org/10.1175/MWR-D-22-0146.1).
     analysis_options = analyze.mcs.AnalysisOptions()
@@ -179,8 +172,6 @@ def test_gridrad():
     args = [output_parent, start, end, figure_options, "gridrad"]
     args_dict = {"parallel_figure": True, "by_date": False, "num_processes": 4}
     visualize.attribute.series(*args, **args_dict)
-    # ## Relabelling
-    # Sometimes we need to define new objects based on the split-merge history of the objects tracked during a THUNER run.
 
 
 if __name__ == "__main__":

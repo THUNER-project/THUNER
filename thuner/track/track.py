@@ -81,7 +81,7 @@ def track(
     for dataset_options in data_options.datasets:
         if dataset_options.reuse_regridder:
             if dataset_options.weights_filepath is None:
-                filepath = output_directory / "records/regridder_weights"
+                filepath = output_directory / "regridder_weights"
                 filepath = filepath / f"{dataset_options.name}.nc"
                 dataset_options.weights_filepath = filepath
 

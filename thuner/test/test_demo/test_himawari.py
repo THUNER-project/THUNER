@@ -60,7 +60,6 @@ def test_himawari():
     parallel.track(
         *args, output_directory=output_parent, dataset_name="himawari", num_processes=2
     )
-    # track.track(*args, output_directory=output_parent)
     # ## Analyze/Visualize
     analysis_options = analyze.mcs.AnalysisOptions()
     analysis_options.to_yaml(options_directory / "analysis.yml")
