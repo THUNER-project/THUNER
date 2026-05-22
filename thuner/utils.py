@@ -548,6 +548,23 @@ def generate_times(filepaths: list[str]) -> Generator[np.datetime64, None, None]
                 yield time
 
 
+def generate_dataset_times(dataset_options: BaseDatasetOptions):
+    """Get times from dataset_options."""
+    start = np.datetime64(dataset_options.start)
+    end = np.datetime64(dataset_options.end)
+    filepaths = dataset_options.filepaths
+    for filepath in sorted(filepaths):
+        if not Path(filepath).exists():
+            raise ValueError(f"{filepath} does not exist.")
+        with xr.open_dataset(filepath, chunks={}) as ds:
+            for time in ds.time.values:
+                if start is not None and time < start:
+                    continue
+                if end is not None and time > end:
+                    return  # files are sorted, so we can stop early
+                yield time
+
+
 def create_time_filepath_lookup(filepaths: list[str]) -> Dict[np.datetime64, str]:
     """Create a time: filepath dictionary from a list of filepaths."""
     if not isinstance(filepaths, list):

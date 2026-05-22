@@ -62,9 +62,9 @@ class ACCESSOptions(utils.BaseDatasetOptions):
     def get_filepaths(self):
         return get_access_filepaths(self)
 
-    # def convert_dataset(self, time, filepath, track_options, grid_options):
-    #     args = [time, filepath, track_options, self, grid_options]
-    #     return convert_access(*args)
+    def convert_dataset(self, time, filepath, track_options, grid_options):
+        args = [time, filepath, track_options, self, grid_options]
+        return convert_access(*args)
 
     # def update_boundary_data(self, dataset, input_record, boundary_coords):
     #     update_access_boundary_data(dataset, input_record, boundary_coords)
@@ -120,7 +120,7 @@ _names_dict = {
     "lat": "latitude",
     "lon": "longitude",
     "radar_refl_1km": "reflectivity",
-    "maxcol_refl": "max_col_refl",
+    "maxcol_refl": "reflectivity",
 }
 
 
@@ -137,7 +137,11 @@ def convert_access(
     time_str = utils.format_time(time, filename_safe=False)
     logger.info(f"Converting {dataset_options.name} dataset for time {time_str}.")
 
-    access = xr.open_dataset(filepath)
+    try:
+        access = xr.open_dataset(filepath)
+    except:
+        logger.error(f"Failed to open dataset at {filepath}.")
+        raise
     filtered_names_dict = {
         k: v for k, v in _names_dict.items() if k in access.variables
     }
@@ -174,5 +178,8 @@ def convert_access(
     ds["boundary_mask"] = boundary_mask
 
     ds = _utils.apply_mask(ds, grid_options)
+    # Mask reflectivity values below 0 dBZ, which are not meteorologically meaningful.
+    if "reflectivity" in ds:
+        ds["reflectivity"] = ds["reflectivity"].where(ds["reflectivity"] > 0)
 
     return ds, boundary_coords, simple_boundary_coords

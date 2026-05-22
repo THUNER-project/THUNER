@@ -3,10 +3,8 @@
 import gc
 from pathlib import Path
 from pydantic import Field, model_validator
-import tempfile
 from typing import Any, Dict
 from time import sleep
-import xesmf as xe
 import multiprocessing as mp
 import numpy as np
 import pandas as pd
@@ -26,7 +24,7 @@ import thuner.visualize.visualize as visualize
 from thuner.option.visualize import FigureOptions, GroupedHorizontalAttributeOptions
 from thuner.option.visualize import HorizontalAttributeOptions
 from thuner.log import setup_logger, logging_listener
-from thuner.config import get_outputs_directory, get_zarr_store_name
+from thuner.config import get_zarr_store_name
 
 
 __all__ = ["series", "grouped_horizontal"]

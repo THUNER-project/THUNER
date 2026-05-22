@@ -386,18 +386,6 @@ def classify_all(
 ):
     """
     Classify MCSs based on quadrants, as described in Short et al. (2023).
-
-    Parameters
-    ----------
-    output_directory : str
-        Path to the thuner run output directory.
-    analysis_options : dict
-        Dictionary of quality control options.
-
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame describing MCS classifications.
     """
     if analysis_directory is None:
         analysis_directory = output_directory / "analysis"

@@ -142,7 +142,9 @@ def track_interval(
     grid_options.to_yaml(options_directory / "grid.yml")
     track_options.to_yaml(options_directory / "track.yml")
     filepaths = interval_data_options.dataset_by_name(dataset_name).filepaths
-    times = utils.generate_times(filepaths)
+    # times = utils.generate_times(filepaths)
+    dataset_options = interval_data_options.dataset_by_name(dataset_name)
+    times = utils.generate_dataset_times(dataset_options)
     args = [times, interval_data_options, grid_options, track_options]
     args += [visualize_options, output_directory]
     thuner_track.track(*args)
@@ -546,7 +548,8 @@ def stitch_records(output_parent, intervals, record_group_dict):
             )
             for i in range(len(intervals))
         ]
-        df = pd.concat(dfs).sort_index().drop_duplicates()
+        df = pd.concat(dfs).sort_index()
+        df = df.reset_index().drop_duplicates().set_index("time")
         write.attribute.write_attributes(out_store, group, df, attribute_type)
 
 

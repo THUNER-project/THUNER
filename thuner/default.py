@@ -13,7 +13,6 @@ import thuner.visualize.runtime as vis_runtime
 from thuner.utils import Retrieval, AttributeHandler
 from thuner.config import get_zarr_store_name
 
-
 __all__ = [
     "convective",
     "middle",
@@ -46,6 +45,23 @@ def anvil(dataset="cpol"):
     kwargs = {"name": "anvil", "dataset": dataset, "variable": "reflectivity"}
     detection = {"method": "threshold", "altitudes": [7.5e3, 10e3], "threshold": 15}
     kwargs.update({"detection": detection, "tracking": None})
+    return track_option.DetectedObjectOptions(**kwargs)
+
+
+def satellite_anvil(dataset="himawari"):
+    """Build default options for anvil objects."""
+    kwargs = {"name": "anvil", "dataset": dataset, "variable": "brightness_temperature"}
+    det_kwargs = {"method": "threshold", "threshold": 235, "threshold_type": "maxima"}
+    det_kwargs.update({"flatten_method": None, "min_area": 500})
+    kwargs.update({"detection": det_kwargs, "tracking": None})
+    attribute_types = [core.default_tracked()]
+    attribute_types += [quality.default()]
+    attribute_types += [ellipse.default()]
+    trck_kwargs = {"global_flow_margin": 70, "unique_global_flow": False}
+    tracking = track_option.MintOptions(**trck_kwargs)
+    attr_kwargs = {"name": "anvil", "attribute_types": attribute_types}
+    attributes = attribute_option.Attributes(**attr_kwargs)
+    kwargs.update({"tracking": tracking, "attributes": attributes})
     return track_option.DetectedObjectOptions(**kwargs)
 
 
@@ -94,6 +110,54 @@ def mcs(tracking_dataset="cpol", profile_dataset="era5_pl", tag_dataset="era5_sl
     return mcs_options
 
 
+def access_c_mcs(tracking_dataset="access_1km"):
+    """
+    Build options for ACCESS-C MCS objects. Note we use 1km reflectivity to detect the
+    convective objects, and the colmax reflectivity to detect the anvil objects. See
+    https://doi.org/10.1175/MWR-D-23-0033.1
+    """
+
+    name = "mcs"
+    member_objects = ["convective", "anvil"]
+    kwargs = {"name": name, "member_objects": member_objects}
+    kwargs.update({"member_levels": [0, 0], "member_min_areas": [80, 800]})
+
+    grouping = track_option.GroupingOptions(**kwargs)
+    tracking = track_option.MintOptions(
+        matched_object="convective", global_flow_margin=70, unique_global_flow=False
+    )
+
+    # Assume the first member object is used for tracking.
+    obj = member_objects[0]
+    attribute_types = [core.default_tracked()]
+    attribute_types += [quality.default(member_object=obj)]
+    attribute_types += [ellipse.default()]
+    kwargs = {"name": member_objects[0], "attribute_types": attribute_types}
+    attributes = track_option.Attributes(**kwargs)
+    member_attributes = {obj: attributes}
+    for obj in member_objects[1:]:
+        attribute_types = [core.default_member()]
+        attribute_types += [quality.default(member_object=obj)]
+        kwargs = {"name": obj, "attribute_types": attribute_types}
+        member_attributes[obj] = track_option.Attributes(**kwargs)
+
+    mcs_core = core.default_tracked()
+    attribute_types = [mcs_core, group.default()]
+    # Leave out the profile and tag attributes for now
+    # attribute_types += [profile.default(profile_dataset)]
+    # attribute_types += [tag.default(tag_dataset)]
+    kwargs = {"name": "mcs", "attribute_types": attribute_types}
+    kwargs.update({"member_attributes": member_attributes})
+    attributes = attribute_option.Attributes(**kwargs)
+
+    kwargs = {"name": name, "dataset": tracking_dataset, "grouping": grouping}
+    kwargs.update({"tracking": tracking, "attributes": attributes})
+    kwargs.update({"hierarchy_level": 1, "method": "group"})
+    mcs_options = track_option.GroupedObjectOptions(**kwargs)
+
+    return mcs_options
+
+
 def track(dataset_name: str = "cpol"):
     """Build default options for tracking MCS."""
 
@@ -112,26 +176,30 @@ def track(dataset_name: str = "cpol"):
     return track_option.TrackOptions(levels=levels)
 
 
-def satellite_anvil(dataset="himawari"):
-    """Build default options for anvil objects."""
-    kwargs = {"name": "anvil", "dataset": dataset, "variable": "brightness_temperature"}
-    det_kwargs = {"method": "threshold", "threshold": 235, "threshold_type": "maxima"}
-    det_kwargs.update({"flatten_method": None, "min_area": 500})
-    kwargs.update({"detection": det_kwargs, "tracking": None})
-    attribute_types = [core.default_tracked()]
-    attribute_types += [quality.default()]
-    attribute_types += [ellipse.default()]
-    trck_kwargs = {"global_flow_margin": 70, "unique_global_flow": False}
-    tracking = track_option.MintOptions(**trck_kwargs)
-    attr_kwargs = {"name": "anvil", "attribute_types": attribute_types}
-    attributes = attribute_option.Attributes(**attr_kwargs)
-    kwargs.update({"tracking": tracking, "attributes": attributes})
-    return track_option.DetectedObjectOptions(**kwargs)
+def access_c_track(
+    convective_dataset: str = "access_1km", anvil_dataset: str = "access_maxcol"
+):
+    """Build default options for tracking MCS."""
+
+    mask_options = track_option.MaskOptions(save=False, load=False)
+    convective_options = convective(convective_dataset)
+    convective_options.mask_options = mask_options
+    anvil_options = anvil(anvil_dataset)
+    anvil_options.mask_options = mask_options
+    # Assume the convective and anvil datasets are 2D, so set flatten method to None
+    convective_options.detection.flatten_method = None
+    anvil_options.detection.flatten_method = None
+    mcs_options = access_c_mcs(convective_dataset)
+    objects = [convective_options, anvil_options]
+    level_0 = track_option.LevelOptions(objects=objects)
+    level_1 = track_option.LevelOptions(objects=[mcs_options])
+    levels = [level_0, level_1]
+    return track_option.TrackOptions(levels=levels)
 
 
 def satellite_track(dataset_name: str = "himawari"):
     """Build default options for tracking anvils in satellite data."""
-    anvil_options = satellite_anvil()
+    anvil_options = satellite_anvil(dataset_name)
     level = track_option.LevelOptions(objects=[anvil_options])
     return track_option.TrackOptions(levels=[level])
 

@@ -8,6 +8,7 @@ import thuner.data.gridrad as gridrad
 import thuner.data.aura as aura
 import thuner.data.era5 as era5
 import thuner.data.himawari as himawari
+import thuner.data.access as access
 
 logger = setup_logger(__name__)
 
@@ -22,6 +23,7 @@ AnyDatasetOptions = Union[
     aura.OperationalOptions,
     era5.ERA5Options,
     himawari.HimawariOptions,
+    access.ACCESSOptions,
     BaseDatasetOptions,
 ]
 
