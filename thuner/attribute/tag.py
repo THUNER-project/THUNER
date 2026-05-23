@@ -35,8 +35,13 @@ def from_centers(
     Get tags from object centers.
     """
 
-    args = [attribute_group, input_records, object_tracks, dataset, member_object]
-    name, names, ds, core_attributes, current_time = utils.setup_interp(*args)
+    name, names, ds, core_attributes, current_time = utils.setup_interp(
+        attribute_group=attribute_group,
+        input_records=input_records,
+        object_tracks=object_tracks,
+        dataset=dataset,
+        member_object=member_object,
+    )
     tags = ds[names]
     lats_da = xr.DataArray(core_attributes["latitude"], dims="points")
     lons_da = xr.DataArray(core_attributes["longitude"], dims="points")
@@ -57,11 +62,14 @@ def from_centers(
     coordinates = ["time", "time_offset", id_name, "latitude", "longitude"]
     tag_dict.update({name: [] for name in coordinates})
     # Setup interp kwargs
-    kwargs = {"latitude": lats_da, "longitude": lons_da, "method": "linear"}
     for offset in time_offsets:
         interp_time = current_time + np.timedelta64(offset, "m")
-        kwargs.update({"time": interp_time.astype("datetime64[ns]")})
-        tags_time = tags.interp(**kwargs)
+        tags_time = tags.interp(
+            latitude=lats_da,
+            longitude=lons_da,
+            method="linear",
+            time=interp_time.astype("datetime64[ns]"),
+        )
         for name in names:
             tag_dict[name] += list(tags_time[name].values)
         tag_dict["time_offset"] += [offset] * len(core_attributes["latitude"])
@@ -84,8 +92,13 @@ def from_masks(
     Get tags from masks.
     """
 
-    args = [attribute_group, input_records, object_tracks, dataset, member_object]
-    name, names, ds, core_attributes, current_time = utils.setup_interp(*args)
+    name, names, ds, core_attributes, current_time = utils.setup_interp(
+        attribute_group=attribute_group,
+        input_records=input_records,
+        object_tracks=object_tracks,
+        dataset=dataset,
+        member_object=member_object,
+    )
     tags = ds[names]
     latitude, longitude = core_attributes["latitude"], core_attributes["longitude"]
 
@@ -129,11 +142,15 @@ def from_masks(
 
 def CAPE():
     """Convenience function to build a CAPE attribute."""
-    kwargs = {"name": "cape", "data_type": float, "precision": 1, "units": "J/kg"}
-    kwargs.update({"description": "Convective available potential energy."})
     _retrieval = Retrieval(function=from_centers)
-    kwargs.update({"retrieval": _retrieval})
-    return Attribute(**kwargs)
+    return Attribute(
+        name="cape",
+        data_type=float,
+        precision=1,
+        units="J/kg",
+        description="Convective available potential energy.",
+        retrieval=_retrieval,
+    )
 
 
 # class CAPE(Attribute):
@@ -148,11 +165,15 @@ def CAPE():
 
 def CIN():
     """Convenience function to build a CIN attribute."""
-    kwargs = {"name": "cin", "data_type": float, "precision": 1, "units": "J/kg"}
-    kwargs.update({"description": "Convective inhibition."})
     _retrieval = Retrieval(function=from_centers)
-    kwargs.update({"retrieval": _retrieval})
-    return Attribute(**kwargs)
+    return Attribute(
+        name="cin",
+        data_type=float,
+        precision=1,
+        units="J/kg",
+        description="Convective inhibition.",
+        retrieval=_retrieval,
+    )
 
 
 # class CIN(Attribute):
@@ -173,14 +194,12 @@ def tag_center(dataset):
     _time, _lat, _lon = core.time(), core.latitude(), core.longitude()
     _time.retrieval, _lat.retrieval, _lon.retrieval = None, None, None
     _attributes = [_time, utils.time_offset(), _lat, _lon, CAPE(), CIN()]
-    kwargs = {"name": "tags_center", "retrieval": _retrieval}
-    kwargs.update(
-        {
-            "attributes": _attributes,
-            "description": "Tags, e.g. CAPE and CIN, at object centers",
-        }
+    return AttributeGroup(
+        name="tags_center",
+        retrieval=_retrieval,
+        attributes=_attributes,
+        description="Tags, e.g. CAPE and CIN, at object centers",
     )
-    return AttributeGroup(**kwargs)
 
 
 # class TagCenter(AttributeGroup):
@@ -220,6 +239,8 @@ def default(dataset: str, matched=True):
         _tag_center.attributes.insert(2, _record_id)
     # Add the appropriate dataset keyword argument pair
     description = "Tag attributes, e.g. cape and cin, at object center."
-    kwargs = {"name": f"{dataset}_tag", "attributes": [_tag_center]}
-    kwargs.update({"description": description})
-    return AttributeType(**kwargs)
+    return AttributeType(
+        name=f"{dataset}_tag",
+        attributes=[_tag_center],
+        description=description,
+    )

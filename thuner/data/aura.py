@@ -70,8 +70,13 @@ class CpolOptions(AuraOptions):
 
     def convert_dataset(self, time, filepath, track_options, grid_options):
         """Convert CPOL dataset."""
-        args = [time, filepath, track_options, self, grid_options]
-        return convert_cpol(*args)
+        return convert_cpol(
+            time=time,
+            filepath=filepath,
+            track_options=track_options,
+            dataset_options=self,
+            grid_options=grid_options,
+        )
 
     @model_validator(mode="after")
     def _check_times(cls, values):
@@ -146,9 +151,12 @@ class OperationalOptions(AuraOptions):
         """
         super().model_post_init(__context)
         url = "https://dapds00.nci.org.au/thredds/fileServer/rq0"
-        kwargs = {"name": "operational", "parent_remote": url}
-        kwargs.update({"fields": ["reflectivity"], "reuse_regridder": False})
-        self._change_defaults(**kwargs)
+        self._change_defaults(
+            name="operational",
+            parent_remote=url,
+            fields=["reflectivity"],
+            reuse_regridder=False,
+        )
 
     # Define additional fields for the operational radar
     level: str = Field("1")

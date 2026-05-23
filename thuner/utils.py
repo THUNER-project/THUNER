@@ -626,7 +626,7 @@ def generate_times(filepaths: list[str]) -> Generator[np.datetime64, None, None]
     for filepath in sorted(filepaths):
         if not Path(filepath).exists():
             raise ValueError(f"{filepath} does not exist.")
-        with xr.open_dataset(filepath, chunks={}) as ds:
+        with xr.open_dataset(filepath, chunks={}, decode_timedelta=True) as ds:
             for time in ds.time.values:
                 yield time
 
@@ -639,7 +639,7 @@ def generate_dataset_times(dataset_options: BaseDatasetOptions):
     for filepath in sorted(filepaths):
         if not Path(filepath).exists():
             raise ValueError(f"{filepath} does not exist.")
-        with xr.open_dataset(filepath, chunks={}) as ds:
+        with xr.open_dataset(filepath, chunks={}, decode_timedelta=True) as ds:
             for time in ds.time.values:
                 if start is not None and time < start:
                     continue

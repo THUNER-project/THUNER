@@ -60,9 +60,12 @@ class HimawariOptions(utils.BaseDatasetOptions):
         """
         super().model_post_init(__context)
         url = "https://dapds00.nci.org.au/thredds/fileServer/ra22"
-        kwargs = {"fields": ["brightness_temperature"], "parent_remote": url}
-        kwargs.update({"name": "himawari", "reuse_regridder": True})
-        self._change_defaults(**kwargs)
+        self._change_defaults(
+            fields=["brightness_temperature"],
+            parent_remote=url,
+            name="himawari",
+            reuse_regridder=True,
+        )
 
     # Define additional fields for Himawari
     time_frame: Literal["arc", "nrt"] = Field(
@@ -95,8 +98,13 @@ class HimawariOptions(utils.BaseDatasetOptions):
 
     def convert_dataset(self, time, filepath, track_options, grid_options):
         """Convert Himawari dataset."""
-        args = [time, filepath, track_options, self, grid_options]
-        return convert_himawari(*args)
+        return convert_himawari(
+            time=time,
+            filepath=filepath,
+            track_options=track_options,
+            dataset_options=self,
+            grid_options=grid_options,
+        )
 
     @model_validator(mode="after")
     def _check_filepaths(cls, values):

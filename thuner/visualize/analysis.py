@@ -29,15 +29,25 @@ def windrose(
     if colormap is None:
         colormap = plt.get_cmap("Spectral_r", len(bins))
     edgecolor = plt.rcParams["axes.edgecolor"]
-    kwargs = {"normed": True, "opening": 0.8, "edgecolor": edgecolor}
-    kwargs.update({"linewidth": 1, "blowto": False, "bins": bins, "cmap": colormap})
-    ax.bar(heading, speed, **kwargs)
+    ax.bar(
+        heading,
+        speed,
+        normed=True,
+        opening=0.8,
+        edgecolor=edgecolor,
+        linewidth=1,
+        blowto=False,
+        bins=bins,
+        cmap=colormap,
+    )
     if yticks is not None:
         ax.set_yticks(yticks)
         tick_labels = [t + "%" for t in yticks.astype(str)]
-        kwargs = {"verticalalignment": verticalalignment}
-        kwargs.update({"horizontalalignment": horizontalalignment})
-        ax.set_yticklabels(tick_labels, **kwargs)
+        ax.set_yticklabels(
+            tick_labels,
+            verticalalignment=verticalalignment,
+            horizontalalignment=horizontalalignment,
+        )
     ax.set_rlabel_position(label_angle)
 
     return ax
@@ -51,19 +61,32 @@ def windrose_legend(legend_ax, bins, colormap=None, units="m/s", columns=2):
         labels.append(f"[{bins[i]} {units}, {bins[i+1]} {units})")
     labels.append(f"[{bins[-1]} {units}, " + r"$\infty$)")
     edgecolor = plt.rcParams["axes.edgecolor"]
-    kwargs = {"linewidth": 1, "edgecolor": edgecolor}
-    handles = [Patch(facecolor=colors[i], **kwargs) for i in range(len(labels))]
-    kwargs = {"ncol": columns, "fancybox": True, "shadow": True}
+    handles = [
+        Patch(
+            facecolor=colors[i],
+            linewidth=1,
+            edgecolor=edgecolor,
+        )
+        for i in range(len(labels))
+    ]
     handles, labels = utils.reorder_legend_entries(handles, labels, columns=columns)
-    return legend_ax.legend(handles, labels, **kwargs)
+    return legend_ax.legend(
+        handles,
+        labels,
+        ncol=columns,
+        fancybox=True,
+        shadow=True,
+    )
 
 
 def parent_graph(output_directory, parent_graph, ax=None, style="presentation"):
     """Visualize a parent graph."""
 
     # Convert parent graph nodes to ints for visualization
-    kwargs = {"label_attribute": "label"}
-    parent_graph_int = nx.convert_node_labels_to_integers(parent_graph, **kwargs)
+    parent_graph_int = nx.convert_node_labels_to_integers(
+        parent_graph,
+        label_attribute="label",
+    )
     label_dict = {}
     time_dict = {}
     for node in parent_graph_int.nodes(data=True):
@@ -83,18 +106,32 @@ def parent_graph(output_directory, parent_graph, ax=None, style="presentation"):
         node_color = "lightgray"
 
     pos = nx.drawing.nx_pydot.graphviz_layout(parent_graph_int, prog="dot")
-    kwargs = {"node_size": 150, "with_labels": False, "arrows": True, "ax": ax}
-    kwargs.update({"node_color": node_color, "edge_color": edge_color})
-    nx.draw(parent_graph_int, pos, **kwargs)
+    nx.draw(
+        parent_graph_int,
+        pos,
+        node_size=150,
+        with_labels=False,
+        arrows=True,
+        ax=ax,
+        node_color=node_color,
+        edge_color=edge_color,
+    )
     ax.collections[0].set_edgecolor(edge_color)
     font = plt.rcParams["font.family"]
     font_size = "6"
-    kwargs = {"font_family": font, "font_size": font_size, "labels": label_dict}
-    kwargs.update({"verticalalignment": "center", "horizontalalignment": "center"})
-    kwargs.update({"ax": ax, "font_color": edge_color})
     fig.set_facecolor(background_color)
     ax.set_facecolor(background_color)
-    nx.draw_networkx_labels(parent_graph_int, pos, **kwargs)
+    nx.draw_networkx_labels(
+        parent_graph_int,
+        pos,
+        font_family=font,
+        font_size=font_size,
+        labels=label_dict,
+        verticalalignment="center",
+        horizontalalignment="center",
+        ax=ax,
+        font_color=edge_color,
+    )
 
     filepath = output_directory / "visualize/split_merge_graph.png"
     plt.savefig(filepath, bbox_inches="tight", dpi=200)

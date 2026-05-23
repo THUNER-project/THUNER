@@ -121,10 +121,16 @@ def process_velocities(
     data_type, precision, units, retrieval = float, 1, "m/s", None
     attributes = []
     for name, description in zip(names, descriptions):
-        kwargs = {"name": name, "retrieval": retrieval, "data_type": data_type}
-        kwargs.update({"precision": precision, "description": description})
-        kwargs.update({"units": units})
-        attributes.append(Attribute(**kwargs))
+        attributes.append(
+            Attribute(
+                name=name,
+                retrieval=retrieval,
+                data_type=data_type,
+                precision=precision,
+                description=description,
+                units=units,
+            )
+        )
     attributes.append(core.time())
     attributes.append(core.record_universal_id())
     attribute_type = AttributeType(name="velocities", attributes=attributes)
@@ -134,6 +140,7 @@ def process_velocities(
         "velocities",
         df=all_velocities,
         attribute_type=attribute_type,
+        overwrite=True,
     )
 
 
@@ -267,8 +274,7 @@ def quality_control(
     duration_check = duration >= np.timedelta64(analysis_options.min_duration, "m")
     duration_check.name = "duration"
     dummy_df = velocities[[]].reset_index()
-    merge_kwargs = {"on": "universal_id", "how": "left"}
-    duration_check = dummy_df.merge(duration_check, **merge_kwargs)
+    duration_check = dummy_df.merge(duration_check, on="universal_id", how="left")
     duration_check = duration_check.set_index(velocities.index.names)
 
     # Check if the object fails boundary overlap checks when first detected
@@ -279,7 +285,7 @@ def quality_control(
     new_name = {0: "initially_contained"}
     initial_check = initial_check.rename(columns=new_name)
     dummy_df = velocities[[]].reset_index()
-    initial_check = dummy_df.merge(initial_check, **merge_kwargs)
+    initial_check = dummy_df.merge(initial_check, on="universal_id", how="left")
     initial_check = initial_check.set_index(velocities.index.names)
 
     # Check whether the object has parents. When plotting we may only wish to filter out
@@ -342,10 +348,16 @@ def quality_control(
     data_type, precision, units, retrieval = bool, None, None, None
     attributes = []
     for name, description in zip(names, descriptions):
-        kwargs = {"name": name, "retrieval": retrieval, "data_type": data_type}
-        kwargs.update({"precision": precision, "description": description})
-        kwargs.update({"units": units})
-        attributes.append(Attribute(**kwargs))
+        attributes.append(
+            Attribute(
+                name=name,
+                retrieval=retrieval,
+                data_type=data_type,
+                precision=precision,
+                description=description,
+                units=units,
+            )
+        )
 
     attributes.append(core.time())
     attributes.append(core.record_universal_id())
@@ -428,10 +440,16 @@ def classify_all(
     data_type, precision, units, retrieval = float, 1, "m/s", None
     attributes = []
     for name, description in zip(names, descriptions):
-        kwargs = {"name": name, "retrieval": retrieval, "data_type": data_type}
-        kwargs.update({"precision": precision, "description": description})
-        kwargs.update({"units": units})
-        attributes.append(Attribute(**kwargs))
+        attributes.append(
+            Attribute(
+                name=name,
+                retrieval=retrieval,
+                data_type=data_type,
+                precision=precision,
+                description=description,
+                units=units,
+            )
+        )
     attributes.append(core.time())
     attributes.append(core.record_universal_id())
     attribute_type = AttributeType(name="velocities", attributes=attributes)
@@ -439,10 +457,16 @@ def classify_all(
     data_type, precision, units, retrieval = str, None, None, None
     attributes = []
     for name, description in zip(names, descriptions):
-        kwargs = {"name": name, "retrieval": retrieval, "data_type": data_type}
-        kwargs.update({"precision": precision, "description": description})
-        kwargs.update({"units": units})
-        attributes.append(Attribute(**kwargs))
+        attributes.append(
+            Attribute(
+                name=name,
+                retrieval=retrieval,
+                data_type=data_type,
+                precision=precision,
+                description=description,
+                units=units,
+            )
+        )
     attributes.append(core.time())
     attributes.append(core.record_universal_id())
     attribute_type = AttributeType(name="classification", attributes=attributes)
@@ -468,8 +492,12 @@ def classify_all(
         angles = utils.get_angle(u1_list[i], v1_list[i], u2_list[i], v2_list[i])
         classified = classify_angles(names[i], angles, labels[i])
         if classify_small_offsets and names[i] in offset_names:
-            args = [classified, x_offset, y_offset, analysis_options.min_offset]
-            classified = classify_small_offsets(*args)
+            classified = classify_small_offsets(
+                classified=classified,
+                x_offset=x_offset,
+                y_offset=y_offset,
+                min_offset=analysis_options.min_offset,
+            )
         if classify_ambiguous:
             unambiguous = quality[ambiguity_quality_dispatcher[names[i]]].all(axis=1)
             classified = classify_ambiguous(classified, unambiguous)

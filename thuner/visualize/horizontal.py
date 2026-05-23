@@ -94,9 +94,14 @@ def show_mask(
             cols = contour[:, :, 0].flatten()
             rows = contour[:, :, 1].flatten()
             lats, lons = thuner_grid.get_pixels_geographic(rows, cols, grid_options)
-            args = [lons, lats]
-            kwargs = {"color": color, "linewidth": 1, "zorder": 3, "transform": proj}
-            ax.plot(*args, **kwargs)
+            ax.plot(
+                lons,
+                lats,
+                color=color,
+                linewidth=1,
+                zorder=3,
+                transform=proj,
+            )
     ax.set_title(title)
     return colors
 
@@ -112,8 +117,13 @@ def mask_legend_artist(single_color=False):
     for i in range(3):
         edge_color = mcolors.to_rgb(colors[i])
         fill_color = list(edge_color) + [0.4]  # Add alpha of .4
-        kwargs = {"edgecolor": edge_color, "facecolor": fill_color}
-        patch = mpatches.Rectangle((0, 0), 1, 1, **kwargs)
+        patch = mpatches.Rectangle(
+            (0, 0),
+            1,
+            1,
+            edgecolor=edge_color,
+            facecolor=fill_color,
+        )
         patches.append(patch)
 
     handler_map = {tuple: HandlerTuple(ndivide=None)}
@@ -130,9 +140,15 @@ def box_legend_artist(single_color=False, color=None, linestyle="--"):
     for i in range(3):
         edge_color = mcolors.to_rgb(colors[i])
         fill_color = list(edge_color) + [0]  # Make transparent
-        kwargs = {"edgecolor": edge_color, "linewidth": 1, "linestyle": linestyle}
-        kwargs.update({"facecolor": fill_color})
-        patch = mpatches.Rectangle((0, 0), 1, 1, **kwargs)
+        patch = mpatches.Rectangle(
+            (0, 0),
+            1,
+            1,
+            edgecolor=edge_color,
+            linewidth=1,
+            linestyle=linestyle,
+            facecolor=fill_color,
+        )
         patches.append(patch)
 
     handler_map = {tuple: HandlerTuple(ndivide=None)}
@@ -151,13 +167,20 @@ def embossed_text(ax, text, longitude, latitude):
     extent = ax.get_extent(crs=proj)
     dlon = np.abs(extent[1] - extent[0])
     offset = dlon / 50
-    args = [longitude - offset, latitude + offset, text]
     path_effects = [patheffects.Stroke(linewidth=1.5, foreground="k")]
     path_effects += [patheffects.Normal()]
     fontsize = int(plt.rcParams["font.size"] / 2)
-    kwargs = {"transform": proj, "zorder": 5, "fontweight": "bold", "color": "w"}
-    kwargs.update({"path_effects": path_effects, "fontsize": fontsize})
-    artist = ax.text(*args, **kwargs)
+    artist = ax.text(
+        longitude - offset,
+        latitude + offset,
+        text,
+        transform=proj,
+        zorder=5,
+        fontweight="bold",
+        color="w",
+        path_effects=path_effects,
+        fontsize=fontsize,
+    )
     artist.set_clip_on(True)
     artist.set_clip_box(ax.bbox)
     return artist
@@ -178,22 +201,6 @@ def domain_boundary_legend_artist():
     legend_artist = mlines.Line2D([], [], **domain_plot_style)
     legend_artist.set_label("Domain Boundary")
     return legend_artist
-
-
-US_states_dict = {
-    "alabama": "AL",
-    "alaska": "AK",
-    "arizona": "AZ",
-    "arkansas": "AR",
-    "california": "CA",
-    "Colorado": "CO",
-    "Connecticut": "CT",
-    "Delaware": "DE",
-    "Florida": "FL",
-    "Georgia": "GA",
-    "Hawaii": "HI",
-    "Idaho": "ID",
-}
 
 
 def cartographic_features(
@@ -233,15 +240,25 @@ def cartographic_features(
     """
 
     colors = visualize.figure_colors[visualize.style]
-    kwargs = {"edgecolor": "face", "facecolor": colors["sea"]}
-    ocean = cfeature.NaturalEarthFeature("physical", "ocean", scale, **kwargs)
-    kwargs["facecolor"] = colors["land"]
-    land = cfeature.NaturalEarthFeature("physical", "land", scale, **kwargs)
-    kwargs = {"category": "cultural", "name": "admin_1_states_provinces_lines"}
-    kwargs.update({"facecolor": "none", "edgecolor": "gray"})
+    ocean = cfeature.NaturalEarthFeature(
+        "physical",
+        "ocean",
+        scale,
+        edgecolor="face",
+        facecolor=colors["sea"],
+    )
+    land = cfeature.NaturalEarthFeature(
+        "physical", "land", scale, edgecolor="face", facecolor=colors["land"]
+    )
     state_scale = min([int(scale.replace("m", "")), 50])
     state_scale = f"{state_scale}m"
-    states_provinces = cfeature.NaturalEarthFeature(scale=state_scale, **kwargs)
+    states_provinces = cfeature.NaturalEarthFeature(
+        scale=state_scale,
+        category="cultural",
+        name="admin_1_states_provinces_lines",
+        facecolor="none",
+        edgecolor="gray",
+    )
     national_borders = cfeature.BORDERS.with_scale(scale)
 
     ax.add_feature(land, zorder=0)
@@ -249,9 +266,13 @@ def cartographic_features(
     ax.add_feature(states_provinces, zorder=border_zorder, alpha=0.6)
     ax.add_feature(national_borders, zorder=border_zorder, edgecolor=colors["coast"])
     ax.coastlines(resolution=scale, zorder=coastline_zorder, color=colors["coast"])
-    kwargs = {"left_labels": left_labels, "bottom_labels": bottom_labels}
-    kwargs.update({"zorder": grid_zorder})
-    gridlines = initialize_gridlines(ax, extent=extent, **kwargs)
+    gridlines = initialize_gridlines(
+        ax,
+        extent=extent,
+        left_labels=left_labels,
+        bottom_labels=bottom_labels,
+        zorder=grid_zorder,
+    )
 
     return ax, colors, gridlines
 
@@ -364,9 +385,16 @@ def displacement_legend_artist(color, label):
         patheffects.Stroke(linewidth=linewidth, foreground=color),
         patheffects.Normal(),
     ]
-    kwargs = {"color": "w", "linewidth": linewidth / 3, "linestyle": "-"}
-    kwargs.update({"zorder": 4, "transform": proj, "path_effects": path_effects})
-    legend_artist = mlines.Line2D([], [], **kwargs)
+    legend_artist = mlines.Line2D(
+        [],
+        [],
+        color="w",
+        linewidth=linewidth / 3,
+        linestyle="-",
+        zorder=4,
+        transform=proj,
+        path_effects=path_effects,
+    )
     legend_artist.set_label(label)
     legend_artist.set_path_effects(path_effects)
     return legend_artist
@@ -384,8 +412,17 @@ def vector_key(ax, u=-10, v=0, color="k", dt=3600, scale=1):
     start_point = fig.transFigure.transform((x_position, y_position))
     [longitude, latitude] = ax.transData.inverted().transform(start_point)
     longitude = longitude % 360
-    args = [ax, latitude, longitude, u, v, color]
-    cartesian_velocity(*args, quality=True, dt=dt, clip=False)
+    cartesian_velocity(
+        ax=ax,
+        start_latitude=latitude,
+        start_longitude=longitude,
+        u=u,
+        v=v,
+        color=color,
+        quality=True,
+        dt=dt,
+        clip=False,
+    )
 
     start_point = fig.transFigure.transform((x_position + 0.015, y_position))
     [longitude, latitude] = ax.transData.inverted().transform(start_point)
@@ -403,15 +440,26 @@ def ellipse_axis(ax, latitude, longitude, axis_length, orientation, quality=True
     colors = visualize.figure_colors[visualize.style]
     axis_color = colors["ellipse_axis"]
     shadow_color = colors["ellipse_axis_shadow"]
-    kwargs = {"shadow_color": shadow_color, "alpha": 0.9}
     offset = (0.85 * ellipse_axis_linewidth / 2, -0.85 * ellipse_axis_linewidth)
-    kwargs.update({"offset": offset})
-    path_effects = [patheffects.SimpleLineShadow(**kwargs), patheffects.Normal()]
-    kwargs = {"color": axis_color, "linewidth": ellipse_axis_linewidth}
-    kwargs.update({"zorder": 3, "path_effects": path_effects, "transform": proj})
-    kwargs.update({"linestyle": "--"})
+    path_effects = [
+        patheffects.SimpleLineShadow(
+            shadow_color=shadow_color,
+            alpha=0.9,
+            offset=offset,
+        ),
+        patheffects.Normal(),
+    ]
     if quality:
-        artist = ax.plot([lon_1, lon_2], [lat_1, lat_2], **kwargs)
+        artist = ax.plot(
+            [lon_1, lon_2],
+            [lat_1, lat_2],
+            color=axis_color,
+            linewidth=ellipse_axis_linewidth,
+            zorder=3,
+            path_effects=path_effects,
+            transform=proj,
+            linestyle="--",
+        )
     else:
         artist = None
     return artist
@@ -422,14 +470,25 @@ def orientation_legend_artist(label, style):
     colors = visualize.figure_colors[style]
     axis_color = colors["ellipse_axis"]
     shadow_color = colors["ellipse_axis_shadow"]
-    kwargs = {"shadow_color": shadow_color, "alpha": 0.9}
     offset = (0.85 * ellipse_axis_linewidth, -0.85 * ellipse_axis_linewidth)
-    kwargs.update({"offset": offset})
-    path_effects = [patheffects.SimpleLineShadow(**kwargs), patheffects.Normal()]
-    kwargs = {"color": axis_color, "linewidth": ellipse_axis_linewidth}
-    kwargs.update({"zorder": 3, "path_effects": path_effects, "linestyle": "--"})
-    kwargs.update({"label": label})
-    legend_handle = mlines.Line2D([], [], **kwargs)
+    path_effects = [
+        patheffects.SimpleLineShadow(
+            shadow_color=shadow_color,
+            alpha=0.9,
+            offset=offset,
+        ),
+        patheffects.Normal(),
+    ]
+    legend_handle = mlines.Line2D(
+        [],
+        [],
+        color=axis_color,
+        linewidth=ellipse_axis_linewidth,
+        zorder=3,
+        path_effects=path_effects,
+        linestyle="--",
+        label=label,
+    )
     return legend_handle
 
 
@@ -466,9 +525,15 @@ def pixel_displacement(
         dx = distance * np.cos(np.deg2rad(forward_dir))
     else:
         raise ValueError(f"Grid name must be 'cartesian' or 'geographic'.")
-    kwargs = {"start_latitude": start_lat, "start_longitude": start_lon}
-    kwargs.update({"dx": dx, "dy": dy, "color": color, "quality": True})
-    cartesian_displacement(ax, **kwargs)
+    cartesian_displacement(
+        ax,
+        start_latitude=start_lat,
+        start_longitude=start_lon,
+        dx=dx,
+        dy=dy,
+        color=color,
+        quality=True,
+    )
 
 
 def cartesian_displacement(
@@ -489,16 +554,22 @@ def cartesian_displacement(
     vector_direction = np.rad2deg(np.arctan2(dy, dx))
     # Now convert to azimuth direction, i.e. clockwise from north.
     azimuth = (90 - vector_direction) % 360
-    args = [start_longitude, start_latitude, azimuth, distance]
-    end_longitude, end_latitude = thuner_grid.geodesic_forward(*args)[:2]
+    end_longitude, end_latitude = thuner_grid.geodesic_forward(
+        start_longitude, start_latitude, azimuth, distance
+    )[:2]
     # Ensure that the end longitude is within the range [0, 360).
     end_longitude = end_longitude % 360
     dlon = end_longitude - start_longitude
     dlat = end_latitude - start_latitude
     if reverse:
-        args = [start_longitude + dlon, start_latitude + dlat, -dlon, -dlat]
+        kwargs = {
+            "x": start_longitude + dlon,
+            "y": start_latitude + dlat,
+            "dx": -dlon,
+            "dy": -dlat,
+        }
     else:
-        args = [start_longitude, start_latitude, dlon, dlat]
+        kwargs = {"x": start_longitude, "y": start_latitude, "dx": dlon, "dy": dlat}
     path_effects = [
         patheffects.Stroke(linewidth=linewidth, foreground=color),
         patheffects.Normal(),
@@ -512,13 +583,17 @@ def cartesian_displacement(
         new_width = percent_to_data(ax, width)
         new_length = percent_to_data(ax, length)
         tmp_vector_options.update({"head_width": new_width, "head_length": new_length})
-    kwargs = {"path_effects": path_effects}
     if clip:
-        kwargs.update({"clip_on": True, "clip_box": ax.bbox})
+        clip_options = {"clip_on": True, "clip_box": ax.bbox}
     else:
-        kwargs.update({"clip_on": False})
+        clip_options = {"clip_on": False}
     if quality:
-        artist = ax.arrow(*args, **tmp_vector_options, **kwargs)
+        artist = ax.arrow(
+            **kwargs,
+            **tmp_vector_options,
+            **clip_options,
+            path_effects=path_effects,
+        )
     else:
         artist = None
 
@@ -541,8 +616,17 @@ def cartesian_velocity(
 
     # Scale velocities so they represent the displacement after dt seconds
     dx, dy = u * dt, v * dt
-    args = [ax, start_latitude, start_longitude, dx, dy, color, quality]
-    return cartesian_displacement(*args, clip=clip, reverse=reverse)
+    return cartesian_displacement(
+        ax=ax,
+        start_latitude=start_latitude,
+        start_longitude=start_longitude,
+        dx=dx,
+        dy=dy,
+        color=color,
+        quality=quality,
+        clip=clip,
+        reverse=reverse,
+    )
 
 
 def pixel_vector(
@@ -611,10 +695,15 @@ def detected_mask_template(grid, figure_options, extent, scale):
     elif scale == 2:
         subplot_width = 8
 
-    kwargs = {"extent": extent, "subplot_width": subplot_width, "rows": rows}
-    kwargs.update({"columns": columns, "colorbar": True, "legend_rows": 2})
-    kwargs.update({"shared_legends": "all"})
-    layout = PanelledUniformMaps(**kwargs)
+    layout = PanelledUniformMaps(
+        extent=extent,
+        subplot_width=subplot_width,
+        rows=rows,
+        columns=columns,
+        colorbar=True,
+        legend_rows=2,
+        shared_legends="all",
+    )
     fig, subplot_axes, colorbar_axes, legend_axes = layout.initialize_layout()
 
     object_name = figure_options.object_name
@@ -644,8 +733,12 @@ def detected_mask(
     extent, scale = get_extent(grid_options)
     single_color = figure_options.single_color
     if figure_options.template is None:
-        args = [grid, figure_options, extent, scale]
-        figure_options.template = detected_mask_template(*args)
+        figure_options.template = detected_mask_template(
+            grid=grid,
+            figure_options=figure_options,
+            extent=extent,
+            scale=scale,
+        )
     template = copy.deepcopy(figure_options.template)
     [fig, subplot_axes, colorbar_axes, legend_axes, layout] = template
     ax = fig.axes[0]
@@ -679,10 +772,15 @@ def grouped_mask_template(grid, extent, member_objects, scale):
         subplot_width = 8
     else:
         raise ValueError("Only scales of 1 or 2 implemented so far.")
-    kwargs = {"extent": extent, "subplot_width": subplot_width, "rows": rows}
-    kwargs.update({"columns": columns, "colorbar": True, "legend_rows": 2})
-    kwargs.update({"shared_legends": "all"})
-    layout = PanelledUniformMaps(**kwargs)
+    layout = PanelledUniformMaps(
+        extent=extent,
+        subplot_width=subplot_width,
+        rows=rows,
+        columns=columns,
+        colorbar=True,
+        legend_rows=2,
+        shared_legends="all",
+    )
     fig, subplot_axes, colorbar_axes, legend_axes = layout.initialize_layout()
     for i in range(len(member_objects)):
         ax = subplot_axes[i]
@@ -714,8 +812,12 @@ def grouped_mask(
     single_color = figure_options.single_color
 
     if figure_options.template is None:
-        args = [grid, extent, member_objects, scale]
-        figure_options.template = grouped_mask_template(*args)
+        figure_options.template = grouped_mask_template(
+            grid=grid,
+            extent=extent,
+            member_objects=member_objects,
+            scale=scale,
+        )
 
     template = copy.deepcopy(figure_options.template)
     [fig, subplot_axes, colorbar_axes, legend_axes, layout] = template
@@ -724,8 +826,14 @@ def grouped_mask(
         ax = subplot_axes[i]
         mask_i = mask[f"{member_objects[i]}_mask"]
         if mask_i is not None:
-            args = [mask_i, ax, grid_options, single_color]
-            show_mask(*args, object_colors=object_colors, mask_quality=mask_quality)
+            show_mask(
+                mask=mask_i,
+                ax=ax,
+                grid_options=grid_options,
+                single_color=single_color,
+                object_colors=object_colors,
+                mask_quality=mask_quality,
+            )
         if boundary_coordinates is not None:
             domain_boundary(ax, boundary_coordinates, grid_options)
         if grid is None:
@@ -809,18 +917,22 @@ class PanelledUniformMaps(Panelled):
             subplot_rows = range(self.rows)
 
         # Initialize cartographic_features kwargs
-        kwargs = {"border_zorder": self.border_zorder, "grid_zorder": self.grid_zorder}
-        kwargs.update({"coastline_zorder": self.coastline_zorder})
-        kwargs.update({"scale": scale, "extent": self.extent})
         # Create maps
         for i, j in product(range(self.rows), range(self.columns)):
             subplot_row = subplot_rows[i]
             prj = self.projections[i, j]
             ax = self.fig.add_subplot(self.grid_spec[subplot_row, j], projection=prj)
             ax.set_rasterized(True)
-            kwargs.update({"left_labels": (j == 0)})
-            kwargs.update({"bottom_labels": (i == self.rows - 1)})
-            ax = cartographic_features(ax, **kwargs)[0]
+            ax = cartographic_features(
+                ax,
+                border_zorder=self.border_zorder,
+                grid_zorder=self.grid_zorder,
+                coastline_zorder=self.coastline_zorder,
+                scale=scale,
+                extent=self.extent,
+                left_labels=j == 0,
+                bottom_labels=i == self.rows - 1,
+            )[0]
             ax.set_extent(self.extent, crs=proj)
             subplot_axes.append(ax)
 

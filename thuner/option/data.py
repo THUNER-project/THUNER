@@ -9,6 +9,7 @@ import thuner.data.aura as aura
 import thuner.data.era5 as era5
 import thuner.data.himawari as himawari
 import thuner.data.access as access
+import thuner.data.synthetic as synthetic
 
 logger = setup_logger(__name__)
 
@@ -24,6 +25,7 @@ AnyDatasetOptions = Union[
     era5.Era5Options,
     himawari.HimawariOptions,
     access.AccessCOptions,
+    synthetic.SyntheticOptions,
     BaseDatasetOptions,
 ]
 

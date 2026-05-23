@@ -47,8 +47,13 @@ def detected_mask(
         mask = object_tracks.next_matched_mask
 
     boundary_coordinates = input_record.next_boundary_coordinates
-    args = [grid, mask, grid_options, figure_options, boundary_coordinates]
-    fig, ax = horizontal.detected_mask(*args)
+    fig, ax = horizontal.detected_mask(
+        grid=grid,
+        mask=mask,
+        grid_options=grid_options,
+        figure_options=figure_options,
+        boundary_coordinates=boundary_coordinates,
+    )
 
     return fig, ax
 
@@ -74,9 +79,14 @@ def grouped_mask(
     grid = object_tracks.next_grid
 
     boundary_coordinates = input_record.next_boundary_coordinates
-    args = [grid, mask, grid_options, figure_options, member_objects]
-    args += [boundary_coordinates]
-    fig, subplot_axes = horizontal.grouped_mask(*args)[:2]
+    fig, subplot_axes = horizontal.grouped_mask(
+        grid=grid,
+        mask=mask,
+        grid_options=grid_options,
+        figure_options=figure_options,
+        member_objects=member_objects,
+        boundary_coordinates=boundary_coordinates,
+    )[:2]
 
     return fig, subplot_axes
 
@@ -93,10 +103,15 @@ def match_template(reference_grid, extent, scale):
         subplot_width = 8
     else:
         raise ValueError("Only scales of 1 or 2 implemented so far.")
-    kwargs = {"extent": extent, "subplot_width": subplot_width, "rows": rows}
-    kwargs.update({"columns": columns, "colorbar": True, "legend_rows": 2})
-    kwargs.update({"shared_legends": "all"})
-    layout = horizontal.PanelledUniformMaps(**kwargs)
+    layout = horizontal.PanelledUniformMaps(
+        extent=extent,
+        subplot_width=subplot_width,
+        rows=rows,
+        columns=columns,
+        colorbar=True,
+        legend_rows=2,
+        shared_legends="all",
+    )
     fig, subplot_axes, colorbar_axes, legend_axes = layout.initialize_layout()
     for i in range(len(subplot_axes)):
         ax = subplot_axes[i]
@@ -123,8 +138,13 @@ def match_features(grid, match_record, axes, grid_options, unique_global_flow=Tr
             lon, lat = None, None
         [row, col] = np.ceil(np.array(grid_options.shape) / 2).astype(int)
         args = [axes[1], row, col, global_flow, grid_options]
-        vector_options = {"start_lat": lat, "start_lon": lon, "color": "tab:red"}
-        horizontal.pixel_displacement(*args, **vector_options)
+        horizontal.pixel_displacement(
+            ax=axes[1],
+            row=row,
+            col=col,
+            vector=global_flow,
+            grid_options=grid_options,
+        )
     for i in range(len(match_record["ids"])):
         # Get the flows, displacements and boxes.
         obj_id = match_record["universal_ids"][i]
@@ -142,10 +162,17 @@ def match_features(grid, match_record, axes, grid_options, unique_global_flow=Tr
         # Plot object universal IDs in next grid.
         next_center = match_record["next_centers"][i]
         if np.all(np.logical_not(np.isnan(next_center))):
-            args = [grid_options, next_center[0], next_center[1]]
-            next_coords = thuner_grid.get_coordinates(*args)
-            args = [axes[2], str(obj_id), next_coords[1], next_coords[0]]
-            horizontal.embossed_text(*args)
+            next_coords = thuner_grid.get_coordinates(
+                grid_options=grid_options,
+                row=next_center[0],
+                col=next_center[1],
+            )
+            horizontal.embossed_text(
+                ax=axes[2],
+                text=str(obj_id),
+                longitude=next_coords[1],
+                latitude=next_coords[0],
+            )
 
         displacement = match_record["displacements"][i]
         row, col = get_box_center_coords(flow_box, grid_options)[2:]
@@ -154,23 +181,52 @@ def match_features(grid, match_record, axes, grid_options, unique_global_flow=Tr
             global_flow = match_record["global_flows"][i]
             global_flow_box = match_record["global_flow_boxes"][i]
             horizontal.plot_box(axes[1], global_flow_box, grid_options, alpha=0.8)
-            args = [axes[1], row, col, global_flow, grid_options]
-            horizontal.pixel_displacement(*args, color="tab:red")
+            horizontal.pixel_displacement(
+                ax=axes[1],
+                row=row,
+                col=col,
+                vector=global_flow,
+                grid_options=grid_options,
+                color="tab:red",
+            )
         # Plot the local flow box, and the local and corrected flow vectors
         horizontal.plot_box(axes[1], flow_box, grid_options, color=color)
-        args = [axes[1], row, col, flow, grid_options]
-        horizontal.pixel_displacement(*args, color="tab:blue")
-        args = [axes[1], row, col, corrected_flow, grid_options]
-        horizontal.pixel_displacement(*args, color="tab:purple")
+        horizontal.pixel_displacement(
+            ax=axes[1],
+            row=row,
+            col=col,
+            vector=flow,
+            grid_options=grid_options,
+            color="tab:blue",
+        )
+        horizontal.pixel_displacement(
+            ax=axes[1],
+            row=row,
+            col=col,
+            vector=corrected_flow,
+            grid_options=grid_options,
+            color="tab:purple",
+        )
         # Plot the search box
-        kwargs = {"color": color, "linestyle": "dashdot"}
-        horizontal.plot_box(axes[2], search_box, grid_options, **kwargs)
+        horizontal.plot_box(
+            axes[2],
+            search_box,
+            grid_options,
+            color=color,
+            linestyle="dashdot",
+        )
 
         if np.all(np.logical_not(np.isnan(displacement))):
             # Subtract displacement from center to get the origin
             origin = center - displacement.astype(int)
-            args = [axes[0], origin[0], origin[1], displacement, grid_options]
-            horizontal.pixel_displacement(*args, color="tab:green")
+            horizontal.pixel_displacement(
+                ax=axes[0],
+                row=origin[0],
+                col=origin[1],
+                vector=displacement,
+                grid_options=grid_options,
+                color="tab:green",
+            )
         # Label object with corrected flow case and cost
         case = match_record["cases"][i]
         lat = np.array(grid_options.latitude)
@@ -225,16 +281,25 @@ def visualize_tint_match(
         ax = subplot_axes[i]
         if grids[j] is not None:
             ax.set_title(grids[j].time.values.astype("datetime64[s]"))
-            args = [grids[j], ax, grid_options, False]
-            pcm = horizontal.show_grid(*args)
+            pcm = horizontal.show_grid(
+                grid=grids[j],
+                ax=ax,
+                grid_options=grid_options,
+                add_colorbar=False,
+            )
             if masks[j] is not None:
                 horizontal.show_mask(masks[j], ax, grid_options)
             if input_record.next_boundary_coordinates is not None:
                 horizontal.domain_boundary(ax, all_boundaries[j], grid_options)
         ax.set_extent(extent)
     unique_global_flow = object_options.tracking.unique_global_flow
-    args = [grids[0], match_record, subplot_axes, grid_options, unique_global_flow]
-    match_features(*args)
+    match_features(
+        grid=grids[0],
+        match_record=match_record,
+        axes=subplot_axes,
+        grid_options=grid_options,
+        unique_global_flow=unique_global_flow,
+    )
     cbar_label = grids[0].attrs["long_name"].title() + f" [{grids[0].attrs['units']}]"
     fig.colorbar(pcm, cax=colorbar_axes[0], label=cbar_label)
 
@@ -250,8 +315,10 @@ def visualize_tint_match(
     labels = ["Object Masks"] + labels
 
     if not unique_global_flow:
-        kwargs = {"color": "tab:red", "single_color": True}
-        handle, handler = horizontal.box_legend_artist(**kwargs)
+        handle, handler = horizontal.box_legend_artist(
+            color="tab:red",
+            single_color=True,
+        )
         handles = handles + [handle]
         labels = labels + ["Global Flow Boxes"]
 

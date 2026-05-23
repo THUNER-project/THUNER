@@ -125,8 +125,12 @@ def infer_geographic_grid(grid_options, ds):
         )
         old_lats = ds["latitude"].values
         old_lons = ds["longitude"].values
-        args = [old_lats, old_lons, spacing[0], spacing[1]]
-        latitude, longitude = new_geographic_grid(*args)
+        latitude, longitude = new_geographic_grid(
+            lats=old_lats,
+            lons=old_lons,
+            dlat=spacing[0],
+            dlon=spacing[1],
+        )
     else:
         # If the lat/lon of the new grid were specified, use them
         latitude = grid_options.latitude

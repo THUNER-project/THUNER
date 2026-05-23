@@ -133,9 +133,12 @@ string_to_data_type = {
 
 def time_offset():
     """Convenience function to build a TimeOffset attribute."""
-    kwargs = {"name": "time_offset", "data_type": int, "units": "min"}
-    kwargs.update({"description": "Time offset in minutes from object detection time."})
-    return Attribute(**kwargs)
+    return Attribute(
+        name="time_offset",
+        data_type=int,
+        units="min",
+        description="Time offset in minutes from object detection time.",
+    )
 
 
 def setup_interp(
@@ -193,10 +196,7 @@ def attributes_dataframe(recorded_attributes, attribute_type):
 
     data_types = get_data_type_dict(attribute_type)
     data_types.pop("time")
-    try:
-        df = pd.DataFrame(recorded_attributes).astype(data_types)
-    except:
-        pass
+    df = pd.DataFrame(recorded_attributes).astype(data_types)
     multi_index = ["time"]
     if "time_offset" in recorded_attributes.keys():
         multi_index.append("time_offset")

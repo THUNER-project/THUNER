@@ -36,7 +36,7 @@ def test_himawari():
     # ## Options
     # Create the dataset options
     start = "2023-01-01T13:00:00"
-    end = "2023-01-01T20:05:00"
+    end = "2023-01-01T15:00:00"
     times_dict = {"start": start, "end": end}
     himawari_options = data.himawari.HimawariOptions(**times_dict)
     data_options = option.data.DataOptions(datasets=[himawari_options])

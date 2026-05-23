@@ -210,14 +210,22 @@ def animate_object(
             output_filepath = save_directory / f"{animation_name}_{date}.gif"
             logger.info(f"Saving animation to {output_filepath}.")
             images = [Image.open(f).convert("RGBA") for f in filepaths_date]
-            kwargs = {"duration": 200, "loop": 0}
-            imageio.mimsave(output_filepath, images, **kwargs)
+            imageio.mimsave(
+                output_filepath,
+                images,
+                duration=200,
+                loop=0,
+            )
     else:
         output_filepath = save_directory / f"{animation_name}.gif"
         logger.info(f"Saving animation to {output_filepath}.")
         images = [Image.open(f).convert("RGBA") for f in filepaths]
-        kwargs = {"duration": 200, "loop": 0}
-        imageio.mimsave(output_filepath, images, **kwargs)
+        imageio.mimsave(
+            output_filepath,
+            images,
+            duration=200,
+            loop=0,
+        )
 
 
 def get_grid(time, filename, field, data_options, grid_options):

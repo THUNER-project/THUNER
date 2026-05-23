@@ -40,3 +40,6 @@ dependencies = {file = ["requirements.txt"]}
 where = ["."]
 include = ["thuner"]
 exclude = ["thuner/test"]
+
+[tool.pytest.ini_options]
+addopts = "--verbose --color=yes -s --cov=thuner --cov-report=term-missing --cov-report=html:thuner/test/htmlcov"

@@ -1,22 +1,13 @@
-import glob
 import shutil
-import yaml
-import numpy as np
-import networkx as nx
 import xarray as xr
-from pathlib import Path
 import thuner.data as data
-import thuner.track.track as track
 import thuner.option as option
 import thuner.analyze as analyze
 import thuner.parallel as parallel
 import thuner.visualize as visualize
-import thuner.attribute as attribute
 import thuner.default as default
 import thuner.config as config
 import thuner.utils as utils
-import thuner.match as match
-import thuner.grid as grid
 
 
 def test_access():
@@ -36,7 +27,7 @@ def test_access():
     # addition to the start and end times. Typically we want to discard spin up times.
     run_start = "2021-12-01T12:00:00"  # The start time of the run we want
     start = "2021-12-02T06:00:00"  # The start time of the data we want to analyze.
-    end = "2021-12-02T12:00:00"  # The end time of the data we want to analyze.
+    end = "2021-12-02T08:00:00"  # The end time of the data we want to analyze.
     times_dict = {"start": start, "end": end, "run_start": run_start}
     access_1km_options = data.access.AccessCOptions(
         **times_dict, name="access_1km", filename="radar_refl_1km.nc"
@@ -57,9 +48,8 @@ def test_access():
         *args,
         output_directory=output_parent,
         dataset_name="access_1km",
-        num_processes=3,
+        num_processes=2,
     )
-    # track.track(*args, output_directory=output_parent)
     analysis_options = analyze.mcs.AnalysisOptions()
     analysis_options.to_json(options_directory / "analysis.json")
     analyze.mcs.process_velocities(output_parent, profile_dataset=None)

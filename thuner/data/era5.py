@@ -414,9 +414,11 @@ def update_era5_input_record(
 
     _utils.log_dataset_update(logger, dataset_options.name, time)
 
-    kwargs = {"start_buffer": dataset_options.start_buffer}
-    kwargs.update({"end_buffer": dataset_options.end_buffer})
-    start, end = get_hour_interval(time, **kwargs)
+    start, end = get_hour_interval(
+        time,
+        start_buffer=dataset_options.start_buffer,
+        end_buffer=dataset_options.end_buffer,
+    )
     filepaths = get_era5_filepaths(dataset_options, start, end)
     all_files_exist = all(
         Path(filepath).exists() for field in filepaths.values() for filepath in field
@@ -439,9 +441,14 @@ def update_era5_input_record(
             for filepath in filepaths[field]:
                 output_filename = Path(filepath).name
                 logger.debug("Subsetting %s", output_filename)
-                args = [filepath, f"{tmp}/{output_filename}.nc", start, end]
-                args += [lat_range, lon_range]
-                _utils.call_ncks(*args)
+                _utils.call_ncks(
+                    input_filepath=filepath,
+                    output_filepath=f"{tmp}/{output_filename}.nc",
+                    start=start,
+                    end=end,
+                    lat_range=lat_range,
+                    lon_range=lon_range,
+                )
         logger.debug("Merging files.")
         ds = xr.open_mfdataset(f"{tmp}/*.nc")
         logger.debug("Converting")

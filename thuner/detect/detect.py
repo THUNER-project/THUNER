@@ -149,8 +149,11 @@ def detect(
     mask.name = f"{object_options.name}_mask"
 
     if object_options.detection.min_area is not None:
-        args = [mask, object_options.detection.min_area, dataset["gridcell_area"]]
-        mask = clear_small_area_objects(*args)
+        mask = clear_small_area_objects(
+            mask=mask,
+            min_area=object_options.detection.min_area,
+            gridcell_area=dataset["gridcell_area"],
+        )
 
     next_mask = copy.deepcopy(object_tracks.next_mask)
     object_tracks.masks.append(next_mask)

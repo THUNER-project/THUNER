@@ -72,10 +72,7 @@ class AttributeGroup(BaseOptions):
         """
         retrievals = []
         for attribute in values.attributes:
-            try:
-                retrievals.append(attribute.retrieval)
-            except:
-                print("none")
+            retrievals.append(attribute.retrieval)
         if np.all(np.array(retrievals) == None):
             # If retrieval for all attributes is None, do nothing
             return values

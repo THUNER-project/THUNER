@@ -116,17 +116,31 @@ class GridOptions(BaseOptions):
                 raise ValueError(message)
 
         if values.cartesian_spacing is not None and values.y is not None:
-            args = [values.y, "y", values.cartesian_spacing[0], "cartesian_spacing"]
-            check_diffs(*args)
+            check_diffs(
+                coord=values.y,
+                coord_name="y",
+                spacing=values.cartesian_spacing[0],
+                spacing_name="cartesian_spacing",
+            )
         if values.cartesian_spacing is not None and values.x is not None:
-            args = [values.x, "x", values.cartesian_spacing[1], "cartesian_spacing"]
-            check_diffs(*args)
+            check_diffs(
+                coord=values.x,
+                coord_name="x",
+                spacing=values.cartesian_spacing[1],
+                spacing_name="cartesian_spacing",
+            )
         if values.geographic_spacing is not None and values.latitude is not None:
-            args = [values.latitude, "latitude", values.geographic_spacing[0]]
-            args += ["geographic_spacing"]
-            check_diffs(*args)
+            check_diffs(
+                coord=values.latitude,
+                coord_name="latitude",
+                spacing=values.geographic_spacing[0],
+                spacing_name="geographic_spacing",
+            )
         if values.geographic_spacing is not None and values.longitude is not None:
-            args = [values.longitude, "longitude", values.geographic_spacing[1]]
-            args += ["geographic_spacing"]
-            check_diffs(*args)
+            check_diffs(
+                coord=values.longitude,
+                coord_name="longitude",
+                spacing=values.geographic_spacing[1],
+                spacing_name="geographic_spacing",
+            )
         return values

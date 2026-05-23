@@ -33,8 +33,13 @@ def update_track_input_records(
     for name in track_input_records.keys():
         input_record = track_input_records[name]
         dataset_options = data_options.dataset_by_name(name)
-        args = [time, input_record, track_options, dataset_options, grid_options]
-        boilerplate_update(*args)
+        boilerplate_update(
+            time=time,
+            input_record=input_record,
+            track_options=track_options,
+            dataset_options=dataset_options,
+            grid_options=grid_options,
+        )
         if input_record.next_grid is not None:
             input_record.grids.append(input_record.next_grid)
         if len(dataset_options.fields) > 1:
@@ -59,5 +64,10 @@ def update_tag_input_records(
     for name in tag_input_records.keys():
         input_record = tag_input_records[name]
         dataset_options = data_options.dataset_by_name(name)
-        args = [time, input_record, track_options, dataset_options, grid_options]
-        boilerplate_update(*args)
+        boilerplate_update(
+            time=time,
+            input_record=input_record,
+            track_options=track_options,
+            dataset_options=dataset_options,
+            grid_options=grid_options,
+        )

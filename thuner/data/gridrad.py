@@ -242,24 +242,28 @@ def filter(
         variables = [v for v in gridrad_variables if v in ds.variables]
 
     # Calcualate echo fraction efficiently using where
-    args = [ds["Nradobs"] > 0, ds["Nradecho"] / ds["Nradobs"], 0.0]
-    kwargs = {"keep_attrs": True}
-    echo_fraction = xr.where(*args, **kwargs)
+    echo_fraction = xr.where(
+        ds["Nradobs"] > 0, ds["Nradecho"] / ds["Nradobs"], 0.0, keep_attrs=True
+    )
     echo_fraction = echo_fraction.astype(np.float32)
 
     # Get indices to filter
-    weight_cond = xr.where(ds["wReflectivity"] < weight_thresh, True, False, **kwargs)
-    refl_cond = xr.where(ds["Reflectivity"] <= refl_thresh, True, False, **kwargs)
-    frac_cond = xr.where(echo_fraction < echo_frac_thresh, True, False, **kwargs)
-    obs_cond = xr.where(ds["Nradobs"] <= obs_thresh, True, False, **kwargs)
+    weight_cond = xr.where(
+        ds["wReflectivity"] < weight_thresh, True, False, keep_attrs=True
+    )
+    refl_cond = xr.where(
+        ds["Reflectivity"] <= refl_thresh, True, False, keep_attrs=True
+    )
+    frac_cond = xr.where(echo_fraction < echo_frac_thresh, True, False, keep_attrs=True)
+    obs_cond = xr.where(ds["Nradobs"] <= obs_thresh, True, False, keep_attrs=True)
     # Filter cells below weight and reflectivity thresholds
-    cond_refl = xr.where(weight_cond & refl_cond, True, False, **kwargs)
+    cond_refl = xr.where(weight_cond & refl_cond, True, False, keep_attrs=True)
     # Filter cells containing at < obs_thresh observations. If at least obs_thresh
     # observations, filter cells with echoes in less than echo_fraction_thresh of the
     # total observations
-    cond_frac = xr.where(obs_cond | frac_cond, True, False, **kwargs)
+    cond_frac = xr.where(obs_cond | frac_cond, True, False, keep_attrs=True)
     # Retain values not filtered
-    preserved = xr.where(~cond_refl & ~cond_frac, True, False, **kwargs)
+    preserved = xr.where(~cond_refl & ~cond_frac, True, False, keep_attrs=True)
     for var in variables:
         ds[var] = ds[var].where(preserved)
     return ds
@@ -465,8 +469,11 @@ def get_domain_mask(ds, track_options, dataset_options):
             detected = "detection" in object_options.__class__.model_fields
             uses_dataset = dataset_name == object_options.dataset
             if detected and uses_dataset:
-                args = [ds, dataset_options, object_options]
-                mask = _utils.mask_from_observations(*args)
+                mask = _utils.mask_from_observations(
+                    dataset=ds,
+                    dataset_options=dataset_options,
+                    object_options=object_options,
+                )
                 domain_masks.append(mask)
     # Combine the masks
     if len(domain_masks) == 0:

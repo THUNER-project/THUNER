@@ -46,11 +46,17 @@ def get_costs_data(object_tracks, object_options, grid_options):
     global_flow_margin = object_options.tracking.global_flow_margin
 
     if object_options.tracking.unique_global_flow:
-        args = [global_flow_margin, grid_options]
-        unique_global_flow_box = get_unique_global_flow_box(*args)
-        args = [unique_global_flow_box, object_tracks, object_options, grid_options]
-        args += [global_flow_margin]
-        unique_global_flow, unique_global_flow_box = get_flow(*args)
+        unique_global_flow_box = get_unique_global_flow_box(
+            global_flow_margin=global_flow_margin,
+            grid_options=grid_options,
+        )
+        unique_global_flow, unique_global_flow_box = get_flow(
+            bounding_box=unique_global_flow_box,
+            object_tracks=object_tracks,
+            object_options=object_options,
+            grid_options=grid_options,
+            flow_margin=global_flow_margin,
+        )
 
     max_cost = object_options.tracking.max_cost
     gridcell_area = object_tracks.gridcell_area
@@ -88,9 +94,13 @@ def get_costs_data(object_tracks, object_options, grid_options):
         # Get the object bounding box and local flow
         bounding_box = box.get_bounding_box(current_id, current_mask)
         bounding_boxes.append(bounding_box)
-        args = [bounding_box, object_tracks, object_options, grid_options]
-        args += [local_flow_margin]
-        flow, flow_box = get_flow(*args)
+        flow, flow_box = get_flow(
+            bounding_box=bounding_box,
+            object_tracks=object_tracks,
+            object_options=object_options,
+            grid_options=grid_options,
+            flow_margin=local_flow_margin,
+        )
 
         flows.append(flow)
         flow_boxes.append(flow_box)
@@ -99,9 +109,13 @@ def get_costs_data(object_tracks, object_options, grid_options):
             global_flow = unique_global_flow
             global_flow_box = unique_global_flow_box
         else:
-            args = [bounding_box, object_tracks, object_options, grid_options]
-            args += [global_flow_margin]
-            global_flow, global_flow_box = get_flow(*args)
+            global_flow, global_flow_box = get_flow(
+                bounding_box=bounding_box,
+                object_tracks=object_tracks,
+                object_options=object_options,
+                grid_options=grid_options,
+                flow_margin=global_flow_margin,
+            )
         global_flows.append(global_flow)
         global_flow_boxes.append(global_flow_box)
         # Get the previous object center, displacement and area
@@ -117,10 +131,16 @@ def get_costs_data(object_tracks, object_options, grid_options):
         centers.append(current_center)
         areas.append(current_area)
         # Get the corrected flow
-        args = [flow_box, flow, current_center, displacement, global_flow, grid_options]
-        args += [object_tracks, object_options]
-        logger.debug(f"Correcting flow for object {current_id}.")
-        corrected_flow, case = correct_local_flow(*args)
+        corrected_flow, case = correct_local_flow(
+            flow_box=flow_box,
+            local_flow=flow,
+            current_center=current_center,
+            displacement=displacement,
+            global_flow=global_flow,
+            grid_options=grid_options,
+            object_tracks=object_tracks,
+            object_options=object_options,
+        )
         corrected_flows.append(corrected_flow)
         cases.append(case)
         # Get the search box, objects in search box, and evaluate cost function

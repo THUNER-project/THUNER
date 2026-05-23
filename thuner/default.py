@@ -26,43 +26,63 @@ __all__ = [
 
 def convective(dataset="cpol"):
     """Build default options for convective objects."""
-    kwargs = {"name": "convective", "dataset": dataset, "variable": "reflectivity"}
     detection = {"method": "steiner", "altitudes": [500, 3e3], "threshold": 40}
-    kwargs.update({"detection": detection, "tracking": None})
-    return track_option.DetectedObjectOptions(**kwargs)
+    return track_option.DetectedObjectOptions(
+        name="convective",
+        dataset=dataset,
+        variable="reflectivity",
+        detection=detection,
+        tracking=None,
+    )
 
 
 def middle(dataset="cpol"):
     """Build default options for mid-level echo objects."""
-    kwargs = {"name": "middle", "dataset": dataset, "variable": "reflectivity"}
     detection = {"method": "threshold", "altitudes": [3.5e3, 7e3], "threshold": 20}
-    kwargs.update({"detection": detection, "tracking": None})
-    return track_option.DetectedObjectOptions(**kwargs)
+    return track_option.DetectedObjectOptions(
+        name="middle",
+        dataset=dataset,
+        variable="reflectivity",
+        detection=detection,
+        tracking=None,
+    )
 
 
 def anvil(dataset="cpol"):
     """Build default options for anvil objects."""
-    kwargs = {"name": "anvil", "dataset": dataset, "variable": "reflectivity"}
     detection = {"method": "threshold", "altitudes": [7.5e3, 10e3], "threshold": 15}
-    kwargs.update({"detection": detection, "tracking": None})
-    return track_option.DetectedObjectOptions(**kwargs)
+    return track_option.DetectedObjectOptions(
+        name="anvil",
+        dataset=dataset,
+        variable="reflectivity",
+        detection=detection,
+        tracking=None,
+    )
 
 
 def satellite_anvil(dataset="himawari"):
     """Build default options for anvil objects."""
-    kwargs = {"name": "anvil", "dataset": dataset, "variable": "brightness_temperature"}
     det_kwargs = {"method": "threshold", "threshold": 235, "threshold_type": "maxima"}
     det_kwargs.update({"flatten_method": None, "min_area": 500})
-    kwargs.update({"detection": det_kwargs, "tracking": None})
     attribute_types = [core.default_tracked()]
     attribute_types += [quality.default()]
     attribute_types += [ellipse.default()]
-    trck_kwargs = {"global_flow_margin": 70, "unique_global_flow": False}
-    tracking = track_option.MintOptions(**trck_kwargs)
-    attr_kwargs = {"name": "anvil", "attribute_types": attribute_types}
-    attributes = attribute_option.Attributes(**attr_kwargs)
-    kwargs.update({"tracking": tracking, "attributes": attributes})
-    return track_option.DetectedObjectOptions(**kwargs)
+    tracking = track_option.MintOptions(
+        global_flow_margin=70,
+        unique_global_flow=False,
+    )
+    attributes = attribute_option.Attributes(
+        name="anvil",
+        attribute_types=attribute_types,
+    )
+    return track_option.DetectedObjectOptions(
+        name="anvil",
+        dataset=dataset,
+        variable="brightness_temperature",
+        detection=det_kwargs,
+        tracking=tracking,
+        attributes=attributes,
+    )
 
 
 def mcs(tracking_dataset="cpol", profile_dataset="era5_pl", tag_dataset="era5_sl"):
@@ -70,10 +90,13 @@ def mcs(tracking_dataset="cpol", profile_dataset="era5_pl", tag_dataset="era5_sl
 
     name = "mcs"
     member_objects = ["convective", "middle", "anvil"]
-    kwargs = {"name": name, "member_objects": member_objects}
-    kwargs.update({"member_levels": [0, 0, 0], "member_min_areas": [80, 400, 800]})
 
-    grouping = track_option.GroupingOptions(**kwargs)
+    grouping = track_option.GroupingOptions(
+        name=name,
+        member_objects=member_objects,
+        member_levels=[0, 0, 0],
+        member_min_areas=[80, 400, 800],
+    )
     tracking = track_option.MintOptions(matched_object="convective")
 
     # Assume the first member object is used for tracking.
@@ -81,14 +104,18 @@ def mcs(tracking_dataset="cpol", profile_dataset="era5_pl", tag_dataset="era5_sl
     attribute_types = [core.default_tracked()]
     attribute_types += [quality.default(member_object=obj)]
     attribute_types += [ellipse.default()]
-    kwargs = {"name": member_objects[0], "attribute_types": attribute_types}
-    attributes = track_option.Attributes(**kwargs)
+    attributes = track_option.Attributes(
+        name=member_objects[0],
+        attribute_types=attribute_types,
+    )
     member_attributes = {obj: attributes}
     for obj in member_objects[1:]:
         attribute_types = [core.default_member()]
         attribute_types += [quality.default(member_object=obj)]
-        kwargs = {"name": obj, "attribute_types": attribute_types}
-        member_attributes[obj] = track_option.Attributes(**kwargs)
+        member_attributes[obj] = track_option.Attributes(
+            name=obj,
+            attribute_types=attribute_types,
+        )
 
     mcs_core = core.default_tracked()
     # Add echo top height attribute to the mcs core attributes
@@ -98,14 +125,21 @@ def mcs(tracking_dataset="cpol", profile_dataset="era5_pl", tag_dataset="era5_sl
     attribute_types = [mcs_core, group.default()]
     attribute_types += [profile.default(profile_dataset)]
     attribute_types += [tag.default(tag_dataset)]
-    kwargs = {"name": "mcs", "attribute_types": attribute_types}
-    kwargs.update({"member_attributes": member_attributes})
-    attributes = attribute_option.Attributes(**kwargs)
+    attributes = attribute_option.Attributes(
+        name="mcs",
+        attribute_types=attribute_types,
+        member_attributes=member_attributes,
+    )
 
-    kwargs = {"name": name, "dataset": tracking_dataset, "grouping": grouping}
-    kwargs.update({"tracking": tracking, "attributes": attributes})
-    kwargs.update({"hierarchy_level": 1, "method": "group"})
-    mcs_options = track_option.GroupedObjectOptions(**kwargs)
+    mcs_options = track_option.GroupedObjectOptions(
+        name=name,
+        dataset=tracking_dataset,
+        grouping=grouping,
+        tracking=tracking,
+        attributes=attributes,
+        hierarchy_level=1,
+        method="group",
+    )
 
     return mcs_options
 
@@ -119,10 +153,13 @@ def access_c_mcs(tracking_dataset="access_1km"):
 
     name = "mcs"
     member_objects = ["convective", "anvil"]
-    kwargs = {"name": name, "member_objects": member_objects}
-    kwargs.update({"member_levels": [0, 0], "member_min_areas": [80, 800]})
 
-    grouping = track_option.GroupingOptions(**kwargs)
+    grouping = track_option.GroupingOptions(
+        name=name,
+        member_objects=member_objects,
+        member_levels=[0, 0],
+        member_min_areas=[80, 800],
+    )
     tracking = track_option.MintOptions(
         matched_object="convective", global_flow_margin=70, unique_global_flow=False
     )
@@ -132,28 +169,39 @@ def access_c_mcs(tracking_dataset="access_1km"):
     attribute_types = [core.default_tracked()]
     attribute_types += [quality.default(member_object=obj)]
     attribute_types += [ellipse.default()]
-    kwargs = {"name": member_objects[0], "attribute_types": attribute_types}
-    attributes = track_option.Attributes(**kwargs)
+    attributes = track_option.Attributes(
+        name=member_objects[0],
+        attribute_types=attribute_types,
+    )
     member_attributes = {obj: attributes}
     for obj in member_objects[1:]:
         attribute_types = [core.default_member()]
         attribute_types += [quality.default(member_object=obj)]
-        kwargs = {"name": obj, "attribute_types": attribute_types}
-        member_attributes[obj] = track_option.Attributes(**kwargs)
+        member_attributes[obj] = track_option.Attributes(
+            name=obj,
+            attribute_types=attribute_types,
+        )
 
     mcs_core = core.default_tracked()
     attribute_types = [mcs_core, group.default()]
     # Leave out the profile and tag attributes for now
     # attribute_types += [profile.default(profile_dataset)]
     # attribute_types += [tag.default(tag_dataset)]
-    kwargs = {"name": "mcs", "attribute_types": attribute_types}
-    kwargs.update({"member_attributes": member_attributes})
-    attributes = attribute_option.Attributes(**kwargs)
+    attributes = attribute_option.Attributes(
+        name="mcs",
+        attribute_types=attribute_types,
+        member_attributes=member_attributes,
+    )
 
-    kwargs = {"name": name, "dataset": tracking_dataset, "grouping": grouping}
-    kwargs.update({"tracking": tracking, "attributes": attributes})
-    kwargs.update({"hierarchy_level": 1, "method": "group"})
-    mcs_options = track_option.GroupedObjectOptions(**kwargs)
+    mcs_options = track_option.GroupedObjectOptions(
+        name=name,
+        dataset=tracking_dataset,
+        grouping=grouping,
+        tracking=tracking,
+        attributes=attributes,
+        hierarchy_level=1,
+        method="group",
+    )
 
     return mcs_options
 
@@ -209,11 +257,15 @@ def runtime(visualize_directory, objects=["mcs"]):
 
     objects_dict = {}
     for obj in objects:
-        kwargs = {"name": "tint_match", "function": vis_runtime.visualize_tint_match}
-        match_figure = visualize_option.FigureOptions(**kwargs)
-        kwargs = {"name": obj, "parent_local": visualize_directory}
-        kwargs.update({"figures": [match_figure]})
-        figures = visualize_option.ObjectRuntimeOptions(**kwargs)
+        match_figure = visualize_option.FigureOptions(
+            name="tint_match",
+            function=vis_runtime.visualize_tint_match,
+        )
+        figures = visualize_option.ObjectRuntimeOptions(
+            name=obj,
+            parent_local=visualize_directory,
+            figures=[match_figure],
+        )
         objects_dict[figures.name] = figures
     visualize_options = visualize_option.RuntimeOptions(objects=objects_dict)
     return visualize_options
@@ -224,11 +276,15 @@ def synthetic_track():
 
     convective_options = convective(dataset="synthetic")
     attribute_types = [core.default_tracked()]
-    kwargs = {"name": "convective", "attribute_types": attribute_types}
-    attributes = track_option.Attributes(**kwargs)
+    attributes = track_option.Attributes(
+        name="convective",
+        attribute_types=attribute_types,
+    )
     convective_options.attributes = attributes
-    kwargs = {"global_flow_margin": 70, "unique_global_flow": False}
-    convective_options.tracking = track_option.MintOptions(**kwargs)
+    convective_options.tracking = track_option.MintOptions(
+        global_flow_margin=70,
+        unique_global_flow=False,
+    )
     levels = [track_option.LevelOptions(objects=[convective_options])]
     return track_option.TrackOptions(levels=levels)
 
@@ -236,11 +292,15 @@ def synthetic_track():
 def synthetic_runtime(visualize_directory):
     """Build default options for runtime visualization."""
 
-    kwargs = {"name": "match", "function": vis_runtime.visualize_tint_match}
-    match_figure = visualize_option.FigureOptions(**kwargs)
-    kwargs = {"name": "convective", "parent_local": visualize_directory}
-    kwargs.update({"figures": [match_figure]})
-    convective_figures = visualize_option.ObjectRuntimeOptions(**kwargs)
+    match_figure = visualize_option.FigureOptions(
+        name="match",
+        function=vis_runtime.visualize_tint_match,
+    )
+    convective_figures = visualize_option.ObjectRuntimeOptions(
+        name="convective",
+        parent_local=visualize_directory,
+        figures=[match_figure],
+    )
 
     objects_dict = {convective_figures.name: convective_figures}
     visualize_options = visualize_option.RuntimeOptions(objects=objects_dict)
@@ -267,12 +327,16 @@ def build_velocity_handler(
     leg_func = "thuner.visualize.horizontal.displacement_legend_artist"
     leg_kwargs = {"color": color, "label": label}
     legend_method = Retrieval(function=leg_func, keyword_arguments=leg_kwargs)
-    kwargs = {"name": name, "attributes": attributes}
-    kwargs.update({"filepath": velocity_filepath})
-    kwargs.update({"method": method, "label": label, "legend_method": legend_method})
-    kwargs.update({"quality_filepath": quality_filepath})
-    kwargs.update({"quality_variables": quality_variables})
-    return AttributeHandler(**kwargs)
+    return AttributeHandler(
+        name=name,
+        attributes=attributes,
+        filepath=velocity_filepath,
+        method=method,
+        label=label,
+        legend_method=legend_method,
+        quality_filepath=quality_filepath,
+        quality_variables=quality_variables,
+    )
 
 
 def build_horizontal_text_handler(
@@ -286,11 +350,15 @@ def build_horizontal_text_handler(
     vis_func = "thuner.visualize.attribute.text_horizontal"
     vis_kwargs = {"labelled_attribute": "universal_id"}
     method = Retrieval(function=vis_func, keyword_arguments=vis_kwargs)
-    kwargs = {"name": name, "attributes": attributes, "filepath": velocity_filepath}
-    kwargs.update({"method": method, "label": "Object ID"})
-    kwargs.update({"quality_filepath": quality_filepath})
-    kwargs.update({"quality_variables": quality_variables})
-    return AttributeHandler(**kwargs)
+    return AttributeHandler(
+        name=name,
+        attributes=attributes,
+        filepath=velocity_filepath,
+        method=method,
+        label="Object ID",
+        quality_filepath=quality_filepath,
+        quality_variables=quality_variables,
+    )
 
 
 def build_displacement_handler(
@@ -311,12 +379,16 @@ def build_displacement_handler(
     leg_kwargs = {"color": color, "label": label}
     leg_func = "thuner.visualize.horizontal.displacement_legend_artist"
     legend_method = Retrieval(function=leg_func, keyword_arguments=leg_kwargs)
-    kwargs = {"name": name, "attributes": attributes}
-    kwargs.update({"method": method, "filepath": group_filepath})
-    kwargs.update({"label": "Stratiform Offset", "legend_method": legend_method})
-    kwargs.update({"quality_filepath": quality_filepath})
-    kwargs.update({"quality_variables": quality_variables})
-    return AttributeHandler(**kwargs)
+    return AttributeHandler(
+        name=name,
+        attributes=attributes,
+        method=method,
+        filepath=group_filepath,
+        label="Stratiform Offset",
+        legend_method=legend_method,
+        quality_filepath=quality_filepath,
+        quality_variables=quality_variables,
+    )
 
 
 def build_orientation_handler(
@@ -338,12 +410,16 @@ def build_orientation_handler(
     leg_func = "thuner.visualize.horizontal.orientation_legend_artist"
     leg_kwargs = {"label": label, "style": style}
     legend_method = Retrieval(function=leg_func, keyword_arguments=leg_kwargs)
-    kwargs = {"name": name, "attributes": attributes}
-    kwargs.update({"method": method, "filepath": ellipse_filepath, "label": label})
-    kwargs.update({"quality_filepath": quality_filepath})
-    kwargs.update({"legend_method": legend_method})
-    kwargs.update({"quality_variables": quality_variables})
-    return AttributeHandler(**kwargs)
+    return AttributeHandler(
+        name=name,
+        attributes=attributes,
+        method=method,
+        filepath=ellipse_filepath,
+        label=label,
+        quality_filepath=quality_filepath,
+        legend_method=legend_method,
+        quality_variables=quality_variables,
+    )
 
 
 def detected_attribute_handlers(
@@ -355,11 +431,18 @@ def detected_attribute_handlers(
     base_qualities = ["contained", "duration"]
 
     args = [output_parent, ["u", "v"], base_qualities + ["velocity"]]
-    kwargs = {"name": "velocity", "color": "tab:purple", "label": "System Velocity"}
-    velocity_handler = build_velocity_handler(*args, **kwargs)
+    velocity_handler = build_velocity_handler(
+        *args,
+        name="velocity",
+        color="tab:purple",
+        label="System Velocity",
+    )
 
-    args = [output_parent, ["universal_id"], base_qualities]
-    id_handler = build_horizontal_text_handler(*args)
+    id_handler = build_horizontal_text_handler(
+        output_parent=output_parent,
+        attributes=["universal_id"],
+        quality_variables=base_qualities,
+    )
 
     return {object_name: [id_handler, velocity_handler]}
 
@@ -382,38 +465,71 @@ def grouped_attribute_handlers(
     base_qualities = ["convective_contained", "anvil_contained", "duration"]
 
     args = [output_parent, ["u", "v"], base_qualities + ["velocity"]]
-    kwargs = {"name": "velocity", "color": "tab:purple", "label": "System Velocity"}
-    velocity_handler = build_velocity_handler(*args, **kwargs)
+    velocity_handler = build_velocity_handler(
+        *args,
+        name="velocity",
+        color="tab:purple",
+        label="System Velocity",
+    )
 
     args = [output_parent, ["u_ambient", "v_ambient"], base_qualities]
-    kwargs = {"name": "ambient", "color": "tab:red", "label": "Ambient Wind"}
-    ambient_handler = build_velocity_handler(*args, **kwargs)
+    ambient_handler = build_velocity_handler(
+        *args,
+        name="ambient",
+        color="tab:red",
+        label="Ambient Wind",
+    )
 
     args = [output_parent, ["u_shear", "v_shear"], base_qualities + ["shear"]]
-    kwargs = {"name": "shear", "color": "darkblue", "label": "Ambient Shear"}
-    shear_handler = build_velocity_handler(*args, **kwargs)
+    shear_handler = build_velocity_handler(
+        *args,
+        name="shear",
+        color="darkblue",
+        label="Ambient Shear",
+    )
 
     args = [output_parent, ["u_relative", "v_relative"]]
     args += [base_qualities + ["relative_velocity"]]
-    kwargs = {"color": "darkgreen", "label": "Relative System Velocity"}
-    kwargs.update({"name": "relative"})
-    relative_handler = build_velocity_handler(*args, **kwargs)
+    relative_handler = build_velocity_handler(
+        *args,
+        color="darkgreen",
+        label="Relative System Velocity",
+        name="relative",
+    )
 
     args = [output_parent, ["u_relative", "v_relative"]]
     args += [base_qualities + ["relative_velocity"]]
-    kwargs = {"color": "darkgreen", "label": "System Relative Inflow"}
-    kwargs.update({"name": "inflow", "reverse": True})
-    inflow_handler = build_velocity_handler(*args, **kwargs)
+    inflow_handler = build_velocity_handler(
+        *args,
+        color="darkgreen",
+        label="System Relative Inflow",
+        name="inflow",
+        reverse=True,
+    )
 
-    args = [output_parent, ["universal_id"], base_qualities]
-    id_handler = build_horizontal_text_handler(*args)
+    id_handler = build_horizontal_text_handler(
+        output_parent=output_parent,
+        attributes=["universal_id"],
+        quality_variables=base_qualities,
+    )
 
-    args = [output_parent, ["x_offset", "y_offset"], base_qualities + ["offset"]]
-    offset_handler_convective = build_displacement_handler(*args)
-    offset_handler_anvil = build_displacement_handler(*args, reverse=True)
+    offset_handler_convective = build_displacement_handler(
+        output_parent=output_parent,
+        attributes=["x_offset", "y_offset"],
+        quality_variables=base_qualities + ["offset"],
+    )
+    offset_handler_anvil = build_displacement_handler(
+        output_parent=output_parent,
+        attributes=["x_offset", "y_offset"],
+        quality_variables=base_qualities + ["offset"],
+        reverse=True,
+    )
 
-    kwargs = {"quality_variables": base_qualities + ["axis_ratio"], "style": style}
-    orientation_handler = build_orientation_handler(output_parent, **kwargs)
+    orientation_handler = build_orientation_handler(
+        output_parent,
+        quality_variables=base_qualities + ["axis_ratio"],
+        style=style,
+    )
 
     all_conv = [id_handler, velocity_handler, ambient_handler]
     all_conv += [shear_handler, relative_handler, offset_handler_convective]

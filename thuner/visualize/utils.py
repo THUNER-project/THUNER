@@ -126,9 +126,14 @@ class Panelled(BaseLayout):
         hspace = self.vertical_spacing / (sum(height_ratios) / len(height_ratios))
 
         self.fig = plt.figure(figsize=(width, height))
-        kwargs = {"width_ratios": width_ratios, "height_ratios": height_ratios}
-        kwargs.update({"wspace": wspace, "hspace": hspace})
-        self.grid_spec = gridspec.GridSpec(rows, columns, **kwargs)
+        self.grid_spec = gridspec.GridSpec(
+            rows,
+            columns,
+            width_ratios=width_ratios,
+            height_ratios=height_ratios,
+            wspace=wspace,
+            hspace=hspace,
+        )
 
     def initialize_layout(self):
         """Initialize the figure layout."""
@@ -165,8 +170,11 @@ class Panelled(BaseLayout):
             legend_rows = [-1]
 
         if self.rows > 1 or self.columns > 1:
-            kwargs = {"x_shift": self.label_offset_x, "y_shift": self.label_offset_y}
-            make_subplot_labels(subplot_axes, **kwargs)
+            make_subplot_labels(
+                subplot_axes,
+                x_shift=self.label_offset_x,
+                y_shift=self.label_offset_y,
+            )
         if self.colorbar:
             for i in range(self.rows):
                 ax = self.fig.add_subplot(self.grid_spec[i, -1])

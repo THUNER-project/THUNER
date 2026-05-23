@@ -163,9 +163,12 @@ def update_object(time, obj):
     time_diff = np.datetime64(time) - np.datetime64(obj["time"])
     time_diff = time_diff.astype("timedelta64[s]").astype(float)
     distance = time_diff * obj["speed"]
-    args = [obj["center_longitude"], obj["center_latitude"]]
-    args += [np.rad2deg(obj["direction"]), distance]
-    new_lon, new_lat = geod.fwd(*args)[0:2]
+    new_lon, new_lat = geod.fwd(
+        lons=obj["center_longitude"],
+        lats=obj["center_latitude"],
+        az=np.rad2deg(obj["direction"]),
+        dist=distance,
+    )[0:2]
     obj["center_latitude"] = new_lat
     obj["center_longitude"] = new_lon
     obj["time"] = time

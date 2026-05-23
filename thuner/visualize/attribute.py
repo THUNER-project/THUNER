@@ -26,7 +26,6 @@ from thuner.option.visualize import HorizontalAttributeOptions
 from thuner.log import setup_logger, logging_listener
 from thuner.config import get_zarr_store_name
 
-
 __all__ = ["series", "grouped_horizontal"]
 
 logger = setup_logger(__name__)
@@ -136,8 +135,10 @@ def series(
         return
 
     if parallel_figure:
-        kwargs = {"initializer": initialize_process, "processes": num_processes}
-        with logging_listener(), mp.get_context("spawn").Pool(**kwargs) as pool:
+        with logging_listener(), mp.get_context("spawn").Pool(
+            initializer=initialize_process,
+            processes=num_processes,
+        ) as pool:
             results = []
             for time in times[1:]:
                 sleep(2)
@@ -161,9 +162,15 @@ def series(
         figure_name = figure_options.name
         save_directory = output_directory / f"visualize"
         figure_directory = output_directory / f"visualize/{figure_name}"
-        args = [figure_name, "mcs", output_directory, save_directory]
-        args += [figure_directory, figure_name]
-        visualize.animate_object(*args, by_date=by_date)
+        visualize.animate_object(
+            fig_type=figure_name,
+            obj="mcs",
+            output_directory=output_directory,
+            save_directory=save_directory,
+            figure_directory=figure_directory,
+            animation_name=figure_name,
+            by_date=by_date,
+        )
     # Close all figures to clear memory
     plt.close("all")
     # Switch back to original backend
@@ -193,8 +200,12 @@ def get_mask_grid_boundary(
     grid = dataset_options.grid_from_dataset(ds, dataset_options.fields[0], time)
     del ds
     logger.debug(f"Rebuilding processed grid for time {time}.")
-    args = [grid, options["track"], object_name, object_level]
-    processed_grid = detect.rebuild_processed_grid(*args)
+    processed_grid = detect.rebuild_processed_grid(
+        grid_data=grid,
+        track_options=options["track"],
+        obj=object_name,
+        level=object_level,
+    )
     del grid
     mask = masks.sel(time=time).load()
 
@@ -242,8 +253,14 @@ def detected_horizontal(
     grid_options = options["grid"]
     obj_name = figure_options.object_name
 
-    args = [obj_name, time, filepaths_df, masks, dataset_name, options]
-    mask, grid, boundary_coords = get_mask_grid_boundary(*args)
+    mask, grid, boundary_coords = get_mask_grid_boundary(
+        object_name=obj_name,
+        time=time,
+        filepaths_df=filepaths_df,
+        masks=masks,
+        dataset_name=dataset_name,
+        options=options,
+    )
     mask = mask[obj_name + "_mask"]
     grid = grid[obj_name + "_grid"]
     object_colors = get_object_colors(time, color_angle_df)
@@ -253,10 +270,12 @@ def detected_horizontal(
 
     attribute_handlers = figure_options.attribute_handlers
     args = [grid, mask, grid_options, figure_options, boundary_coords]
-    kwargs = {"object_colors": object_colors}
 
     with plt.style.context(visualize.styles[style]), visualize.set_style(style):
-        figure_features = horizontal.detected_mask(*args, **kwargs)
+        figure_features = horizontal.detected_mask(
+            *args,
+            object_colors=object_colors,
+        )
         fig, subplot_axes, colorbar_axes, legend_axes = figure_features
 
     # Create the grouped object figure instance
@@ -311,8 +330,14 @@ def grouped_horizontal(
     color_angle_df = get_color_angle_df(obj_name, output_directory)
 
     grid_options = options["grid"]
-    args = [obj_name, time, filepaths_df, masks, dataset_name, options]
-    mask, grid, boundary_coords = get_mask_grid_boundary(*args)
+    mask, grid, boundary_coords = get_mask_grid_boundary(
+        object_name=obj_name,
+        time=time,
+        filepaths_df=filepaths_df,
+        masks=masks,
+        dataset_name=dataset_name,
+        options=options,
+    )
     object_colors = get_object_colors(time, color_angle_df)
 
     time = grid.time.values
@@ -322,18 +347,24 @@ def grouped_horizontal(
     attribute_handlers = figure_options.attribute_handlers
     args = [grid, mask, grid_options, figure_options, member_objects]
     args += [boundary_coords]
-    kwargs = {"object_colors": object_colors}
 
     with plt.style.context(visualize.styles[style]), visualize.set_style(style):
-        figure_features = horizontal.grouped_mask(*args, **kwargs)
+        figure_features = horizontal.grouped_mask(
+            *args,
+            object_colors=object_colors,
+        )
         fig, subplot_axes, colorbar_axes, legend_axes = figure_features
 
     # Set the subplot figure titles to altitudes if specified
     if figure_options.altitude_titles:
         # Get altitude labels for the member objects
         track_options = options["track"]
-        args = [track_options, obj_name, 1, member_objects]
-        altitude_labels = get_altitude_labels(*args)
+        altitude_labels = get_altitude_labels(
+            track_options=track_options,
+            object_name=obj_name,
+            object_level=1,
+            member_objects=member_objects,
+        )
         for i, label in enumerate(altitude_labels):
             subplot_axes[i].set_title(label)
 
@@ -375,8 +406,11 @@ def add_attribute(
     # Get attribute df
     attribute_artists[object_name][handler.name] = {}
     attribute_df = _read_zarr_attribute(handler.filepath, times=[time])
-    kwargs = {"times": [time], "columns": handler.quality_variables}
-    quality_df = _read_zarr_attribute(handler.quality_filepath, **kwargs)
+    quality_df = _read_zarr_attribute(
+        handler.quality_filepath,
+        times=[time],
+        columns=handler.quality_variables,
+    )
     if handler.quality_method == "all":
         quality_df = quality_df.all(axis=1)
     elif handler.quality_method == "any":
@@ -429,9 +463,15 @@ def add_attributes(time, figure):
         attribute_artists[obj] = {}
         for handler in figure.attribute_handlers[obj]:
             ax = figure.subplot_axes[i]
-            args = [ax, obj, handler, attribute_artists, legend_artists, time]
-            args += [figure]
-            add_attribute(*args)
+            add_attribute(
+                ax=ax,
+                object_name=obj,
+                handler=handler,
+                attribute_artists=attribute_artists,
+                legend_artists=legend_artists,
+                time=time,
+                figure=figure,
+            )
     figure.legend_artists = legend_artists
     figure.attribute_artists = attribute_artists
 
@@ -542,6 +582,7 @@ class GroupedObjectFigure(BaseFigure):
             message = "Number of member objects, subplot axes, and member core "
             message += "filepaths must agree."
             raise ValueError(message)
+        return values
 
 
 def velocity_horizontal(
@@ -555,8 +596,12 @@ def velocity_horizontal(
     longitude = object_df["longitude"].values[0]
     u, v = object_df[attributes[0]].values[0], object_df[attributes[1]].values[0]
     args = [ax, latitude, longitude, u, v, color]
-    kwargs = {"quality": quality_df.values, "dt": dt, "reverse": reverse}
-    return horizontal.cartesian_velocity(*args, **kwargs)
+    return horizontal.cartesian_velocity(
+        *args,
+        quality=quality_df.values,
+        dt=dt,
+        reverse=reverse,
+    )
 
 
 def text_horizontal(
@@ -573,9 +618,13 @@ def text_horizontal(
     label = object_df.reset_index()[labelled_attribute].values[0]
     if formatter is not None:
         label = formatter(label)
-    args = [ax, label, longitude, latitude]
     if quality_df.values[0]:
-        return horizontal.embossed_text(*args)
+        return horizontal.embossed_text(
+            ax=ax,
+            text=label,
+            longitude=longitude,
+            latitude=latitude,
+        )
     else:
         return None
 
@@ -594,8 +643,14 @@ def orientation_horizontal(ax, attributes, object_df, quality_df=None):
         orientation = object_df["orientation"].values[0]
     else:
         raise ValueError("No orientation attribute in object_df.")
-    args = [ax, latitude, longitude, length, orientation, quality_df.values]
-    return horizontal.ellipse_axis(*args)
+    return horizontal.ellipse_axis(
+        ax=ax,
+        latitude=latitude,
+        longitude=longitude,
+        axis_length=length,
+        orientation=orientation,
+        quality=quality_df.values,
+    )
 
 
 def displacement_horizontal(
@@ -609,8 +664,17 @@ def displacement_horizontal(
         dx, dy = -dx, -dy
     latitude = object_df["latitude"].values[0]
     longitude = object_df["longitude"].values[0]
-    args = [ax, latitude, longitude, dx, dy, color, quality_df.values]
-    return horizontal.cartesian_displacement(*args, arrow=True, reverse=reverse)
+    return horizontal.cartesian_displacement(
+        ax=ax,
+        start_latitude=latitude,
+        start_longitude=longitude,
+        dx=dx,
+        dy=dy,
+        color=color,
+        quality=quality_df.values,
+        arrow=True,
+        reverse=reverse,
+    )
 
 
 def convert_parents(parents):
@@ -649,8 +713,12 @@ def new_color_angle(df, row, color_dict, previous_time, angle_list):
     else:
         # If object has parents, get the average color angle of the parents,
         # weighting the average by object area
-        args = [df, row, color_dict, previous_time]
-        parent_angles, areas = get_parent_angles(*args)
+        parent_angles, areas = get_parent_angles(
+            df=df,
+            row=row,
+            color_dict=color_dict,
+            previous_time=previous_time,
+        )
         return circular_mean(parent_angles, areas)
 
 
@@ -668,10 +736,16 @@ def update_color_angle(df, row, color_dict, previous_time, universal_id):
     else:
         # If the object has new parents, get the average color angle of the
         # parents and the current object
-        args = [df, row, color_dict, previous_time]
-        parent_angles, areas = get_parent_angles(*args)
-        args = [parent_angles + [previous_angle], areas + [previous_area]]
-        return circular_mean(*args)
+        parent_angles, areas = get_parent_angles(
+            df=df,
+            row=row,
+            color_dict=color_dict,
+            previous_time=previous_time,
+        )
+        return circular_mean(
+            angles=parent_angles + [previous_angle],
+            weights=areas + [previous_area],
+        )
 
 
 def get_color_angle_df(object_name, output_parent, filepath=None):
@@ -700,8 +774,13 @@ def get_color_angle_df(object_name, output_parent, filepath=None):
                 angle = new_color_angle(df, row, color_dict, previous_time, angle_list)
             else:
                 # If object is already in color_dict, get its color angle
-                args = [df, row, color_dict, previous_time, universal_id]
-                angle = update_color_angle(*args)
+                angle = update_color_angle(
+                    df=df,
+                    row=row,
+                    color_dict=color_dict,
+                    previous_time=previous_time,
+                    universal_id=universal_id,
+                )
             time_list.append(time)
             universal_id_list.append(universal_id)
             angle_list.append(angle)

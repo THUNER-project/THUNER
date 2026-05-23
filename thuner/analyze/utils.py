@@ -11,7 +11,6 @@ from thuner.option.attribute import Attribute, AttributeType
 import thuner.write as write
 import pandas as pd
 
-
 __all__ = ["read_options"]
 
 
@@ -76,8 +75,7 @@ def quality_control(
     duration_check = duration >= np.timedelta64(analysis_options.min_duration, "m")
     duration_check.name = "duration"
     dummy_df = velocities[[]].reset_index()
-    merge_kwargs = {"on": "universal_id", "how": "left"}
-    duration_check = dummy_df.merge(duration_check, **merge_kwargs)
+    duration_check = dummy_df.merge(duration_check, on="universal_id", how="left")
     duration_check = duration_check.set_index(velocities.index.names)
 
     # Check if the object fails boundary overlap checks when first detected
@@ -87,7 +85,9 @@ def quality_control(
     new_name = {"contained": "initially_contained"}
     initially_contained = initially_contained.rename(columns=new_name)
     dummy_df = velocities[[]].reset_index()
-    initially_contained = dummy_df.merge(initially_contained, **merge_kwargs)
+    initially_contained = dummy_df.merge(
+        initially_contained, on="universal_id", how="left"
+    )
     initially_contained = initially_contained.set_index(velocities.index.names)
 
     # Check whether the object has parents. When plotting we may only wish to filter out
@@ -139,10 +139,16 @@ def quality_control(
     data_type, precision, units, retrieval = bool, None, None, None
     attributes = []
     for name, description in zip(names, descriptions):
-        kwargs = {"name": name, "retrieval": retrieval, "data_type": data_type}
-        kwargs.update({"precision": precision, "description": description})
-        kwargs.update({"units": units})
-        attributes.append(Attribute(**kwargs))
+        attributes.append(
+            Attribute(
+                name=name,
+                retrieval=retrieval,
+                data_type=data_type,
+                precision=precision,
+                description=description,
+                units=units,
+            )
+        )
 
     attributes.append(core.time())
     attributes.append(core.record_universal_id())
@@ -185,10 +191,16 @@ def smooth_flow_velocities(object_name, output_directory, window_size=6):
     data_type, precision, units, retrieval = float, 1, "m/s", None
     attributes = []
     for name, description in zip(names, descriptions):
-        kwargs = {"name": name, "retrieval": retrieval, "data_type": data_type}
-        kwargs.update({"precision": precision, "description": description})
-        kwargs.update({"units": units})
-        attributes.append(Attribute(**kwargs))
+        attributes.append(
+            Attribute(
+                name=name,
+                retrieval=retrieval,
+                data_type=data_type,
+                precision=precision,
+                description=description,
+                units=units,
+            )
+        )
     attributes.append(core.time())
     attributes.append(core.record_universal_id())
     attribute_type = AttributeType(name="velocities", attributes=attributes)

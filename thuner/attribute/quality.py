@@ -58,15 +58,14 @@ def overlap_from_mask(
 
 def boundary_overlap():
     """Convenience function to build a BoundaryOverlap attribute."""
-    kwargs = {"name": "boundary_overlap", "data_type": float, "precision": 4}
     _retrieval = Retrieval(function=overlap_from_mask)
-    kwargs.update(
-        {
-            "description": "Fraction of object area comprised of boundary gridcells.",
-            "retrieval": _retrieval,
-        }
+    return Attribute(
+        name="boundary_overlap",
+        data_type=float,
+        precision=4,
+        description="Fraction of object area comprised of boundary gridcells.",
+        retrieval=_retrieval,
     )
-    return Attribute(**kwargs)
 
 
 # class BoundaryOverlap(Attribute):
@@ -88,6 +87,8 @@ def default(matched=True, member_object=None):
     _boundary_overlap.retrieval.keyword_arguments["member_object"] = member_object
     _attributes.append(_boundary_overlap)
     description = "Attributes associated with quality control, e.g. boundary overlap."
-    kwargs = {"name": "quality", "attributes": _attributes}
-    kwargs.update({"description": description})
-    return AttributeType(**kwargs)
+    return AttributeType(
+        name="quality",
+        attributes=_attributes,
+        description=description,
+    )

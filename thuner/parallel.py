@@ -78,9 +78,14 @@ def track(
     logger.info(f"Beginning parallel tracking with {num_processes} processes.")
 
     if num_processes == 1:
-        args = [times, data_options, grid_options, track_options, visualize_options]
-        args += [output_directory]
-        thuner_track.track(*args)
+        thuner_track.track(
+            times=times,
+            data_options=data_options,
+            grid_options=grid_options,
+            track_options=track_options,
+            visualize_options=visualize_options,
+            output_directory=output_directory,
+        )
         return
     if visualize_options is not None:
         message = "Runtime visualizations are not supported during parallel tracking."
@@ -90,14 +95,21 @@ def track(
 
     if debug_mode:
         for i, time_interval in enumerate(intervals):
-            args = [i, time_interval, data_options.model_copy(deep=True)]
-            args += [grid_options.model_copy(deep=True)]
-            args += [track_options.model_copy(deep=True)]
-            args += [None, output_directory, dataset_name]
-            track_interval(*args)
+            track_interval(
+                i=i,
+                time_interval=time_interval,
+                data_options=data_options.model_copy(deep=True),
+                grid_options=grid_options.model_copy(deep=True),
+                track_options=track_options.model_copy(deep=True),
+                visualize_options=None,
+                output_parent=output_directory,
+                dataset_name=dataset_name,
+            )
     else:
-        kwargs = {"initializer": utils.initialize_process, "processes": num_processes}
-        with logging_listener(), mp.get_context("spawn").Pool(**kwargs) as pool:
+        with logging_listener(), mp.get_context("spawn").Pool(
+            initializer=utils.initialize_process,
+            processes=num_processes,
+        ) as pool:
             results = []
             for i, time_interval in enumerate(intervals):
                 time.sleep(1)
@@ -145,9 +157,14 @@ def track_interval(
     # times = utils.generate_times(filepaths)
     dataset_options = interval_data_options.dataset_by_name(dataset_name)
     times = utils.generate_dataset_times(dataset_options)
-    args = [times, interval_data_options, grid_options, track_options]
-    args += [visualize_options, output_directory]
-    thuner_track.track(*args)
+    thuner_track.track(
+        times=times,
+        data_options=interval_data_options,
+        grid_options=grid_options,
+        track_options=track_options,
+        visualize_options=visualize_options,
+        output_directory=output_directory,
+    )
     gc.collect()
 
 
@@ -375,8 +392,13 @@ def _relabel_attribute_dfs(
             member_obj = obj_attr.name.replace("_ids", "")
             if members_matched[i]:
                 for i in range(len(df)):
-                    args = [i, df, f"{member_obj}_ids", id_dicts]
-                    relabel_id_string(*args, object_name=member_obj)
+                    relabel_id_string(
+                        i=i,
+                        df=df,
+                        column_name=f"{member_obj}_ids",
+                        id_dicts=id_dicts,
+                        object_name=member_obj,
+                    )
 
     id_dict = df[[id_type, "original_id", "interval"]].drop_duplicates()
     id_dict = id_dict.set_index(["interval", "original_id"]).sort_index()
@@ -411,8 +433,12 @@ def relabel_tracked(intervals, match_dicts, obj, df):
                 df.loc[condition, "universal_id"] = universal_id
                 # Relabel parents objects in the next interval
         if "parents" in df.columns:
-            args = [df, next_interval, current_interval, reversed_match_dict]
-            df = relabel_parents(*args)
+            df = relabel_parents(
+                df=df,
+                next_interval=next_interval,
+                current_interval=current_interval,
+                reversed_match_dict=reversed_match_dict,
+            )
 
     return df
 
@@ -483,12 +509,11 @@ def get_match_dicts(output_parent, intervals, mask_group_dict, tracked_objects):
 
         interval_match_dicts, interval_time_dicts = {}, {}
         for j, obj in enumerate(objects_1):
-            kwargs = {"engine": "zarr", "chunks": {}}
-            ds_2 = xr.open_dataset(store_2, group=groups_2[j], **kwargs)
+            ds_2 = xr.open_dataset(store_2, group=groups_2[j], engine="zarr", chunks={})
             ds_2 = ds_2.isel(time=0).load()
             time = ds_2["time"].values
             interval_time_dicts[obj] = time
-            ds_1 = xr.open_dataset(store_1, group=groups_1[j], **kwargs)
+            ds_1 = xr.open_dataset(store_1, group=groups_1[j], engine="zarr", chunks={})
             if time not in ds_1.time:
                 if obj not in tracked_objects:
                     interval_match_dicts[obj] = None
@@ -564,8 +589,14 @@ def stitch_masks(output_parent, intervals, mask_group_dict, id_dicts):
         masks = []
         for i in range(len(intervals)):
             store = _interval_store(output_parent, i)
-            kwargs = {"engine": "zarr", "chunks": {"time": 1}}
-            masks.append(xr.open_dataset(store, group=group, **kwargs))
+            masks.append(
+                xr.open_dataset(
+                    store,
+                    group=group,
+                    engine="zarr",
+                    chunks={"time": 1},
+                )
+            )
         new_masks = []
         for i in range(len(intervals)):
             mask = masks[i]
@@ -607,8 +638,12 @@ def stitch_run(output_parent, intervals, cleanup=True):
     attr_group_dict, mask_group_dict, record_group_dict = get_group_dicts(
         output_parent, intervals
     )
-    args = [output_parent, intervals, mask_group_dict, tracked_objects]
-    match_dicts, time_dicts = get_match_dicts(*args)
+    match_dicts, time_dicts = get_match_dicts(
+        output_parent=output_parent,
+        intervals=intervals,
+        mask_group_dict=mask_group_dict,
+        tracked_objects=tracked_objects,
+    )
     stitch_records(output_parent, intervals, record_group_dict)
 
     # Copy regridder weights folder if it exists.

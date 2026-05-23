@@ -60,8 +60,13 @@ class AccessCOptions(utils.BaseDatasetOptions):
         return get_access_c_filepaths(self)
 
     def convert_dataset(self, time, filepath, track_options, grid_options):
-        args = [time, filepath, track_options, self, grid_options]
-        return convert_access(*args)
+        return convert_access(
+            time=time,
+            filepath=filepath,
+            track_options=track_options,
+            dataset_options=self,
+            grid_options=grid_options,
+        )
 
     @model_validator(mode="after")
     def _check_run_start(cls, values):

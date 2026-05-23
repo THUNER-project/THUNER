@@ -21,7 +21,7 @@ def test_synthetic():
     # Parent directory for saving outputs
     base_local = Path.home() / "THUNER_output"
     start = "2005-11-13T00:00:00"
-    end = "2005-11-13T02:00:00"
+    end = "2005-11-13T01:00:00"
     output_parent = base_local / "runs/synthetic/geographic"
     if output_parent.exists() and remove_existing_outputs:
         shutil.rmtree(output_parent)

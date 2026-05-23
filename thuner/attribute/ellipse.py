@@ -78,10 +78,20 @@ def cv2_ellipse(mask, id, grid_options):
         latitude = lats.interp(row=row, method="linear").values
         longitude = lons.interp(column=column, method="linear").values
         spacing = grid_options.geographic_spacing
-        args = [latitude, longitude, spacing, axis_1, orientation]
-        axis_1 = geographic_pixel_to_distance(*args)
-        args[3] = axis_2
-        axis_2 = geographic_pixel_to_distance(*args)
+        axis_1 = geographic_pixel_to_distance(
+            latitude=latitude,
+            longitude=longitude,
+            spacing=spacing,
+            axis=axis_1,
+            orientation=orientation,
+        )
+        axis_2 = geographic_pixel_to_distance(
+            latitude=latitude,
+            longitude=longitude,
+            spacing=spacing,
+            axis=axis_2,
+            orientation=orientation,
+        )
     else:
         raise ValueError("Grid must be 'cartesian' or 'geographic'.")
 
@@ -137,10 +147,14 @@ def latitude():
     Convenience function to build an attribute for the center latitude of the ellipse
     fit.
     """
-    kwargs = {"name": "latitude", "data_type": float, "precision": 4}
-    kwargs.update({"retrieval": None, "units": "degrees_north"})
-    kwargs.update({"description": "Latitude of the center of the ellipse fit."})
-    return Attribute(**kwargs)
+    return Attribute(
+        name="latitude",
+        data_type=float,
+        precision=4,
+        retrieval=None,
+        units="degrees_north",
+        description="Latitude of the center of the ellipse fit.",
+    )
 
 
 # class Latitude(Attribute):
@@ -159,10 +173,14 @@ def longitude():
     Convenience function to build an attribute for the center longitude of the ellipse
     fit.
     """
-    kwargs = {"name": "longitude", "data_type": float, "precision": 4}
-    kwargs.update({"retrieval": None, "units": "degrees_east"})
-    kwargs.update({"description": "Longitude of the center of the ellipse fit."})
-    return Attribute(**kwargs)
+    return Attribute(
+        name="longitude",
+        data_type=float,
+        precision=4,
+        retrieval=None,
+        units="degrees_east",
+        description="Longitude of the center of the ellipse fit.",
+    )
 
 
 # class Longitude(Attribute):
@@ -180,10 +198,14 @@ def major():
     """
     Convenience function to build an attribute for the major axis of the ellipse fit.
     """
-    kwargs = {"name": "major", "data_type": float, "precision": 1}
-    kwargs.update({"retrieval": None, "units": "km"})
-    kwargs.update({"description": "Major axis from ellipse fitted to object mask."})
-    return Attribute(**kwargs)
+    return Attribute(
+        name="major",
+        data_type=float,
+        precision=1,
+        retrieval=None,
+        units="km",
+        description="Major axis from ellipse fitted to object mask.",
+    )
 
 
 # class Major(Attribute):
@@ -201,10 +223,14 @@ def minor():
     """
     Convenience function to build an attribute for the minor axis of the ellipse fit.
     """
-    kwargs = {"name": "minor", "data_type": float, "precision": 1}
-    kwargs.update({"retrieval": None, "units": "km"})
-    kwargs.update({"description": "Minor axis from ellipse fitted to object mask."})
-    return Attribute(**kwargs)
+    return Attribute(
+        name="minor",
+        data_type=float,
+        precision=1,
+        retrieval=None,
+        units="km",
+        description="Minor axis from ellipse fitted to object mask.",
+    )
 
 
 # class Minor(Attribute):
@@ -223,14 +249,14 @@ def orientation():
     Convenience function to build an attribute for the orientation of the ellipse fit.
     Measured in radians from the positive zonal axis.
     """
-    kwargs = {"name": "orientation", "data_type": float, "precision": 4}
-    kwargs.update({"retrieval": None, "units": "radians"})
-    kwargs.update(
-        {
-            "description": "Orientation of the ellipse fit measured in radians from the positive zonal axis."
-        }
+    return Attribute(
+        name="orientation",
+        data_type=float,
+        precision=4,
+        retrieval=None,
+        units="radians",
+        description="Orientation of the ellipse fit measured in radians from the positive zonal axis.",
     )
-    return Attribute(**kwargs)
 
 
 # class Orientation(Attribute):
@@ -250,12 +276,14 @@ def eccentricity():
     """
     Convenience function to build an attribute for the eccentricity of the ellipse fit.
     """
-    kwargs = {"name": "eccentricity", "data_type": float, "precision": 4}
-    kwargs.update({"retrieval": None, "units": None})
-    kwargs.update(
-        {"description": "Eccentricity of the ellipse fit to the object mask."}
+    return Attribute(
+        name="eccentricity",
+        data_type=float,
+        precision=4,
+        retrieval=None,
+        units=None,
+        description="Eccentricity of the ellipse fit to the object mask.",
     )
-    return Attribute(**kwargs)
 
 
 # class Eccentricity(Attribute):
@@ -306,7 +334,9 @@ def default(matched=True):
     attributes_list = core.retrieve_core([core.time()], matched)
     attributes_list += [ellipse_fit()]
     description = "Ellipse fit attributes of the object, e.g. major axis length."
-    kwargs = {"name": "ellipse", "attributes": attributes_list}
-    kwargs.update({"description": description})
 
-    return AttributeType(**kwargs)
+    return AttributeType(
+        name="ellipse",
+        attributes=attributes_list,
+        description=description,
+    )

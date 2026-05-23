@@ -100,7 +100,7 @@ def store_path(output_directory) -> Path:
     return Path(output_directory) / get_zarr_store_name()
 
 
-def write_attributes(store_path_, group, df, attribute_type):
+def write_attributes(store_path_, group, df, attribute_type, overwrite=False):
     """Write or append a single attribute table to its group in the store.
 
     The first write creates the group. Subsequent writes append along the
@@ -114,10 +114,14 @@ def write_attributes(store_path_, group, df, attribute_type):
     ds = _df_to_dataset(df, attribute_type)
     store_path_ = Path(store_path_)
     store_path_.parent.mkdir(parents=True, exist_ok=True)
-    if write_utils.zarr_group_exists(store_path_, group):
+
+    if write_utils.zarr_group_exists(store_path_, group) and not overwrite:
         ds.to_zarr(store_path_, group=group, mode="a", append_dim="record")
+    elif write_utils.zarr_group_exists(store_path_, group) and overwrite:
+        ds.to_zarr(store_path_, group=group, mode="w")
     else:
         ds.to_zarr(store_path_, group=group, mode="a")
+
     logger.debug("Wrote %s records to %s::%s", len(df), store_path_, group)
 
 
@@ -178,7 +182,7 @@ def write_final(tracks, track_options, output_directory):
             write(obj_tracks, object_options, output_directory)
 
 
-def write_attribute(output_directory, *parts, df, attribute_type=None):
+def write_attribute(output_directory, *parts, df, attribute_type=None, overwrite=False):
     """Write a DataFrame to a group in the unified zarr store.
 
     ``parts`` are joined with ``/`` to form the group path inside the
@@ -187,7 +191,7 @@ def write_attribute(output_directory, *parts, df, attribute_type=None):
     """
     store = store_path(output_directory)
     group = "/".join(str(p) for p in parts)
-    write_attributes(store, group, df, attribute_type)
+    write_attributes(store, group, df, attribute_type, overwrite=overwrite)
     if attribute_type is not None:
         df = df.round(utils.get_precision_dict(attribute_type)).sort_index()
     return df

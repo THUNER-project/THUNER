@@ -14,17 +14,25 @@ logger = setup_logger(__name__)
 def _filepath_attribute_type(name):
     """Build the AttributeType describing a filepath records table."""
     description = "Time taken from the tracking process."
-    kwargs = {"name": "time", "data_type": np.datetime64}
-    kwargs.update({"description": description, "units": "UTC"})
-    time_attr = Attribute(**kwargs)
+    time_attr = Attribute(
+        name="time",
+        data_type=np.datetime64,
+        description=description,
+        units="UTC",
+    )
 
     description = f"Filepath to {name} data containing the given time."
-    kwargs = {"name": name, "data_type": str, "description": description}
-    filepaths_attr = Attribute(**kwargs)
+    filepaths_attr = Attribute(
+        name=name,
+        data_type=str,
+        description=description,
+    )
 
-    kwargs = {"name": name, "description": "Filepath to the data."}
-    kwargs.update({"attributes": [time_attr, filepaths_attr]})
-    return AttributeType(**kwargs)
+    return AttributeType(
+        name=name,
+        description="Filepath to the data.",
+        attributes=[time_attr, filepaths_attr],
+    )
 
 
 def write(input_record, output_directory):

@@ -28,10 +28,12 @@ __all__ = ["track"]
 
 def consolidate_options(data_options, grid_options, track_options, visualize_options):
     """Consolidate the options for a given run."""
-    options = {"data_options": data_options, "grid_options": grid_options}
-    options.update({"track_options": track_options})
-    options.update({"visualize_options": visualize_options})
-    return options
+    return {
+        "data_options": data_options,
+        "grid_options": grid_options,
+        "track_options": track_options,
+        "visualize_options": visualize_options,
+    }
 
 
 def track(
@@ -69,7 +71,10 @@ def track(
     input_records = InputRecords(data_options=data_options)
 
     consolidated_options = consolidate_options(
-        track_options, data_options, grid_options, visualize_options
+        data_options=data_options,
+        grid_options=grid_options,
+        track_options=track_options,
+        visualize_options=visualize_options,
     )
 
     # Clear the unified zarr store if it exists to prevent overwriting
@@ -91,30 +96,48 @@ def track(
         if output_directory is None:
             consolidated_options["start_time"] = str(next_time)
             hash_str = utils.hash_dictionary(consolidated_options)
-            output_directory = get_outputs_directory() / f"runs/"
+            output_directory = get_outputs_directory() / "runs/"
             output_directory = output_directory / f"{utils.now_str()}_{hash_str[:8]}"
 
         logger.info(f"Processing {utils.format_time(next_time, filename_safe=False)}.")
-        args = [next_time, input_records.track, track_options, data_options]
-        args += [grid_options, output_directory]
-        _update.update_track_input_records(*args)
+        _update.update_track_input_records(
+            time=next_time,
+            track_input_records=input_records.track,
+            track_options=track_options,
+            data_options=data_options,
+            grid_options=grid_options,
+            output_directory=output_directory,
+        )
         # Record track input filepaths
         for name in input_records.track.keys():
             input_record = input_records.track[name]
-            args = [next_time, input_record, input_record]
-            if write.utils.write_interval_reached(*args):
+            if write.utils.write_interval_reached(
+                next_time=next_time,
+                object_tracks=input_record,
+                object_options=input_record,
+            ):
                 write.filepath.write(input_record, output_directory)
 
-        args = [current_time, input_records.tag, track_options, data_options]
-        args += [grid_options]
-        _update.update_tag_input_records(*args)
-        # loop over levels
+        _update.update_tag_input_records(
+            time=current_time,
+            tag_input_records=input_records.tag,
+            track_options=track_options,
+            data_options=data_options,
+            grid_options=grid_options,
+        )
         for level_index in range(len(track_options.levels)):
             logger.info("Processing hierarchy level %s.", level_index)
-            track_level_args = [next_time, level_index, tracks, input_records]
-            track_level_args += [data_options, grid_options, track_options]
-            track_level_args += [visualize_options, output_directory]
-            track_level(*track_level_args)
+            track_level(
+                next_time=next_time,
+                level_index=level_index,
+                tracks=tracks,
+                input_records=input_records,
+                data_options=data_options,
+                grid_options=grid_options,
+                track_options=track_options,
+                visualize_options=visualize_options,
+                output_directory=output_directory,
+            )
 
         current_time = next_time
 
@@ -140,21 +163,25 @@ def track_level(
     level_tracks = tracks.levels[level_index]
     level_options = track_options.levels[level_index]
 
-    def get_track_object_args(obj, level_options):
+    for obj in level_tracks.objects.keys():
         logger.info("Tracking %s.", obj)
         object_options = level_options.object_by_name(obj)
         if "dataset" not in object_options.__class__.model_fields:
             dataset_options = None
         else:
             dataset_options = data_options.dataset_by_name(object_options.dataset)
-        track_object_args = [next_time, level_index, obj, tracks, input_records]
-        track_object_args += [dataset_options, grid_options, track_options]
-        track_object_args += [visualize_options, output_directory]
-        return track_object_args
-
-    for obj in level_tracks.objects.keys():
-        track_object_args = get_track_object_args(obj, level_options)
-        track_object(*track_object_args)
+        track_object(
+            next_time=next_time,
+            level_index=level_index,
+            obj=obj,
+            tracks=tracks,
+            input_records=input_records,
+            dataset_options=dataset_options,
+            grid_options=grid_options,
+            track_options=track_options,
+            visualize_options=visualize_options,
+            output_directory=output_directory,
+        )
 
     return level_tracks
 
@@ -197,20 +224,37 @@ def track_object(
         get_objects = detect.detect
     else:
         raise ValueError("No known method for obtaining objects provided.")
-    get_objects_args = [track_input_records, tracks, level_index, obj, dataset_options]
-    get_objects_args += [object_options, grid_options]
-    get_objects(*get_objects_args)
+    get_objects(
+        track_input_records=track_input_records,
+        tracks=tracks,
+        level_index=level_index,
+        obj=obj,
+        dataset_options=dataset_options,
+        object_options=object_options,
+        grid_options=grid_options,
+    )
 
     match.match(object_tracks, object_options, grid_options)
 
     # Visualize the operation of the algorithm
-    visualize_args = [track_input_records, tracks, level_index, obj, track_options]
-    visualize_args += [grid_options, visualize_options, output_directory]
-    runtime.visualize(*visualize_args)
+    runtime.visualize(
+        track_input_records=track_input_records,
+        tracks=tracks,
+        level_index=level_index,
+        obj=obj,
+        track_options=track_options,
+        grid_options=grid_options,
+        runtime_options=visualize_options,
+        output_directory=output_directory,
+    )
     # Update the lists used to periodically write data to file
     if object_tracks.times[-1] is not None:
-        args = [input_records, tracks, object_options, grid_options]
-        attribute.record(*args)
+        attribute.record(
+            input_records=input_records,
+            tracks=tracks,
+            object_options=object_options,
+            grid_options=grid_options,
+        )
 
 
 get_objects_dispatcher = {
