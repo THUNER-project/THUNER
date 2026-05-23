@@ -1,4 +1,8 @@
-"General utilities for the thuner package."
+"""
+General utilities for the thuner package. We use pydantic extensively. Every persistent 
+options model inherits BaseOptions, which adds improved serialization to the pydantic 
+BaseModel. Every transient runtime container inherits BaseModel directly.
+"""
 
 import os
 

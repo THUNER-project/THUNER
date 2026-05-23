@@ -10,7 +10,7 @@ else:
     message += "If you need regridding, consider using a Linux or MacOS system."
     print(message)
 
-import copy
+
 from urllib.parse import urlparse
 import xarray as xr
 import numpy as np
@@ -18,14 +18,13 @@ import pandas as pd
 from typing import Literal
 from pydantic import Field, model_validator
 from thuner.log import setup_logger
-from thuner.data.odim import convert_odim
 import thuner.data._utils as _utils
 import thuner.grid as grid
 import thuner.utils as utils
 
 __all__ = [
-    "AURAOptions",
-    "CPOLOptions",
+    "AuraOptions",
+    "CpolOptions",
     "OperationalOptions",
     "get_cpol_filepaths",
     "get_operational_filepaths",
@@ -34,7 +33,7 @@ __all__ = [
 logger = setup_logger(__name__)
 
 
-class AURAOptions(utils.BaseDatasetOptions):
+class AuraOptions(utils.BaseDatasetOptions):
     """Base options class for AURA datasets."""
 
     def model_post_init(self, __context):
@@ -49,7 +48,7 @@ class AURAOptions(utils.BaseDatasetOptions):
     range_units: str = Field("km", description="Units of the range.")
 
 
-class CPOLOptions(AURAOptions):
+class CpolOptions(AuraOptions):
     """Options for CPOL datasets."""
 
     def model_post_init(self, __context):
@@ -92,7 +91,7 @@ class CPOLOptions(AURAOptions):
         return values
 
 
-def get_cpol_filepaths(options: CPOLOptions):
+def get_cpol_filepaths(options: CpolOptions):
     """
     Get CPOL filepaths assuming same filenames and directory structure as remote location.
     """
@@ -135,7 +134,7 @@ def get_cpol_filepaths(options: CPOLOptions):
     return sorted(filepaths)
 
 
-class OperationalOptions(AURAOptions):
+class OperationalOptions(AuraOptions):
     """Options for operational AURA datasets."""
 
     # Overwrite the default values from the base class. Note these objects are still
@@ -188,40 +187,6 @@ def get_operational_filepaths(options: OperationalOptions):
             urls.append(url)
 
     return sorted(urls)
-
-
-def setup_operational(data_options, grid_options, url, directory):
-    """
-    Setup operational radar data for a given date.
-
-    Parameters
-    ----------
-    options : dict
-        Dictionary containing the input options.
-    url : str
-        The URL where the radar data can be found.
-    directory : str
-        Where to extract the zip file and save the netCDF.
-
-    Returns
-    -------
-    dataset : object
-        The processed radar data.
-    """
-
-    if "http" in urlparse(url).scheme:
-        filepath = _utils.download_file(url, directory)
-    else:
-        filepath = url
-    extracted_filepaths = _utils.unzip_file(filepath)[0]
-    if data_options.level == "1":
-        args = [extracted_filepaths, data_options, grid_options]
-        dataset = convert_odim(*args, out_dir=directory)
-    elif data_options.level == "1b":
-        kwargs = {"fields": data_options.fields, "concat_dim": "time"}
-        dataset = _utils.consolidate_netcdf(extracted_filepaths, **kwargs)
-
-    return dataset
 
 
 def convert_cpol(time, filepath, track_options, dataset_options, grid_options):

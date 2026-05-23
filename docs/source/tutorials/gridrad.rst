@@ -137,9 +137,9 @@ temperature.
     :linenos:
 
     era5_dict = {"latitude_range": [27, 39], "longitude_range": [-102, -89]}
-    era5_pl_options = data.era5.ERA5Options(**times_dict, **era5_dict)
+    era5_pl_options = data.era5.Era5Options(**times_dict, **era5_dict)
     era5_dict.update({"data_format": "single-levels"})
-    era5_sl_options = data.era5.ERA5Options(**times_dict, **era5_dict)
+    era5_sl_options = data.era5.Era5Options(**times_dict, **era5_dict)
 
 All the dataset options are grouped into a single
 :class:`thuner.option.data.DataOptions` object, which is passed to the THUNER

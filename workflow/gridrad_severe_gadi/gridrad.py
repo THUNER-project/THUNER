@@ -49,9 +49,9 @@ def gridrad(start, end, event_start, base_local=None):
     gridrad_dict = {"event_start": event_start, "parent_local": gridrad_parent}
     gridrad_options = data.gridrad.GridRadSevereOptions(**times_dict, **gridrad_dict)
     era5_dict = {"data_format": "pressure-levels", "parent_local": era5_parent}
-    era5_pl_options = data.era5.ERA5Options(**times_dict, parent_local=era5_parent)
+    era5_pl_options = data.era5.Era5Options(**times_dict, parent_local=era5_parent)
     era5_dict["data_format"] = "single-levels"
-    era5_sl_options = data.era5.ERA5Options(**times_dict, **era5_dict)
+    era5_sl_options = data.era5.Era5Options(**times_dict, **era5_dict)
     datasets = [gridrad_options, era5_pl_options, era5_sl_options]
     data_options = option.data.DataOptions(datasets=datasets)
     data_options.to_yaml(options_directory / "data.yml")

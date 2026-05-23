@@ -15,7 +15,7 @@ from thuner.utils import get_hour_interval, BaseDatasetOptions
 import thuner.data._utils as _utils
 from thuner.config import get_outputs_directory
 
-__all__ = ["ERA5Options", "get_era5_filepaths"]
+__all__ = ["Era5Options", "get_era5_filepaths"]
 
 
 logger = log.setup_logger(__name__)
@@ -28,7 +28,7 @@ _summary = {
 }
 
 
-class ERA5Options(BaseDatasetOptions):
+class Era5Options(BaseDatasetOptions):
     """Options for ERA5 datasets."""
 
     def model_post_init(self, __context):
@@ -103,7 +103,7 @@ era5_pressure_levels += ["350", "300", "250", "225", "200", "175", "150", "125",
 era5_pressure_levels += ["70", "50", "30", "20", "10", "7", "5", "3", "2", "1"]
 
 
-def get_era5_filepaths(dataset_options: ERA5Options, start=None, end=None):
+def get_era5_filepaths(dataset_options: Era5Options, start=None, end=None):
     """
     Generate era5 filepaths from dataset options dictionary.
 

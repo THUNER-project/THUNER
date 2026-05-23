@@ -19,9 +19,9 @@ _summary = {"datasets": "List of dataset options."}
 
 AnyDatasetOptions = Union[
     gridrad.GridRadSevereOptions,
-    aura.CPOLOptions,
+    aura.CpolOptions,
     aura.OperationalOptions,
-    era5.ERA5Options,
+    era5.Era5Options,
     himawari.HimawariOptions,
     access.ACCESSOptions,
     BaseDatasetOptions,

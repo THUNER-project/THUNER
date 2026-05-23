@@ -70,9 +70,9 @@ def test_gridrad():
     # We will also create dataset options for ERA5 single-level and pressure-level data, which we use
     # for tagging the storms detected in the GridRad Severe dataset with other attributes, e.g. ambient winds and temperature.
     era5_dict = {"latitude_range": [27, 39], "longitude_range": [-102, -89]}
-    era5_pl_options = data.era5.ERA5Options(**times_dict, **era5_dict)
+    era5_pl_options = data.era5.Era5Options(**times_dict, **era5_dict)
     era5_dict.update({"data_format": "single-levels"})
-    era5_sl_options = data.era5.ERA5Options(**times_dict, **era5_dict)
+    era5_sl_options = data.era5.Era5Options(**times_dict, **era5_dict)
     # All the dataset options are grouped into a single `thuner.option.data.DataOptions` object, which is passed to the THUNER tracking function. We also save these options as a YAML file.
     datasets = [gridrad_options, era5_pl_options, era5_sl_options]
     data_options = option.data.DataOptions(datasets=datasets)

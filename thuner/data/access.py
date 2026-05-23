@@ -18,7 +18,6 @@ import pandas as pd
 from typing import Literal
 from pydantic import Field, model_validator
 from thuner.log import setup_logger
-from thuner.data.odim import convert_odim
 import thuner.data._utils as _utils
 import thuner.grid as grid
 import thuner.utils as utils
@@ -29,7 +28,7 @@ logger = setup_logger(__name__)
 
 
 class ACCESSOptions(utils.BaseDatasetOptions):
-    """Options for ACCESS OPS3 datasets."""
+    """Options for ACCESS-C OPS3 datasets."""
 
     def model_post_init(self, __context):
         """Use model_post_init to change default inherited values."""

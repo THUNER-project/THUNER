@@ -77,12 +77,12 @@ later.
     # to ensure we capture 19:00:00
     end = "2005-11-13T19:00:30" 
     times_dict = {"start": start, "end": end}
-    cpol_options = data.aura.CPOLOptions(**times_dict, converted_options={"save": True})
-    # cpol_options = data.aura.CPOLOptions(**times_dict, converted_options={"load": True})
+    cpol_options = data.aura.CpolOptions(**times_dict, converted_options={"save": True})
+    # cpol_options = data.aura.CpolOptions(**times_dict, converted_options={"load": True})
     era5_dict = {"latitude_range": [-14, -10], "longitude_range": [129, 133]}
-    era5_pl_options = data.era5.ERA5Options(**times_dict, **era5_dict)
+    era5_pl_options = data.era5.Era5Options(**times_dict, **era5_dict)
     era5_dict.update({"data_format": "single-levels"})
-    era5_sl_options = data.era5.ERA5Options(**times_dict, **era5_dict)
+    era5_sl_options = data.era5.Era5Options(**times_dict, **era5_dict)
     datasets=[cpol_options, era5_pl_options, era5_sl_options]
     data_options = option.data.DataOptions(datasets=datasets)
     data_options.to_yaml(options_directory / "data.yml")
@@ -313,7 +313,7 @@ fly. We will also switch off the runtime figure generation.
         shutil.rmtree(output_parent)
     
     # Recreate the original cpol dataset options
-    cpol_options = data.aura.CPOLOptions(**times_dict)
+    cpol_options = data.aura.CpolOptions(**times_dict)
     datasets = [cpol_options, era5_pl_options, era5_sl_options]
     data_options = option.data.DataOptions(datasets=datasets)
     data_options.to_yaml(options_directory / "data.yml")

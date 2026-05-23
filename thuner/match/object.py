@@ -36,12 +36,10 @@ def get_object_center(obj, mask, grid_options, gridcell_area=None, grid=None):
             col_inds = np.sum(col_inds * areas) / np.sum(areas)
         elif gridcell_area is not None and grid is not None:
             grid_values = grid.isel(sel_dict).values
-            row_inds = np.sum(row_points * grid_values * areas) / (
-                np.sum(grid_values) * np.sum(areas)
-            )
-            col_inds = np.sum(col_points * grid_values * areas) / (
-                np.sum(grid_values) * np.sum(areas)
-            )
+            row_inds = np.sum(row_points * grid_values * areas)
+            row_inds /= np.sum(grid_values) * np.sum(areas)
+            col_inds = np.sum(col_points * grid_values * areas)
+            col_inds /= np.sum(grid_values) * np.sum(areas)
     else:
         row_inds = row_points / len(row_inds)
         col_inds = col_points / len(col_inds)

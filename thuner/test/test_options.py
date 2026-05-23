@@ -13,11 +13,11 @@ def build_example_data_options():
     start = "2005-11-13T14:00:00"
     end = "2005-11-13T19:00:30"
     times_dict = {"start": start, "end": end}
-    cpol_options = data.aura.CPOLOptions(**times_dict, converted_options={"save": True})
+    cpol_options = data.aura.CpolOptions(**times_dict, converted_options={"save": True})
     era5_dict = {"latitude_range": [-14, -10], "longitude_range": [129, 133]}
-    era5_pl_options = data.era5.ERA5Options(**times_dict, **era5_dict)
+    era5_pl_options = data.era5.Era5Options(**times_dict, **era5_dict)
     era5_dict.update({"data_format": "single-levels"})
-    era5_sl_options = data.era5.ERA5Options(**times_dict, **era5_dict)
+    era5_sl_options = data.era5.Era5Options(**times_dict, **era5_dict)
     datasets = [cpol_options, era5_pl_options, era5_sl_options]
     data_options = option.data.DataOptions(datasets=datasets)
     return data_options
@@ -74,10 +74,10 @@ class TestOptionsClasses(unittest.TestCase):
             end = "2005-11-13T19:00:30"
             times_dict = {"start": start, "end": end}
             # Check bad level raises ValidationError
-            data.aura.CPOLOptions(**times_dict, level="7")
+            data.aura.CpolOptions(**times_dict, level="7")
             # Check bad time range raises ValidationError
             times_dict = {"start": "1998-12-05T00:00", "end": "2005-11-13T19:00"}
-            data.aura.CPOLOptions(**times_dict)
+            data.aura.CpolOptions(**times_dict)
 
     def test_himawari_data_options_validation(self):
         """Test the Himawari data options class validation."""
