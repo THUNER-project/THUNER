@@ -125,9 +125,14 @@ def series(
             dataset_options.weights_filepath = filepath
 
     # Start with first time
-    args = [times[0], masks, output_directory, figure_options.model_dump()]
-    args += [options, dataset_name]
-    figure_function(*args)
+    figure_function(
+        times[0],
+        masks,
+        output_directory,
+        figure_options.model_dump(),
+        options,
+        dataset_name,
+    )
 
     if len(times) == 1:
         # Switch back to original backend
@@ -155,8 +160,14 @@ def series(
             check_results(results)
     else:
         for time in times[1:]:
-            args[0] = time
-            figure_function(*args)
+            figure_function(
+                time,
+                masks,
+                output_directory,
+                figure_options.model_dump(),
+                options,
+                dataset_name,
+            )
 
     if animate:
         figure_name = figure_options.name
@@ -188,8 +199,9 @@ def get_mask_grid_boundary(
 
     message = f"Converting {dataset_name}."
     logger.debug(message)
-    args = [time, filepath, options["track"], options["grid"]]
-    outs = dataset_options.convert_dataset(*args)
+    outs = dataset_options.convert_dataset(
+        time, filepath, options["track"], options["grid"]
+    )
     ds, boundary_coords, simple_boundary_coords = outs
     del boundary_coords
     logger.debug(f"Getting grid from dataset at time {time}.")
@@ -269,26 +281,35 @@ def detected_horizontal(
     style = figure_options.style
 
     attribute_handlers = figure_options.attribute_handlers
-    args = [grid, mask, grid_options, figure_options, boundary_coords]
 
     with plt.style.context(visualize.styles[style]), visualize.set_style(style):
         figure_features = horizontal.detected_mask(
-            *args,
+            grid=grid,
+            mask=mask,
+            grid_options=grid_options,
+            figure_options=figure_options,
+            boundary_coordinates=boundary_coords,
             object_colors=object_colors,
         )
         fig, subplot_axes, colorbar_axes, legend_axes = figure_features
 
     # Create the grouped object figure instance
-    kwargs = {"object_name": object_name, "time": time, "grid": grid, "mask": mask}
-    kwargs.update({"boundary_coordinates": boundary_coords})
-    kwargs.update({"attribute_handlers": attribute_handlers})
-    kwargs.update({"figure": fig, "subplot_axes": subplot_axes})
-    kwargs.update({"colorbar_axes": colorbar_axes, "legend_axes": legend_axes})
     core_filepath = (
         output_directory / get_zarr_store_name() / "attributes" / obj_name / "core"
     )
-    kwargs["core_filepath"] = str(core_filepath)
-    detected_figure = BaseFigure(**kwargs)
+    detected_figure = BaseFigure(
+        object_name=object_name,
+        time=time,
+        grid=grid,
+        mask=mask,
+        boundary_coordinates=boundary_coords,
+        attribute_handlers=attribute_handlers,
+        figure=fig,
+        subplot_axes=subplot_axes,
+        colorbar_axes=colorbar_axes,
+        legend_axes=legend_axes,
+        core_filepath=str(core_filepath),
+    )
     # Remove duplicate mask and grid from memory after generating the figure
     del mask, grid, boundary_coords
     add_attributes(time, detected_figure)
@@ -345,12 +366,15 @@ def grouped_horizontal(
 
     member_objects = figure_options.member_objects
     attribute_handlers = figure_options.attribute_handlers
-    args = [grid, mask, grid_options, figure_options, member_objects]
-    args += [boundary_coords]
 
     with plt.style.context(visualize.styles[style]), visualize.set_style(style):
         figure_features = horizontal.grouped_mask(
-            *args,
+            grid=grid,
+            mask=mask,
+            grid_options=grid_options,
+            figure_options=figure_options,
+            member_objects=member_objects,
+            boundary_coordinates=boundary_coords,
             object_colors=object_colors,
         )
         fig, subplot_axes, colorbar_axes, legend_axes = figure_features
@@ -369,20 +393,26 @@ def grouped_horizontal(
             subplot_axes[i].set_title(label)
 
     # Create the grouped object figure instance
-    kwargs = {"object_name": obj_name, "time": time, "grid": grid, "mask": mask}
-    kwargs.update({"boundary_coordinates": boundary_coords})
-    kwargs.update({"attribute_handlers": attribute_handlers})
-    kwargs.update({"member_objects": member_objects})
-    kwargs.update({"figure": fig, "subplot_axes": subplot_axes})
-    kwargs.update({"colorbar_axes": colorbar_axes, "legend_axes": legend_axes})
     core_filepath = (
         output_directory / get_zarr_store_name() / "attributes" / obj_name / "core"
     )
-    kwargs["core_filepath"] = str(core_filepath)
     base_directory = output_directory / get_zarr_store_name() / "attributes" / obj_name
     filepaths_list = [str(base_directory / obj / "core") for obj in member_objects]
-    kwargs["member_core_filepaths"] = dict(zip(member_objects, filepaths_list))
-    grouped_figure = GroupedObjectFigure(**kwargs)
+    grouped_figure = GroupedObjectFigure(
+        object_name=obj_name,
+        time=time,
+        grid=grid,
+        mask=mask,
+        boundary_coordinates=boundary_coords,
+        attribute_handlers=attribute_handlers,
+        member_objects=member_objects,
+        figure=fig,
+        subplot_axes=subplot_axes,
+        colorbar_axes=colorbar_axes,
+        legend_axes=legend_axes,
+        core_filepath=str(core_filepath),
+        member_core_filepaths=dict(zip(member_objects, filepaths_list)),
+    )
     # Remove duplicate mask and grid from memory after generating the figure
     del mask, grid, boundary_coords
     add_attributes(time, grouped_figure)
@@ -491,17 +521,20 @@ def create_legend(figure, grid_options, figure_options):
     handles += list(figure.legend_artists.values())
     labels += list(figure.legend_artists.keys())
     legend_color = visualize.figure_colors[figure_options.style]["legend"]
-    args = [handles, labels]
     style = figure_options.style
     leg_ax = figure.legend_axes[0]
 
     with plt.style.context(visualize.styles[style]), visualize.set_style(style):
         if scale == 1:
-            legend = leg_ax.legend(*args, **mcs_legend_options, handler_map=handler)
+            legend = leg_ax.legend(
+                handles, labels, **mcs_legend_options, handler_map=handler
+            )
         elif scale == 2:
             legend_options["loc"] = "lower left"
             legend_options["bbox_to_anchor"] = (-0.0, -0.425)
-            legend = leg_ax.legend(*args, **mcs_legend_options, handler_map=handler)
+            legend = leg_ax.legend(
+                handles, labels, **mcs_legend_options, handler_map=handler
+            )
     legend.get_frame().set_alpha(None)
     legend.get_frame().set_facecolor(legend_color)
 
@@ -595,9 +628,13 @@ def velocity_horizontal(
     latitude = object_df["latitude"].values[0]
     longitude = object_df["longitude"].values[0]
     u, v = object_df[attributes[0]].values[0], object_df[attributes[1]].values[0]
-    args = [ax, latitude, longitude, u, v, color]
     return horizontal.cartesian_velocity(
-        *args,
+        ax=ax,
+        start_latitude=latitude,
+        start_longitude=longitude,
+        u=u,
+        v=v,
+        color=color,
         quality=quality_df.values,
         dt=dt,
         reverse=reverse,

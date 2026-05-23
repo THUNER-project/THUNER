@@ -48,10 +48,12 @@ class TestOptionsClasses(unittest.TestCase):
             # Check bad grid type raises ValidationError
             option.grid.GridOptions(name="polar")
             # Check inconsistent spacing raises ValidationError
-            kwargs = {"x": np.arange(0, 100, 1), "cartesian_spacing": [100, 100]}
-            option.grid.GridOptions(**kwargs)
-            kwargs = {"longitude": np.arange(0, 100, 1), "geographic_spacing": [2, 2]}
-            option.grid.GridOptions(**kwargs)
+            option.grid.GridOptions(
+                x=np.arange(0, 100, 1), cartesian_spacing=[100, 100]
+            )
+            option.grid.GridOptions(
+                longitude=np.arange(0, 100, 1), geographic_spacing=[2, 2]
+            )
 
     def test_data_options_save_load(self):
         """Test data options can be saved and loaded correctly."""
@@ -125,8 +127,11 @@ class TestOptionsClasses(unittest.TestCase):
             grid_options = option.grid.GridOptions()
             data_options = build_example_data_options()
             track_options = default.track(dataset_name="cpol")
-            kwargs = {"grid": grid_options, "data": data_options}
-            kwargs.update({"track": track_options})
+            kwargs = {
+                "grid": grid_options,
+                "data": data_options,
+                "track": track_options,
+            }
             # Check the options class actually contains all the requisite options!
             options = option.option.Options(**kwargs)
             field_names = set(options.__class__.model_fields)
@@ -146,21 +151,24 @@ class TestOptionsClasses(unittest.TestCase):
         track_options = default.track(dataset_name="cpol")
         # Set the main dataset name to a bad value
         data_options.dataset_by_name("cpol").name = "bad_dataset_name"
-        kwargs = {"grid": grid_options, "data": data_options, "track": track_options}
         with self.assertRaises(ValidationError):
-            option.option.Options(**kwargs)
+            option.option.Options(
+                grid=grid_options, data=data_options, track=track_options
+            )
         data_options.dataset_by_name("bad_dataset_name").name = "cpol"
         # Set the tag dataset to an invalid value
         mcs_options = track_options.levels[1].objects[0]
         mcs_options.attributes.attribute_types[2].dataset = "bad_dataset_name"
-        kwargs = {"grid": grid_options, "data": data_options, "track": track_options}
         with self.assertRaises(ValidationError):
-            option.option.Options(**kwargs)
+            option.option.Options(
+                grid=grid_options, data=data_options, track=track_options
+            )
         mcs_options.attributes.attribute_types[2].dataset = "era5_pl"
         mcs_options.dataset = "bad_dataset_name"
-        kwargs = {"grid": grid_options, "data": data_options, "track": track_options}
         with self.assertRaises(ValidationError):
-            option.option.Options(**kwargs)
+            option.option.Options(
+                grid=grid_options, data=data_options, track=track_options
+            )
 
 
 if __name__ == "__main__":

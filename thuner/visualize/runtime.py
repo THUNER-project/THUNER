@@ -18,7 +18,6 @@ from thuner.match.box import get_box_center_coords
 import thuner.grid as thuner_grid
 import thuner.visualize.utils as utils
 
-
 logger = setup_logger(__name__)
 proj = ccrs.PlateCarree()
 
@@ -137,7 +136,6 @@ def match_features(grid, match_record, axes, grid_options, unique_global_flow=Tr
         else:
             lon, lat = None, None
         [row, col] = np.ceil(np.array(grid_options.shape) / 2).astype(int)
-        args = [axes[1], row, col, global_flow, grid_options]
         horizontal.pixel_displacement(
             ax=axes[1],
             row=row,
@@ -360,9 +358,15 @@ def visualize_mask(
         message = "create_mask_figure function for object detection option not found."
         raise KeyError(message)
 
-    args = [input_record, tracks, level_index, obj, track_options]
-    args += [grid_options, figure_options]
-    fig, ax = create_figure(*args)
+    fig, ax = create_figure(
+        input_record,
+        tracks,
+        level_index,
+        obj,
+        track_options,
+        grid_options,
+        figure_options,
+    )
     return fig, ax
 
 
@@ -392,10 +396,15 @@ def visualize(
             raise KeyError(message)
         style = figure_options.style
         with plt.style.context(styles[style]), set_style(style):
-            args = [input_record, tracks, level_index, obj, track_options]
-            args += [grid_options, figure_options]
-            fig, ax = figure_options.function(*args)
-
+            fig, ax = figure_options.function(
+                input_record,
+                tracks,
+                level_index,
+                obj,
+                track_options,
+                grid_options,
+                figure_options,
+            )
             grid_time = input_record.next_grid.time.values
             filename = f"{format_time(grid_time)}.png"
             figure_name = figure_options.name

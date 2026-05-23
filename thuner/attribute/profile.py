@@ -75,7 +75,6 @@ def from_centers(
     profile_dict = {name: [] for name in names}
     coordinates = ["time", "time_offset", id_name, "altitude", "latitude", "longitude"]
     profile_dict.update({name: [] for name in coordinates})
-    # Setup interp kwargs
     for offset in time_offsets:
         # Interp to given time
         interp_time = current_time + np.timedelta64(offset, "m")
@@ -159,7 +158,6 @@ def from_masks(
     profile_dict = {name: [] for name in names}
     coordinates = ["time", "time_offset", id_name, "altitude", "latitude", "longitude"]
     profile_dict.update({name: [] for name in coordinates})
-    # Setup interp kwargs
     for offset in time_offsets:
         # Interp to given time
         interp_time = current_time + np.timedelta64(offset, "m")

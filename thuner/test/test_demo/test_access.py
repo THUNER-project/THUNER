@@ -43,9 +43,11 @@ def test_access():
     track_options = default.access_c_track()
     track_options.to_json(options_directory / "track.json")
     times = utils.generate_dataset_times(data_options.dataset_by_name("access_1km"))
-    args = [times, data_options, grid_options, track_options]
     parallel.track(
-        *args,
+        times=times,
+        data_options=data_options,
+        grid_options=grid_options,
+        track_options=track_options,
         output_directory=output_parent,
         dataset_name="access_1km",
         num_processes=2,
@@ -56,12 +58,22 @@ def test_access():
     analyze.mcs.quality_control(output_parent, analysis_options)
     style = "presentation"
     attribute_handlers = default.grouped_attribute_handlers(output_parent, style)
-    kwargs = {"name": "mcs_attributes", "object_name": "mcs", "style": style}
-    kwargs.update({"attribute_handlers": attribute_handlers})
-    figure_options = option.visualize.GroupedHorizontalAttributeOptions(**kwargs)
-    args = [output_parent, start, end, figure_options, "access_1km"]
-    args_dict = {"parallel_figure": True, "by_date": False, "num_processes": 4}
-    visualize.attribute.series(*args, **args_dict)
+    figure_options = option.visualize.GroupedHorizontalAttributeOptions(
+        name="mcs_attributes",
+        object_name="mcs",
+        style=style,
+        attribute_handlers=attribute_handlers,
+    )
+    visualize.attribute.series(
+        output_directory=output_parent,
+        start_time=start,
+        end_time=end,
+        figure_options=figure_options,
+        dataset_name="access_1km",
+        parallel_figure=True,
+        by_date=False,
+        num_processes=4,
+    )
     dt = xr.open_datatree(output_parent / "output.zarr", engine="zarr")
     # Note it looks like the boundary detection is not working for this example
     # Likely because we mask the reflectivity on the boundary pixels! Better solution - if

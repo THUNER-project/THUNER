@@ -47,8 +47,9 @@ def test_cpol():
     cpol_options = data.aura.CpolOptions(**times_dict, converted_options={"save": True})
     era5_dict = {"latitude_range": [-14, -10], "longitude_range": [129, 133]}
     era5_pl_options = data.era5.Era5Options(**times_dict, **era5_dict)
-    era5_dict.update({"data_format": "single-levels"})
-    era5_sl_options = data.era5.Era5Options(**times_dict, **era5_dict)
+    era5_sl_options = data.era5.Era5Options(
+        **times_dict, **era5_dict, data_format="single-levels"
+    )
     datasets = [cpol_options, era5_pl_options, era5_sl_options]
     data_options = option.data.DataOptions(datasets=datasets)
     data_options.to_json(options_directory / "data.json")
@@ -83,16 +84,19 @@ def test_cpol():
     # For this tutorial, we will generate figures during runtime to visualize how THUNER
     # is matching both convective and mcs objects. Note the figure generation slows the run down a lot!
     # Create the visualize_options
-    kwargs = {
-        "visualize_directory": visualize_directory,
-        "objects": ["convective", "mcs"],
-    }
-    visualize_options = default.runtime(**kwargs)
+    visualize_options = default.runtime(
+        visualize_directory=visualize_directory,
+        objects=["convective", "mcs"],
+    )
     visualize_options.to_json(options_directory / "visualize.json")
     times = utils.generate_times(data_options.dataset_by_name("cpol").filepaths)
-    args = [times, data_options, grid_options, track_options]
     track.track(
-        *args, visualize_options=visualize_options, output_directory=output_parent
+        times=times,
+        data_options=data_options,
+        grid_options=grid_options,
+        track_options=track_options,
+        visualize_options=visualize_options,
+        output_directory=output_parent,
     )
     # Once the run is completed, outputs are available in the `output_parent` directory. The `output.zarr` store contains the object attributes, masks, and filename records for the run. These can be conveniently explored by loading as an `xr.DataTree`.
     #
@@ -145,8 +149,9 @@ def test_cpol():
     cpol_options = data.aura.CpolOptions(**times_dict, converted_options={"save": True})
     era5_dict = {"latitude_range": [-14, -10], "longitude_range": [129, 133]}
     era5_pl_options = data.era5.Era5Options(**times_dict, **era5_dict)
-    era5_dict.update({"data_format": "single-levels"})
-    era5_sl_options = data.era5.Era5Options(**times_dict, **era5_dict)
+    era5_sl_options = data.era5.Era5Options(
+        **times_dict, **era5_dict, data_format="single-levels"
+    )
     datasets = [cpol_options, era5_pl_options, era5_sl_options]
     data_options = option.data.DataOptions(datasets=datasets)
     data_options.to_json(options_directory / "data.json")
@@ -154,8 +159,14 @@ def test_cpol():
     grid_options.to_json(options_directory / "grid.json")
     track_options.to_json(options_directory / "track.json")
     times = utils.generate_times(data_options.dataset_by_name("cpol").filepaths)
-    args = [times, data_options, grid_options, track_options]
-    parallel.track(*args, output_directory=output_parent, dataset_name="cpol")
+    parallel.track(
+        times=times,
+        data_options=data_options,
+        grid_options=grid_options,
+        track_options=track_options,
+        output_directory=output_parent,
+        dataset_name="cpol",
+    )
     # After a run, we can also perform analysis and visualization. Here we identify and visualize some Mesoscale Convective System (MCS) objects.
     analysis_options = analyze.mcs.AnalysisOptions()
     analysis_options.to_json(options_directory / "analysis.json")
@@ -164,12 +175,22 @@ def test_cpol():
     analyze.mcs.classify_all(output_parent, analysis_options)
     style = "presentation"
     attribute_handlers = default.grouped_attribute_handlers(output_parent, style)
-    kwargs = {"name": "mcs_attributes", "object_name": "mcs", "style": style}
-    kwargs.update({"attribute_handlers": attribute_handlers})
-    figure_options = option.visualize.GroupedHorizontalAttributeOptions(**kwargs)
-    args = [output_parent, start, end, figure_options, "cpol"]
-    args_dict = {"parallel_figure": True, "by_date": False, "num_processes": 4}
-    visualize.attribute.series(*args, **args_dict)
+    figure_options = option.visualize.GroupedHorizontalAttributeOptions(
+        name="mcs_attributes",
+        object_name="mcs",
+        style=style,
+        attribute_handlers=attribute_handlers,
+    )
+    visualize.attribute.series(
+        output_directory=output_parent,
+        start_time=start,
+        end_time=end,
+        figure_options=figure_options,
+        dataset_name="cpol",
+        parallel_figure=True,
+        by_date=False,
+        num_processes=4,
+    )
     # ## Pre-Converted Data
     # We can also perform THUNER tracking runs on general datasets, we just need to ensure
     # they are pre-converted into a format recognized by THUNER, i.e. gridded data files readable by
@@ -190,8 +211,12 @@ def test_cpol():
     filepaths = glob.glob(str(base_filepath / "*.nc"))
     filepaths = sorted(filepaths)
     # Create the data options.
-    kwargs = {"name": "cpol", "fields": ["reflectivity"], "filepaths": filepaths}
-    cpol_options = utils.BaseDatasetOptions(**times_dict, **kwargs)
+    cpol_options = utils.BaseDatasetOptions(
+        **times_dict,
+        name="cpol",
+        fields=["reflectivity"],
+        filepaths=filepaths,
+    )
     datasets = [cpol_options, era5_pl_options, era5_sl_options]
     data_options = option.data.DataOptions(datasets=datasets)
     data_options.to_json(options_directory / "data.json")
@@ -199,9 +224,14 @@ def test_cpol():
     grid_options.to_json(options_directory / "grid.json")
     track_options.to_json(options_directory / "track.json")
     times = utils.generate_times(data_options.dataset_by_name("cpol").filepaths)
-    args = [times, data_options, grid_options, track_options]
-    kwargs = {"output_directory": output_parent, "dataset_name": "cpol"}
-    parallel.track(*args, **kwargs, debug_mode=True)
+    parallel.track(
+        times=times,
+        data_options=data_options,
+        grid_options=grid_options,
+        track_options=track_options,
+        output_directory=output_parent,
+        dataset_name="cpol",
+    )
     analysis_options = analyze.mcs.AnalysisOptions()
     analysis_options.to_json(options_directory / "analysis.json")
     analyze.mcs.process_velocities(output_parent)
@@ -209,12 +239,22 @@ def test_cpol():
     analyze.mcs.classify_all(output_parent, analysis_options)
     style = "presentation"
     attribute_handlers = default.grouped_attribute_handlers(output_parent, style)
-    kwargs = {"name": "mcs_attributes", "object_name": "mcs", "style": style}
-    kwargs.update({"attribute_handlers": attribute_handlers})
-    figure_options = option.visualize.GroupedHorizontalAttributeOptions(**kwargs)
-    args = [output_parent, start, end, figure_options, "cpol"]
-    args_dict = {"parallel_figure": True, "by_date": False, "num_processes": 4}
-    visualize.attribute.series(*args, **args_dict)
+    figure_options = option.visualize.GroupedHorizontalAttributeOptions(
+        name="mcs_attributes",
+        object_name="mcs",
+        style=style,
+        attribute_handlers=attribute_handlers,
+    )
+    visualize.attribute.series(
+        output_directory=output_parent,
+        start_time=start,
+        end_time=end,
+        figure_options=figure_options,
+        dataset_name="cpol",
+        parallel_figure=True,
+        by_date=False,
+        num_processes=4,
+    )
     # Note we can achieve the same result in this case by modifying `converted_options={"save": True}` to `converted_options={"load": True}` in the [Geographic Coordinates](#geographic-coordinates) section,and rerunning the cells.
     # ## Cartesian Coordinates
     # Because the CPOL radar domains are small (150 km radii), it is reasonable to perform
@@ -237,10 +277,14 @@ def test_cpol():
     track_options.to_json(options_directory / "track.json")
     visualize_options = None
     times = utils.generate_times(data_options.dataset_by_name("cpol").filepaths)
-    args = [times, data_options, grid_options, track_options, visualize_options]
-    kwargs = {"output_directory": output_parent, "dataset_name": "cpol"}
-    # parallel.track(*args, **kwargs)
-    track.track(*args, output_directory=output_parent)
+    parallel.track(
+        times=times,
+        data_options=data_options,
+        grid_options=grid_options,
+        track_options=track_options,
+        output_directory=output_parent,
+        dataset_name="cpol",
+    )
     analysis_options = analyze.mcs.AnalysisOptions()
     analysis_options.to_json(options_directory / "analysis.json")
     analyze.mcs.process_velocities(output_parent)
@@ -248,12 +292,22 @@ def test_cpol():
     analyze.mcs.classify_all(output_parent, analysis_options)
     style = "presentation"
     attribute_handlers = default.grouped_attribute_handlers(output_parent, style)
-    kwargs = {"name": "mcs_attributes", "object_name": "mcs", "style": style}
-    kwargs.update({"attribute_handlers": attribute_handlers})
-    figure_options = option.visualize.GroupedHorizontalAttributeOptions(**kwargs)
-    args = [output_parent, start, end, figure_options, "cpol"]
-    args_dict = {"parallel_figure": False, "by_date": False, "num_processes": 1}
-    visualize.attribute.series(*args, **args_dict)
+    figure_options = option.visualize.GroupedHorizontalAttributeOptions(
+        name="mcs_attributes",
+        object_name="mcs",
+        style=style,
+        attribute_handlers=attribute_handlers,
+    )
+    visualize.attribute.series(
+        output_directory=output_parent,
+        start_time=start,
+        end_time=end,
+        figure_options=figure_options,
+        dataset_name="cpol",
+        parallel_figure=True,
+        by_date=False,
+        num_processes=4,
+    )
 
 
 if __name__ == "__main__":

@@ -37,8 +37,9 @@ def match(object_tracks, object_options, grid_options):
 
     def reset_match_record():
         object_tracks.match_record = thuner_object.empty_match_record()
-        args = (object_tracks, object_options, grid_options)
-        get_matched_mask(*args, current_ids=current_ids)
+        get_matched_mask(
+            object_tracks, object_options, grid_options, current_ids=current_ids
+        )
 
     if current_mask is None or np.max(current_mask) == 0:
         logger.info("No current mask, or no objects in current mask.")

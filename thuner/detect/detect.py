@@ -10,7 +10,6 @@ from thuner.log import setup_logger
 from thuner.detect.steiner import steiner_scheme
 from thuner.utils import get_time_interval
 
-
 logger = setup_logger(__name__)
 
 __all__ = ["threshold", "steiner"]
@@ -90,8 +89,11 @@ def rebuild_processed_grid(grid_data, track_options, obj, level):
         member_objects = object_options.grouping.member_objects
         member_levels = object_options.grouping.member_levels
         for member_obj, member_level in zip(member_objects, member_levels):
-            args = [grid_data, track_options, member_obj, member_level]
-            grid_dict.update(rebuild_processed_grid(*args))
+            grid_dict.update(
+                rebuild_processed_grid(
+                    grid_data, track_options, member_obj, member_level
+                )
+            )
     processed_grid = xr.Dataset(grid_dict)
     # if "detection" in object_options.__class__.model_fields:
     #     processed_grid = processed_grid[f"{obj}_grid"]

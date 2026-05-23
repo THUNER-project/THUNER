@@ -56,9 +56,14 @@ def test_himawari():
     track_options.to_json(options_directory / "track.json")
     # ## Track
     times = utils.generate_times(data_options.dataset_by_name("himawari").filepaths)
-    args = [times, data_options, grid_options, track_options]
     parallel.track(
-        *args, output_directory=output_parent, dataset_name="himawari", num_processes=2
+        times=times,
+        data_options=data_options,
+        grid_options=grid_options,
+        track_options=track_options,
+        output_directory=output_parent,
+        dataset_name="himawari",
+        num_processes=2,
     )
     # ## Analyze/Visualize
     analysis_options = analyze.mcs.AnalysisOptions()
@@ -67,12 +72,22 @@ def test_himawari():
     analyze.utils.quality_control("anvil", output_parent, analysis_options)
     style = "presentation"
     attribute_handlers = default.detected_attribute_handlers(output_parent, style)
-    kwargs = {"name": "himawari_anvil", "object_name": "anvil", "style": style}
-    kwargs.update({"attribute_handlers": attribute_handlers})
-    figure_options = option.visualize.HorizontalAttributeOptions(**kwargs)
-    args = [output_parent, start, end, figure_options, "himawari"]
-    args_dict = {"parallel_figure": True, "by_date": False, "num_processes": 4}
-    visualize.attribute.series(*args, **args_dict)
+    figure_options = option.visualize.HorizontalAttributeOptions(
+        name="himawari_anvil",
+        object_name="anvil",
+        style=style,
+        attribute_handlers=attribute_handlers,
+    )
+    visualize.attribute.series(
+        output_directory=output_parent,
+        start_time=start,
+        end_time=end,
+        figure_options=figure_options,
+        dataset_name="himawari",
+        parallel_figure=True,
+        by_date=False,
+        num_processes=4,
+    )
 
 
 if __name__ == "__main__":

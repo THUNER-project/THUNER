@@ -156,29 +156,30 @@ def membership_attribute_group(
     attributes = []
     for i, obj in enumerate(member_objects):
         id_type = "universal_id" if members_matched[i] else "id"
-        name = f"{obj}_ids"
-        description = f"Space seperated list of the {id_type}s of the {obj} objects "
-        description += "in the group."
         attributes.append(
             Attribute(
-                name=name,
+                name=f"{obj}_ids",
                 data_type=str,
-                description=description,
+                description=(
+                    f"Space separated list of the {id_type}s of the {obj} objects in "
+                    f"the group."
+                ),
             )
         )
-    description = f"Attribute group for the attributes describing member object ids of "
-    description += "a grouped object."
-    kwargs = {"function": members_from_masks}
-    kwargs["keyword_arguments"] = {"matched": matched}
-    kwargs["keyword_arguments"]["members_matched"] = members_matched
 
-    retrieval = Retrieval(**kwargs)
+    retrieval = Retrieval(
+        function=members_from_masks,
+        keyword_arguments={"matched": matched, "members_matched": members_matched},
+    )
 
     return AttributeGroup(
         name="member_objects",
         attributes=attributes,
         retrieval=retrieval,
-        description=description,
+        description=(
+            "Attribute group for the attributes describing member object ids of a "
+            "grouped object."
+        ),
     )
 
 

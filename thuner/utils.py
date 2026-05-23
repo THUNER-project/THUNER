@@ -309,8 +309,7 @@ class BaseDatasetOptions(BaseOptions):
         input_record._current_file_index += 1
         filepath = self.filepaths[input_record._current_file_index]
         if conv_options.load is False:
-            args = [time, filepath, track_options, grid_options]
-            outs = self.convert_dataset(*args)
+            outs = self.convert_dataset(time, filepath, track_options, grid_options)
             dataset, boundary_coords, simple_boundary_coords = outs
             infer_grid_options(dataset, grid_options)
         else:
@@ -582,12 +581,13 @@ def get_mask_boundary(mask, grid_options):
     lons = np.array(grid_options.longitude)
     lats = np.array(grid_options.latitude)
     mask_array = mask.fillna(0).values.astype(np.uint8)
-    args = [mask_array, cv2.RETR_LIST]
     # Record the contours with all points, and with only the end points of each line
     # comprising the contour. The former is used to determine boundary overlap,
     # the latter makes plotting the boundary more efficient.
-    contours = cv2.findContours(*args, cv2.CHAIN_APPROX_NONE)[0]
-    simple_contours = cv2.findContours(*args, cv2.CHAIN_APPROX_SIMPLE)[0]
+    contours = cv2.findContours(mask_array, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)[0]
+    simple_contours = cv2.findContours(
+        mask_array, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE
+    )[0]
     boundary_coords = []
     boundary_pixels = []
     simple_boundary_coords = []

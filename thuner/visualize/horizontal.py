@@ -432,10 +432,12 @@ def vector_key(ax, u=-10, v=0, color="k", dt=3600, scale=1):
 def ellipse_axis(ax, latitude, longitude, axis_length, orientation, quality=True):
     """Display an ellipse axis."""
     azimuth = (90 - np.rad2deg(orientation)) % 360
-    args = [longitude, latitude, azimuth, axis_length * 1e3 / 2]
-    lon_1, lat_1 = thuner_grid.geodesic_forward(*args)[:2]
-    args[2] = (azimuth + 180) % 360
-    lon_2, lat_2 = thuner_grid.geodesic_forward(*args)[:2]
+    lon_1, lat_1 = thuner_grid.geodesic_forward(
+        longitude, latitude, azimuth, axis_length * 1e3 / 2
+    )[:2]
+    lon_2, lat_2 = thuner_grid.geodesic_forward(
+        longitude, latitude, (azimuth + 180) % 360, axis_length * 1e3 / 2
+    )[:2]
 
     colors = visualize.figure_colors[visualize.style]
     axis_color = colors["ellipse_axis"]
@@ -516,8 +518,9 @@ def pixel_displacement(
             start_lon = longitudes[col]
         dlat, dlon = vector * np.array(grid_options.geographic_spacing)
         end_lat, end_lon = start_lat + dlat, start_lon + dlon
-        args = [start_lon, start_lat, end_lon, end_lat]
-        forward_dir, backward_dir, distance = thuner_grid.geodesic_inverse(*args)
+        forward_dir, backward_dir, distance = thuner_grid.geodesic_inverse(
+            start_lon, start_lat, end_lon, end_lat
+        )
         # Convert azimuth to vector direction from east, measured counter-clockwise as normal
         # in cartesian coordinates.
         forward_dir = (90 - forward_dir) % 360
@@ -656,8 +659,9 @@ def pixel_vector(
         spacing = np.array(grid_options.cartesian_spacing)
         cartesian_vector = np.array(vector) * spacing
         distance = np.sqrt(np.sum(cartesian_vector**2))
-        args = [start_lon, start_lat, azimuth, distance]
-        end_lon, end_lat = thuner_grid.geodesic_forward(*args)[:2]
+        end_lon, end_lat = thuner_grid.geodesic_forward(
+            start_lon, start_lat, azimuth, distance
+        )[:2]
         geographic_vector = [end_lat - start_lat, end_lon - start_lon]
     elif grid_options.name == "geographic":
         if start_lat is None or start_lon is None:
@@ -879,10 +883,20 @@ class PanelledUniformMaps(Panelled):
         lat_range = extent[3] - extent[2]
         lon_range = extent[1] - extent[0]
         subplot_height = (lat_range / lon_range) * subplot_width
-        args = [subplot_width, subplot_height, rows, columns]
-        args += [horizontal_spacing, vertical_spacing, colorbar, legend_rows]
-        args += [shared_legends, projections, label_offset_x, label_offset_y]
-        super().__init__(*args)
+        super().__init__(
+            subplot_width=subplot_width,
+            subplot_height=subplot_height,
+            rows=rows,
+            columns=columns,
+            horizontal_spacing=horizontal_spacing,
+            vertical_spacing=vertical_spacing,
+            colorbar=colorbar,
+            legend_rows=legend_rows,
+            shared_legends=shared_legends,
+            projections=projections,
+            label_offset_x=label_offset_x,
+            label_offset_y=label_offset_y,
+        )
         self.extent = extent
         self.colorbar = colorbar
         self.legend_rows = legend_rows

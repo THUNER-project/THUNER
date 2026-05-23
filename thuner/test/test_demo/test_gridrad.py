@@ -1,7 +1,5 @@
 import shutil
 import yaml
-import numpy as np
-import xarray as xr
 import thuner.data as data
 import thuner.option as option
 import thuner.analyze as analyze
@@ -58,12 +56,18 @@ def test_gridrad():
     ]  # Take the first event from 2010 for the demo
     # Get the start and end times of the event, and the date of the event start
     start, end, event_start = data.gridrad.get_event_times(event_directory)
+    print(f"Event start: {start}")
+    print(f"Event end: {end}")
+    # Use a subset of the data for the demo
+    start = "2010-01-20T22:00:00"
+    end = "2010-01-21T02:00:00"
     times_dict = {"start": start, "end": end}
-    gridrad_dict = {"event_start": event_start}
-    gridrad_options = data.gridrad.GridRadSevereOptions(**times_dict, **gridrad_dict)
+    gridrad_options = data.gridrad.GridRadSevereOptions(
+        **times_dict, event_start=event_start
+    )
     # Options instances can be examined using the `model_dump` method, which
     # converts the instance to a dictionary.
-    gridrad_options.model_dump()
+    print(gridrad_options.model_dump_json(indent=4))
     # The `model_summary()` method of an options instance returns a string summary of the fields in the model. Note the `parent_local` field, which provides the parent directory on local disk containing the dataset. Analogously, `parent_remote` specifies the remote location of the data; which is useful when one wants to access data from a remote location during the tracking run. Note also the `filepaths` field, which provides a list of the dataset's absolute filepaths. The idea is that for standard datasets, `filepaths` can be populated automatically by looking in the `parent_local` directory, assuming the same sub-directory structure as in the dataset's original location. If the dataset is nonstandard, the `filepaths` list can be explicitly provided by the user. For datasets that do not yet have convenience classes in THUNER, the `thuner.utils.BaseDatasetOptions` class can be used. Note also the `use` field, which tells THUNER whether the dataset will be used to `track` or `tag` objects. Tracking in THUNER means detecting objects in a dataset, and matching those objects across time.
     # Tagging means attaching attributes from potentially different datasets to detected objects.
     print(gridrad_options.model_summary())
@@ -71,8 +75,9 @@ def test_gridrad():
     # for tagging the storms detected in the GridRad Severe dataset with other attributes, e.g. ambient winds and temperature.
     era5_dict = {"latitude_range": [27, 39], "longitude_range": [-102, -89]}
     era5_pl_options = data.era5.Era5Options(**times_dict, **era5_dict)
-    era5_dict.update({"data_format": "single-levels"})
-    era5_sl_options = data.era5.Era5Options(**times_dict, **era5_dict)
+    era5_sl_options = data.era5.Era5Options(
+        **times_dict, **era5_dict, data_format="single-levels"
+    )
     # All the dataset options are grouped into a single `thuner.option.data.DataOptions` object, which is passed to the THUNER tracking function. We also save these options as a YAML file.
     datasets = [gridrad_options, era5_pl_options, era5_sl_options]
     data_options = option.data.DataOptions(datasets=datasets)
@@ -81,9 +86,12 @@ def test_gridrad():
     # properties like `altitude_spacing` or `geographic_spacing` are set to `None`, THUNER
     # will attempt to infer these from the tracking dataset.
     # Create and save the grid_options dictionary
-    kwargs = {"name": "geographic", "regrid": False, "altitude_spacing": None}
-    kwargs.update({"geographic_spacing": None})
-    grid_options = option.grid.GridOptions(**kwargs)
+    grid_options = option.grid.GridOptions(
+        name="geographic",
+        regrid=False,
+        altitude_spacing=None,
+        geographic_spacing=None,
+    )
     grid_options.to_json(options_directory / "grid.json")
     # Finally, we create options describing how the tracking should be performed. In
     # multi-feature tracking, some objects, like mesoscale convective systems (MCSs), can be defined in terms of others, like convective and stratiform echoes. THUNER's approach is to first specify object options seperately for each object type, e.g. convective echoes, stratiform echoes, mesoscale convective systems, and so forth. Object options are specified using `pydantic` models which inherit from `thuner.option.track.BaseObjectOptions`. Related objects are then grouped together into `thuner.option.track.LevelOptions` models. The final `thuner.option.track.TrackOptions` model, which is passed to the tracking function, then contains a list of `thuner.option.track.LevelOptions` models. The idea is that "lower level" objects, can comprise the building blocks of "higher level" objects, with THUNER processing the former before the latter.
@@ -106,7 +114,7 @@ def test_gridrad():
     # Show the options for mcs coordinate attributes
     mcs_attributes = track_options.object_by_name("mcs").attributes
     core_mcs_attributes = mcs_attributes.attribute_type_by_name("core")
-    core_mcs_attributes.model_dump()
+    print(core_mcs_attributes.model_dump_json(indent=4))
     # The default `thuner.option.track.TrackOptions` use "local" and "global" cross-correlations to measure object velocities, as described by [Raut et al. (2021)](https://doi.org/10.1175/JAMC-D-20-0119.1) and [Short et al. (2023)](https://doi.org/10.1175/MWR-D-22-0146.1). For GridRad severe, we modify this approach slightly so that "global" cross-correlations are calculated using boxes encompassing each object, with a margin of 70 km around the object.
     # Note that pydantic models are automatically validated when first created. Because we
     # are changing the model instance, we should revalidate the object options model to check
@@ -119,21 +127,24 @@ def test_gridrad():
     # To perform the tracking run, we need an iterable of the times at which objects will be
     # detected and tracked. The convenience function `thuner.utils.generate_times` creates a generator from the dataset options for the tracking dataset. We can then pass this generator, and the various options, to the tracking function `thuner.parallel.track`. During the tracking run, outputs will be created in the `output_parent` directory, within the subfolders `interval_0`, `interval_1` etc, which represent subintervals of the time period being tracked. At the end of the run, these outputs are stiched together.
     times = utils.generate_times(data_options.dataset_by_name("gridrad").filepaths)
-    args = [times, data_options, grid_options, track_options]
     num_processes = 4
-    kwargs = {"output_directory": output_parent, "num_processes": num_processes}
     # In parallel tracking runs, we need to tell the tracking function which dataset to use
     # for tracking, so the subinterval data_options can be generated correctly
-    kwargs.update({"dataset_name": "gridrad"})
-    parallel.track(*args, **kwargs)
-    # The outputs of the tracking run are saved in the `output_parent` directory. The options for
-    # the run are saved in human-readable YAML files within the `options` directory. For reproducibility, Python objects can be rebuilt from these YAML files by reading the YAML, and passing this to the appropriate `pydantic` model.
-    with open(options_directory / "data.json", "r") as f:
-        data_options = option.data.DataOptions(**yaml.safe_load(f))
-    data_options.model_dump()
+    parallel.track(
+        times=times,
+        data_options=data_options,
+        grid_options=grid_options,
+        track_options=track_options,
+        output_directory=output_parent,
+        num_processes=num_processes,
+        dataset_name="gridrad",
+    )
+    # The outputs of the tracking run are saved in the `output_parent` directory. The options for the run are saved in human-readable JSON files within the `options` directory. For reproducibility, Python objects can be rebuilt from these JSON files by passing these to the appropriate `pydantic` model.
+    data_options = option.data.DataOptions.from_json(options_directory / "data.json")
+    print(data_options.model_dump_json(indent=4))
     # The convenience function `thuner.analyze.utils.read_options` reloads all options in the above way, storing the different options in a dictionary.
     all_options = analyze.utils.read_options(output_parent)
-    all_options["data"].model_dump()
+    print(all_options["data"].model_dump_json(indent=4))
     # Object attributes, masks and filepath records are all stored inside a single unified zarr store at the run root (`output.zarr` by default; configurable via `thuner.config.get_zarr_store_name`), under hierarchical groups (e.g. `attributes/mcs/core`, `masks/mcs`, `records/filepaths/gridrad`). Use the convenience function `thuner.attribute.utils.read_attribute` to load any attribute table as a `pandas.DataFrame`.
     core = attribute.utils.read_attribute(output_parent, "attributes", "mcs", "core")
     print(core.head(20).to_string())
@@ -166,12 +177,23 @@ def test_gridrad():
     name = f"mcs_gridrad_{event_start.replace('-', '')}"
     style = "presentation"
     attribute_handlers = default.grouped_attribute_handlers(output_parent, style)
-    kwargs = {"name": name, "object_name": "mcs", "style": style}
-    kwargs.update({"attribute_handlers": attribute_handlers, "dt": 7200})
-    figure_options = option.visualize.GroupedHorizontalAttributeOptions(**kwargs)
-    args = [output_parent, start, end, figure_options, "gridrad"]
-    args_dict = {"parallel_figure": True, "by_date": False, "num_processes": 4}
-    visualize.attribute.series(*args, **args_dict)
+    figure_options = option.visualize.GroupedHorizontalAttributeOptions(
+        name=name,
+        object_name="mcs",
+        style=style,
+        attribute_handlers=attribute_handlers,
+        dt=7200,
+    )
+    visualize.attribute.series(
+        output_directory=output_parent,
+        start_time=start,
+        end_time=end,
+        figure_options=figure_options,
+        dataset_name="gridrad",
+        parallel_figure=True,
+        by_date=False,
+        num_processes=4,
+    )
 
 
 if __name__ == "__main__":

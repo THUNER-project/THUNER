@@ -430,9 +430,10 @@ def detected_attribute_handlers(
         attributes = ["universal_id", "velocity"]
     base_qualities = ["contained", "duration"]
 
-    args = [output_parent, ["u", "v"], base_qualities + ["velocity"]]
     velocity_handler = build_velocity_handler(
-        *args,
+        output_parent=output_parent,
+        attributes=["u", "v"],
+        quality_variables=base_qualities + ["velocity"],
         name="velocity",
         color="tab:purple",
         label="System Velocity",
@@ -464,43 +465,46 @@ def grouped_attribute_handlers(
 
     base_qualities = ["convective_contained", "anvil_contained", "duration"]
 
-    args = [output_parent, ["u", "v"], base_qualities + ["velocity"]]
     velocity_handler = build_velocity_handler(
-        *args,
+        output_parent=output_parent,
+        attributes=["u", "v"],
+        quality_variables=base_qualities + ["velocity"],
         name="velocity",
         color="tab:purple",
         label="System Velocity",
     )
 
-    args = [output_parent, ["u_ambient", "v_ambient"], base_qualities]
     ambient_handler = build_velocity_handler(
-        *args,
+        output_parent=output_parent,
+        attributes=["u_ambient", "v_ambient"],
+        quality_variables=base_qualities,
         name="ambient",
         color="tab:red",
         label="Ambient Wind",
     )
 
-    args = [output_parent, ["u_shear", "v_shear"], base_qualities + ["shear"]]
     shear_handler = build_velocity_handler(
-        *args,
+        output_parent=output_parent,
+        attributes=["u_shear", "v_shear"],
+        quality_variables=base_qualities + ["shear"],
         name="shear",
         color="darkblue",
         label="Ambient Shear",
     )
 
-    args = [output_parent, ["u_relative", "v_relative"]]
-    args += [base_qualities + ["relative_velocity"]]
     relative_handler = build_velocity_handler(
-        *args,
+        output_parent=output_parent,
+        attributes=["u_relative", "v_relative"],
+        quality_variables=base_qualities + ["relative_velocity"],
         color="darkgreen",
         label="Relative System Velocity",
         name="relative",
     )
 
-    args = [output_parent, ["u_relative", "v_relative"]]
-    args += [base_qualities + ["relative_velocity"]]
     inflow_handler = build_velocity_handler(
-        *args,
+        output_parent=output_parent,
+        attributes=["u_relative", "v_relative"],
+        quality_variables=base_qualities + ["relative_velocity"],
         color="darkgreen",
         label="System Relative Inflow",
         name="inflow",

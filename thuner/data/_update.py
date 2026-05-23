@@ -3,7 +3,6 @@
 from thuner.log import setup_logger
 from thuner.utils import time_in_dataset_range
 
-
 logger = setup_logger(__name__)
 
 
@@ -17,8 +16,9 @@ def boilerplate_update(
     cond = not time_in_dataset_range(earliest_time, input_record.dataset)
     cond = cond or not time_in_dataset_range(latest_time, input_record.dataset)
     if cond:
-        args = [time, input_record, track_options, grid_options]
-        dataset_options.update_input_record(*args)
+        dataset_options.update_input_record(
+            time, input_record, track_options, grid_options
+        )
 
 
 def update_track_input_records(

@@ -61,7 +61,6 @@ def from_centers(
     tag_dict = {name: [] for name in names}
     coordinates = ["time", "time_offset", id_name, "latitude", "longitude"]
     tag_dict.update({name: [] for name in coordinates})
-    # Setup interp kwargs
     for offset in time_offsets:
         interp_time = current_time + np.timedelta64(offset, "m")
         tags_time = tags.interp(
@@ -121,7 +120,6 @@ def from_masks(
     tag_dict = {name: [] for name in names}
     coordinates = ["time", "time_offset", id_name, "latitude", "longitude"]
     tag_dict.update({name: [] for name in coordinates})
-    # Setup interp kwargs
     for offset in time_offsets:
         interp_time = current_time + np.timedelta64(offset, "m")
         tags_time = tags.interp(time=interp_time.astype("datetime64[ns]"))

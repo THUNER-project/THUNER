@@ -62,8 +62,14 @@ def test_synthetic():
         np.datetime64(end) + np.timedelta64(10, "m"),
         np.timedelta64(10, "m"),
     )
-    args = [times, data_options, grid_options, track_options, visualize_options]
-    track.track(*args, output_directory=output_parent)
+    track.track(
+        times=times,
+        data_options=data_options,
+        grid_options=grid_options,
+        track_options=track_options,
+        visualize_options=visualize_options,
+        output_directory=output_parent,
+    )
     # ![THUNER applied to synthetic data.](https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/synthetic.gif)
     central_latitude = -10
     central_longitude = 132
@@ -85,8 +91,14 @@ def test_synthetic():
         np.datetime64(end) + np.timedelta64(10, "m"),
         +np.timedelta64(10, "m"),
     )
-    args = [times, data_options, grid_options, track_options, visualize_options]
-    track.track(*args, output_directory=output_parent)
+    track.track(
+        times=times,
+        data_options=data_options,
+        grid_options=grid_options,
+        track_options=track_options,
+        visualize_options=visualize_options,
+        output_directory=output_parent,
+    )
 
 
 if __name__ == "__main__":
