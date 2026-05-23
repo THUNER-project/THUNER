@@ -2,7 +2,6 @@ import unittest
 import thuner.data as data
 import thuner.option as option
 import thuner.default as default
-import yaml
 from pathlib import Path
 from pydantic import ValidationError
 import numpy as np
@@ -36,10 +35,11 @@ class TestOptionsClasses(unittest.TestCase):
             options_directory.mkdir(parents=True, exist_ok=True)
             # Check good grid options can be created and saved
             grid_options = option.grid.GridOptions()
-            grid_options.to_yaml(options_directory / "grid.yml")
-            # Check grid options can be loaded from the yml file
-            with open(options_directory / "grid.yml", "r") as f:
-                loaded_grid_options = option.grid.GridOptions(**yaml.safe_load(f))
+            grid_options.to_json(options_directory / "grid.json")
+            # Check grid options can be loaded from the JSON file
+            loaded_grid_options = option.grid.GridOptions.from_json(
+                options_directory / "grid.json"
+            )
             self.assertEqual(grid_options, loaded_grid_options)
 
     def test_grid_options_validation(self):
@@ -61,9 +61,10 @@ class TestOptionsClasses(unittest.TestCase):
             # Create a good dataset options instance
             data_options = build_example_data_options()
             # Check data options can be saved
-            data_options.to_yaml(options_directory / "data.yml")
-            with open(options_directory / "data.yml", "r") as f:
-                loaded_data_options = option.data.DataOptions(**yaml.safe_load(f))
+            data_options.to_json(options_directory / "data.json")
+            loaded_data_options = option.data.DataOptions.from_json(
+                options_directory / "data.json"
+            )
             self.assertEqual(data_options, loaded_data_options)
 
     def test_cpol_data_options_validation(self):
@@ -101,9 +102,10 @@ class TestOptionsClasses(unittest.TestCase):
             # Create some good track options
             track_options = default.track(dataset_name="cpol")
             track_options.revalidate()
-            track_options.to_yaml(options_directory / "track.yml")
-            with open(options_directory / "track.yml", "r") as f:
-                loaded_track_options = option.track.TrackOptions(**yaml.safe_load(f))
+            track_options.to_json(options_directory / "track.json")
+            loaded_track_options = option.track.TrackOptions.from_json(
+                options_directory / "track.json"
+            )
             # Check the loaded options match the original
             self.assertEqual(track_options, loaded_track_options)
 
@@ -130,9 +132,10 @@ class TestOptionsClasses(unittest.TestCase):
             field_names = set(options.__class__.model_fields)
             field_names.remove("type")
             self.assertEqual(set(kwargs.keys()), field_names)
-            options.to_yaml(options_directory / "options.yml")
-            with open(options_directory / "options.yml", "r") as f:
-                loaded_options = option.option.Options(**yaml.safe_load(f))
+            options.to_json(options_directory / "options.json")
+            loaded_options = option.option.Options.from_json(
+                options_directory / "options.json"
+            )
             # Check the saved and reloaded options match the original
             self.assertEqual(options, loaded_options)
 

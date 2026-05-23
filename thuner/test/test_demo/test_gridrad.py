@@ -76,7 +76,7 @@ def test_gridrad():
     # All the dataset options are grouped into a single `thuner.option.data.DataOptions` object, which is passed to the THUNER tracking function. We also save these options as a YAML file.
     datasets = [gridrad_options, era5_pl_options, era5_sl_options]
     data_options = option.data.DataOptions(datasets=datasets)
-    data_options.to_yaml(options_directory / "data.yml")
+    data_options.to_json(options_directory / "data.json")
     # Now create and save options describing the grid. If `regrid` is `False` and grid
     # properties like `altitude_spacing` or `geographic_spacing` are set to `None`, THUNER
     # will attempt to infer these from the tracking dataset.
@@ -84,7 +84,7 @@ def test_gridrad():
     kwargs = {"name": "geographic", "regrid": False, "altitude_spacing": None}
     kwargs.update({"geographic_spacing": None})
     grid_options = option.grid.GridOptions(**kwargs)
-    grid_options.to_yaml(options_directory / "grid.yml")
+    grid_options.to_json(options_directory / "grid.json")
     # Finally, we create options describing how the tracking should be performed. In
     # multi-feature tracking, some objects, like mesoscale convective systems (MCSs), can be defined in terms of others, like convective and stratiform echoes. THUNER's approach is to first specify object options seperately for each object type, e.g. convective echoes, stratiform echoes, mesoscale convective systems, and so forth. Object options are specified using `pydantic` models which inherit from `thuner.option.track.BaseObjectOptions`. Related objects are then grouped together into `thuner.option.track.LevelOptions` models. The final `thuner.option.track.TrackOptions` model, which is passed to the tracking function, then contains a list of `thuner.option.track.LevelOptions` models. The idea is that "lower level" objects, can comprise the building blocks of "higher level" objects, with THUNER processing the former before the latter.
     #
@@ -114,7 +114,7 @@ def test_gridrad():
     track_options.levels[1].objects[0].tracking.unique_global_flow = False
     track_options.levels[1].objects[0].tracking.global_flow_margin = 70
     track_options.levels[1].objects[0].revalidate()
-    track_options.to_yaml(options_directory / "track.yml")
+    track_options.to_json(options_directory / "track.json")
     # ## Tracking
     # To perform the tracking run, we need an iterable of the times at which objects will be
     # detected and tracked. The convenience function `thuner.utils.generate_times` creates a generator from the dataset options for the tracking dataset. We can then pass this generator, and the various options, to the tracking function `thuner.parallel.track`. During the tracking run, outputs will be created in the `output_parent` directory, within the subfolders `interval_0`, `interval_1` etc, which represent subintervals of the time period being tracked. At the end of the run, these outputs are stiched together.
@@ -128,7 +128,7 @@ def test_gridrad():
     parallel.track(*args, **kwargs)
     # The outputs of the tracking run are saved in the `output_parent` directory. The options for
     # the run are saved in human-readable YAML files within the `options` directory. For reproducibility, Python objects can be rebuilt from these YAML files by reading the YAML, and passing this to the appropriate `pydantic` model.
-    with open(options_directory / "data.yml", "r") as f:
+    with open(options_directory / "data.json", "r") as f:
         data_options = option.data.DataOptions(**yaml.safe_load(f))
     data_options.model_dump()
     # The convenience function `thuner.analyze.utils.read_options` reloads all options in the above way, storing the different options in a dictionary.

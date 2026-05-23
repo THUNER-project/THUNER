@@ -84,7 +84,7 @@ class CpolOptions(AuraOptions):
     @model_validator(mode="after")
     def _check_filepaths(cls, values):
         if values.filepaths is None:
-            logger.info("Generating cpol filepaths.")
+            logger.info("Generating CPOL filepaths.")
             values.filepaths = get_cpol_filepaths(values)
         if values.filepaths is None:
             raise ValueError("filepaths not provided or badly formed.")

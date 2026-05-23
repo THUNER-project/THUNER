@@ -90,7 +90,7 @@ class Era5Options(BaseDatasetOptions):
     @model_validator(mode="after")
     def _check_filepaths(cls, values):
         if values.filepaths is None:
-            logger.info("Generating era5 filepaths.")
+            logger.info("Generating ERA5 filepaths.")
             values.filepaths = get_era5_filepaths(values)
         if values.filepaths is None:
             raise ValueError("filepaths not provided or badly formed.")

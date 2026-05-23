@@ -1,7 +1,7 @@
 """Utility functions for analyzing thuner output."""
 
 from pathlib import Path
-import yaml
+import json
 import glob
 import numpy as np
 import thuner.option as option
@@ -214,13 +214,13 @@ def get_angle(u1, v1, u2, v2):
 
 
 def read_options(output_directory):
-    """Read run options from yml files."""
+    """Read run options from JSON files."""
     options_directory = Path(output_directory) / "options"
-    options_filepaths = glob.glob(str(options_directory / "*.yml"))
+    options_filepaths = glob.glob(str(options_directory / "*.json"))
     all_options = {}
     for filepath in options_filepaths:
         with open(filepath, "r") as file:
-            options = yaml.safe_load(file)
+            options = json.load(file)
             name = Path(filepath).stem
             if name == "track":
                 options = option.track.TrackOptions(**options)

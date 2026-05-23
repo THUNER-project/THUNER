@@ -150,7 +150,7 @@ tracking function. We also save these options as a YAML file.
 
     datasets = [gridrad_options, era5_pl_options, era5_sl_options]
     data_options = option.data.DataOptions(datasets=datasets)
-    data_options.to_yaml(options_directory / "data.yml")
+    data_options.to_json(options_directory / "data.yml")
 
 Now create and save options describing the grid. If ``regrid`` is
 ``False`` and grid properties like ``altitude_spacing`` or
@@ -164,7 +164,7 @@ these from the tracking dataset.
     kwargs = {"name": "geographic", "regrid": False, "altitude_spacing": None}
     kwargs.update({"geographic_spacing": None})
     grid_options = option.grid.GridOptions(**kwargs)
-    grid_options.to_yaml(options_directory / "grid.yml")
+    grid_options.to_json(options_directory / "grid.yml")
 
 Finally, we create options describing how the tracking should be
 performed. In multi-feature tracking, some objects, like mesoscale
@@ -251,7 +251,7 @@ we haven’t broken anything.
     track_options.levels[1].objects[0].tracking.unique_global_flow = False
     track_options.levels[1].objects[0].tracking.global_flow_margin = 70
     track_options.levels[1].objects[0].revalidate()
-    track_options.to_yaml(options_directory / "track.yml")
+    track_options.to_json(options_directory / "track.yml")
 
 Users can also specify visualization options for generating figures
 during a tracking run. Uncomment the line below to generate figures that
@@ -263,7 +263,7 @@ much slower.
 
     visualize_options = None
     # visualize_options = default.runtime(visualize_directory=visualize_directory)
-    # visualize_options.to_yaml(options_directory / "visualize.yml")
+    # visualize_options.to_json(options_directory / "visualize.yml")
 
 Tracking
 --------

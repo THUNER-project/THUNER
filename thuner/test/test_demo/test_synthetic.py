@@ -33,7 +33,7 @@ def test_synthetic():
     grid_options = option.grid.GridOptions(
         name="geographic", latitude=lat, longitude=lon
     )
-    grid_options.to_yaml(options_directory / "grid.yml")
+    grid_options.to_json(options_directory / "grid.json")
     # Initialize synthetic objects
     starting_objects = []
     for i in range(5):
@@ -51,12 +51,12 @@ def test_synthetic():
         starting_objects=starting_objects
     )
     data_options = option.data.DataOptions(datasets=[synthetic_options])
-    data_options.to_yaml(options_directory / "data.yml")
+    data_options.to_json(options_directory / "data.json")
     track_options = default.synthetic_track()
-    track_options.to_yaml(options_directory / "track.yml")
+    track_options.to_json(options_directory / "track.json")
     # Create the display_options dictionary
-    visualize_options = default.synthetic_runtime(options_directory / "visualize.yml")
-    visualize_options.to_yaml(options_directory / "visualize.yml")
+    visualize_options = default.synthetic_runtime(options_directory / "visualize.json")
+    visualize_options.to_json(options_directory / "visualize.json")
     times = np.arange(
         np.datetime64(start),
         np.datetime64(end) + np.timedelta64(10, "m"),
@@ -76,7 +76,7 @@ def test_synthetic():
         central_latitude=central_latitude,
         central_longitude=central_longitude,
     )
-    grid_options.to_yaml(options_directory / "grid.yml")
+    grid_options.to_json(options_directory / "grid.json")
     output_parent = base_local / "runs/synthetic/cartesian"
     if output_parent.exists() & remove_existing_outputs:
         shutil.rmtree(output_parent)

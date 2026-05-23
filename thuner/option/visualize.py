@@ -1,9 +1,9 @@
 """Display options classes."""
 
 from pathlib import PosixPath
-from typing import Callable, Any
+from typing import Any, Callable
 from pydantic import Field, model_validator
-from thuner.utils import BaseOptions, Retrieval
+from thuner.utils import BaseOptions, Retrieval, CallableField
 from thuner.log import setup_logger
 from thuner.config import get_outputs_directory
 
@@ -44,7 +44,7 @@ class FigureOptions(BaseOptions):
     _desc = "The base name of the figure."
     name: str = Field(..., description=_desc)
     _desc = "The function used to generate the figure."
-    function: Callable | str | None = Field(..., description=_desc)
+    function: CallableField = Field(..., description=_desc)
     _desc = "The style of the figure."
     style: str = Field(None, description=_desc)
     _desc = "Whether to animate the figure."

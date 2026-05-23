@@ -40,7 +40,7 @@ def test_himawari():
     times_dict = {"start": start, "end": end}
     himawari_options = data.himawari.HimawariOptions(**times_dict)
     data_options = option.data.DataOptions(datasets=[himawari_options])
-    data_options.to_yaml(options_directory / "data.yml")
+    data_options.to_json(options_directory / "data.json")
     # Setup a grid over New Guinea.
     # Note the demo data contains the full disk, so vary the lat/lon as you like!
     spacing = [0.025, 0.025]
@@ -50,10 +50,10 @@ def test_himawari():
     grid_options = option.grid.GridOptions(
         name="geographic", latitude=latitude, longitude=longitude, altitude=altitude
     )
-    grid_options.to_yaml(options_directory / "grid.yml")
+    grid_options.to_json(options_directory / "grid.json")
     # Create the track_options
     track_options = default.satellite_track(dataset_name="himawari")
-    track_options.to_yaml(options_directory / "track.yml")
+    track_options.to_json(options_directory / "track.json")
     # ## Track
     times = utils.generate_times(data_options.dataset_by_name("himawari").filepaths)
     args = [times, data_options, grid_options, track_options]
@@ -62,7 +62,7 @@ def test_himawari():
     )
     # ## Analyze/Visualize
     analysis_options = analyze.mcs.AnalysisOptions()
-    analysis_options.to_yaml(options_directory / "analysis.yml")
+    analysis_options.to_json(options_directory / "analysis.json")
     analyze.utils.smooth_flow_velocities("anvil", output_parent)
     analyze.utils.quality_control("anvil", output_parent, analysis_options)
     style = "presentation"

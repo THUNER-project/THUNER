@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from thuner.utils import format_time, convert_value
+from thuner.utils import format_time, type_to_string
 from thuner.log import setup_logger
 from thuner.config import get_zarr_store_name
 import thuner.attribute.utils as utils
@@ -31,12 +31,12 @@ def _retrieval_to_dict(retrieval):
     """Serialise a Retrieval into a plain dict (or None)."""
     if retrieval is None:
         return None
-    return convert_value(retrieval)
+    return retrieval.model_dump(mode="json")
 
 
 def _attribute_variable_attrs(attribute: Attribute) -> dict:
     """Build the per-variable .attrs dict describing a single Attribute."""
-    data_type = convert_value(attribute.data_type)
+    data_type = type_to_string(attribute.data_type)
     attrs = {
         "description": attribute.description or "",
         "data_type": data_type,

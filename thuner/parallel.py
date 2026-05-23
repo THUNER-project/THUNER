@@ -138,9 +138,9 @@ def track_interval(
     if visualize_options is not None:
         visualize_options = None
     interval_data_options = get_interval_data_options(data_options, time_interval)
-    interval_data_options.to_yaml(options_directory / "data.yml")
-    grid_options.to_yaml(options_directory / "grid.yml")
-    track_options.to_yaml(options_directory / "track.yml")
+    interval_data_options.to_json(options_directory / "data.json")
+    grid_options.to_json(options_directory / "grid.json")
+    track_options.to_json(options_directory / "track.json")
     filepaths = interval_data_options.dataset_by_name(dataset_name).filepaths
     # times = utils.generate_times(filepaths)
     dataset_options = interval_data_options.dataset_by_name(dataset_name)

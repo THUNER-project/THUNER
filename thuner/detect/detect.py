@@ -64,7 +64,9 @@ def steiner(grid, object_options):
     else:
         raise ValueError("x and y must both be one or two dimensional.")
 
-    steiner_class = steiner_scheme(grid.values, X, Y, coordinates=coordinates)
+    # Ignore pixels with reflectivity below 0 dBZ
+    reflectivity = np.where(grid.values < 0, np.nan, grid.values)
+    steiner_class = steiner_scheme(reflectivity, X, Y, coordinates=coordinates)
     steiner_class = steiner_class.astype(int)
     steiner_class[steiner_class != 2] = 0
     binary_grid.data = steiner_class

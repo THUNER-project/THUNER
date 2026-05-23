@@ -51,10 +51,10 @@ def test_cpol():
     era5_sl_options = data.era5.Era5Options(**times_dict, **era5_dict)
     datasets = [cpol_options, era5_pl_options, era5_sl_options]
     data_options = option.data.DataOptions(datasets=datasets)
-    data_options.to_yaml(options_directory / "data.yml")
+    data_options.to_json(options_directory / "data.json")
     # Create the grid_options
     grid_options = option.grid.GridOptions()
-    grid_options.to_yaml(options_directory / "grid.yml")
+    grid_options.to_json(options_directory / "grid.json")
     # Create the track_options
     track_options = default.track(dataset_name="cpol")
     # Modify the default track options to demonstrate the tracking of both convective
@@ -79,7 +79,7 @@ def test_cpol():
     membership = attribute.group.membership_attribute_group()
     mcs_group_attr.attributes.append(membership)
     mcs_group_attr.revalidate()
-    track_options.to_yaml(options_directory / "track.yml")
+    track_options.to_json(options_directory / "track.json")
     # For this tutorial, we will generate figures during runtime to visualize how THUNER
     # is matching both convective and mcs objects. Note the figure generation slows the run down a lot!
     # Create the visualize_options
@@ -88,7 +88,7 @@ def test_cpol():
         "objects": ["convective", "mcs"],
     }
     visualize_options = default.runtime(**kwargs)
-    visualize_options.to_yaml(options_directory / "visualize.yml")
+    visualize_options.to_json(options_directory / "visualize.json")
     times = utils.generate_times(data_options.dataset_by_name("cpol").filepaths)
     args = [times, data_options, grid_options, track_options]
     track.track(
@@ -149,16 +149,16 @@ def test_cpol():
     era5_sl_options = data.era5.Era5Options(**times_dict, **era5_dict)
     datasets = [cpol_options, era5_pl_options, era5_sl_options]
     data_options = option.data.DataOptions(datasets=datasets)
-    data_options.to_yaml(options_directory / "data.yml")
+    data_options.to_json(options_directory / "data.json")
     # All the other options are the same as before
-    grid_options.to_yaml(options_directory / "grid.yml")
-    track_options.to_yaml(options_directory / "track.yml")
+    grid_options.to_json(options_directory / "grid.json")
+    track_options.to_json(options_directory / "track.json")
     times = utils.generate_times(data_options.dataset_by_name("cpol").filepaths)
     args = [times, data_options, grid_options, track_options]
     parallel.track(*args, output_directory=output_parent, dataset_name="cpol")
     # After a run, we can also perform analysis and visualization. Here we identify and visualize some Mesoscale Convective System (MCS) objects.
     analysis_options = analyze.mcs.AnalysisOptions()
-    analysis_options.to_yaml(options_directory / "analysis.yml")
+    analysis_options.to_json(options_directory / "analysis.json")
     analyze.mcs.process_velocities(output_parent)
     analyze.mcs.quality_control(output_parent, analysis_options)
     analyze.mcs.classify_all(output_parent, analysis_options)
@@ -194,16 +194,16 @@ def test_cpol():
     cpol_options = utils.BaseDatasetOptions(**times_dict, **kwargs)
     datasets = [cpol_options, era5_pl_options, era5_sl_options]
     data_options = option.data.DataOptions(datasets=datasets)
-    data_options.to_yaml(options_directory / "data.yml")
+    data_options.to_json(options_directory / "data.json")
     # Save other options
-    grid_options.to_yaml(options_directory / "grid.yml")
-    track_options.to_yaml(options_directory / "track.yml")
+    grid_options.to_json(options_directory / "grid.json")
+    track_options.to_json(options_directory / "track.json")
     times = utils.generate_times(data_options.dataset_by_name("cpol").filepaths)
     args = [times, data_options, grid_options, track_options]
     kwargs = {"output_directory": output_parent, "dataset_name": "cpol"}
     parallel.track(*args, **kwargs, debug_mode=True)
     analysis_options = analyze.mcs.AnalysisOptions()
-    analysis_options.to_yaml(options_directory / "analysis.yml")
+    analysis_options.to_json(options_directory / "analysis.json")
     analyze.mcs.process_velocities(output_parent)
     analyze.mcs.quality_control(output_parent, analysis_options)
     analyze.mcs.classify_all(output_parent, analysis_options)
@@ -229,12 +229,12 @@ def test_cpol():
     cpol_options = data.aura.CpolOptions(**times_dict)
     datasets = [cpol_options, era5_pl_options, era5_sl_options]
     data_options = option.data.DataOptions(datasets=datasets)
-    data_options.to_yaml(options_directory / "data.yml")
+    data_options.to_json(options_directory / "data.json")
     # Create the grid_options
     grid_options = option.grid.GridOptions(name="cartesian", regrid=False)
-    grid_options.to_yaml(options_directory / "grid.yml")
+    grid_options.to_json(options_directory / "grid.json")
     # Save the same track options from earlier
-    track_options.to_yaml(options_directory / "track.yml")
+    track_options.to_json(options_directory / "track.json")
     visualize_options = None
     times = utils.generate_times(data_options.dataset_by_name("cpol").filepaths)
     args = [times, data_options, grid_options, track_options, visualize_options]
@@ -242,7 +242,7 @@ def test_cpol():
     # parallel.track(*args, **kwargs)
     track.track(*args, output_directory=output_parent)
     analysis_options = analyze.mcs.AnalysisOptions()
-    analysis_options.to_yaml(options_directory / "analysis.yml")
+    analysis_options.to_json(options_directory / "analysis.json")
     analyze.mcs.process_velocities(output_parent)
     analyze.mcs.quality_control(output_parent, analysis_options)
     analyze.mcs.classify_all(output_parent, analysis_options)

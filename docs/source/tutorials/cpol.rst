@@ -85,11 +85,11 @@ later.
     era5_sl_options = data.era5.Era5Options(**times_dict, **era5_dict)
     datasets=[cpol_options, era5_pl_options, era5_sl_options]
     data_options = option.data.DataOptions(datasets=datasets)
-    data_options.to_yaml(options_directory / "data.yml")
+    data_options.to_json(options_directory / "data.yml")
     
     # Create the grid_options
     grid_options = option.grid.GridOptions()
-    grid_options.to_yaml(options_directory / "grid.yml")
+    grid_options.to_json(options_directory / "grid.yml")
     
     # Create the track_options
     track_options = default.track(dataset_name="cpol")
@@ -115,7 +115,7 @@ later.
     membership = attribute.group.membership_attribute_group()
     mcs_group_attr.attributes.append(membership)
     mcs_group_attr.revalidate()
-    track_options.to_yaml(options_directory / "track.yml")
+    track_options.to_json(options_directory / "track.yml")
 
 For this tutorial, we will generate figures during runtime to visualize
 how THUNER is matching both convective and mcs objects.
@@ -126,7 +126,7 @@ how THUNER is matching both convective and mcs objects.
     # Create the visualize_options
     kwargs = {"visualize_directory": visualize_directory, "objects": ["convective", "mcs"]}
     visualize_options = default.runtime(**kwargs)
-    visualize_options.to_yaml(options_directory / "visualize.yml")
+    visualize_options.to_json(options_directory / "visualize.yml")
     visualize_options = None
 
 We can now perform our tracking run; note the run will be slow as we are
@@ -199,7 +199,7 @@ We can also perform analysis on, and visualization of, the MCS objects.
     :linenos:
 
     analysis_options = analyze.mcs.AnalysisOptions()
-    analysis_options.to_yaml(options_directory / "analysis.yml")
+    analysis_options.to_json(options_directory / "analysis.yml")
     analyze.mcs.process_velocities(output_parent)
     analyze.mcs.quality_control(output_parent, analysis_options)
     analyze.mcs.classify_all(output_parent, analysis_options)
@@ -250,11 +250,11 @@ If you get a pydantic error, restart the notebook.
     cpol_options = utils.BaseDatasetOptions(**times_dict, **kwargs)
     datasets=[cpol_options, era5_pl_options, era5_sl_options]
     data_options = option.data.DataOptions(datasets=datasets)
-    data_options.to_yaml(options_directory / "data.yml")
+    data_options.to_json(options_directory / "data.yml")
     
     # Save other options
-    grid_options.to_yaml(options_directory / "grid.yml")
-    track_options.to_yaml(options_directory / "track.yml")
+    grid_options.to_json(options_directory / "grid.yml")
+    track_options.to_json(options_directory / "track.yml")
     
     # Switch off the runtime figures
     visualize_options = None
@@ -271,7 +271,7 @@ If you get a pydantic error, restart the notebook.
     :linenos:
 
     analysis_options = analyze.mcs.AnalysisOptions()
-    analysis_options.to_yaml(options_directory / "analysis.yml")
+    analysis_options.to_json(options_directory / "analysis.yml")
     analyze.mcs.process_velocities(output_parent)
     analyze.mcs.quality_control(output_parent, analysis_options)
     analyze.mcs.classify_all(output_parent, analysis_options)
@@ -316,14 +316,14 @@ fly. We will also switch off the runtime figure generation.
     cpol_options = data.aura.CpolOptions(**times_dict)
     datasets = [cpol_options, era5_pl_options, era5_sl_options]
     data_options = option.data.DataOptions(datasets=datasets)
-    data_options.to_yaml(options_directory / "data.yml")
+    data_options.to_json(options_directory / "data.yml")
     
     # Create the grid_options
     grid_options = option.grid.GridOptions(name="cartesian", regrid=False)
-    grid_options.to_yaml(options_directory / "grid.yml")
+    grid_options.to_json(options_directory / "grid.yml")
     
     # Save the same track options from earlier
-    track_options.to_yaml(options_directory / "track.yml")
+    track_options.to_json(options_directory / "track.yml")
     visualize_options = None
 
 .. code-block:: python3
@@ -339,7 +339,7 @@ fly. We will also switch off the runtime figure generation.
     :linenos:
 
     analysis_options = analyze.mcs.AnalysisOptions()
-    analysis_options.to_yaml(options_directory / "analysis.yml")
+    analysis_options.to_json(options_directory / "analysis.yml")
     analyze.mcs.process_velocities(output_parent)
     analyze.mcs.quality_control(output_parent, analysis_options)
     analyze.mcs.classify_all(output_parent, analysis_options)

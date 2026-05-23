@@ -3,7 +3,7 @@
 import numpy as np
 from pydantic import Field, model_validator
 from typing import Literal
-from thuner.utils import BaseOptions
+from thuner.utils import BaseOptions, NDArrayField
 from thuner.log import setup_logger
 
 __all__ = ["GridOptions"]
@@ -42,7 +42,7 @@ class GridOptions(BaseOptions):
     shape: tuple[int, int] | None = Field(None, description=_desc)
     _desc = "Whether to attempt to regrid the dataset."
     regrid: bool = Field(True, description=_desc)
-    domain_mask: np.ndarray | None = Field(
+    domain_mask: NDArrayField = Field(
         None,
         description=(
             "Domain mask to apply to datasets. Should be 1 where data is kept, and 0 "

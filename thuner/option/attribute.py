@@ -3,7 +3,7 @@
 import importlib
 import numpy as np
 from pydantic import Field, model_validator
-from thuner.utils import BaseOptions, Retrieval
+from thuner.utils import BaseOptions, Retrieval, TypeField
 
 __all__ = [
     "Attribute",
@@ -23,7 +23,7 @@ class Attribute(BaseOptions):
     name: str = Field(..., description="Name of the attribute.")
     _desc = "The function/kwargs used to retrieve the attribute."
     retrieval: Retrieval | None = Field(None, description=_desc)
-    data_type: type | str = Field(..., description="Data type of the attribute.")
+    data_type: TypeField = Field(..., description="Data type of the attribute.")
     _desc = "Number of decimal places for a numerical attribute."
     precision: int | None = Field(None, description=_desc)
     description: str | None = Field(None, description="Description of the attribute.")

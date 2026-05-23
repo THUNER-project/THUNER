@@ -21,13 +21,14 @@ from thuner.log import setup_logger
 import thuner.data._utils as _utils
 import thuner.grid as grid
 import thuner.utils as utils
+from thuner.utils import DatetimeField
 
-__all__ = ["ACCESSOptions", "get_access_filepaths"]
+__all__ = ["AccessCOptions", "get_access_filepaths"]
 
 logger = setup_logger(__name__)
 
 
-class ACCESSOptions(utils.BaseDatasetOptions):
+class AccessCOptions(utils.BaseDatasetOptions):
     """Options for ACCESS-C OPS3 datasets."""
 
     def model_post_init(self, __context):
@@ -42,10 +43,7 @@ class ACCESSOptions(utils.BaseDatasetOptions):
         )
 
     # Define additional fields for ACCESS
-    run_start: str | np.datetime64 = Field(..., description="Event start datetime.")
-    model: Literal["g", "ge", "c"] = Field(
-        "c", description="Model type; global, global ensemble, city etc."
-    )
+    run_start: DatetimeField = Field(..., description="Event start datetime.")
     domain: Literal["bn", "ph", "ad", "vt", "sy", "dn"] = Field(
         "dn", description="Model domain; brisbane, perth, adelaide, etc."
     )
@@ -59,14 +57,11 @@ class ACCESSOptions(utils.BaseDatasetOptions):
 
     # Override get_filepaths and grid_from_dataset with ACCESS specific versions.
     def get_filepaths(self):
-        return get_access_filepaths(self)
+        return get_access_c_filepaths(self)
 
     def convert_dataset(self, time, filepath, track_options, grid_options):
         args = [time, filepath, track_options, self, grid_options]
         return convert_access(*args)
-
-    # def update_boundary_data(self, dataset, input_record, boundary_coords):
-    #     update_access_boundary_data(dataset, input_record, boundary_coords)
 
     @model_validator(mode="after")
     def _check_run_start(cls, values):
@@ -80,37 +75,30 @@ class ACCESSOptions(utils.BaseDatasetOptions):
     @model_validator(mode="after")
     def _check_filepaths(cls, values):
         if values.filepaths is None:
-            logger.info("Generating access filepaths.")
-            values.filepaths = get_access_filepaths(values)
+            logger.info("Generating ACCESS-C filepaths.")
+            values.filepaths = get_access_c_filepaths(values)
         if values.filepaths is None:
             raise ValueError("filepaths not provided or badly formed.")
         return values
 
 
-def get_access_filepaths(options: ACCESSOptions):
+def get_access_c_filepaths(options: AccessCOptions):
     """
     Get ACCESS filepaths assuming same filepath structure as remote location.
     """
 
     filepaths = []
-
     base_url = utils.get_parent(options) + "/ops_aps3"
-
-    if options.model == "c":
-        # ACCESS-C only has 1 run per file. We will never match objects across distinct
-        # runs, so we will only ever track one file at a time for access-c.
-        time = pd.Timestamp(options.run_start)
-        base_url += f"/access-{options.domain}/1"
-        filepath = (
-            f"{base_url}/{time.year:04}{time.month:02}{time.day:02}/"
-            f"{time.hour:02}00/{options.mode}/{options.levels}/"
-            f"{options.filename}"
-        )
-        filepaths = [filepath]
-    else:
-        raise NotImplementedError(
-            "Only ACCESS-C converters implemented. Convert manually first."
-        )
+    # ACCESS-C only has 1 run per file. We will never match objects across distinct
+    # runs, so we will only ever track one file at a time for access-c.
+    time = pd.Timestamp(options.run_start)
+    base_url += f"/access-{options.domain}/1"
+    filepath = (
+        f"{base_url}/{time.year:04}{time.month:02}{time.day:02}/"
+        f"{time.hour:02}00/{options.mode}/{options.levels}/"
+        f"{options.filename}"
+    )
+    filepaths = [filepath]
 
     return sorted(filepaths)
 

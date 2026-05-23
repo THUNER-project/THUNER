@@ -64,7 +64,7 @@ approach avoids the need for storing large datasets.
     lat = np.arange(-14, -6 + 0.025, 0.025).tolist()
     lon = np.arange(128, 136 + 0.025, 0.025).tolist()
     grid_options = option.grid.GridOptions(name="geographic", latitude=lat, longitude=lon)
-    grid_options.to_yaml(options_directory / "grid.yml")
+    grid_options.to_json(options_directory / "grid.yml")
     
     # Initialize synthetic objects
     starting_objects = []
@@ -81,14 +81,14 @@ approach avoids the need for storing large datasets.
     # Create data options dictionary
     synthetic_options = data.synthetic.SyntheticOptions(starting_objects=starting_objects)
     data_options = option.data.DataOptions(datasets=[synthetic_options])
-    data_options.to_yaml(options_directory / "data.yml")
+    data_options.to_json(options_directory / "data.yml")
     
     track_options = default.synthetic_track()
-    track_options.to_yaml(options_directory / "track.yml")
+    track_options.to_json(options_directory / "track.yml")
     
     # Create the display_options dictionary
     visualize_options = default.synthetic_runtime(options_directory / "visualize.yml")
-    visualize_options.to_yaml(options_directory / "visualize.yml")
+    visualize_options.to_json(options_directory / "visualize.yml")
 
 .. code-block:: text
 
@@ -198,7 +198,7 @@ approach avoids the need for storing large datasets.
         central_latitude=central_latitude,
         central_longitude=central_longitude,
     )
-    grid_options.to_yaml(options_directory / "grid.yml")
+    grid_options.to_json(options_directory / "grid.yml")
 
 .. code-block:: python3
     :linenos:

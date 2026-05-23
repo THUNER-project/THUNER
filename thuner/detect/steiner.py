@@ -6,63 +6,25 @@ the points within the background and convective radii using the Haversine distan
 Note these radii are at most 11 km, so Haversine is accurate enough.
 """
 
-import inspect
 import numpy as np
 from thuner.log import setup_logger
-from numba import int32, float32, njit
+from numba import int32, float32
 from numba.typed import List
-from thuner.utils import meshgrid_numba, numba_boolean_assign, equirectangular
+from thuner.utils import (
+    meshgrid_numba,
+    numba_boolean_assign,
+    equirectangular,
+    conditional_jit,
+    logging_jit,
+)
 
 logger = setup_logger(__name__)
 
-use_numba = True
-
-
-def conditional_jit(*jit_args, use_numba=True, **jit_kwargs):
-    """
-    A decorator that applies Numba's JIT compilation to a function if use_numba is True.
-    Otherwise, it returns the original function. It also adjusts type aliases based on the
-    usage of Numba.
-    """
-
-    def decorator(func):
-        if use_numba:
-            # Define type aliases for use with Numba
-            globals()["int32"] = int32
-            globals()["float32"] = float32
-            globals()["List"] = List
-            return njit(*jit_args, **jit_kwargs)(func)
-        else:
-            # Define type aliases for use without Numba
-            globals()["int32"] = np.int32
-            globals()["float32"] = np.float32
-            globals()["List"] = list
-            return func
-
-    return decorator
-
-
-def logging_jit(func):
-    """
-    A decorator that logs a message before a function is compiled with Numba. This
-    decorator should only be applied to the outermost function in a call stack that is
-    being compiled with Numba.
-    """
-
-    def inner(*args, **kwargs):
-        if getattr(func, "signatures", None) == []:
-            module = inspect.getmodule(func)
-            message = f"Compiling {module.__name__}.{func.__name__} with Numba."
-            message += " Please wait."
-            logger.info(message)
-        result = func(*args, **kwargs)
-        return result
-
-    return inner
+_use_numba = True
 
 
 @logging_jit
-@conditional_jit(use_numba=use_numba)
+@conditional_jit(use_numba=_use_numba)
 def steiner_scheme(
     reflectivity,
     X,
@@ -133,7 +95,7 @@ def steiner_scheme(
     return classification
 
 
-@conditional_jit(use_numba=use_numba)
+@conditional_jit(use_numba=_use_numba)
 def get_convective_radius(background_reflectivity, radius_option=1):
     """
     Return the convective radius based on the background reflectivity.
@@ -168,7 +130,7 @@ def get_convective_radius(background_reflectivity, radius_option=1):
     return convective_radii[-1]
 
 
-@conditional_jit(use_numba=use_numba)
+@conditional_jit(use_numba=_use_numba)
 def get_delta_Z_threshold(background_reflectivity, delta_Z_option=0):
     """
     Return the relevant delta_Z threshold based on the background reflectivity.
@@ -195,7 +157,7 @@ def get_delta_Z_threshold(background_reflectivity, delta_Z_option=0):
     return delta_Z_threshold
 
 
-@conditional_jit(use_numba=use_numba)
+@conditional_jit(use_numba=_use_numba)
 def values_within_radius(
     array, X, Y, j, i, radius, X_rad, Y_rad, coordinates="geographic"
 ):

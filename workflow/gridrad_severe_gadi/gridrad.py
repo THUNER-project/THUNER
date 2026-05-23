@@ -54,19 +54,19 @@ def gridrad(start, end, event_start, base_local=None):
     era5_sl_options = data.era5.Era5Options(**times_dict, **era5_dict)
     datasets = [gridrad_options, era5_pl_options, era5_sl_options]
     data_options = option.data.DataOptions(datasets=datasets)
-    data_options.to_yaml(options_directory / "data.yml")
+    data_options.to_json(options_directory / "data.yml")
 
     # Create the grid_options dictionary
     kwargs = {"name": "geographic", "regrid": False, "altitude_spacing": None}
     kwargs.update({"geographic_spacing": None})
     grid_options = option.grid.GridOptions(**kwargs)
-    grid_options.to_yaml(options_directory / "grid.yml")
+    grid_options.to_json(options_directory / "grid.yml")
 
     # Create the track_options dictionary
     track_options = default.track(dataset="gridrad")
     track_options.levels[1].objects[0].tracking.global_flow_margin = 70
     track_options.levels[1].objects[0].tracking.unique_global_flow = False
-    track_options.to_yaml(options_directory / "track.yml")
+    track_options.to_json(options_directory / "track.yml")
 
     # Create the display_options dictionary
     visualize_options = None

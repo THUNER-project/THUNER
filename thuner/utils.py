@@ -1,6 +1,6 @@
 """
-General utilities for the thuner package. We use pydantic extensively. Every persistent 
-options model inherits BaseOptions, which adds improved serialization to the pydantic 
+General utilities for the thuner package. We use pydantic extensively. Every persistent
+options model inherits BaseOptions, which adds improved serialization to the pydantic
 BaseModel. Every transient runtime container inherits BaseModel directly.
 """
 
@@ -19,7 +19,6 @@ import traceback
 import importlib
 import copy
 from datetime import datetime
-import yaml
 from pathlib import Path
 import json
 import hashlib
@@ -33,8 +32,14 @@ from scipy.interpolate import interp1d
 import re
 import os
 import platform
-from typing import Any, Dict, Literal, Generator, Callable
-from pydantic import Field, model_validator, BaseModel, model_validator, ConfigDict
+from typing import Any, Dict, Literal, Generator, Callable, Annotated
+from pydantic import (
+    Field,
+    model_validator,
+    PlainSerializer,
+    BaseModel,
+    ConfigDict,
+)
 from pydantic._internal._model_construction import ModelMetaclass
 import multiprocessing
 from thuner.log import setup_logger
@@ -48,34 +53,58 @@ __all__ = ["BaseOptions", "ConvertedOptions", "BaseDatasetOptions"]
 DataObject = xr.DataArray | xr.Dataset
 
 
-def convert_value(value: Any) -> Any:
-    """
-    Convenience function to convert options attributes to types serializable as yaml.
-    """
-    if isinstance(value, Path):
-        return str(value)
-    if isinstance(value, np.ndarray):
-        return [convert_value(v) for v in value.tolist()]
-    if isinstance(value, BaseOptions):
-        fields = value.__class__.model_fields.keys()
-        return {field: convert_value(getattr(value, field)) for field in fields}
-    if isinstance(value, dict):
-        return {convert_value(k): convert_value(v) for k, v in value.items()}
-    if isinstance(value, list):
-        return [convert_value(v) for v in value]
-    if isinstance(value, tuple):
-        return [convert_value(v) for v in value]
-    if isinstance(value, bool):
-        return int(value)
-    if isinstance(value, type):
-        # return full name of type, i.e. including module
-        return f"{inspect.getmodule(value).__name__}.{value.__name__}"
-    if type(value) is np.float32:
-        return float(value)
+def function_to_string(value: Any) -> Any:
+    """Serialise a callable as its fully qualified ``module.name`` form."""
+    if value is None or isinstance(value, str):
+        return value
     if inspect.isroutine(value):
         module = inspect.getmodule(value)
         return f"{module.__name__}.{value.__name__}"
     return value
+
+
+def type_to_string(value: Any) -> Any:
+    """Serialise a Python type as its fully qualified ``module.name`` form."""
+    if value is None or isinstance(value, str):
+        return value
+    if isinstance(value, type):
+        return f"{value.__module__}.{value.__name__}"
+    return value
+
+
+def datetime_to_string(value: Any) -> Any:
+    """Serialise a ``np.datetime64`` as a formatted UTC string."""
+    if isinstance(value, np.datetime64):
+        return format_time(value, filename_safe=False, day_only=False)
+    return value
+
+
+def ndarray_to_list(value: Any) -> Any:
+    """Serialise an ``np.ndarray`` as a nested list."""
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    return value
+
+
+# Annotated field types: declare a field with one of these and serialization
+# of the awkward "either a typed value or a string round-trip" is handled
+# automatically — no per-class @field_serializer needed.
+DatetimeField = Annotated[
+    str | np.datetime64,
+    PlainSerializer(datetime_to_string, return_type=str, when_used="always"),
+]
+CallableField = Annotated[
+    Callable | str | None,
+    PlainSerializer(function_to_string, return_type=str | None, when_used="always"),
+]
+TypeField = Annotated[
+    type | str,
+    PlainSerializer(type_to_string, return_type=str, when_used="always"),
+]
+NDArrayField = Annotated[
+    np.ndarray | list | None,
+    PlainSerializer(ndarray_to_list, return_type=list | None, when_used="always"),
+]
 
 
 class AutoTypeMeta(ModelMetaclass):
@@ -102,27 +131,17 @@ class BaseOptions(BaseModel, metaclass=AutoTypeMeta):
     # Allow arbitrary types in the options classes.
     model_config = ConfigDict(arbitrary_types_allowed=True, discriminator="type")
 
-    # Ensure that floats in all options classes are np.float32
-    @model_validator(mode="after")
-    def convert_floats(cls, values):
-        """Convert all floats to np.float32."""
-        for field in values.__class__.model_fields:
-            if type(getattr(values, field)) is float:
-                setattr(values, field, np.float32(getattr(values, field)))
-        return values
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert the options to a dictionary."""
-        fields = self.__class__.model_fields.keys()
-        return {field: convert_value(getattr(self, field)) for field in fields}
-
-    def to_yaml(self, filepath: str):
-        """Save the options to a yaml file."""
+    def to_json(self, filepath: str, indent: int = 4):
+        """Save the options to a JSON file."""
         Path(filepath).parent.mkdir(exist_ok=True, parents=True)
         with open(filepath, "w") as f:
-            kwargs = {"default_flow_style": False, "allow_unicode": True}
-            kwargs = {"sort_keys": False}
-            yaml.dump(self.to_dict(), f, **kwargs)
+            f.write(self.model_dump_json(indent=indent))
+
+    @classmethod
+    def from_json(cls, filepath: str):
+        """Load options from a JSON file."""
+        with open(filepath, "r") as f:
+            return cls.model_validate_json(f.read())
 
     def revalidate(self):
         """Revalidate the model to ensure all fields are valid."""
@@ -152,7 +171,7 @@ class Retrieval(BaseOptions):
     """Class for retrieval. Generally a function and a dictionary of kwargs."""
 
     _desc = "The function used to retrieve the attribute."
-    function: Callable | str | None = Field(None, description=_desc)
+    function: CallableField = Field(None, description=_desc)
     _desc = "Keyword arguments for the retrieval function."
     keyword_arguments: dict = Field({}, description=_desc)
 
@@ -187,8 +206,8 @@ class BaseDatasetOptions(BaseOptions):
     """Base class for dataset options."""
 
     name: str = Field(None, description="Name of the dataset.")
-    start: str | np.datetime64 = Field(..., description="Tracking start time.")
-    end: str | np.datetime64 = Field(..., description="Tracking end time.")
+    start: DatetimeField = Field(..., description="Tracking start time.")
+    end: DatetimeField = Field(..., description="Tracking end time.")
     _desc = "List of dataset fields, i.e. variables, to use. Fields should be given "
     _desc += "using their thuner, i.e. CF-Conventions, names, e.g. 'reflectivity'."
     fields: list[str] | None = Field(None, description=_desc)
@@ -767,10 +786,10 @@ def get_time_interval(next_grid, current_grid):
         return None
 
 
-use_numba = True
+_use_numba = True
 
 
-def conditional_jit(use_numba=True, *jit_args, **jit_kwargs):
+def conditional_jit(*jit_args, use_numba=True, **jit_kwargs):
     """
     A decorator that applies Numba's JIT compilation to a function if use_numba is True.
     Otherwise, it returns the original function. It also adjusts type aliases based on the
@@ -794,7 +813,26 @@ def conditional_jit(use_numba=True, *jit_args, **jit_kwargs):
     return decorator
 
 
-@conditional_jit(use_numba=use_numba)
+def logging_jit(func):
+    """
+    A decorator that logs a message before a function is compiled with Numba. This
+    decorator should only be applied to the outermost function in a call stack that is
+    being compiled with Numba.
+    """
+
+    def inner(*args, **kwargs):
+        if getattr(func, "signatures", None) == []:
+            module = inspect.getmodule(func)
+            message = f"Compiling {module.__name__}.{func.__name__} with Numba."
+            message += " Please wait."
+            logger.info(message)
+        result = func(*args, **kwargs)
+        return result
+
+    return inner
+
+
+@conditional_jit(use_numba=_use_numba)
 def meshgrid_numba(x, y):
     """
     Create a meshgrid-like pair of arrays for x and y coordinates.
@@ -812,7 +850,7 @@ def meshgrid_numba(x, y):
     return X, Y
 
 
-@conditional_jit(use_numba=use_numba)
+@conditional_jit(use_numba=_use_numba)
 def numba_boolean_assign(array, condition, value=np.nan):
     """
     Assign a value to an array based on a boolean condition.
@@ -824,7 +862,7 @@ def numba_boolean_assign(array, condition, value=np.nan):
     return array
 
 
-@conditional_jit(use_numba=use_numba)
+@conditional_jit(use_numba=_use_numba)
 def equirectangular(lat1_radians, lon1_radians, lat2_radians, lon2_radians):
     """
     Calculate the equirectangular distance between two points
@@ -841,7 +879,7 @@ def equirectangular(lat1_radians, lon1_radians, lat2_radians, lon2_radians):
     return np.sqrt(x**2 + y**2) * r
 
 
-@conditional_jit(use_numba=use_numba)
+@conditional_jit(use_numba=_use_numba)
 def haversine(lat1, lon1, lat2, lon2):
     """
     Calculate the great circle distance in metres between two points
@@ -860,32 +898,6 @@ def haversine(lat1, lon1, lat2, lon2):
     c = 2 * np.arcsin(np.sqrt(a))
     r = 6371e3  # Radius of earth in metres
     return c * r
-
-
-def save_options(options, filename=None, options_directory=None, append_time=False):
-    """Save the options to a yml file."""
-    if filename is None:
-        filename = now_str()
-        append_time = False
-    else:
-        filename = Path(filename).stem
-    if append_time:
-        filename += f"_{now_str()}"
-    filename += ".yml"
-    if options_directory is None:
-        options_directory = get_outputs_directory() / "options"
-    if not options_directory.exists():
-        options_directory.mkdir(parents=True)
-    filepath = options_directory / filename
-    logger.debug("Saving options to %s", options_directory / filename)
-    with open(filepath, "w") as outfile:
-        yaml.dump(
-            options,
-            outfile,
-            default_flow_style=False,
-            allow_unicode=True,
-            sort_keys=False,
-        )
 
 
 def new_angle(angles):

@@ -23,7 +23,7 @@ AnyDatasetOptions = Union[
     aura.OperationalOptions,
     era5.Era5Options,
     himawari.HimawariOptions,
-    access.ACCESSOptions,
+    access.AccessCOptions,
     BaseDatasetOptions,
 ]
 

@@ -104,7 +104,7 @@ class HimawariOptions(utils.BaseDatasetOptions):
         if values.filepaths is None:
             raise ValueError("filepaths not provided or badly formed.")
         if values.coordinates_filepath is None:
-            logger.info("Generating coordinates filepath.")
+            logger.info("Generating Himawari coordinates filepath.")
             values.coordinates_filepath = get_himawari_coordinates_filepath(values)
         if values.coordinates_filepath is None:
             raise ValueError("coordinates_filepath not provided or badly formed.")
