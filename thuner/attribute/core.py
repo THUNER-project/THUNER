@@ -265,8 +265,11 @@ def ids_from_match_record(attribute: Attribute, object_tracks):
 
 def record_id():
     """Convenience function to build a record ID attribute."""
-    _desc = "id taken from match record."
-    kwargs = {"name": "id", "data_type": int, "description": _desc}
+    kwargs = {
+        "name": "id",
+        "data_type": int,
+        "description": "id taken from match record.",
+    }
     _func = ids_from_match_record
     _retieval = Retrieval(function=_func, keyword_arguments={"matched": False})
     kwargs.update({"retrieval": _retieval})
@@ -275,8 +278,11 @@ def record_id():
 
 def mask_id():
     """Convenience function to build a mask ID attribute."""
-    _desc = "id taken from object mask."
-    kwargs = {"name": "id", "data_type": int, "description": _desc}
+    kwargs = {
+        "name": "id",
+        "data_type": int,
+        "description": "id taken from object mask.",
+    }
     _func = ids_from_mask
     _retrieval = Retrieval(function=_func, keyword_arguments={"matched": False})
     kwargs.update({"retrieval": _retrieval})
@@ -285,8 +291,11 @@ def mask_id():
 
 def record_universal_id():
     """Convenience function to build a record universal ID attribute."""
-    _desc = "universal_id taken from match record."
-    kwargs = {"name": "universal_id", "data_type": int, "description": _desc}
+    kwargs = {
+        "name": "universal_id",
+        "data_type": int,
+        "description": "universal_id taken from match record.",
+    }
     _func = ids_from_match_record
     _retrieval = Retrieval(function=_func, keyword_arguments={"matched": True})
     kwargs.update({"retrieval": _retrieval})
@@ -295,8 +304,11 @@ def record_universal_id():
 
 def mask_universal_id():
     """Convenience function to build a mask universal ID attribute."""
-    _desc = "universal_id taken from object mask."
-    kwargs = {"name": "universal_id", "data_type": int, "description": _desc}
+    kwargs = {
+        "name": "universal_id",
+        "data_type": int,
+        "description": "universal_id taken from object mask.",
+    }
     _func = ids_from_mask
     _retrieval = Retrieval(function=_func, keyword_arguments={"matched": True})
     kwargs.update({"retrieval": _retrieval})
@@ -305,8 +317,11 @@ def mask_universal_id():
 
 def parents():
     """Convenience function to build a parents attribute."""
-    _desc = "parents taken from match record."
-    kwargs = {"name": "parents", "data_type": str, "description": _desc}
+    kwargs = {
+        "name": "parents",
+        "data_type": str,
+        "description": "parents taken from match record.",
+    }
     _func = parents_from_match_record
     _retrieval = Retrieval(function=_func)
     kwargs.update({"retrieval": _retrieval})
@@ -316,16 +331,18 @@ def parents():
 def latitude():
     """Convenience function to build a latitude attribute."""
     kwargs = {"name": "latitude", "data_type": float, "precision": 4}
-    _desc = "Latitude position of the object."
-    kwargs.update({"units": "degrees_north", "description": _desc})
+    kwargs.update(
+        {"units": "degrees_north", "description": "Latitude position of the object."}
+    )
     return Attribute(**kwargs)
 
 
 def longitude():
     """Convenience function to build a longitude attribute."""
     kwargs = {"name": "longitude", "data_type": float, "precision": 4}
-    _desc = "Longitude position of the object."
-    kwargs.update({"units": "degrees_east", "description": _desc})
+    kwargs.update(
+        {"units": "degrees_east", "description": "Longitude position of the object."}
+    )
     return Attribute(**kwargs)
 
 
@@ -333,8 +350,10 @@ def coordinates_record():
     """Convenience function to build a coordinates record attribute group."""
     attributes_list = [latitude(), longitude()]
     _retrieval = Retrieval(function=coordinates_from_match_record)
-    _desc = "Coordinates taken from the match_record."
-    kwargs = {"name": "coordinates", "description": _desc}
+    kwargs = {
+        "name": "coordinates",
+        "description": "Coordinates taken from the match_record.",
+    }
     kwargs.update({"attributes": attributes_list, "retrieval": _retrieval})
     return AttributeGroup(**kwargs)
 
@@ -344,8 +363,10 @@ def coordinates_mask():
     attributes_list = [latitude(), longitude()]
     _func = coordinates_from_mask
     _retrieval = Retrieval(function=_func, keyword_arguments={"matched": True})
-    _desc = "Coordinates taken from the object mask."
-    kwargs = {"name": "coordinates", "description": _desc}
+    kwargs = {
+        "name": "coordinates",
+        "description": "Coordinates taken from the object mask.",
+    }
     kwargs.update({"attributes": attributes_list, "retrieval": _retrieval})
     return AttributeGroup(**kwargs)
 
@@ -353,16 +374,18 @@ def coordinates_mask():
 def u_flow():
     """Convenience function to build a zonal flow velocity attribute."""
     kwargs = {"name": "u_flow", "data_type": float, "precision": 1}
-    _desc = "Zonal velocity from cross correlation."
-    kwargs.update({"units": "m/s", "description": _desc})
+    kwargs.update(
+        {"units": "m/s", "description": "Zonal velocity from cross correlation."}
+    )
     return Attribute(**kwargs)
 
 
 def v_flow():
     """Convenience function to build a meridional flow velocity attribute."""
     kwargs = {"name": "v_flow", "data_type": float, "precision": 1}
-    _desc = "Meridional velocity from cross correlation."
-    kwargs.update({"units": "m/s", "description": _desc})
+    kwargs.update(
+        {"units": "m/s", "description": "Meridional velocity from cross correlation."}
+    )
     return Attribute(**kwargs)
 
 
@@ -370,8 +393,10 @@ def flow_velocity():
     """Convenience function to build a flow velocity attribute group."""
     attributes_list = [u_flow(), v_flow()]
     _retrieval = Retrieval(function=velocities_from_match_record)
-    _desc = "Flow velocities from match record."
-    kwargs = {"name": "flow_velocity", "description": _desc}
+    kwargs = {
+        "name": "flow_velocity",
+        "description": "Flow velocities from match record.",
+    }
     kwargs.update({"attributes": attributes_list, "retrieval": _retrieval})
     return AttributeGroup(**kwargs)
 
@@ -379,16 +404,18 @@ def flow_velocity():
 def u_displacement():
     """Convenience function to build a zonal displacement velocity attribute."""
     kwargs = {"name": "u_displacement", "data_type": float, "precision": 1}
-    _desc = "Zonal centroid displacement velocity."
-    kwargs.update({"units": "m/s", "description": _desc})
+    kwargs.update(
+        {"units": "m/s", "description": "Zonal centroid displacement velocity."}
+    )
     return Attribute(**kwargs)
 
 
 def v_displacement():
     """Convenience function to build a meridional displacement velocity attribute."""
     kwargs = {"name": "v_displacement", "data_type": float, "precision": 1}
-    _desc = "Meridional centroid displacement velocity."
-    kwargs.update({"units": "m/s", "description": _desc})
+    kwargs.update(
+        {"units": "m/s", "description": "Meridional centroid displacement velocity."}
+    )
     return Attribute(**kwargs)
 
 
@@ -396,8 +423,10 @@ def displacement_velocity():
     """Convenience function to build a displacement velocity attribute group."""
     attributes_list = [u_displacement(), v_displacement()]
     _retrieval = Retrieval(function=velocities_from_match_record)
-    _desc = "Displacement velocities from match record."
-    kwargs = {"name": "displacement_velocity", "description": _desc}
+    kwargs = {
+        "name": "displacement_velocity",
+        "description": "Displacement velocities from match record.",
+    }
     kwargs.update({"attributes": attributes_list, "retrieval": _retrieval})
     return AttributeGroup(**kwargs)
 
@@ -405,8 +434,7 @@ def displacement_velocity():
 def areas_record():
     """Convenience function to build an areas record attribute."""
     kwargs = {"name": "area", "data_type": float, "precision": 1}
-    _desc = "Area taken from the match record."
-    kwargs.update({"units": "km^2", "description": _desc})
+    kwargs.update({"units": "km^2", "description": "Area taken from the match record."})
     _func = areas_from_match_record
     _retrieval = Retrieval(function=_func)
     kwargs.update({"retrieval": _retrieval})
@@ -416,8 +444,7 @@ def areas_record():
 def areas_mask():
     """Convenience function to build an areas mask attribute."""
     kwargs = {"name": "area", "data_type": float, "precision": 1}
-    _desc = "Area taken from the object mask."
-    kwargs.update({"units": "km^2", "description": _desc})
+    kwargs.update({"units": "km^2", "description": "Area taken from the object mask."})
     _func = areas_from_mask
     _retrieval = Retrieval(function=_func, keyword_arguments={"matched": True})
     kwargs.update({"retrieval": _retrieval})
@@ -440,8 +467,9 @@ def areas_mask():
 def echo_top_height():
     """Convenience function to build an echo top height attribute."""
     kwargs = {"name": "echo_top_height", "data_type": float, "precision": 1}
-    _desc = "Echo top height taken from the object mask."
-    kwargs.update({"units": "m", "description": _desc})
+    kwargs.update(
+        {"units": "m", "description": "Echo top height taken from the object mask."}
+    )
     _func = echo_top_height_from_mask
     _retrieval = Retrieval(function=_func, keyword_arguments={"threshold": 15})
     kwargs.update({"retrieval": _retrieval})
@@ -464,9 +492,13 @@ def echo_top_height():
 def time():
     """Convenience function to build a time attribute."""
     kwargs = {"name": "time", "data_type": np.datetime64}
-    _desc = "Time taken from the tracking process."
     _retrieval = Retrieval(function=time_from_tracks)
-    kwargs.update({"units": "yyyy-mm-dd hh:mm:ss", "description": _desc})
+    kwargs.update(
+        {
+            "units": "yyyy-mm-dd hh:mm:ss",
+            "description": "Time taken from the tracking process.",
+        }
+    )
     kwargs.update({"retrieval": _retrieval})
     return Attribute(**kwargs)
 

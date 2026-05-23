@@ -471,39 +471,64 @@ class BaseFigure(BaseHandler):
 
     object_name: str = Field(..., description="The name of the object.")
     time: np.datetime64 = Field(..., description="The time of the figure.")
-    _desc = "A dictionary with a list of attribute handlers for the given object."
-    attribute_handlers: dict[str, list[AttributeHandler]] = Field([], description=_desc)
-    _desc = "The artist used to visualize the domain boundary."
-    boundary_artists: list[Any] = Field([], description=_desc)
-    _desc = "The artists used to visualize the field, e.g. reflectivity."
-    field_artists: list[Any] = Field([], description=_desc)
-    _desc = "The artists used to visualize object masks."
-    mask_artists: list[Any] = Field([], description=_desc)
-    _desc = "The artists used to visualize object attributes."
-    attribute_artists: Dict[str, Any] = Field({}, description=_desc)
-    _desc = "The proxy artists used for creating legends."
-    legend_artists: Dict[str, Any] = Field({}, description=_desc)
-    _desc = "Layout class instance for the figure."
-    layout: utils.BaseLayout = Field(None, description=_desc)
-    _desc = "Options for the figure."
-    options: FigureOptions | None = Field(None, description=_desc)
+    attribute_handlers: dict[str, list[AttributeHandler]] = Field(
+        [],
+        description=(
+            "A dictionary with a list of attribute handlers for the given object."
+        ),
+    )
+    boundary_artists: list[Any] = Field(
+        [],
+        description="The artist used to visualize the domain boundary.",
+    )
+    field_artists: list[Any] = Field(
+        [],
+        description="The artists used to visualize the field, e.g. reflectivity.",
+    )
+    mask_artists: list[Any] = Field(
+        [],
+        description="The artists used to visualize object masks.",
+    )
+    attribute_artists: Dict[str, Any] = Field(
+        {},
+        description="The artists used to visualize object attributes.",
+    )
+    legend_artists: Dict[str, Any] = Field(
+        {},
+        description="The proxy artists used for creating legends.",
+    )
+    layout: utils.BaseLayout = Field(
+        None,
+        description="Layout class instance for the figure.",
+    )
+    options: FigureOptions | None = Field(None, description="Options for the figure.")
     figure: Any = Field(None, description="The Matplotlib figure object.")
-    _desc = "The Matplotlib axes containing subplots."
-    subplot_axes: list[Any] = Field([], description=_desc)
-    _desc = "The Matplotlib axes containing legends."
-    legend_axes: list[Any] = Field([], description=_desc)
-    _desc = "The Matplotlib axes containing colorbars."
-    colorbar_axes: list[Any] = Field([], description=_desc)
-    _desc = "Filepath to csv of core attributes."
-    core_filepath: str | None = Field(None, description=_desc)
+    subplot_axes: list[Any] = Field(
+        [],
+        description="The Matplotlib axes containing subplots.",
+    )
+    legend_axes: list[Any] = Field(
+        [],
+        description="The Matplotlib axes containing legends.",
+    )
+    colorbar_axes: list[Any] = Field(
+        [],
+        description="The Matplotlib axes containing colorbars.",
+    )
+    core_filepath: str | None = Field(
+        None,
+        description="Filepath to csv of core attributes.",
+    )
 
 
 class GroupedObjectFigure(BaseFigure):
     """Class for visualizing grouped objects."""
 
     member_objects: list[str] = Field([], description="Member object names.")
-    _desc = "Filepaths to core attributes for each member object."
-    member_core_filepaths: dict[str, str] = Field({}, description=_desc)
+    member_core_filepaths: dict[str, str] = Field(
+        {},
+        description="Filepaths to core attributes for each member object.",
+    )
 
     @model_validator(mode="after")
     def _check_number_subplots(cls, values):

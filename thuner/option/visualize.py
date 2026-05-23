@@ -23,12 +23,20 @@ __all__ = [
 class VisualizeOptions(BaseOptions):
     """Base class for visualization options."""
 
-    _desc = "The local parent directory in which to save the figures."
-    parent_local: str | PosixPath | None = Field(None, description=_desc)
-    _desc = "The style of the figures. See thuner.visualize.styles for options."
-    style: str = Field("presentation", description=_desc)
-    _desc = "Filepath to the regridder weights."
-    weights_filepath: str | None = Field(None, description=_desc)
+    parent_local: str | PosixPath | None = Field(
+        None,
+        description="The local parent directory in which to save the figures.",
+    )
+    style: str = Field(
+        "presentation",
+        description=(
+            "The style of the figures. See thuner.visualize.styles for options."
+        ),
+    )
+    weights_filepath: str | None = Field(
+        None,
+        description="Filepath to the regridder weights.",
+    )
 
     @model_validator(mode="after")
     def validate_parent_local(cls, values):
@@ -41,31 +49,38 @@ class VisualizeOptions(BaseOptions):
 class FigureOptions(BaseOptions):
     """Base class for figure options."""
 
-    _desc = "The base name of the figure."
-    name: str = Field(..., description=_desc)
-    _desc = "The function used to generate the figure."
-    function: CallableField = Field(..., description=_desc)
-    _desc = "The style of the figure."
-    style: str = Field(None, description=_desc)
-    _desc = "Whether to animate the figure."
-    animate: bool = Field(True, description=_desc)
-    _desc = "Whether to use a single color for the object masks."
-    single_color: bool = Field(False, description=_desc)
-    _desc = "The template for the figure. This is typically created during runtime."
-    template: Any = Field(None, description=_desc)
+    name: str = Field(..., description="The base name of the figure.")
+    function: CallableField = Field(
+        ...,
+        description="The function used to generate the figure.",
+    )
+    style: str = Field(None, description="The style of the figure.")
+    animate: bool = Field(True, description="Whether to animate the figure.")
+    single_color: bool = Field(
+        False,
+        description="Whether to use a single color for the object masks.",
+    )
+    template: Any = Field(
+        None,
+        description=(
+            "The template for the figure. This is typically created during runtime."
+        ),
+    )
 
 
 class ObjectRuntimeOptions(VisualizeOptions):
     """Class for a given object's runtime visualization options."""
 
-    _desc = "The object to generate runtime figures for."
-    name: str = Field(..., description=_desc)
-    _desc = "The types of figures to generate."
-    figures: list[FigureOptions] = Field(..., description=_desc)
-    _desc = "Whether to animate the figures."
-    animate: bool = Field(True, description=_desc)
-    _desc = "Whether to use a single color for the object masks."
-    single_color: bool = Field(False, description=_desc)
+    name: str = Field(..., description="The object to generate runtime figures for.")
+    figures: list[FigureOptions] = Field(
+        ...,
+        description="The types of figures to generate.",
+    )
+    animate: bool = Field(True, description="Whether to animate the figures.")
+    single_color: bool = Field(
+        False,
+        description="Whether to use a single color for the object masks.",
+    )
 
     @model_validator(mode="after")
     def initialize_figures(cls, values):
@@ -80,29 +95,43 @@ class ObjectRuntimeOptions(VisualizeOptions):
 class RuntimeOptions(BaseOptions):
     """Class for runtime visualization options."""
 
-    _desc = "The objects to generate runtime figures for."
-    objects: dict[str, ObjectRuntimeOptions] = Field({}, description=_desc)
+    objects: dict[str, ObjectRuntimeOptions] = Field(
+        {},
+        description="The objects to generate runtime figures for.",
+    )
 
 
 class HorizontalAttributeOptions(VisualizeOptions):
     """Class for horizontal attribute visualization options."""
 
-    _desc = "The base name of the figure."
-    name: str = Field(..., description=_desc)
-    _desc = "The name of the object to visualize."
-    object_name: str = Field(..., description=_desc)
-    _desc = "Handlers for all the attributes to be shown in the figure."
-    attribute_handlers: dict[str, list[Any]] = Field(None, description=_desc)
-    _desc = "Function and keyword arguments used to generate the figure."
-    method: Retrieval | Callable | None = Field(None, description=_desc)
-    _desc = "The template for the figure. This is typically created during runtime."
-    template: Any = Field(None, description=_desc)
-    _desc = "Whether to use a single color for the object masks."
-    single_color: bool = Field(False, description=_desc)
-    _desc = "Time step in seconds used to convert velocities to displacements."
-    conversion_time_step: float = Field(3600, description=_desc)
-    _desc = "Show the altitudes the objects were detected at as titles."
-    altitude_titles: bool = Field(True, description=_desc)
+    name: str = Field(..., description="The base name of the figure.")
+    object_name: str = Field(..., description="The name of the object to visualize.")
+    attribute_handlers: dict[str, list[Any]] = Field(
+        None,
+        description="Handlers for all the attributes to be shown in the figure.",
+    )
+    method: Retrieval | Callable | None = Field(
+        None,
+        description="Function and keyword arguments used to generate the figure.",
+    )
+    template: Any = Field(
+        None,
+        description=(
+            "The template for the figure. This is typically created during runtime."
+        ),
+    )
+    single_color: bool = Field(
+        False,
+        description="Whether to use a single color for the object masks.",
+    )
+    conversion_time_step: float = Field(
+        3600,
+        description="Time step in seconds used to convert velocities to displacements.",
+    )
+    altitude_titles: bool = Field(
+        True,
+        description="Show the altitudes the objects were detected at as titles.",
+    )
 
     @model_validator(mode="after")
     def _initialize_method(cls, values):
@@ -116,8 +145,10 @@ class HorizontalAttributeOptions(VisualizeOptions):
 class GroupedHorizontalAttributeOptions(HorizontalAttributeOptions):
     """Class for grouped horizontal attribute visualization options."""
 
-    _desc = "The member objects to visualize."
-    member_objects: list[str] = Field(["convective", "anvil"], description=_desc)
+    member_objects: list[str] = Field(
+        ["convective", "anvil"],
+        description="The member objects to visualize.",
+    )
 
     @model_validator(mode="after")
     def _check_dictionary_keys(cls, values):

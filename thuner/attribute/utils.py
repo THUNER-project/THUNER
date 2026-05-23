@@ -134,8 +134,7 @@ string_to_data_type = {
 def time_offset():
     """Convenience function to build a TimeOffset attribute."""
     kwargs = {"name": "time_offset", "data_type": int, "units": "min"}
-    _desc = "Time offset in minutes from object detection time."
-    kwargs.update({"description": _desc})
+    kwargs.update({"description": "Time offset in minutes from object detection time."})
     return Attribute(**kwargs)
 
 

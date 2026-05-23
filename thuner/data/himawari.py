@@ -65,20 +65,25 @@ class HimawariOptions(utils.BaseDatasetOptions):
         self._change_defaults(**kwargs)
 
     # Define additional fields for Himawari
-    _desc = "Time frame for the observation."
-    time_frame: Literal["arc", "nrt"] = Field("arc", description=_desc)
-    _desc = "Observation type."
-    region: Literal["fldk", "re03"] = Field("fldk", description=_desc)
-    _desc = "Version of the Himawari data."
-    version: Literal["v1-0", "latest"] = Field("latest", description=_desc)
-    _desc = "Instrument name."
-    instrument: Literal["AHI"] = Field("AHI", description=_desc)
-    _desc = "Observation EM band."
-    band: Bands = Field("B14", description=_desc)
-    _desc = "Resolution of the data, i.e. size of the gridstep."
-    resolution: Literal[500, 1000, 2000] = Field(2000, description=_desc)
-    _desc = "Path to the coordinates ancillary file."
-    coordinates_filepath: str | None = Field(None, description=_desc)
+    time_frame: Literal["arc", "nrt"] = Field(
+        "arc",
+        description="Time frame for the observation.",
+    )
+    region: Literal["fldk", "re03"] = Field("fldk", description="Observation type.")
+    version: Literal["v1-0", "latest"] = Field(
+        "latest",
+        description="Version of the Himawari data.",
+    )
+    instrument: Literal["AHI"] = Field("AHI", description="Instrument name.")
+    band: Bands = Field("B14", description="Observation EM band.")
+    resolution: Literal[500, 1000, 2000] = Field(
+        2000,
+        description="Resolution of the data, i.e. size of the gridstep.",
+    )
+    coordinates_filepath: str | None = Field(
+        None,
+        description="Path to the coordinates ancillary file.",
+    )
 
     # Override get_filepaths and grid_from_dataset with CPOL specific versions.
     def get_filepaths(self):

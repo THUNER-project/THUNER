@@ -59,9 +59,13 @@ def overlap_from_mask(
 def boundary_overlap():
     """Convenience function to build a BoundaryOverlap attribute."""
     kwargs = {"name": "boundary_overlap", "data_type": float, "precision": 4}
-    _desc = "Fraction of object area comprised of boundary gridcells."
     _retrieval = Retrieval(function=overlap_from_mask)
-    kwargs.update({"description": _desc, "retrieval": _retrieval})
+    kwargs.update(
+        {
+            "description": "Fraction of object area comprised of boundary gridcells.",
+            "retrieval": _retrieval,
+        }
+    )
     return Attribute(**kwargs)
 
 

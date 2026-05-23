@@ -43,16 +43,24 @@ class Era5Options(BaseDatasetOptions):
             self._change_defaults(name="era5_sl", fields=["cape", "cin"])
 
     # Define additional fields for era5
-    _desc = "Latitude range if accessing a directory of subsetted era5 data."
-    latitude_range: list[float] = Field([-90, 90], description=_desc)
-    _desc = "Longitude range if accessing a directory of subsetted era5 data."
-    longitude_range: list[float] = Field([-180, 180], description=_desc)
+    latitude_range: list[float] = Field(
+        [-90, 90],
+        description="Latitude range if accessing a directory of subsetted era5 data.",
+    )
+    longitude_range: list[float] = Field(
+        [-180, 180],
+        description="Longitude range if accessing a directory of subsetted era5 data.",
+    )
     mode: Literal["reanalysis"] = Field("reanalysis", description=_summary["mode"])
     _FormatChoices = Literal["pressure-levels", "single-levels"]
-    _desc = "Data format, e.g. pressure-levels."
-    data_format: _FormatChoices = Field("pressure-levels", description=_desc)
-    _desc = "Pressure levels; required if data_format is pressure-levels."
-    pressure_levels: list[str] | list[float] | None = Field(None, description=_desc)
+    data_format: _FormatChoices = Field(
+        "pressure-levels",
+        description="Data format, e.g. pressure-levels.",
+    )
+    pressure_levels: list[str] | list[float] | None = Field(
+        None,
+        description="Pressure levels; required if data_format is pressure-levels.",
+    )
     storage: str = Field("monthly", description=_summary["storage"])
 
     def get_filepaths(self):

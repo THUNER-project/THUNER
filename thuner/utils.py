@@ -170,10 +170,14 @@ class BaseOptions(BaseModel, metaclass=AutoTypeMeta):
 class Retrieval(BaseOptions):
     """Class for retrieval. Generally a function and a dictionary of kwargs."""
 
-    _desc = "The function used to retrieve the attribute."
-    function: CallableField = Field(None, description=_desc)
-    _desc = "Keyword arguments for the retrieval function."
-    keyword_arguments: dict = Field({}, description=_desc)
+    function: CallableField = Field(
+        None,
+        description="The function used to retrieve the attribute.",
+    )
+    keyword_arguments: dict = Field(
+        {},
+        description="Keyword arguments for the retrieval function.",
+    )
 
     @model_validator(mode="after")
     def check_function(cls, values):
@@ -197,9 +201,11 @@ class ConvertedOptions(BaseOptions):
 
     save: bool = Field(False, description="Whether to save the converted data.")
     load: bool = Field(False, description="Whether to load the converted data.")
-    _desc = "Parent directory for converted data."
     _default_parent_converted = str(get_outputs_directory() / "input_data/converted")
-    parent_converted: str | None = Field(_default_parent_converted, description=_desc)
+    parent_converted: str | None = Field(
+        _default_parent_converted,
+        description="Parent directory for converted data.",
+    )
 
 
 class BaseDatasetOptions(BaseOptions):
@@ -208,37 +214,67 @@ class BaseDatasetOptions(BaseOptions):
     name: str = Field(None, description="Name of the dataset.")
     start: DatetimeField = Field(..., description="Tracking start time.")
     end: DatetimeField = Field(..., description="Tracking end time.")
-    _desc = "List of dataset fields, i.e. variables, to use. Fields should be given "
-    _desc += "using their thuner, i.e. CF-Conventions, names, e.g. 'reflectivity'."
-    fields: list[str] | None = Field(None, description=_desc)
-    _desc = "Parent directory of the dataset on remote storage."
-    parent_remote: str | None = Field(None, description=_desc)
-    _desc = "Parent directory of the dataset on local storage."
-    _default_parent_local = str(get_outputs_directory() / "input_data/raw")
-    parent_local: str | Path | None = Field(_default_parent_local, description=_desc)
-    _desc = "Options for saving and loading converted data."
-    converted_options: ConvertedOptions = Field(ConvertedOptions(), description=_desc)
-    _desc = "List of filepaths for the dataset."
-    filepaths: list[str] | dict = Field(None, description=_desc)
-    _desc = "Whether to attempt to download the data."
-    attempt_download: bool = Field(False, description=_desc)
-    _desc = "Number of current/previous grids from this dataset to keep in memory. "
-    _desc += "Most tracking algorithms require a 'next' grid, 'current' grid, and at "
-    _desc += "least two previous grids."
-    deque_length: int = Field(2, description=_desc)
-    _desc = "Whether this dataset will be used for tagging, tracking or both."
-    use: Literal["track", "tag", "both"] = Field("track", description=_desc)
-    _desc = "Minutes before interval start time to include. Useful for tagging when "
-    _desc += "one wants to record pre-storm ambient profiles."
-    start_buffer: int = Field(-120, description=_desc)
-    _desc = "Minutes after interval end time to include. Useful for tagging when "
-    _desc += "one wants to record post-storm ambient profiles."
-    end_buffer: int = Field(0, description=_desc)
-    _desc = "Whether to save and reuse an xesmf regridder for this dataset."
-    reuse_regridder: bool = Field(False, description=_desc)
-    _desc = "The filepath to where the xesmf regridder weights should be saved/loaded."
-    _desc = "This should generally be left as None and inferred during tracking."
-    weights_filepath: str | None = Field(None, description=_desc)
+    fields: list[str] | None = Field(
+        None,
+        description=(
+            "List of dataset fields, i.e. variables, to use. Fields should be given "
+            "using their thuner, i.e. CF-Conventions, names, e.g. 'reflectivity'."
+        ),
+    )
+    parent_remote: str | None = Field(
+        None, description="Parent directory of the dataset on remote storage."
+    )
+    parent_local: str | Path | None = Field(
+        str(get_outputs_directory() / "input_data/raw"),
+        description="Parent directory of the dataset on local storage.",
+    )
+    converted_options: ConvertedOptions = Field(
+        ConvertedOptions(),
+        description="Options for saving and loading converted data.",
+    )
+    filepaths: list[str] | dict = Field(
+        None, description="List of filepaths for the dataset."
+    )
+    attempt_download: bool = Field(
+        False, description="Whether to attempt to download the data."
+    )
+    deque_length: int = Field(
+        2,
+        description=(
+            "Number of current/previous grids from this dataset to keep in memory. "
+            "Most tracking algorithms require a 'next' grid, 'current' grid, and at "
+            "least two previous grids."
+        ),
+    )
+    use: Literal["track", "tag", "both"] = Field(
+        "track",
+        description="Whether this dataset will be used for tagging, tracking or both.",
+    )
+    start_buffer: int = Field(
+        -120,
+        description=(
+            "Minutes before interval start time to include. Useful for tagging when "
+            "one wants to record pre-storm ambient profiles."
+        ),
+    )
+    end_buffer: int = Field(
+        0,
+        description=(
+            "Minutes after interval end time to include. Useful for tagging when "
+            "one wants to record post-storm ambient profiles."
+        ),
+    )
+    reuse_regridder: bool = Field(
+        False,
+        description="Whether to save and reuse an xesmf regridder for this dataset.",
+    )
+    weights_filepath: str | None = Field(
+        None,
+        description=(
+            "Filepath to where the xesmf regridder weights should be saved/loaded. "
+            "Should generally be left as None and inferred during tracking."
+        ),
+    )
 
     # Create basic functions for getting filepaths etc for already converted datasets.
     # These are overridden in the subclasses.
@@ -398,26 +434,50 @@ class AttributeHandler(BaseHandler):
     attributes visualized together, e.g. u, v.
     """
 
-    _desc = "The name of the attribute or attributes being handled, e.g. velocity."
-    name: str = Field(..., description=_desc)
-    _desc = "The axes in which the attributes are to be visualized."
-    axes: list[Any] = Field([], description=_desc)
-    _desc = "The label to appear in legends etc for this attribute."
-    label: str = Field(..., description=_desc)
-    _desc = "The names of the attributes to be visualized."
-    attributes: list[str] = Field(..., description=_desc)
-    _desc = "Path to the attribute table inside the unified zarr store."
-    filepath: str = Field(..., description=_desc)
-    _desc = "The method used to visualize the attributes."
-    method: Retrieval = Field(..., description=_desc)
-    _desc = "The method used to create the legend artist for this attribute."
-    legend_method: Retrieval | None = Field(None, description=_desc)
-    _desc = "The filepath of the quality control file."
-    quality_filepath: str | None = Field(None, description=_desc)
-    _desc = "The quality control variables for this attribute."
-    quality_variables: list[str] = Field([], description=_desc)
-    _desc = "The logic used to determine if an object is of sufficient quality."
-    quality_method: Literal["any", "all"] = Field("all", description=_desc)
+    name: str = Field(
+        ...,
+        description=(
+            "The name of the attribute or attributes being handled, e.g. velocity."
+        ),
+    )
+    axes: list[Any] = Field(
+        [],
+        description="The axes in which the attributes are to be visualized.",
+    )
+    label: str = Field(
+        ...,
+        description="The label to appear in legends etc for this attribute.",
+    )
+    attributes: list[str] = Field(
+        ...,
+        description="The names of the attributes to be visualized.",
+    )
+    filepath: str = Field(
+        ...,
+        description="Path to the attribute table inside the unified zarr store.",
+    )
+    method: Retrieval = Field(
+        ...,
+        description="The method used to visualize the attributes.",
+    )
+    legend_method: Retrieval | None = Field(
+        None,
+        description="The method used to create the legend artist for this attribute.",
+    )
+    quality_filepath: str | None = Field(
+        None,
+        description="The filepath of the quality control file.",
+    )
+    quality_variables: list[str] = Field(
+        [],
+        description="The quality control variables for this attribute.",
+    )
+    quality_method: Literal["any", "all"] = Field(
+        "all",
+        description=(
+            "The logic used to determine if an object is of sufficient quality."
+        ),
+    )
 
 
 def infer_grid_options(dataset: DataObject, grid_options):

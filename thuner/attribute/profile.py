@@ -314,9 +314,8 @@ def profile_center(dataset: str):
     _ret_kwargs = {"center_type": "area_weighted", "time_offsets": [-120, -60, 0]}
     _ret_kwargs.update({"dataset": dataset})
     _retrieval = Retrieval(function=from_centers, keyword_arguments=_ret_kwargs)
-    _desc = "Environmental profiles at object center."
     kwargs = {"name": "profiles", "attributes": _attributes, "retrieval": _retrieval}
-    kwargs.update({"description": _desc})
+    kwargs.update({"description": "Environmental profiles at object center."})
     return AttributeGroup(**kwargs)
 
 

@@ -154,8 +154,12 @@ class OperationalOptions(AuraOptions):
     level: str = Field("1")
     data_format: str = Field("ODIM")
     radar: int = Field(63, description="Radar ID number.")
-    _desc = "Weighting function used by pyart to reconstruct the grid from ODIM."
-    weighting_function: str = Field("Barnes2", description=_desc)
+    weighting_function: str = Field(
+        "Barnes2",
+        description=(
+            "Weighting function used by pyart to reconstruct the grid from ODIM."
+        ),
+    )
 
 
 def get_operational_filepaths(options: OperationalOptions):

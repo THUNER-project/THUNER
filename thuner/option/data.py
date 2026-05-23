@@ -33,8 +33,12 @@ class DataOptions(BaseOptions):
 
     datasets: list[AnyDatasetOptions] = Field(..., description=_summary["datasets"])
     _dataset_lookup: Dict[str, AnyDatasetOptions] = {}
-    _desc = "List of dataset names to be used in the run. This is set automatically."
-    dataset_names: List[str] = Field([], description=_desc)
+    dataset_names: List[str] = Field(
+        [],
+        description=(
+            "List of dataset names to be used in the run. This is set automatically."
+        ),
+    )
 
     @model_validator(mode="after")
     def initialize_dataset_lookup(cls, values):

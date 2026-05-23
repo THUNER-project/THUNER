@@ -21,11 +21,15 @@ class Attribute(BaseOptions):
     """
 
     name: str = Field(..., description="Name of the attribute.")
-    _desc = "The function/kwargs used to retrieve the attribute."
-    retrieval: Retrieval | None = Field(None, description=_desc)
+    retrieval: Retrieval | None = Field(
+        None,
+        description="The function/kwargs used to retrieve the attribute.",
+    )
     data_type: TypeField = Field(..., description="Data type of the attribute.")
-    _desc = "Number of decimal places for a numerical attribute."
-    precision: int | None = Field(None, description=_desc)
+    precision: int | None = Field(
+        None,
+        description="Number of decimal places for a numerical attribute.",
+    )
     description: str | None = Field(None, description="Description of the attribute.")
     units: str | None = Field(None, description="Units of the attribute.")
 
@@ -50,10 +54,14 @@ class AttributeGroup(BaseOptions):
 
     name: str = Field(..., description="Name of the attribute group.")
     attributes: list[Attribute] = Field(..., description="Attributes in the group.")
-    _desc = "The function/kwargs used to retrieve the attributes in the group."
-    retrieval: Retrieval | None = Field(None, description=_desc)
-    _desc = "Description of the attribute group."
-    description: str | None = Field(None, description=_desc)
+    retrieval: Retrieval | None = Field(
+        None,
+        description="The function/kwargs used to retrieve the attributes in the group.",
+    )
+    description: str | None = Field(
+        None,
+        description="Description of the attribute group.",
+    )
 
     @model_validator(mode="after")
     def check_retrieval(cls, values):
@@ -91,14 +99,19 @@ class AttributeType(BaseOptions):
     """
 
     name: str = Field(..., description="Name of the attribute type.")
-    _desc = "Description of the attribute type."
-    description: str | None = Field(None, description=_desc)
-    _desc = "Attributes and attribute groups comprising the attribute type."
-    attributes: AttributeList = Field(..., description=_desc)
+    description: str | None = Field(
+        None,
+        description="Description of the attribute type.",
+    )
+    attributes: AttributeList = Field(
+        ...,
+        description="Attributes and attribute groups comprising the attribute type.",
+    )
     # If the attribute type corresponds to a specific tagging dataset, specify it here
-    _desc = "Dataset for tag attribute types (None if not applicable)."
-    dataset: str | None = Field(None, description=_desc)
-    _desc = "Lookup dictionary for attributes."
+    dataset: str | None = Field(
+        None,
+        description="Dataset for tag attribute types (None if not applicable).",
+    )
     _attribute_lookup = {}
 
     @model_validator(mode="after")
@@ -132,12 +145,15 @@ class Attributes(BaseOptions):
     """
 
     name: str = Field(..., description="Name of the object.", examples=["mcs"])
-    _desc = "Attribute types of the object."
-    attribute_types: list[AttributeType] = Field(..., description=_desc)
-    _desc = "Lookup dictionary for attribute types."
+    attribute_types: list[AttributeType] = Field(
+        ...,
+        description="Attribute types of the object.",
+    )
     _attribute_type_lookup = {}
-    _desc = "List of object attributes for the member objects."
-    member_attributes: AttributesDict | None = Field(None, description=_desc)
+    member_attributes: AttributesDict | None = Field(
+        None,
+        description="List of object attributes for the member objects.",
+    )
 
     @model_validator(mode="after")
     def initialize_lookup(cls, values):

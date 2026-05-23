@@ -14,34 +14,53 @@ logger = setup_logger(__name__)
 class GridOptions(BaseOptions):
     """Class for grid options."""
 
-    _desc = "Name of the grid."
-    name: Literal["geographic", "cartesian"] = Field("geographic", description=_desc)
-    _desc = "z-coordinates for the dataset."
-    altitude: list[float] | None = Field(None, description=_desc)
-    _desc = "latitudes for the dataset."
-    latitude: list[float] | None = Field(None, description=_desc)
-    _desc = "longitudes for the dataset."
-    longitude: list[float] | None = Field(None, description=_desc)
-    _desc = "Central latitude for the dataset."
-    central_latitude: float | None = Field(None, description=_desc)
-    _desc = "Central longitude for the dataset."
-    central_longitude: float | None = Field(None, description=_desc)
-    _desc = "x-coordinates for the dataset in meters."
-    x: list[float] | None = Field(None, description=_desc)
-    _desc = "y-coordinates for the dataset in meters."
-    y: list[float] | None = Field(None, description=_desc)
-    _desc = "Projection used if the dataset is cartesian."
-    projection: str | None = Field(None, description=_desc)
-    _desc = "Spacing for the altitude grid in metres."
-    altitude_spacing: float | None = Field(500, description=_desc)
-    _desc = "Spacing for the horizontal cartesian grid [y, x] in metres."
-    cartesian_spacing: list[float] | None = Field([2500, 2500], description=_desc)
-    _desc = "Spacing for the horizontal geographic grid [lat, lon] in degrees."
-    geographic_spacing: list[float] | None = Field([0.025, 0.025], description=_desc)
-    _desc = "Shape of the dataset."
-    shape: tuple[int, int] | None = Field(None, description=_desc)
-    _desc = "Whether to attempt to regrid the dataset."
-    regrid: bool = Field(True, description=_desc)
+    name: Literal["geographic", "cartesian"] = Field(
+        "geographic",
+        description="Name of the grid.",
+    )
+    altitude: list[float] | None = Field(
+        None,
+        description="z-coordinates for the dataset.",
+    )
+    latitude: list[float] | None = Field(None, description="latitudes for the dataset.")
+    longitude: list[float] | None = Field(
+        None,
+        description="longitudes for the dataset.",
+    )
+    central_latitude: float | None = Field(
+        None,
+        description="Central latitude for the dataset.",
+    )
+    central_longitude: float | None = Field(
+        None,
+        description="Central longitude for the dataset.",
+    )
+    x: list[float] | None = Field(
+        None,
+        description="x-coordinates for the dataset in meters.",
+    )
+    y: list[float] | None = Field(
+        None,
+        description="y-coordinates for the dataset in meters.",
+    )
+    projection: str | None = Field(
+        None,
+        description="Projection used if the dataset is cartesian.",
+    )
+    altitude_spacing: float | None = Field(
+        500,
+        description="Spacing for the altitude grid in metres.",
+    )
+    cartesian_spacing: list[float] | None = Field(
+        [2500, 2500],
+        description="Spacing for the horizontal cartesian grid [y, x] in metres.",
+    )
+    geographic_spacing: list[float] | None = Field(
+        [0.025, 0.025],
+        description="Spacing for the horizontal geographic grid [lat, lon] in degrees.",
+    )
+    shape: tuple[int, int] | None = Field(None, description="Shape of the dataset.")
+    regrid: bool = Field(True, description="Whether to attempt to regrid the dataset.")
     domain_mask: NDArrayField = Field(
         None,
         description=(

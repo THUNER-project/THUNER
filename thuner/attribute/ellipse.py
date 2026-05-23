@@ -139,8 +139,7 @@ def latitude():
     """
     kwargs = {"name": "latitude", "data_type": float, "precision": 4}
     kwargs.update({"retrieval": None, "units": "degrees_north"})
-    _desc = "Latitude of the center of the ellipse fit."
-    kwargs.update({"description": _desc})
+    kwargs.update({"description": "Latitude of the center of the ellipse fit."})
     return Attribute(**kwargs)
 
 
@@ -162,8 +161,7 @@ def longitude():
     """
     kwargs = {"name": "longitude", "data_type": float, "precision": 4}
     kwargs.update({"retrieval": None, "units": "degrees_east"})
-    _desc = "Longitude of the center of the ellipse fit."
-    kwargs.update({"description": _desc})
+    kwargs.update({"description": "Longitude of the center of the ellipse fit."})
     return Attribute(**kwargs)
 
 
@@ -184,8 +182,7 @@ def major():
     """
     kwargs = {"name": "major", "data_type": float, "precision": 1}
     kwargs.update({"retrieval": None, "units": "km"})
-    _desc = "Major axis from ellipse fitted to object mask."
-    kwargs.update({"description": _desc})
+    kwargs.update({"description": "Major axis from ellipse fitted to object mask."})
     return Attribute(**kwargs)
 
 
@@ -206,8 +203,7 @@ def minor():
     """
     kwargs = {"name": "minor", "data_type": float, "precision": 1}
     kwargs.update({"retrieval": None, "units": "km"})
-    _desc = "Minor axis from ellipse fitted to object mask."
-    kwargs.update({"description": _desc})
+    kwargs.update({"description": "Minor axis from ellipse fitted to object mask."})
     return Attribute(**kwargs)
 
 
@@ -229,8 +225,11 @@ def orientation():
     """
     kwargs = {"name": "orientation", "data_type": float, "precision": 4}
     kwargs.update({"retrieval": None, "units": "radians"})
-    _desc = "Orientation of the ellipse fit measured in radians from the positive zonal axis."
-    kwargs.update({"description": _desc})
+    kwargs.update(
+        {
+            "description": "Orientation of the ellipse fit measured in radians from the positive zonal axis."
+        }
+    )
     return Attribute(**kwargs)
 
 
@@ -253,8 +252,9 @@ def eccentricity():
     """
     kwargs = {"name": "eccentricity", "data_type": float, "precision": 4}
     kwargs.update({"retrieval": None, "units": None})
-    _desc = "Eccentricity of the ellipse fit to the object mask."
-    kwargs.update({"description": _desc})
+    kwargs.update(
+        {"description": "Eccentricity of the ellipse fit to the object mask."}
+    )
     return Attribute(**kwargs)
 
 

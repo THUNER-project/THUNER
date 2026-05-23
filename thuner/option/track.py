@@ -30,22 +30,45 @@ class TintOptions(BaseOptions):
     """
 
     name: str = "tint"
-    _desc = "Margin in km for object matching. Does not affect flow vectors."
-    search_margin: float = Field(10.0, description=_desc, gt=0)
-    _desc = "Margin in km around object for phase correlation."
-    local_flow_margin: float = Field(10.0, description=_desc, gt=0)
-    _desc = "Margin in km around object for global flow vectors."
-    global_flow_margin: float = Field(150.0, description=_desc, gt=0)
-    _desc = "If True, create unique global flow vectors for each object."
-    unique_global_flow: bool = Field(True, description=_desc)
-    _desc = "Maximum allowable matching cost. Units of km."
-    max_cost: float = Field(2e2, description=_desc, gt=0, lt=1e3)
-    _desc = "Maximum allowable shift velocity magnitude. Units of m/s."
-    max_velocity_mag: float = Field(60.0, description=_desc, gt=0)
-    _desc = "Maximum allowable shift difference. Units of m/s."
-    max_velocity_diff: float = Field(60.0, description=_desc, gt=0)
-    _desc = "Name of object used for matching/tracking."
-    matched_object: str | None = Field(None, description=_desc)
+    search_margin: float = Field(
+        10.0,
+        description="Margin in km for object matching. Does not affect flow vectors.",
+        gt=0,
+    )
+    local_flow_margin: float = Field(
+        10.0,
+        description="Margin in km around object for phase correlation.",
+        gt=0,
+    )
+    global_flow_margin: float = Field(
+        150.0,
+        description="Margin in km around object for global flow vectors.",
+        gt=0,
+    )
+    unique_global_flow: bool = Field(
+        True,
+        description="If True, create unique global flow vectors for each object.",
+    )
+    max_cost: float = Field(
+        2e2,
+        description="Maximum allowable matching cost. Units of km.",
+        gt=0,
+        lt=1e3,
+    )
+    max_velocity_mag: float = Field(
+        60.0,
+        description="Maximum allowable shift velocity magnitude. Units of m/s.",
+        gt=0,
+    )
+    max_velocity_diff: float = Field(
+        60.0,
+        description="Maximum allowable shift difference. Units of m/s.",
+        gt=0,
+    )
+    matched_object: str | None = Field(
+        None,
+        description="Name of object used for matching/tracking.",
+    )
 
 
 class MintOptions(TintOptions):
@@ -54,12 +77,21 @@ class MintOptions(TintOptions):
     """
 
     name: str = "mint"
-    _desc = "Margin in km for object matching. Does not affect flow vectors."
-    search_margin: float = Field(25.0, description=_desc, gt=0)
-    _desc = "Margin in km around object for phase correlation."
-    local_flow_margin: float = Field(35.0, description=_desc, gt=0)
-    _desc = "Alternative max shift difference used by MINT."
-    max_velocity_diff_alt: float = Field(25.0, description=_desc, gt=0)
+    search_margin: float = Field(
+        25.0,
+        description="Margin in km for object matching. Does not affect flow vectors.",
+        gt=0,
+    )
+    local_flow_margin: float = Field(
+        35.0,
+        description="Margin in km around object for phase correlation.",
+        gt=0,
+    )
+    max_velocity_diff_alt: float = Field(
+        25.0,
+        description="Alternative max shift difference used by MINT.",
+        gt=0,
+    )
 
 
 class MaskOptions(BaseOptions):
@@ -76,42 +108,75 @@ class BaseObjectOptions(BaseOptions):
     """Base class for object options."""
 
     name: str = Field(..., description="Name of the object.")
-    _desc = "Level of the object in the hierachy. Higher level objects may depend on "
-    _desc += "lower level objects."
-    hierarchy_level: int = Field(0, description=_desc, ge=0)
-    _desc = "Method used to obtain the object, i.e. detect or group."
-    method: Literal["detect", "group"] = Field("detect", description=_desc)
-    _desc = "Name of the dataset used for detection if applicable."
-    dataset: str = Field(..., description=_desc, examples=["cpol", "gridrad"])
-    _desc = "Length of the deque used for tracking."
-    deque_length: int = Field(2, description=_desc, gt=0, lt=10)
-    _desc = "Options for saving and loading masks."
-    mask_options: MaskOptions = Field(MaskOptions(), description=_desc)
-    _desc = "Interval in hours for writing objects to disk."
-    write_interval: int = Field(1, description=_desc, gt=0, lt=24 * 60)
-    _desc = "Allowed gap in minutes between consecutive times when tracking."
-    allowed_gap: int = Field(30, description=_desc, gt=0, lt=6 * 60)
-    _desc = "Options for object attributes."
-    attributes: Attributes | None = Field(None, description=_desc)
+    hierarchy_level: int = Field(
+        0,
+        description=(
+            "Level of the object in the hierachy. Higher level objects may depend on "
+            "lower level objects."
+        ),
+        ge=0,
+    )
+    method: Literal["detect", "group"] = Field(
+        "detect",
+        description="Method used to obtain the object, i.e. detect or group.",
+    )
+    dataset: str = Field(
+        ...,
+        description="Name of the dataset used for detection if applicable.",
+        examples=["cpol", "gridrad"],
+    )
+    deque_length: int = Field(
+        2,
+        description="Length of the deque used for tracking.",
+        gt=0,
+        lt=10,
+    )
+    mask_options: MaskOptions = Field(
+        MaskOptions(),
+        description="Options for saving and loading masks.",
+    )
+    write_interval: int = Field(
+        1,
+        description="Interval in hours for writing objects to disk.",
+        gt=0,
+        lt=24 * 60,
+    )
+    allowed_gap: int = Field(
+        30,
+        description="Allowed gap in minutes between consecutive times when tracking.",
+        gt=0,
+        lt=6 * 60,
+    )
+    attributes: Attributes | None = Field(
+        None,
+        description="Options for object attributes.",
+    )
 
 
 class DetectionOptions(BaseOptions):
     """Options for object detection."""
 
-    _desc = "Method used to detect the object."
-    method: Literal["steiner", "threshold"] = Field(..., description=_desc)
-    _desc = "Altitudes over which to detect objects."
-    altitudes: List[int] = Field([], description=_desc)
-    _desc = "Method used to flatten the grid before detection if relevant."
-    flatten_method: Retrieval | None = Field(
-        Retrieval(function=vertical_max), description=_desc
+    method: Literal["steiner", "threshold"] = Field(
+        ...,
+        description="Method used to detect the object.",
     )
-    _desc = "Minimum area of the object in km squared."
-    min_area: int = Field(10, description=_desc)
-    _desc = "Threshold used for detection if required."
-    threshold: int | None = Field(None, description=_desc)
-    _desc = "Threshold type, i.e. a minima or maxima threshold."
-    threshold_type: Literal["minima", "maxima"] = Field("minima", description=_desc)
+    altitudes: List[int] = Field(
+        [],
+        description="Altitudes over which to detect objects.",
+    )
+    flatten_method: Retrieval | None = Field(
+        Retrieval(function=vertical_max),
+        description="Method used to flatten the grid before detection if relevant.",
+    )
+    min_area: int = Field(10, description="Minimum area of the object in km squared.")
+    threshold: int | None = Field(
+        None,
+        description="Threshold used for detection if required.",
+    )
+    threshold_type: Literal["minima", "maxima"] = Field(
+        "minima",
+        description="Threshold type, i.e. a minima or maxima threshold.",
+    )
 
     @model_validator(mode="after")
     def _check_threshold(cls, values):
@@ -136,14 +201,15 @@ class DetectedObjectOptions(BaseObjectOptions):
     """Options for detected objects."""
 
     object_type: Literal["detected"] = Field("detected", description="Type of object.")
-    _desc = "Variable to use for detection."
-    variable: str = Field("reflectivity", description=_desc)
-    _desc = "Method used to detect the object."
+    variable: str = Field("reflectivity", description="Variable to use for detection.")
     detection: DetectionOptions = Field(
-        DetectionOptions(method="steiner"), description=_desc
+        DetectionOptions(method="steiner"),
+        description="Method used to detect the object.",
     )
-    _desc = "Options for tracking the object."
-    tracking: AnyTrackingOptions | None = Field(TintOptions(), description=_desc)
+    tracking: AnyTrackingOptions | None = Field(
+        TintOptions(),
+        description="Options for tracking the object.",
+    )
 
     @model_validator(mode="after")
     def _check_mask(cls, values):
@@ -161,10 +227,14 @@ class GroupingOptions(BaseOptions):
 
     method: str = Field("graph", description="Method used to group objects.")
     member_objects: List[str] = Field([], description="Names of objects to group")
-    _desc = "Hierarchy levels of objects to group."
-    member_levels: List[NonNegativeInt] = Field([], description=_desc)
-    _desc = "Minimum area of each member object in km squared."
-    member_min_areas: List[PositiveFloat] = Field([], description=_desc)
+    member_levels: List[NonNegativeInt] = Field(
+        [],
+        description="Hierarchy levels of objects to group.",
+    )
+    member_min_areas: List[PositiveFloat] = Field(
+        [],
+        description="Minimum area of each member object in km squared.",
+    )
 
     # Check lists are the same length.
     @model_validator(mode="after")
@@ -184,10 +254,14 @@ class GroupedObjectOptions(BaseObjectOptions):
     """Options for grouped objects."""
 
     object_type: Literal["grouped"] = Field("grouped", description="Type of object.")
-    _desc = "Options for grouping objects."
-    grouping: GroupingOptions = Field(GroupingOptions(), description=_desc)
-    _desc = "Options for tracking the object."
-    tracking: AnyTrackingOptions | None = Field(MintOptions(), description=_desc)
+    grouping: GroupingOptions = Field(
+        GroupingOptions(),
+        description="Options for grouping objects.",
+    )
+    tracking: AnyTrackingOptions | None = Field(
+        MintOptions(),
+        description="Options for tracking the object.",
+    )
 
     @model_validator(mode="after")
     def _check_mask(cls, values):
@@ -207,11 +281,15 @@ class LevelOptions(BaseOptions):
     used to define objects at higher levels.
     """
 
-    _desc = "Options for each object in the level."
-    objects: List[AnyObjectOptions] = Field([], description=_desc)
+    objects: List[AnyObjectOptions] = Field(
+        [],
+        description="Options for each object in the level.",
+    )
     _object_lookup = {}
-    _desc = "Names of the objects comprising this tracking level."
-    object_names: List[str] = Field([], description=_desc)
+    object_names: List[str] = Field(
+        [],
+        description="Names of the objects comprising this tracking level.",
+    )
 
     @model_validator(mode="after")
     def initialize_object_lookup(cls, values):

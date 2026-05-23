@@ -173,9 +173,13 @@ def tag_center(dataset):
     _time, _lat, _lon = core.time(), core.latitude(), core.longitude()
     _time.retrieval, _lat.retrieval, _lon.retrieval = None, None, None
     _attributes = [_time, utils.time_offset(), _lat, _lon, CAPE(), CIN()]
-    _desc = "Tags, e.g. CAPE and CIN, at object centers"
     kwargs = {"name": "tags_center", "retrieval": _retrieval}
-    kwargs.update({"attributes": _attributes, "description": _desc})
+    kwargs.update(
+        {
+            "attributes": _attributes,
+            "description": "Tags, e.g. CAPE and CIN, at object centers",
+        }
+    )
     return AttributeGroup(**kwargs)
 
 

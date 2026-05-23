@@ -105,8 +105,9 @@ def members_from_masks(
 def x_offset():
     """Convenience function to build an x_offset attribute."""
     kwargs = {"name": "x_offset", "data_type": float, "precision": 1}
-    _desc = "x offset of one object from another in km."
-    kwargs.update({"description": _desc, "units": "km"})
+    kwargs.update(
+        {"description": "x offset of one object from another in km.", "units": "km"}
+    )
     return Attribute(**kwargs)
 
 
@@ -123,8 +124,9 @@ def x_offset():
 def y_offset():
     """Convenience function to build a y_offset attribute."""
     kwargs = {"name": "y_offset", "data_type": float, "precision": 1}
-    _desc = "y offset of one object from another in km."
-    kwargs.update({"description": _desc, "units": "km"})
+    kwargs.update(
+        {"description": "y offset of one object from another in km.", "units": "km"}
+    )
     return Attribute(**kwargs)
 
 
@@ -143,8 +145,11 @@ def offset():
     attributes = [x_offset(), y_offset()]
     ret_kwargs = {"objects": ["convective", "anvil"]}
     _retrieval = Retrieval(function=offset_from_centers, keyword_arguments=ret_kwargs)
-    _desc = "Offset of one object from another in km, e.g. anvil from convective echo."
-    kwargs = {"name": "offset", "description": _desc, "attributes": attributes}
+    kwargs = {
+        "name": "offset",
+        "description": "Offset of one object from another in km, e.g. anvil from convective echo.",
+        "attributes": attributes,
+    }
     kwargs.update({"retrieval": _retrieval})
     return AttributeGroup(**kwargs)
 
@@ -164,8 +169,7 @@ def offset():
 def member_ids():
     """Convenience function to build a member_ids attribute."""
     kwargs = {"name": "", "data_type": str}
-    _desc = "IDs of the member objects in the grouped object."
-    kwargs.update({"description": _desc})
+    kwargs.update({"description": "IDs of the member objects in the grouped object."})
     return Attribute(**kwargs)
 
 
