@@ -20,13 +20,6 @@ __all__ = ["Era5Options", "get_era5_filepaths"]
 
 logger = log.setup_logger(__name__)
 
-_summary = {
-    "mode": "Mode of the data, e.g. reannalysis.",
-    "pressure_levels": "Pressure levels; required if data_format is pressure-levels.",
-    "storage": "Storage format of the data, e.g. monthly.",
-    "start_buffer": "Minutes before interval start time to include.",
-}
-
 
 class Era5Options(BaseDatasetOptions):
     """Options for ERA5 datasets."""
@@ -51,7 +44,9 @@ class Era5Options(BaseDatasetOptions):
         [-180, 180],
         description="Longitude range if accessing a directory of subsetted era5 data.",
     )
-    mode: Literal["reanalysis"] = Field("reanalysis", description=_summary["mode"])
+    mode: Literal["reanalysis"] = Field(
+        "reanalysis", description="Mode of the data, e.g. reannalysis."
+    )
     _FormatChoices = Literal["pressure-levels", "single-levels"]
     data_format: _FormatChoices = Field(
         "pressure-levels",
@@ -61,7 +56,9 @@ class Era5Options(BaseDatasetOptions):
         None,
         description="Pressure levels; required if data_format is pressure-levels.",
     )
-    storage: str = Field("monthly", description=_summary["storage"])
+    storage: str = Field(
+        "monthly", description="Storage format of the data, e.g. monthly."
+    )
 
     def get_filepaths(self):
         """Override the get_filepaths method with the era5 version."""

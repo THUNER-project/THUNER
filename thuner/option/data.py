@@ -15,8 +15,6 @@ logger = setup_logger(__name__)
 
 __all__ = ["DataOptions"]
 
-_summary = {"datasets": "List of dataset options."}
-
 
 AnyDatasetOptions = Union[
     gridrad.GridRadSevereOptions,
@@ -33,7 +31,9 @@ AnyDatasetOptions = Union[
 class DataOptions(BaseOptions):
     """Class for managing the options for all the datasets of a given run."""
 
-    datasets: list[AnyDatasetOptions] = Field(..., description=_summary["datasets"])
+    datasets: list[AnyDatasetOptions] = Field(
+        ..., description="List of dataset options."
+    )
     _dataset_lookup: Dict[str, AnyDatasetOptions] = {}
     dataset_names: List[str] = Field(
         [],

@@ -144,44 +144,40 @@ def process_velocities(
     )
 
 
-_summary = {
-    "window_size": "Window size for temporal smoothing of velocities.",
-    "min_area": "Minimum area of MCS in km^2.",
-    "max_area": "Maximum area of MCS in km^2.",
-    "max_boundary_overlap": "Maximum fraction of system member object pixels touching boundary.",
-    "min_major_axis_length": "Minimum major axis length of MCS in km.",
-    "min_axis_ratio": "Minimum axis ratio of MCS.",
-    "min_duration": "Minimum duration of MCS in minutes.",
-    "min_offset": "Minimum stratiform offset in km.",
-    "min_shear": "Minimum shear in m/s.",
-    "min_velocity": "Minimum velocity in m/s.",
-    "min_relative_velocity": "Minimum relative velocity in m/s.",
-    "quadrant_buffer_angle": "Buffer angle in degrees for quadrant based classification.",
-}
-
-
 class AnalysisOptions(BaseOptions):
     """Options for convective system analysis."""
 
-    window_size: int = Field(6, description=_summary["window_size"], ge=1)
-    min_area: float = Field(1e2, description=_summary["min_area"], ge=0)
-    max_area: float = Field(np.inf, description=_summary["max_area"], gt=0)
+    window_size: int = Field(
+        6,
+        description="Window size for temporal smoothing of velocities.",
+        ge=1,
+    )
+    min_area: float = Field(1e2, description="Minimum area of MCS in km^2.", ge=0)
+    max_area: float = Field(np.inf, description="Maximum area of MCS in km^2.", gt=0)
     max_boundary_overlap: float = Field(
-        1e-3, description=_summary["max_boundary_overlap"], gt=0
+        1e-3,
+        description=(
+            "Maximum fraction of system member object pixels touching boundary."
+        ),
+        gt=0,
     )
     min_major_axis_length: float = Field(
-        25, description=_summary["min_major_axis_length"], ge=0
+        25, description="Minimum major axis length of MCS in km.", ge=0
     )
-    min_axis_ratio: float = Field(2, description=_summary["min_axis_ratio"], ge=0)
-    min_duration: float = Field(30, description=_summary["min_duration"], ge=0)
-    min_offset: float = Field(10, description=_summary["min_offset"], ge=0)
-    min_shear: float = Field(2, description=_summary["min_shear"], ge=0)
-    min_velocity: float = Field(5, description=_summary["min_velocity"], ge=0)
+    min_axis_ratio: float = Field(2, description="Minimum axis ratio of MCS.", ge=0)
+    min_duration: float = Field(
+        30, description="Minimum duration of MCS in minutes.", ge=0
+    )
+    min_offset: float = Field(10, description="Minimum stratiform offset in km.", ge=0)
+    min_shear: float = Field(2, description="Minimum shear in m/s.", ge=0)
+    min_velocity: float = Field(5, description="Minimum velocity in m/s.", ge=0)
     min_relative_velocity: float = Field(
-        2, description=_summary["min_relative_velocity"], ge=0
+        2, description="Minimum relative velocity in m/s.", ge=0
     )
     quadrant_buffer_angle: float = Field(
-        10, description=_summary["quadrant_buffer_angle"], ge=0
+        10,
+        description="Buffer angle in degrees for quadrant based classification.",
+        ge=0,
     )
 
 
