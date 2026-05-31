@@ -27,7 +27,7 @@ https://dx.doi.org/10.1175/MWR-D-22-0146.1
 import numpy as np
 from scipy import optimize
 from thuner.match.correlate import get_flow
-from thuner.match.utils import get_masks
+from thuner.match.utils import get_masks, TintMatchRecord
 import thuner.match.object as thuner_object
 import thuner.match.box as box
 from thuner.log import setup_logger
@@ -84,8 +84,8 @@ def get_costs_data(object_tracks, object_options, grid_options):
     # Get the match record before updating it
     previous_match_record = object_tracks.match_record
     # Get the next_ids and next_displacements from the previous iteration.
-    matched_ids = previous_match_record["next_ids"]
-    matched_displacements = previous_match_record["next_displacements"]
+    matched_ids = previous_match_record.next_ids
+    matched_displacements = previous_match_record.next_displacements
     current_ids = np.arange(1, current_total + 1)
 
     search_margin = object_options.tracking.search_margin
@@ -300,26 +300,29 @@ def get_matches(object_tracks, object_options, grid_options):
                 # has occurred.
                 parents[child].append(i + 1)
     matches = matches[1] + 1  # Recall ids are 1 indexed. Dead objects now set to zero
-    match_data = costs_data.copy()
-    del match_data["costs_matrix"]
-    del match_data["next_rows_matrix"]
-    del match_data["next_cols_matrix"]
-    del match_data["distances_matrix"]
-    del match_data["area_differences_matrix"]
-    del match_data["overlap_areas_matrix"]
-    match_data["next_centers"] = np.array(next_centers)
-    match_data["next_displacements"] = (
-        match_data["next_centers"] - match_data["centers"]
+    next_centers = np.array(next_centers)
+    match_record = TintMatchRecord(
+        areas=costs_data["areas"],
+        centers=costs_data["centers"],
+        next_centers=next_centers,
+        next_displacements=next_centers - costs_data["centers"],
+        displacements=costs_data["displacements"],
+        next_ids=matches,
+        # For each next object, the ids of its "parent" objects in the current mask.
+        next_parents=parents,
+        flows=costs_data["flows"],
+        corrected_flows=costs_data["corrected_flows"],
+        global_flows=costs_data["global_flows"],
+        flow_boxes=costs_data["flow_boxes"],
+        global_flow_boxes=costs_data["global_flow_boxes"],
+        search_boxes=costs_data["search_boxes"],
+        cases=costs_data["cases"],
+        costs=np.array(costs),
+        distances=np.array(distances),
+        area_differences=np.array(area_differences),
+        overlap_areas=np.array(overlap_areas),
     )
-    match_data["next_ids"] = matches
-    # For each object in the next mask, we record the ids of "parent" objects from the current mask
-    match_data["next_parents"] = parents
-    match_data["costs"] = np.array(costs)
-    match_data["distances"] = np.array(distances)
-    match_data["area_differences"] = np.array(area_differences)
-    match_data["overlap_areas"] = np.array(overlap_areas)
-
-    return match_data
+    return match_record
 
 
 def correct_local_flow(

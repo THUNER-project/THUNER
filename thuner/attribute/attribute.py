@@ -46,7 +46,7 @@ def record(
     if object_tracks.match_record is None:
         no_objects = True
     else:
-        no_objects = len(object_tracks.match_record["ids"]) == 0
+        no_objects = len(object_tracks.match_record.ids) == 0
     if object_options.attributes is None or no_objects:
         return
 

@@ -39,9 +39,9 @@ def overlap_from_mask(
     areas = object_tracks.gridcell_area
 
     if matched:
-        ids = object_tracks.match_record["universal_ids"]
+        ids = object_tracks.match_record.universal_ids
     else:
-        ids = object_tracks.match_record["ids"]
+        ids = object_tracks.match_record.ids
 
     overlaps = []
     for obj_id in ids:

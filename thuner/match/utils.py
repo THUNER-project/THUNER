@@ -3,7 +3,9 @@
 from itertools import product
 import pandas as pd
 import numpy as np
+import xarray as xr
 import networkx as nx
+from pydantic import BaseModel, Field, ConfigDict
 from thuner.log import setup_logger
 
 
@@ -40,6 +42,225 @@ def get_grids(object_tracks, object_options, num_previous=1):
             if all_grids[i] is not None:
                 all_grids[i] = all_grids[i][f"{matched_object}_grid"]
     return all_grids
+
+
+# Match records are stored in "pixel" (gridcell) coordinates. Flows are reconstructed in
+# cartesian or geographic coordinates as required.
+ArrayLike = np.ndarray | list
+
+
+def relabel_parents(ids, parents, universal_ids):
+    """Relabel a list of per-object parent local ids with their universal ids."""
+    new_parents = []
+    for object_parents in parents:
+        new_object_parents = []
+        for obj_id in object_parents:
+            universal_obj_id = universal_ids[ids == obj_id][0]
+            new_object_parents.append(universal_obj_id)
+        new_parents.append(new_object_parents)
+    return new_parents
+
+
+class MatchRecord(BaseModel):
+    """
+    Record of the matches between objects in the current and next masks for a single
+    matching iteration.
+
+    This base class holds only the identity and lineage fields that every matching
+    method must produce, namely the local and universal object ids and the parent
+    relationships used to track splits and merges. The shared id-assignment and matched
+    mask logic depends only on these fields. Method specific quantities (object
+    geometry, flow vectors, cost diagnostics, ...) belong on subclasses such as
+    :class:`TintMatchRecord`.
+    """
+
+    # Records hold numpy arrays and lists of box dictionaries.
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    ids: ArrayLike = Field(
+        default_factory=list,
+        description="Local ids of objects in the current mask (1-indexed).",
+    )
+    next_ids: ArrayLike = Field(
+        default_factory=list,
+        description="For each current object, the local id of the matched object in "
+        "the next mask, or 0 if the object died.",
+    )
+    universal_ids: ArrayLike = Field(
+        default_factory=list,
+        description="Persistent (universal) id of each current object.",
+    )
+    parents: list = Field(
+        default_factory=list,
+        description="Universal ids of each current object's parents, i.e. the objects "
+        "it split from or merged with at the previous time.",
+    )
+    next_parents: list = Field(
+        default_factory=list,
+        description="Local ids of each next object's parents (relabelled to universal "
+        "ids once ids are assigned).",
+    )
+
+    def assign_ids(self, object_tracks, object_options, previous_record):
+        """
+        Assign local ids, universal ids and parents after matching.
+
+        ``previous_record`` is the match record from the previous matching iteration.
+        When it holds no objects, this is the first matchable iteration and universal
+        ids are assigned from scratch; otherwise universal ids are carried over for
+        matched objects and freshly minted for new ones.
+        """
+        previous_mask = get_masks(object_tracks, object_options)[1]
+        total = int(np.max(previous_mask.values))
+        ids = np.arange(1, total + 1)
+
+        if len(previous_record.ids) == 0:
+            logger.info("New matchable objects. Initializing match record.")
+            universal_ids = np.arange(
+                object_tracks.object_count + 1, object_tracks.object_count + total + 1
+            )
+            object_tracks.object_count += total
+            self.parents = [[] for _ in range(total)]
+        else:
+            logger.info("Updating match record.")
+            universal_ids = []
+            for previous_id in ids:
+                # Carry over the universal id if the object was matched last iteration.
+                if previous_id in previous_record.next_ids:
+                    cond = previous_record.next_ids == previous_id
+                    index = np.argwhere(cond)[0, 0]
+                    universal_ids.append(previous_record.universal_ids[index])
+                else:
+                    object_tracks.object_count += 1
+                    universal_ids.append(object_tracks.object_count)
+            universal_ids = np.array(universal_ids, dtype=int)
+            # The previous iteration's next-object parents are this iteration's parents.
+            self.parents = previous_record.next_parents
+
+        self.ids = ids
+        self.universal_ids = universal_ids
+        self.next_parents = relabel_parents(ids, self.next_parents, universal_ids)
+
+    def get_matched_mask(
+        self, object_tracks, object_options, grid_options, current_ids=None
+    ):
+        """Build the matched mask for the next grid by relabelling it with universal ids."""
+        next_mask = get_masks(object_tracks, object_options)[0]
+        if current_ids is None:
+            current_ids = np.unique(next_mask.values)
+            current_ids = current_ids[current_ids != 0]
+        universal_id_dict = dict(zip(self.next_ids, self.universal_ids))
+
+        # Not all objects in the next mask appear in next_ids; these are new objects,
+        # unmatched with any current object. Their universal ids will be created in the
+        # next tracking iteration, but to build the matched mask now we preemptively
+        # assign them (without incrementing object_count, which happens next iteration).
+        unmatched_ids = [i for i in current_ids if i not in self.next_ids]
+        new_universal_ids = np.arange(
+            object_tracks.object_count + 1,
+            object_tracks.object_count + len(unmatched_ids) + 1,
+        )
+        universal_id_dict.update(dict(zip(unmatched_ids, new_universal_ids)))
+        universal_id_dict[0] = 0
+
+        def replace_values(data_array, value_dict):
+            series = pd.Series(data_array.ravel())
+            return series.map(value_dict).values.reshape(data_array.shape)
+
+        if grid_options.name == "cartesian":
+            core_dims = [["y", "x"]]
+        elif grid_options.name == "geographic":
+            core_dims = [["latitude", "longitude"]]
+        else:
+            raise ValueError("Grid name must be 'cartesian' or 'geographic'.")
+
+        next_matched_mask = xr.apply_ufunc(
+            replace_values,
+            object_tracks.next_mask,
+            kwargs={"value_dict": universal_id_dict},
+            input_core_dims=core_dims,
+            output_core_dims=core_dims,
+            vectorize=True,
+        )
+        # Shift the previous iteration's next matched mask into the deque, then store
+        # this iteration's next matched mask.
+        object_tracks.matched_masks.append(object_tracks.next_matched_mask)
+        object_tracks.next_matched_mask = next_matched_mask
+
+
+class TintMatchRecord(MatchRecord):
+    """
+    Match record for the TINT/MINT approach, adding the object geometry, flow vectors,
+    search boxes and cost-function diagnostics produced by
+    :func:`thuner.match.tint.get_matches`.
+    """
+
+    areas: ArrayLike = Field(
+        default_factory=list,
+        description="Gridcell-area weighted area of each current object in km^2.",
+    )
+    centers: ArrayLike = Field(
+        default_factory=list,
+        description="Gridcell-area weighted center of each current object in pixels.",
+    )
+    next_centers: ArrayLike = Field(
+        default_factory=list,
+        description="Center of each matched next object in pixel coordinates.",
+    )
+    displacements: ArrayLike = Field(
+        default_factory=list,
+        description="Displacement of each current object from the previous time, in "
+        "pixels.",
+    )
+    next_displacements: ArrayLike = Field(
+        default_factory=list,
+        description="Displacement from each current object to its matched next object, "
+        "in pixels.",
+    )
+    flows: ArrayLike = Field(
+        default_factory=list,
+        description="Local (phase correlation) flow vector for each current object.",
+    )
+    corrected_flows: ArrayLike = Field(
+        default_factory=list,
+        description="Corrected flow vector for each current object, in pixels.",
+    )
+    global_flows: ArrayLike = Field(
+        default_factory=list,
+        description="Global flow vector for each current object, in pixels.",
+    )
+    flow_boxes: ArrayLike = Field(
+        default_factory=list,
+        description="Box used for local flow estimation for each current object.",
+    )
+    global_flow_boxes: ArrayLike = Field(
+        default_factory=list,
+        description="Box used for global flow estimation for each current object.",
+    )
+    search_boxes: ArrayLike = Field(
+        default_factory=list,
+        description="Search box used to find candidate matches for each current object.",
+    )
+    cases: ArrayLike = Field(
+        default_factory=list,
+        description="Flow correction case applied to each current object.",
+    )
+    costs: ArrayLike = Field(
+        default_factory=list,
+        description="Matching cost for each current object, in km.",
+    )
+    distances: ArrayLike = Field(
+        default_factory=list,
+        description="Distance term of the cost function for each current object, in km.",
+    )
+    area_differences: ArrayLike = Field(
+        default_factory=list,
+        description="Area-difference term of the cost function for each current object.",
+    )
+    overlap_areas: ArrayLike = Field(
+        default_factory=list,
+        description="Overlap-area term of the cost function for each current object.",
+    )
 
 
 def parents_to_list(parents_str):

@@ -55,7 +55,7 @@ def time_from_tracks(attribute: Attribute, object_tracks):
     """Get time from object tracks."""
 
     current_time = object_tracks.times[-1]
-    array_length = len(object_tracks.match_record["ids"])
+    array_length = len(object_tracks.match_record.ids)
     time = np.array([current_time for i in range(array_length)])
     return {"time": list(time.astype(attribute.data_type))}
 
@@ -73,7 +73,7 @@ def coordinates_from_match_record(
     if "latitude" not in names or "longitude" not in names:
         raise ValueError("Attribute names should be 'latitude' and 'longitude'.")
 
-    pixel_coordinates = object_tracks.match_record["centers"]
+    pixel_coordinates = object_tracks.match_record.centers
     latitude = np.array(grid_options.latitude)
     longitude = np.array(grid_options.longitude)
     latitudes, longitudes = [], []
@@ -127,14 +127,14 @@ def areas_from_match_record(attribute: Attribute, object_tracks):
     calculation.
     """
 
-    areas = np.array(object_tracks.match_record["areas"])
+    areas = np.array(object_tracks.match_record.areas)
     return {attribute.name: list(areas.astype(attribute.data_type))}
 
 
 def parents_from_match_record(attribute: Attribute, object_tracks):
     """Get parent ids from the match record to avoid recalculating."""
 
-    parents = object_tracks.match_record["parents"]
+    parents = object_tracks.match_record.parents
     parents_str = []
     for obj_parents in parents:
         if len(obj_parents) == 0:
@@ -152,13 +152,13 @@ def velocities_from_match_record(
 ):
     """Get velocity from match record created by the matching process."""
     names = sorted([attr.name for attr in attribute_group.attributes], reverse=True)
-    centers = object_tracks.match_record["centers"]
+    centers = object_tracks.match_record.centers
     # Get the "shift" vectors, i.e. the distance vector between the object's current and
     # next centers in pixel units.
     if "u_flow" in names:
-        shifts = object_tracks.match_record["corrected_flows"]
+        shifts = object_tracks.match_record.corrected_flows
     elif "u_displacement" in names:
-        shifts = object_tracks.match_record["next_displacements"]
+        shifts = object_tracks.match_record.next_displacements
     else:
         raise ValueError(f"Attributes {', '.join(names)} not recognised.")
     v_list, u_list = [[] for i in range(2)]
@@ -266,7 +266,7 @@ def ids_from_mask(
 def ids_from_match_record(attribute: Attribute, object_tracks):
     """Get object ids from the match record to avoid recalculating."""
     match_record_names = {"universal_id": "universal_ids", "id": "ids"}
-    ids = object_tracks.match_record[match_record_names[attribute.name]]
+    ids = getattr(object_tracks.match_record, match_record_names[attribute.name])
     ids = np.array(ids).astype(attribute.data_type).tolist()
     return {attribute.name: ids}
 

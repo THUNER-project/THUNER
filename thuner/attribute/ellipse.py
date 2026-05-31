@@ -123,9 +123,9 @@ def from_mask(
         mask = mask[f"{member_object}_mask"]
 
     if matched:
-        ids = object_tracks.match_record["universal_ids"]
+        ids = object_tracks.match_record.universal_ids
     else:
-        ids = object_tracks.match_record["ids"]
+        ids = object_tracks.match_record.ids
 
     all_names = ["latitude", "longitude", "major", "minor", "orientation"]
     all_names += ["eccentricity"]

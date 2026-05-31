@@ -128,8 +128,8 @@ def match_features(grid, match_record, axes, grid_options, unique_global_flow=Tr
     """Visualizing the matching process for TINT/MINT matching."""
     colors = runtime_colors
 
-    if unique_global_flow and len(match_record["global_flows"]) > 0:
-        global_flow = match_record["global_flows"][0]
+    if unique_global_flow and len(match_record.global_flows) > 0:
+        global_flow = match_record.global_flows[0]
         if "instrument" in grid.attrs.keys() and "radar" in grid.attrs["instrument"]:
             lon = float(grid.attrs["origin_longitude"])
             lat = float(grid.attrs["origin_latitude"])
@@ -143,22 +143,22 @@ def match_features(grid, match_record, axes, grid_options, unique_global_flow=Tr
             vector=global_flow,
             grid_options=grid_options,
         )
-    for i in range(len(match_record["ids"])):
+    for i in range(len(match_record.ids)):
         # Get the flows, displacements and boxes.
-        obj_id = match_record["universal_ids"][i]
+        obj_id = match_record.universal_ids[i]
         color_index = (obj_id - 1) % len(colors)
         color = colors[color_index]
-        flow_box = match_record["flow_boxes"][i]
-        flow = match_record["flows"][i]
-        corrected_flow = match_record["corrected_flows"][i]
-        search_box = match_record["search_boxes"][i]
+        flow_box = match_record.flow_boxes[i]
+        flow = match_record.flows[i]
+        corrected_flow = match_record.corrected_flows[i]
+        search_box = match_record.search_boxes[i]
 
         # Plot object universal ID in current grid.
-        center = match_record["centers"][i]
+        center = match_record.centers[i]
         coords = thuner_grid.get_coordinates(grid_options, center[0], center[1])
         horizontal.embossed_text(axes[1], str(obj_id), coords[1], coords[0])
         # Plot object universal IDs in next grid.
-        next_center = match_record["next_centers"][i]
+        next_center = match_record.next_centers[i]
         if np.all(np.logical_not(np.isnan(next_center))):
             next_coords = thuner_grid.get_coordinates(
                 grid_options=grid_options,
@@ -172,12 +172,12 @@ def match_features(grid, match_record, axes, grid_options, unique_global_flow=Tr
                 latitude=next_coords[0],
             )
 
-        displacement = match_record["displacements"][i]
+        displacement = match_record.displacements[i]
         row, col = get_box_center_coords(flow_box, grid_options)[2:]
         if not unique_global_flow:
             # If global flow not unique, plot for current object
-            global_flow = match_record["global_flows"][i]
-            global_flow_box = match_record["global_flow_boxes"][i]
+            global_flow = match_record.global_flows[i]
+            global_flow_box = match_record.global_flow_boxes[i]
             horizontal.plot_box(axes[1], global_flow_box, grid_options, alpha=0.8)
             horizontal.pixel_displacement(
                 ax=axes[1],
@@ -226,7 +226,7 @@ def match_features(grid, match_record, axes, grid_options, unique_global_flow=Tr
                 color="tab:green",
             )
         # Label object with corrected flow case and cost
-        case = match_record["cases"][i]
+        case = match_record.cases[i]
         lat = np.array(grid_options.latitude)
         lat_shift = 0.01 * (lat.max() - lat.min())  # Shift text up slightly
         row, col = flow_box["row_max"], flow_box["col_min"]
@@ -234,10 +234,10 @@ def match_features(grid, match_record, axes, grid_options, unique_global_flow=Tr
         text_lat = text_lat + lat_shift
         text_properties = {"fontsize": 6, "zorder": 4, "color": color}
         text_properties.update({"weight": "bold", "transform": proj})
-        if match_record["next_ids"][i] != 0:
-            distance = int(np.round(match_record["distances"][i]))
-            area_difference = int(np.round(match_record["area_differences"][i]))
-            area_overlap = int(np.round(match_record["overlap_areas"][i]))
+        if match_record.next_ids[i] != 0:
+            distance = int(np.round(match_record.distances[i]))
+            area_difference = int(np.round(match_record.area_differences[i]))
+            area_overlap = int(np.round(match_record.overlap_areas[i]))
             object_text = f"{case}, {distance}+{area_difference}-{area_overlap}"
         else:
             object_text = f"{case}, No Match"

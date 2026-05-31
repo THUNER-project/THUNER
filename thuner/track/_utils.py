@@ -6,6 +6,7 @@ import numpy as np
 import xarray as xr
 from typing import Dict, Callable
 from thuner.attribute.utils import AttributesRecord
+from thuner.match.utils import MatchRecord
 from thuner.option.data import DataOptions
 from thuner.option.track import TrackOptions, BaseObjectOptions, LevelOptions
 from thuner.utils import DataObject
@@ -230,10 +231,8 @@ class ObjectTracks(BaseModel):
         description="Deque of current/previous matched masks.",
     )
 
-    match_record: Dict | None = Field(None, description="Current match record.")
-    previous_match_records: deque[Dict] | None = Field(
-        None,
-        description="Deque of previous match records.",
+    match_record: MatchRecord | None = Field(
+        None, description="Current match record."
     )
 
     attributes: AttributesRecord | None = Field(
@@ -256,7 +255,7 @@ class ObjectTracks(BaseModel):
     def _initialize_deques(cls, values):
         """Initialize the deques for the object."""
         names = ["grids", "previous_time_interval", "times"]
-        names += ["masks", "matched_masks", "previous_match_records"]
+        names += ["masks", "matched_masks"]
         return _init_deques(values, names)
 
     @model_validator(mode="after")
