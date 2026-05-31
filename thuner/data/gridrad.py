@@ -61,22 +61,22 @@ class GridRadSevereOptions(utils.BaseDatasetOptions):
         return convert_gridrad(time, filepath, track_options, self, grid_options)
 
     @model_validator(mode="after")
-    def _check_times(cls, values):
+    def _check_times(self):
         """Check start_time isn't before beginning of GridRad record."""
         start_time = np.datetime64("2010-01-20T18:00:00")
-        if np.datetime64(values.start) < start_time:
+        if np.datetime64(self.start) < start_time:
             raise ValueError(f"start must be {str(start_time)} or later.")
-        return values
+        return self
 
     @model_validator(mode="after")
-    def _check_filepaths(cls, values):
+    def _check_filepaths(self):
         """Check filepaths are valid."""
-        if values.filepaths is None:
+        if self.filepaths is None:
             logger.info("Generating GridRad filepaths.")
-            values.filepaths = get_gridrad_filepaths(values)
-        if values.filepaths is None:
+            self.filepaths = get_gridrad_filepaths(self)
+        if self.filepaths is None:
             raise ValueError("filepaths not provided or badly formed.")
-        return values
+        return self
 
 
 gridrad_variables = [
@@ -173,7 +173,7 @@ def open_gridrad(path, dataset_options):
     """
     kept_variables = [gridrad_names_dict[f] for f in dataset_options.fields]
     kept_variables += ["Nradobs", "Nradecho", "wReflectivity", "CorrelationCoefficient"]
-    ds = xr.open_dataset(path)
+    ds = xr.open_dataset(path, decode_timedelta=True)
     kept_variables = [v for v in kept_variables if v in ds.data_vars]
     dropped_variables = [v for v in ds.data_vars if v not in kept_variables]
     for var in kept_variables:

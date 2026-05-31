@@ -156,7 +156,7 @@ def test_gridrad():
     print(records.head(20).to_string())
     # Object masks are saved as ZARR files, which can be read using `xarray`.
     ds = xr.open_dataset(
-        output_parent / get_zarr_store_name(), engine="zarr", group="masks/mcs"
+        output_parent / get_zarr_store_name(), engine="zarr", group="masks/mcs", decode_timedelta=True
     )
     print(ds.info())
     # ## Analysis and Visualization

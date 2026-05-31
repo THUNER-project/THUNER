@@ -79,21 +79,21 @@ class CpolOptions(AuraOptions):
         )
 
     @model_validator(mode="after")
-    def _check_times(cls, values):
-        if np.datetime64(values.start) < np.datetime64("1998-12-06T00:00:00"):
+    def _check_times(self):
+        if np.datetime64(self.start) < np.datetime64("1998-12-06T00:00:00"):
             raise ValueError("start must be 1998-12-06 or later.")
-        if np.datetime64(values.end) > np.datetime64("2017-05-02T00:00:00"):
+        if np.datetime64(self.end) > np.datetime64("2017-05-02T00:00:00"):
             raise ValueError("end must be 2017-05-02 or earlier.")
-        return values
+        return self
 
     @model_validator(mode="after")
-    def _check_filepaths(cls, values):
-        if values.filepaths is None:
+    def _check_filepaths(self):
+        if self.filepaths is None:
             logger.info("Generating CPOL filepaths.")
-            values.filepaths = get_cpol_filepaths(values)
-        if values.filepaths is None:
+            self.filepaths = get_cpol_filepaths(self)
+        if self.filepaths is None:
             raise ValueError("filepaths not provided or badly formed.")
-        return values
+        return self
 
 
 def get_cpol_filepaths(options: CpolOptions):
@@ -207,7 +207,7 @@ def convert_cpol(time, filepath, track_options, dataset_options, grid_options):
     time_str = utils.format_time(time, filename_safe=False)
     logger.info(f"Updating {dataset_options.name} dataset for {time_str}.")
 
-    cpol = xr.open_dataset(filepath)
+    cpol = xr.open_dataset(filepath, decode_timedelta=True)
 
     if time not in cpol.time.values:
         raise ValueError(f"{time} not in {filepath}")

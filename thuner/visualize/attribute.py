@@ -110,7 +110,7 @@ def series(
     options = read_options(output_directory)
     object_name = figure_options.object_name
     store_path = output_directory / get_zarr_store_name()
-    masks = xr.open_dataset(store_path, engine="zarr", group=f"masks/{object_name}")
+    masks = xr.open_dataset(store_path, engine="zarr", group=f"masks/{object_name}", decode_timedelta=True)
     times = masks.time.values
     times = times[(times >= start_time) & (times <= end_time)]
 
@@ -604,18 +604,18 @@ class GroupedObjectFigure(BaseFigure):
     )
 
     @model_validator(mode="after")
-    def _check_number_subplots(cls, values):
+    def _check_number_subplots(self):
         """
         Check the number of subplots matches the number of member objects and number
         of member_core_filepaths keys.
         """
-        lengths = [len(values.member_objects), len(values.subplot_axes)]
-        lengths += [len(values.member_core_filepaths)]
+        lengths = [len(self.member_objects), len(self.subplot_axes)]
+        lengths += [len(self.member_core_filepaths)]
         if len(set(lengths)) != 1:
             message = "Number of member objects, subplot axes, and member core "
             message += "filepaths must agree."
             raise ValueError(message)
-        return values
+        return self
 
 
 def velocity_horizontal(

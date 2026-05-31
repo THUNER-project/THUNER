@@ -70,34 +70,34 @@ class GridOptions(BaseOptions):
     )
 
     @model_validator(mode="after")
-    def _check_altitude(cls, values):
+    def _check_altitude(self):
         """Ensure altitudes are initialized."""
-        if values.altitude is None and values.altitude_spacing is not None:
-            spacing = values.altitude_spacing
+        if self.altitude is None and self.altitude_spacing is not None:
+            spacing = self.altitude_spacing
             altitude = list(np.arange(0, 20e3 + spacing, spacing))
             altitude = [float(alt) for alt in altitude]
-            values.altitude = altitude
+            self.altitude = altitude
             logger.warning("altitude not specified. Using default altitudes.")
-        elif values.altitude_spacing is None and values.altitude is None:
+        elif self.altitude_spacing is None and self.altitude is None:
             message = "altitude_spacing not specified. Will attempt to infer from "
             message += "input."
             logger.warning(message)
-        return values
+        return self
 
     @model_validator(mode="after")
-    def _check_shape(cls, values):
+    def _check_shape(self):
         """Ensure shape is initialized."""
-        latitude, longitude = values.latitude, values.longitude
-        if values.shape is None and (latitude is not None and longitude is not None):
-            values.shape = (len(latitude), len(longitude))
-        if values.shape is None and (values.x is not None and values.y is not None):
-            values.shape = (len(values.y), len(values.x))
+        latitude, longitude = self.latitude, self.longitude
+        if self.shape is None and (latitude is not None and longitude is not None):
+            self.shape = (len(latitude), len(longitude))
+        if self.shape is None and (self.x is not None and self.y is not None):
+            self.shape = (len(self.y), len(self.x))
         else:
             logger.warning("shape not specified. Will attempt to infer from input.")
-        return values
+        return self
 
     @model_validator(mode="after")
-    def _check_spacing(cls, values):
+    def _check_spacing(self):
         """Ensure spacing is consistent with input dimensions."""
 
         def check_diffs(coord, coord_name, spacing, spacing_name):
@@ -115,32 +115,32 @@ class GridOptions(BaseOptions):
                 message += f"{coord_name} spacing {diffs[0]} does not match {spacing}."
                 raise ValueError(message)
 
-        if values.cartesian_spacing is not None and values.y is not None:
+        if self.cartesian_spacing is not None and self.y is not None:
             check_diffs(
-                coord=values.y,
+                coord=self.y,
                 coord_name="y",
-                spacing=values.cartesian_spacing[0],
+                spacing=self.cartesian_spacing[0],
                 spacing_name="cartesian_spacing",
             )
-        if values.cartesian_spacing is not None and values.x is not None:
+        if self.cartesian_spacing is not None and self.x is not None:
             check_diffs(
-                coord=values.x,
+                coord=self.x,
                 coord_name="x",
-                spacing=values.cartesian_spacing[1],
+                spacing=self.cartesian_spacing[1],
                 spacing_name="cartesian_spacing",
             )
-        if values.geographic_spacing is not None and values.latitude is not None:
+        if self.geographic_spacing is not None and self.latitude is not None:
             check_diffs(
-                coord=values.latitude,
+                coord=self.latitude,
                 coord_name="latitude",
-                spacing=values.geographic_spacing[0],
+                spacing=self.geographic_spacing[0],
                 spacing_name="geographic_spacing",
             )
-        if values.geographic_spacing is not None and values.longitude is not None:
+        if self.geographic_spacing is not None and self.longitude is not None:
             check_diffs(
-                coord=values.longitude,
+                coord=self.longitude,
                 coord_name="longitude",
-                spacing=values.geographic_spacing[1],
+                spacing=self.geographic_spacing[1],
                 spacing_name="geographic_spacing",
             )
-        return values
+        return self

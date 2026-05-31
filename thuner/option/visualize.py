@@ -39,11 +39,11 @@ class VisualizeOptions(BaseOptions):
     )
 
     @model_validator(mode="after")
-    def validate_parent_local(cls, values):
+    def validate_parent_local(self):
         """Ensure that the parent_local directory is set."""
-        if values.parent_local is None:
-            values.parent_local = str(get_outputs_directory() / "visualize")
-        return values
+        if self.parent_local is None:
+            self.parent_local = str(get_outputs_directory() / "visualize")
+        return self
 
 
 class FigureOptions(BaseOptions):
@@ -83,13 +83,13 @@ class ObjectRuntimeOptions(VisualizeOptions):
     )
 
     @model_validator(mode="after")
-    def initialize_figures(cls, values):
+    def initialize_figures(self):
         """Initialize the figure options."""
-        for fig in values.figures:
-            fig.style = values.style
-            fig.animate = values.animate
-            fig.single_color = values.single_color
-        return values
+        for fig in self.figures:
+            fig.style = self.style
+            fig.animate = self.animate
+            fig.single_color = self.single_color
+        return self
 
 
 class RuntimeOptions(BaseOptions):
@@ -134,12 +134,12 @@ class HorizontalAttributeOptions(VisualizeOptions):
     )
 
     @model_validator(mode="after")
-    def _initialize_method(cls, values):
+    def _initialize_method(self):
         """Initialize the method for generating the figure."""
-        if values.method is None:
+        if self.method is None:
             func = "thuner.visualize.attribute.detected_horizontal"
-            values.method = Retrieval(function=func)
-        return values
+            self.method = Retrieval(function=func)
+        return self
 
 
 class GroupedHorizontalAttributeOptions(HorizontalAttributeOptions):
@@ -151,19 +151,19 @@ class GroupedHorizontalAttributeOptions(HorizontalAttributeOptions):
     )
 
     @model_validator(mode="after")
-    def _check_dictionary_keys(cls, values):
+    def _check_dictionary_keys(self):
         """Check member_objects are valid keys in attribute_handlers dictionary."""
-        keys = list(values.attribute_handlers.keys())
-        lengths = [len(keys), len(values.member_objects)]
+        keys = list(self.attribute_handlers.keys())
+        lengths = [len(keys), len(self.member_objects)]
         if len(set(lengths)) != 1:
             message = "The number of member objects and attribute handlers must match."
             raise ValueError(message)
-        return values
+        return self
 
     @model_validator(mode="after")
-    def _initialize_method(cls, values):
+    def _initialize_method(self):
         """Initialize the method for generating the figure."""
-        if values.method is None:
+        if self.method is None:
             func = "thuner.visualize.attribute.grouped_horizontal"
-            values.method = Retrieval(function=func)
-        return values
+            self.method = Retrieval(function=func)
+        return self

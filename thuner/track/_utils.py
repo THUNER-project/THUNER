@@ -126,10 +126,10 @@ class TrackInputRecord(BaseInputRecord):
     )
 
     @model_validator(mode="after")
-    def _initialize_deques(cls, values):
+    def _initialize_deques(self):
         names = ["grids", "domain_masks"]
         names += ["boundary_masks", "boundary_coodinates"]
-        return _init_deques(values, names)
+        return _init_deques(self, names)
 
 
 class InputRecords(BaseModel):
@@ -152,19 +152,19 @@ class InputRecords(BaseModel):
     )
 
     @model_validator(mode="after")
-    def _initialize_input_records(cls, values):
-        data_options = values.data_options
+    def _initialize_input_records(self):
+        data_options = self.data_options
         for name in data_options._dataset_lookup.keys():
             dataset_options = data_options.dataset_by_name(name)
             kwargs = {"name": name, "filepaths": dataset_options.filepaths}
             if dataset_options.use == "track":
                 kwargs["deque_length"] = dataset_options.deque_length
-                values.track[name] = TrackInputRecord(**kwargs)
+                self.track[name] = TrackInputRecord(**kwargs)
             elif dataset_options.use == "tag":
-                values.tag[name] = BaseInputRecord(**kwargs)
+                self.tag[name] = BaseInputRecord(**kwargs)
             else:
                 raise ValueError(f"Use must be 'tag' or 'track'.")
-        return values
+        return self
 
 
 class ObjectTracks(BaseModel):
@@ -252,29 +252,29 @@ class ObjectTracks(BaseModel):
     _last_write_time: np.datetime64 | None = None
 
     @model_validator(mode="after")
-    def _initialize_deques(cls, values):
+    def _initialize_deques(self):
         """Initialize the deques for the object."""
         names = ["grids", "previous_time_interval", "times"]
         names += ["masks", "matched_masks"]
-        return _init_deques(values, names)
+        return _init_deques(self, names)
 
     @model_validator(mode="after")
-    def _check_name(cls, values):
+    def _check_name(self):
         """Check the name of the object matches the object_options name."""
-        if values.name is None:
-            values.name = values.object_options.name
-        elif values.name != values.object_options.name:
+        if self.name is None:
+            self.name = self.object_options.name
+        elif self.name != self.object_options.name:
             raise ValueError("Name must match object_options name.")
-        return values
+        return self
 
     @model_validator(mode="after")
-    def _initialize_attributes(cls, values):
+    def _initialize_attributes(self):
         """Initialize the attributes for the object."""
-        options = values.object_options.attributes
+        options = self.object_options.attributes
         if options is not None:
-            values.attributes = AttributesRecord(attribute_options=options)
-            values.current_attributes = AttributesRecord(attribute_options=options)
-        return values
+            self.attributes = AttributesRecord(attribute_options=options)
+            self.current_attributes = AttributesRecord(attribute_options=options)
+        return self
 
 
 class LevelTracks(BaseModel):
@@ -293,11 +293,11 @@ class LevelTracks(BaseModel):
     objects: dict[str, ObjectTracks] = Field({}, description="Objects to be tracked.")
 
     @model_validator(mode="after")
-    def _initialize_objects(cls, values):
+    def _initialize_objects(self):
         """Initialize the objects of the given level."""
-        for obj_options in values.level_options.objects:
-            values.objects[obj_options.name] = ObjectTracks(object_options=obj_options)
-        return values
+        for obj_options in self.level_options.objects:
+            self.objects[obj_options.name] = ObjectTracks(object_options=obj_options)
+        return self
 
 
 class Tracks(BaseModel):
@@ -312,8 +312,8 @@ class Tracks(BaseModel):
     track_options: TrackOptions = Field(..., description="Options for tracking.")
 
     @model_validator(mode="after")
-    def _initialize_levels(cls, values):
+    def _initialize_levels(self):
         """Initialize the levels of the tracking hierarchy."""
-        for level_options in values.track_options.levels:
-            values.levels.append(LevelTracks(level_options=level_options))
-        return values
+        for level_options in self.track_options.levels:
+            self.levels.append(LevelTracks(level_options=level_options))
+        return self

@@ -180,20 +180,20 @@ class Retrieval(BaseOptions):
     )
 
     @model_validator(mode="after")
-    def check_function(cls, values):
+    def check_function(self):
         """Ensure that the function is callable, and available to thuner."""
-        if isinstance(values.function, str):
-            module_name, function_name = values.function.rsplit(".", 1)
+        if isinstance(self.function, str):
+            module_name, function_name = self.function.rsplit(".", 1)
             try:
                 module = importlib.import_module(module_name)
-                values.function = getattr(module, function_name)
+                self.function = getattr(module, function_name)
             except ImportError:
-                message = f"Could not import function {values.function}."
+                message = f"Could not import function {self.function}."
                 raise ImportError(message)
             except AttributeError:
-                message = f"Function {values.function} not found in {module_name}."
+                message = f"Function {self.function} not found in {module_name}."
                 raise AttributeError(message)
-        return values
+        return self
 
 
 class ConvertedOptions(BaseOptions):
@@ -313,7 +313,7 @@ class BaseDatasetOptions(BaseOptions):
             dataset, boundary_coords, simple_boundary_coords = outs
             infer_grid_options(dataset, grid_options)
         else:
-            dataset = xr.open_dataset(filepath)
+            dataset = xr.open_dataset(filepath, decode_timedelta=True)
             infer_grid_options(dataset, grid_options)
             domain_mask = dataset["domain_mask"]
             boundary_coords = get_mask_boundary(domain_mask, grid_options)[0]
@@ -360,7 +360,7 @@ class BaseDatasetOptions(BaseOptions):
         Function returns the converted dataset, and the boundary coordinates.
         Note the simple boundary coordinates are only used for visualization.
         """
-        dataset = xr.open_dataset(filepath)
+        dataset = xr.open_dataset(filepath, decode_timedelta=True)
         infer_grid_options(dataset, grid_options)
         if time not in dataset.time.values:
             raise ValueError(f"{time} not in dataset time values.")
@@ -376,48 +376,48 @@ class BaseDatasetOptions(BaseOptions):
         return dataset, boundary_coords, simple_boundary_coords
 
     @model_validator(mode="after")
-    def _check_name(cls, values):
+    def _check_name(self):
         """
         Check the name field has been created. This should be explicitly provided
         by the user or set in a subclass.
         """
-        if values.name is None:
+        if self.name is None:
             raise ValueError("The 'name' field has not been set.")
-        return values
+        return self
 
     @model_validator(mode="after")
-    def _check_parents(cls, values):
+    def _check_parents(self):
         """Check the parents fields are correct."""
-        if values.parent_remote is None and values.parent_local is None:
+        if self.parent_remote is None and self.parent_local is None:
             message = "At least one of parent_remote and parent_local must be "
             message += "specified."
             raise ValueError(message)
-        if values.converted_options.save or values.converted_options.load:
-            if values.converted_options.parent_converted is None:
+        if self.converted_options.save or self.converted_options.load:
+            if self.converted_options.parent_converted is None:
                 message = "parent_converted must be specified if saving or loading."
                 raise ValueError(message)
-        if values.attempt_download:
-            if values.parent_remote is None | values.parent_local is None:
+        if self.attempt_download:
+            if self.parent_remote is None | self.parent_local is None:
                 message = "parent_remote and parent_local must both be specified if "
                 message += "attempting to download."
                 raise ValueError(message)
-        return values
+        return self
 
     @model_validator(mode="after")
-    def _check_fields(cls, values):
+    def _check_fields(self):
         """Check whether fields compatible with other options."""
-        if values.fields is None:
+        if self.fields is None:
             message = "At least one field must be specified. Ensure fields is set "
             message += "explicitly, or set a default value in the appropriate subclass."
             raise ValueError(message)
-        elif values.use == "track" and len(values.fields) != 1:
+        elif self.use == "track" and len(self.fields) != 1:
             message = "Only one field should be specified if the dataset is used for "
             message += "tracking. If you want to define objects built out of multiple "
             message += "components, use grouping. See "
             message += "thuner.option.track.GroupedObjectOptions, thuner.default"
             message += "and the gridrad.ipynb demo."
             raise ValueError(message)
-        return values
+        return self
 
 
 class BaseHandler(BaseModel):
@@ -658,7 +658,7 @@ def create_time_filepath_lookup(filepaths: list[str]) -> Dict[np.datetime64, str
             raise TypeError(f"{filepath} is not a string")
         if not Path(filepath).exists():
             raise ValueError(f"{filepath} does not exist.")
-        with xr.open_dataset(filepath, chunks={}) as ds:
+        with xr.open_dataset(filepath, chunks={}, decode_timedelta=True) as ds:
             for time in ds.time.values:
                 time_filepath_record[time] = filepath
     return time_filepath_record

@@ -179,11 +179,11 @@ class DetectionOptions(BaseOptions):
     )
 
     @model_validator(mode="after")
-    def _check_threshold(cls, values):
+    def _check_threshold(self):
         """Check threshold value is provided if applicable."""
-        if values.method == "detect" and values.threshold is None:
+        if self.method == "detect" and self.threshold is None:
             raise ValueError("Threshold not provided for detection method.")
-        return values
+        return self
 
 
 def _check_mask_values(values):
@@ -212,9 +212,9 @@ class DetectedObjectOptions(BaseObjectOptions):
     )
 
     @model_validator(mode="after")
-    def _check_mask(cls, values):
+    def _check_mask(self):
         """Check if masks saved if tracking options provided."""
-        return _check_mask_values(values)
+        return _check_mask_values(self)
 
 
 # Define a custom type with constraints
@@ -238,16 +238,16 @@ class GroupingOptions(BaseOptions):
 
     # Check lists are the same length.
     @model_validator(mode="after")
-    def _check_list_length(cls, values):
+    def _check_list_length(self):
         """Check list lengths are consistent."""
-        member_objects = values.member_objects
-        member_levels = values.member_levels
-        member_min_areas = values.member_min_areas
+        member_objects = self.member_objects
+        member_levels = self.member_levels
+        member_min_areas = self.member_min_areas
         lengths = [len(member_objects), len(member_levels), len(member_min_areas)]
         if len(set(lengths)) != 1:
             message = "Member objects, levels, and areas must have the same length."
             raise ValueError(message)
-        return values
+        return self
 
 
 class GroupedObjectOptions(BaseObjectOptions):
@@ -264,9 +264,9 @@ class GroupedObjectOptions(BaseObjectOptions):
     )
 
     @model_validator(mode="after")
-    def _check_mask(cls, values):
+    def _check_mask(self):
         """Check if masks saved if tracking options provided."""
-        return _check_mask_values(values)
+        return _check_mask_values(self)
 
 
 # Unclear why an additional discriminator is needed here. Perhaps due to the list.
@@ -292,14 +292,14 @@ class LevelOptions(BaseOptions):
     )
 
     @model_validator(mode="after")
-    def initialize_object_lookup(cls, values):
+    def initialize_object_lookup(self):
         """Initialize object lookup dictionary."""
-        values._object_lookup = {obj.name: obj for obj in values.objects}
-        values.object_names = [obj.name for obj in values.objects]
-        if len(values.object_names) != len(set(values.object_names)):
+        self._object_lookup = {obj.name: obj for obj in self.objects}
+        self.object_names = [obj.name for obj in self.objects]
+        if len(self.object_names) != len(set(self.object_names)):
             message = "Object names must be unique to facilitate name based lookup."
             raise ValueError(message)
-        return values
+        return self
 
     def object_by_name(self, obj_name: str) -> BaseObjectOptions:
         """Return object options by name."""
@@ -344,20 +344,20 @@ class TrackOptions(BaseOptions):
     object_names: List[str] = Field([], description="Names of the objects.")
 
     @model_validator(mode="after")
-    def initialize_object_lookup(cls, values):
+    def initialize_object_lookup(self):
         """Initialize object lookup dictionary."""
         object_names = []
         lookup_dicts = []
-        for level in values.levels:
+        for level in self.levels:
             lookup_dicts.append(level._object_lookup)
             object_names += level._object_lookup.keys()
         if len(object_names) != len(set(object_names)):
             message = "Object names must be unique to facilitate name based lookup."
             raise ValueError(message)
         for lookup_dict in lookup_dicts:
-            values._object_lookup.update(lookup_dict)
-        values.object_names = object_names
-        return values
+            self._object_lookup.update(lookup_dict)
+        self.object_names = object_names
+        return self
 
     def object_by_name(self, obj_name: str) -> BaseObjectOptions:
         """Return object options by name."""
@@ -368,20 +368,20 @@ class TrackOptions(BaseOptions):
             raise KeyError(message)
 
     @model_validator(mode="after")
-    def _validate_grouped_objects(cls, values):
+    def _validate_grouped_objects(self):
         """
         Validate that the tracking hierarchy is consistent - grouped objects should
         only reference objects from lower hierarchy levels.
         """
         # Build a mapping of object names to their hierarchy levels
         object_levels = {}
-        for level in values.levels:
+        for level in self.levels:
             for obj in level.objects:
                 object_levels[obj.name] = obj.hierarchy_level
 
         # Check grouped objects reference appropriate member objects
-        for level in values.levels:
+        for level in self.levels:
             for obj in level.objects:
                 if hasattr(obj, "grouping") and obj.grouping:
                     _check_grouped_object(obj, object_levels)
-        return values
+        return self

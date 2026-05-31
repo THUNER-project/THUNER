@@ -69,37 +69,37 @@ class Era5Options(BaseDatasetOptions):
         update_era5_input_record(time, input_record, track_options, self, grid_options)
 
     @model_validator(mode="after")
-    def _check_ranges(cls, values):
-        if values.latitude_range[0] < -90 or values.latitude_range[1] > 90:
+    def _check_ranges(self):
+        if self.latitude_range[0] < -90 or self.latitude_range[1] > 90:
             raise ValueError("Latitude range must be between -90 and 90.")
-        if values.longitude_range[0] < -180 or values.longitude_range[1] > 180:
+        if self.longitude_range[0] < -180 or self.longitude_range[1] > 180:
             raise ValueError("Longitude range must be between -180 and 180.")
-        return values
+        return self
 
     @model_validator(mode="after")
-    def _check_defaults(cls, values):
-        if values.data_format == "pressure-levels":
-            if values.pressure_levels is None:
-                values.pressure_levels = era5_pressure_levels
+    def _check_defaults(self):
+        if self.data_format == "pressure-levels":
+            if self.pressure_levels is None:
+                self.pressure_levels = era5_pressure_levels
                 logger.debug(f"Assigning default era5 pressure levels.")
-            values.pressure_levels = [str(level) for level in values.pressure_levels]
-        return values
+            self.pressure_levels = [str(level) for level in self.pressure_levels]
+        return self
 
     @model_validator(mode="after")
-    def _check_times(cls, values):
+    def _check_times(self):
         start_time = np.datetime64("1940-03-01T00:00:00")
-        if np.datetime64(values.start) < start_time:
+        if np.datetime64(self.start) < start_time:
             raise ValueError(f"start must be {str(start_time)} or later.")
-        return values
+        return self
 
     @model_validator(mode="after")
-    def _check_filepaths(cls, values):
-        if values.filepaths is None:
+    def _check_filepaths(self):
+        if self.filepaths is None:
             logger.info("Generating ERA5 filepaths.")
-            values.filepaths = get_era5_filepaths(values)
-        if values.filepaths is None:
+            self.filepaths = get_era5_filepaths(self)
+        if self.filepaths is None:
             raise ValueError("filepaths not provided or badly formed.")
-        return values
+        return self
 
 
 era5_pressure_levels = ["1000", "975", "950", "925", "900", "875", "850", "825", "800"]
@@ -447,7 +447,7 @@ def update_era5_input_record(
                     lon_range=lon_range,
                 )
         logger.debug("Merging files.")
-        ds = xr.open_mfdataset(f"{tmp}/*.nc")
+        ds = xr.open_mfdataset(f"{tmp}/*.nc", decode_timedelta=True)
         logger.debug("Converting")
         ds = convert_era5(ds)
         input_record.dataset = ds.load()

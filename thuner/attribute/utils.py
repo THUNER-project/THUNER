@@ -96,29 +96,29 @@ class AttributesRecord(BaseModel):
     member_attributes: dict | None = None
 
     @model_validator(mode="after")
-    def _check_name(cls, values):
-        if values.name is None:
-            values.name = values.attribute_options.name
-        elif values.name != values.attribute_options.name:
+    def _check_name(self):
+        if self.name is None:
+            self.name = self.attribute_options.name
+        elif self.name != self.attribute_options.name:
             raise ValueError("Name must match attribute_options name.")
-        return values
+        return self
 
     @model_validator(mode="after")
-    def _initialize_attributes(cls, values):
-        options = values.attribute_options
+    def _initialize_attributes(self):
+        options = self.attribute_options
         if options is None:
-            return values
-        values.attribute_types = {}
+            return self
+        self.attribute_types = {}
         for attr_type in options.attribute_types:
-            values.attribute_types[attr_type.name] = _init_attr_type(attr_type)
+            self.attribute_types[attr_type.name] = _init_attr_type(attr_type)
         if options.member_attributes is not None:
-            values.member_attributes = {}
+            self.member_attributes = {}
             for obj, obj_attributes in options.member_attributes.items():
                 obj_attr = {}
                 for attr_type in obj_attributes.attribute_types:
                     obj_attr[attr_type.name] = _init_attr_type(attr_type)
-                values.member_attributes[obj] = obj_attr
-        return values
+                self.member_attributes[obj] = obj_attr
+        return self
 
 
 # Mapping of string representations to actual data types

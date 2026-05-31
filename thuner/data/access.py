@@ -69,22 +69,22 @@ class AccessCOptions(utils.BaseDatasetOptions):
         )
 
     @model_validator(mode="after")
-    def _check_run_start(cls, values):
+    def _check_run_start(self):
         # Check that the time of run start is 0000, 0600, 1200, or 1800 UTC.
         valid_times = ["0000", "0600", "1200", "1800"]
-        run_start_str = utils.format_time(values.run_start, filename_safe=True)
+        run_start_str = utils.format_time(self.run_start, filename_safe=True)
         if run_start_str[-4:] not in valid_times:
             raise ValueError(f"run_start must be one of {valid_times}.")
-        return values
+        return self
 
     @model_validator(mode="after")
-    def _check_filepaths(cls, values):
-        if values.filepaths is None:
+    def _check_filepaths(self):
+        if self.filepaths is None:
             logger.info("Generating ACCESS-C filepaths.")
-            values.filepaths = get_access_c_filepaths(values)
-        if values.filepaths is None:
+            self.filepaths = get_access_c_filepaths(self)
+        if self.filepaths is None:
             raise ValueError("filepaths not provided or badly formed.")
-        return values
+        return self
 
 
 def get_access_c_filepaths(options: AccessCOptions):
@@ -130,7 +130,7 @@ def convert_access(
     logger.info(f"Converting {dataset_options.name} dataset for time {time_str}.")
 
     try:
-        access = xr.open_dataset(filepath)
+        access = xr.open_dataset(filepath, decode_timedelta=True)
     except:
         logger.error(f"Failed to open dataset at {filepath}.")
         raise

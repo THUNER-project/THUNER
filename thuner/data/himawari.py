@@ -107,22 +107,22 @@ class HimawariOptions(utils.BaseDatasetOptions):
         )
 
     @model_validator(mode="after")
-    def _check_filepaths(cls, values):
-        if values.filepaths is None:
+    def _check_filepaths(self):
+        if self.filepaths is None:
             logger.info("Generating Himawari filepaths.")
-            filepaths = get_himawari_filepaths(values)
+            filepaths = get_himawari_filepaths(self)
             # Subset to just those files that actually exist locally
             filepaths = sorted([fp for fp in filepaths if Path(fp).exists()])
-            values.filepaths = filepaths
-        if values.filepaths is None:
+            self.filepaths = filepaths
+        if self.filepaths is None:
             raise ValueError("filepaths not provided or badly formed.")
-        if values.coordinates_filepath is None:
+        if self.coordinates_filepath is None:
             logger.info("Generating Himawari coordinates filepath.")
-            values.coordinates_filepath = get_himawari_coordinates_filepath(values)
-        if values.coordinates_filepath is None:
+            self.coordinates_filepath = get_himawari_coordinates_filepath(self)
+        if self.coordinates_filepath is None:
             raise ValueError("coordinates_filepath not provided or badly formed.")
 
-        return values
+        return self
 
 
 def get_himawari_coordinates_filepath(options: HimawariOptions):
@@ -199,10 +199,10 @@ def convert_himawari(
     time_str = utils.format_time(time, filename_safe=False)
     logger.info(f"Converting {dataset_options.name} dataset for time {time_str}.")
 
-    himawari = xr.open_dataset(filepath)
+    himawari = xr.open_dataset(filepath, decode_timedelta=True)
     himawari = himawari.rename(_names_dict)
     himawari = himawari[dataset_options.fields]
-    coordinates = xr.open_dataset(dataset_options.coordinates_filepath)
+    coordinates = xr.open_dataset(dataset_options.coordinates_filepath, decode_timedelta=True)
     coord_names = ["lat", "lon", "invalid_navigation_mask"]
     coordinates = coordinates[coord_names].isel(time=0, drop=True)
     himawari.coords["latitude"] = coordinates["lat"]

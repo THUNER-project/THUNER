@@ -34,17 +34,17 @@ class Attribute(BaseOptions):
     units: str | None = Field(None, description="Units of the attribute.")
 
     @model_validator(mode="after")
-    def check_data_type(cls, values):
+    def check_data_type(self):
         """
         Check that the data type is valid.
         """
-        if isinstance(values.data_type, str):
+        if isinstance(self.data_type, str):
             # convert string to type
-            if "." in values.data_type:
-                module_name, type_name = values.data_type.rsplit(".", 1)
+            if "." in self.data_type:
+                module_name, type_name = self.data_type.rsplit(".", 1)
                 module = importlib.import_module(module_name)
-                values.data_type = getattr(module, type_name)
-        return values
+                self.data_type = getattr(module, type_name)
+        return self
 
 
 class AttributeGroup(BaseOptions):
@@ -64,25 +64,25 @@ class AttributeGroup(BaseOptions):
     )
 
     @model_validator(mode="after")
-    def check_retrieval(cls, values):
+    def check_retrieval(self):
         """
         Check that the retrieval method is the same for all attributes in the group.
         Also check that the shared retrieval method is the same as the group retrieval
         method if one has been provided.
         """
         retrievals = []
-        for attribute in values.attributes:
+        for attribute in self.attributes:
             retrievals.append(attribute.retrieval)
         if np.all(np.array(retrievals) == None):
             # If retrieval for all attributes is None, do nothing
-            return values
-        if values.retrieval is None and len(set(retrievals)) > 1:
+            return self
+        if self.retrieval is None and len(set(retrievals)) > 1:
             message = "attributes in group must have the same retrieval method."
             raise ValueError(message)
-        elif values.retrieval is None:
+        elif self.retrieval is None:
             # if retrieval is None, set it to the common retrieval method
-            values.retrieval = retrievals[0]
-        return values
+            self.retrieval = retrievals[0]
+        return self
 
 
 AttributeList = list[Attribute | AttributeGroup]
@@ -112,15 +112,15 @@ class AttributeType(BaseOptions):
     _attribute_lookup = {}
 
     @model_validator(mode="after")
-    def initialize_lookup(cls, values):
+    def initialize_lookup(self):
         """
         Initialize the lookup dictionary for attributes. This is used to quickly access
         attributes by name.
         """
-        values._attribute_lookup = {}
-        for attribute in values.attributes:
-            values._attribute_lookup[attribute.name] = attribute
-        return values
+        self._attribute_lookup = {}
+        for attribute in self.attributes:
+            self._attribute_lookup[attribute.name] = attribute
+        return self
 
     def attribute_by_name(self, name: str) -> Attribute | AttributeGroup:
         """
@@ -153,15 +153,15 @@ class Attributes(BaseOptions):
     )
 
     @model_validator(mode="after")
-    def initialize_lookup(cls, values):
+    def initialize_lookup(self):
         """
         Initialize the lookup dictionary for attribute types. This is used to quickly
         access attribute types by name.
         """
-        values._attribute_type_lookup = {}
-        for attribute_type in values.attribute_types:
-            values._attribute_type_lookup[attribute_type.name] = attribute_type
-        return values
+        self._attribute_type_lookup = {}
+        for attribute_type in self.attribute_types:
+            self._attribute_type_lookup[attribute_type.name] = attribute_type
+        return self
 
     def attribute_type_by_name(self, name: str) -> AttributeType:
         """

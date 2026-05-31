@@ -301,10 +301,10 @@ def consolidate_netcdf(filepaths, fields=None, concat_dim="time"):
     """
     datasets = []
     if fields is None:
-        fields = xr.open_dataset(filepaths[0]).data_vars.keys()
+        fields = xr.open_dataset(filepaths[0], decode_timedelta=True).data_vars.keys()
 
     for filepath in filepaths:
-        dataset = xr.open_dataset(filepath)
+        dataset = xr.open_dataset(filepath, decode_timedelta=True)
         dataset = dataset[fields]
         datasets.append(dataset)
 
@@ -414,7 +414,7 @@ def log_convert(local_logger, name, filepath):
 def call_ncks(input_filepath, output_filepath, start, end, lat_range, lon_range):
     """Call ncks to subset a large netcdf file."""
     # Read metadata using xr with lazy loading.
-    ds = xr.open_dataset(input_filepath, chunks={})
+    ds = xr.open_dataset(input_filepath, chunks={}, decode_timedelta=True)
     # Check if time variable "time" or "valid_time". If "valid_time" convert to "time".
     if "valid_time" in ds:
         time_var = "valid_time"
