@@ -169,23 +169,6 @@ def get_himawari_filepaths(options: HimawariOptions):
     return sorted(filepaths)
 
 
-def get_himawari_ancillary_filepaths(options: HimawariOptions):
-    """
-    Get ancillary filepaths for Himawari data.
-    """
-    filepaths = []
-    base_filepath = utils.get_parent(options)
-    base_filepath += f"/satellite-products/{options.time_frame}/obs/"
-    base_filepath += f"himawari-{options.instrument.lower()}/{options.region}/"
-    base_filepath += f"{options.version}/ancillary/00000000000000-P1S-ABOM_GEOM_"
-    for file_type in ["AUSDEM", "LAND", "SENSOR"]:
-        for resolution in [500, 1000, 2000]:
-            filepath = base_filepath + f"{file_type}-PRJ_GEOS141_{resolution}"
-            filepath += "-HIMAWARI8-AHI.nc"
-            filepaths.append(filepath)
-    return sorted(filepaths)
-
-
 def convert_himawari(
     time,
     filepath,

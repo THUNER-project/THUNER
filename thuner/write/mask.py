@@ -41,16 +41,3 @@ def write(object_tracks, object_options, output_directory):
         mask.to_zarr(store, group=group, mode="a", append_dim="time")
     else:
         mask.to_zarr(store, group=group, mode="a")
-
-
-def write_final(tracks, track_options, output_directory):
-    """Write final masks to the unified zarr store."""
-
-    for index, level_options in enumerate(track_options.levels):
-        for object_options in level_options.objects:
-            if not object_options.mask_options.save:
-                continue
-            obj_name = object_options.name
-            write(
-                tracks.levels[index].objects[obj_name], object_options, output_directory
-            )

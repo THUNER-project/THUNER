@@ -106,10 +106,13 @@ def track(
                 dataset_name=dataset_name,
             )
     else:
-        with logging_listener(), mp.get_context("spawn").Pool(
-            initializer=utils.initialize_process,
-            processes=num_processes,
-        ) as pool:
+        with (
+            logging_listener(),
+            mp.get_context("spawn").Pool(
+                initializer=utils.initialize_process,
+                processes=num_processes,
+            ) as pool,
+        ):
             results = []
             for i, time_interval in enumerate(intervals):
                 time.sleep(1)
@@ -509,11 +512,23 @@ def get_match_dicts(output_parent, intervals, mask_group_dict, tracked_objects):
 
         interval_match_dicts, interval_time_dicts = {}, {}
         for j, obj in enumerate(objects_1):
-            ds_2 = xr.open_dataset(store_2, group=groups_2[j], engine="zarr", chunks={}, decode_timedelta=True)
+            ds_2 = xr.open_dataset(
+                store_2,
+                group=groups_2[j],
+                engine="zarr",
+                chunks={},
+                decode_timedelta=True,
+            )
             ds_2 = ds_2.isel(time=0).load()
             time = ds_2["time"].values
             interval_time_dicts[obj] = time
-            ds_1 = xr.open_dataset(store_1, group=groups_1[j], engine="zarr", chunks={}, decode_timedelta=True)
+            ds_1 = xr.open_dataset(
+                store_1,
+                group=groups_1[j],
+                engine="zarr",
+                chunks={},
+                decode_timedelta=True,
+            )
             if time not in ds_1.time:
                 if obj not in tracked_objects:
                     interval_match_dicts[obj] = None
@@ -594,7 +609,8 @@ def stitch_masks(output_parent, intervals, mask_group_dict, id_dicts):
                     store,
                     group=group,
                     engine="zarr",
-                    chunks={"time": 1}, decode_timedelta=True
+                    chunks={"time": 1},
+                    decode_timedelta=True,
                 )
             )
         new_masks = []
@@ -607,9 +623,9 @@ def stitch_masks(output_parent, intervals, mask_group_dict, id_dicts):
                 if time not in np.array(masks[i].time.values):
                     message = (
                         "Time intervals have produced non-overlapping time domains "
+                        "for masks. This can occur due to missing files at the "
+                        " overlap time."
                     )
-                    message += "for masks. This can occur due to missing files at the "
-                    message += " overlap time."
                     logger.warning(message)
                 else:
                     condition = new_mask.time.values > time

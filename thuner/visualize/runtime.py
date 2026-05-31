@@ -31,65 +31,6 @@ def get_boundaries(input_record, num_previous=1):
     return boundaries
 
 
-def detected_mask(
-    input_record, tracks, level_index, obj, track_options, grid_options, figure_options
-):
-    """Plot masks for a detected object."""
-
-    object_tracks = tracks.levels[level_index].objects[obj]
-    object_options = track_options.levels[level_index].object_by_name(obj)
-    grid = object_tracks.next_grid
-
-    if object_options.tracking is None:
-        mask = object_tracks.next_mask
-    else:
-        mask = object_tracks.next_matched_mask
-
-    boundary_coordinates = input_record.next_boundary_coordinates
-    fig, ax = horizontal.detected_mask(
-        grid=grid,
-        mask=mask,
-        grid_options=grid_options,
-        figure_options=figure_options,
-        boundary_coordinates=boundary_coordinates,
-    )
-
-    return fig, ax
-
-
-def grouped_mask(
-    input_record,
-    tracks,
-    level_index,
-    obj,
-    track_options,
-    grid_options,
-    figure_options,
-):
-    """Plot masks for a grouped object."""
-    object_options = track_options.levels[level_index].object_by_name(obj)
-    object_tracks = tracks.levels[level_index].objects[obj]
-    if object_options.tracking is None:
-        mask = object_tracks.next_mask
-    else:
-        mask = object_tracks.next_matched_mask
-
-    member_objects = object_options.grouping.member_objects
-    grid = object_tracks.next_grid
-
-    boundary_coordinates = input_record.next_boundary_coordinates
-    fig, subplot_axes = horizontal.grouped_mask(
-        grid=grid,
-        mask=mask,
-        grid_options=grid_options,
-        figure_options=figure_options,
-        member_objects=member_objects,
-        boundary_coordinates=boundary_coordinates,
-    )[:2]
-
-    return fig, subplot_axes
-
-
 def match_template(reference_grid, extent, scale):
     """Create a template for match figures."""
     if scale == 1:
@@ -336,38 +277,6 @@ def visualize_tint_match(
     legend_axes[0].legend(handles, labels, **legend_options)
 
     return fig, subplot_axes
-
-
-def create_mask_figure_dispatcher(object_options):
-    """Dispatch the mask figure creation based on the method."""
-    if "detection" in object_options.__class__.model_fields:
-        return detected_mask
-    elif "grouping" in object_options.__class__.model_fields:
-        return grouped_mask
-    else:
-        return None
-
-
-def visualize_mask(
-    input_record, tracks, level_index, obj, track_options, grid_options, figure_options
-):
-    """Plot masks for an object."""
-    object_options = track_options.levels[level_index].object_by_name(obj)
-    create_figure = create_mask_figure_dispatcher(object_options)
-    if not create_figure:
-        message = "create_mask_figure function for object detection option not found."
-        raise KeyError(message)
-
-    fig, ax = create_figure(
-        input_record,
-        tracks,
-        level_index,
-        obj,
-        track_options,
-        grid_options,
-        figure_options,
-    )
-    return fig, ax
 
 
 def visualize(

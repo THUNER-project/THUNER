@@ -226,11 +226,3 @@ def animate_object(
             duration=200,
             loop=0,
         )
-
-
-def get_grid(time, filename, field, data_options, grid_options):
-    """
-    Get the grid from a file.
-    """
-    grid = utils.load_grid(filename)
-    return grid[field]

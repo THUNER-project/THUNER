@@ -490,7 +490,7 @@ def infer_grid_options(dataset: DataObject, grid_options):
     if grid_options.name == "geographic":
         grid_options.latitude = dataset.latitude.values.tolist()
         grid_options.longitude = dataset.longitude.values.tolist()
-        grid_options.shape = [len(dataset.latitude), len(dataset.longitude)]
+        grid_options.shape = (len(dataset.latitude), len(dataset.longitude))
         lat_spacing = np.round(np.diff(dataset.latitude).flatten(), decimals=8)
         lon_spacing = np.round(np.diff(dataset.longitude).flatten(), decimals=8)
         lat_spacing = np.unique(lat_spacing).tolist()
@@ -503,7 +503,7 @@ def infer_grid_options(dataset: DataObject, grid_options):
     elif grid_options.name == "cartesian":
         grid_options.y = dataset.y.values.tolist()
         grid_options.x = dataset.x.values.tolist()
-        grid_options.shape = [len(dataset.y), len(dataset.x)]
+        grid_options.shape = (len(dataset.y), len(dataset.x))
         y_spacing = np.unique(np.diff(grid_options.y).flatten()).tolist()
         x_spacing = np.unique(np.diff(grid_options.x).flatten()).tolist()
         if len(y_spacing) == 1 and len(x_spacing) == 1:
@@ -664,95 +664,10 @@ def create_time_filepath_lookup(filepaths: list[str]) -> Dict[np.datetime64, str
     return time_filepath_record
 
 
-def camel_to_snake(name):
-    """
-    Convert camel case string to snake case.
-
-    Parameters:
-    name (str): The camel case string to convert.
-
-    Returns:
-    str: The converted snake case string.
-    """
-    s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
-    return re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
-
-
 def filter_arguments(func, args):
     """Filter arguments for the given attribute retrieval function."""
     sig = inspect.signature(func)
     return {key: value for key, value in args.items() if key in sig.parameters}
-
-
-class SingletonBase:
-    """
-    Base class for implementing singletons in python. See for instance the classic
-    "Gang of Four" design pattern book for more information on the "singleton" pattern.
-    The idea is that only one instance of a "singleton" class can exist at one time,
-    making these useful for storing program state.
-
-    Gamma et al. (1995), Design Patterns: Elements of Reusable Object-Oriented Software.
-
-    Note however that if processes are created with, e.g., the multiprocessing module
-    different processes will have different instances of the singleton. We can avoid
-    this by explicitly passing the singleton instance to the processes.
-    """
-
-    # The base class now keeps track of all instances of singleton classes
-    _instances = {}
-
-    def __new__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            instance = super(SingletonBase, cls).__new__(cls)
-            instance._initialize(*args, **kwargs)
-            cls._instances[cls] = instance
-        return cls._instances[cls]
-
-    def _initialize(self, *args, **kwargs):
-        """
-        Initialize the singleton instance. This method should be overridden by subclasses.
-        """
-        pass
-
-
-def format_string_list(strings):
-    """
-    Format a list of strings into a human-readable string.
-
-    Parameters
-    ----------
-    strings : list of str
-        List of strings to be formatted.
-
-    Returns
-    -------
-    formatted_string : str
-        The formatted string.
-    """
-    if len(strings) > 1:
-        formatted_string = ", ".join(strings[:-1]) + " or " + strings[-1]
-        return formatted_string
-    elif strings:
-        return strings[0]
-    else:
-        raise ValueError("strings must be an iterable of strings'.")
-
-
-def create_hidden_directory(path):
-    """Create a hidden directory."""
-    if not Path(path).name.startswith("."):
-        hidden_path = Path(path).parent / f".{Path(path).name}"
-    else:
-        hidden_path = Path(path)
-    if hidden_path.exists() and hidden_path.is_file():
-        message = f"{hidden_path} exists, but is a file, not a directory."
-        raise FileExistsError(message)
-    hidden_path.mkdir(parents=True, exist_ok=True)
-    if platform.system() == "Windows":
-        os.system(f'attrib +h "{hidden_path}"')
-    else:
-        os.makedirs(hidden_path, exist_ok=True)
-    return hidden_path
 
 
 def hash_dictionary(dictionary):
@@ -760,11 +675,6 @@ def hash_dictionary(dictionary):
     hash_obj = hashlib.sha256()
     hash_obj.update(params_str.encode("utf-8"))
     return hash_obj.hexdigest()
-
-
-def drop_time(time):
-    """Drop the time component of a datetime64 object."""
-    return time.astype("datetime64[D]").astype("datetime64[s]")
 
 
 def almost_equal(numbers, decimal_places=5):
@@ -778,29 +688,6 @@ def pad(array, left_pad=1, right_pad=1, kind="linear"):
     x = np.arange(len(array))
     f = interp1d(x, array, kind=kind, fill_value="extrapolate")
     return f(np.arange(-left_pad, len(array) + right_pad))
-
-
-def print_keys(dictionary, indent=0):
-    """Print the keys of a nested dictionary."""
-    for key, value in dictionary.items():
-        print("\t".expandtabs(4) * indent + str(key))
-        if isinstance(value, dict):
-            print_keys(value, indent + 1)
-
-
-def check_component_options(component_options):
-    """Check options for converted datasets and masks."""
-
-    if not isinstance(component_options, dict):
-        raise TypeError("component_options must be a dictionary.")
-    if "save" not in component_options:
-        raise KeyError("save key not found in component_options.")
-    if "load" not in component_options:
-        raise KeyError("load key not found in component_options.")
-    if not isinstance(component_options["save"], bool):
-        raise TypeError("save key must be a boolean.")
-    if not isinstance(component_options["load"], bool):
-        raise TypeError("load key must be a boolean.")
 
 
 def time_in_dataset_range(time, dataset):
@@ -995,23 +882,6 @@ def circular_mean(angles, weights=None):
     complex_numbers = np.exp(1j * angles)
     # Get the angle of the weighted sum of the complex numbers
     return np.angle(np.sum(weights * complex_numbers)) % (2 * np.pi)
-
-
-def circular_variance(angles, weights=None):
-    """
-    Calculate a weighted circular variance. Based on the scipy.stats.circvar function.
-    https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.circvar.html
-    """
-    if weights is None:
-        weights = np.ones_like(angles)
-    angles, weights = np.array(angles), np.array(weights)
-    # Convert the angles to complex numbers of unit length
-    complex_numbers = np.exp(1j * angles)
-    total_weight = np.sum(weights)
-    if total_weight == 0:
-        return np.nan
-    complex_sum = np.sum(weights * complex_numbers / total_weight)
-    return 1 - np.abs(complex_sum)
 
 
 def check_results(results):

@@ -8,18 +8,6 @@ import thuner.grid as thuner_grid
 logger = setup_logger(__name__)
 
 
-def get_object_area(obj, mask, gridcell_area, grid_options):
-    """Get object area. Note gridcell_area is in km^2 by default."""
-    row_inds, col_inds = np.where(mask == obj)
-    row_points = xr.Variable("mask_points", row_inds)
-    col_points = xr.Variable("mask_points", col_inds)
-    if grid_options.name == "cartesian":
-        areas = gridcell_area.isel(y=row_points, x=col_points).values
-    elif grid_options.name == "geographic":
-        areas = gridcell_area.isel(latitude=row_points, longitude=col_points).values
-    return areas.sum()
-
-
 def get_object_center(obj, mask, grid_options, gridcell_area=None, grid=None):
     """Get object centre."""
     coord_names = thuner_grid.get_coordinate_names(grid_options)

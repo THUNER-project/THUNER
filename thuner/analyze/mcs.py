@@ -32,7 +32,7 @@ __all__ = [
 
 
 def process_velocities(
-    output_directory, window_size=6, analysis_directory=None, profile_dataset="era5_pl"
+    output_directory, window_size=6, profile_dataset="era5_pl"
 ):
     """
     Process winds and velocities for analysis.
@@ -42,9 +42,6 @@ def process_velocities(
     output_directory : str
         Path to the thuner run output directory.
     """
-
-    if analysis_directory is None:
-        analysis_directory = output_directory / "analysis"
 
     options = utils.read_options(output_directory)
     mcs_options = options["track"].levels[1].object_by_name("mcs")
@@ -385,37 +382,18 @@ ambiguity_quality_dispatcher = {
 def classify_all(
     output_directory,
     analysis_options: AnalysisOptions,
-    analysis_directory=None,
-    offset_filepath=None,
-    velocities_filepath=None,
-    quality_filepath=None,
     classify_small_offsets=False,
     classify_ambiguous=False,
 ):
     """
     Classify MCSs based on quadrants, as described in Short et al. (2023).
     """
-    if analysis_directory is None:
-        analysis_directory = output_directory / "analysis"
 
-    if velocities_filepath is None:
-        velocities = read_attribute(output_directory, "analysis", "velocities")
-    else:
-        velocities = read_attribute(velocities_filepath)
-    if offset_filepath is None:
-        offset = read_attribute(
-            output_directory,
-            "attributes",
-            "mcs",
-            "group",
-            columns=["x_offset", "y_offset"],
-        )
-    else:
-        offset = read_attribute(offset_filepath, columns=["x_offset", "y_offset"])
-    if quality_filepath is None:
-        quality = read_attribute(output_directory, "analysis", "quality")
-    else:
-        quality = read_attribute(quality_filepath)
+    velocities = read_attribute(output_directory, "analysis", "velocities")
+    offset = read_attribute(
+        output_directory, "attributes", "mcs", "group", columns=["x_offset", "y_offset"]
+    )
+    quality = read_attribute(output_directory, "analysis", "quality")
 
     u, v = velocities["u"], velocities["v"]
 

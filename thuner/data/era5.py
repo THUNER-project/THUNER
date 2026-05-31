@@ -229,90 +229,6 @@ def get_file_datetimes(options, start, end):
     return times
 
 
-def generate_cdsapi_requests(options):
-    """
-    Retrieve ERA5 data using the CDS API.
-
-    Parameters
-    ----------
-    options : dict
-        A dictionary containing the input options.
-
-    Returns
-    -------
-    cds_name : str
-        The name argument for the cdsapi retrieval.
-    requests : dict
-        A dictionary containing the cdsapi retrieval options.
-    local_paths : dict
-        A dictionary containing the local file paths.
-    """
-
-    # First get the base_path for where to store the files locally
-    base_path = get_base_path(options, local=True)
-
-    short_data_format = {"pressure-levels": "pl", "single-levels": "sfc"}
-    short_format = short_data_format[options.data_format]
-
-    requests = dict(zip(options.fields, [[] for i in range(len(options.fields))]))
-    local_paths = dict(zip(options.fields, [[] for i in range(len(options.fields))]))
-
-    cds_name = f"reanalysis-era5-{options.data_format}"
-
-    start = pd.Timestamp(options["start"])
-    # Add an hour to the end time to facilitate temporal interpolation
-    end = pd.Timestamp(options["end"]) + pd.Timedelta(hours=1)
-
-    # Get the times corresponding to the filepaths
-    times = get_file_datetimes(options, start, end)
-    if options.latitude_range is None:
-        latitude_range = [-90, 90]
-    else:
-        latitude_range = options.latitude_range
-    if options.longitude_range is None:
-        longitude_range = [-180, 180]
-    else:
-        longitude_range = options.longitude_range
-    area = [latitude_range[1], longitude_range[0]]
-    area += [latitude_range[0], longitude_range[1]]
-
-    # Define a function to get the days for the API request for each time
-    def get_days(time, options):
-        if options.storage == "daily":
-            days = [f"{time.day:02}"]
-        elif options.storage == "monthly":
-            last_day = calendar.monthrange(time.year, time.month)[1]
-            days = [f"{i:02}" for i in range(1, last_day + 1)]
-        else:
-            raise ValueError("options.storage must be either 'daily' or 'monthly'.")
-        return days
-
-    for field in options.fields:
-        for time in times:
-            time = pd.Timestamp(time)
-            days = get_days(time, options)
-
-            request = {
-                "product_type": [options.mode],
-                "data_format": "netcdf",
-                "download_format": "unarchived",
-                "variable": [field],
-                "pressure_level": options["pressure_levels"],
-                "year": [f"{time.year:04}"],
-                "month": [f"{time.month:02}"],
-                "day": days,
-                "time": [f"{i:02}" for i in range(0, 24)],
-                "area": area,
-            }
-            daterange_str = format_daterange(options, time)
-            local_path = f"{base_path}/{field}/{time.year}/{field}_era5_oper_"
-            local_path += f"{short_format}_{daterange_str}.nc"
-            requests[field].append(request)
-            local_paths[field].append(local_path)
-
-    return cds_name, requests, local_paths
-
-
 def get_area(options):
     """Get the area for the CDS API request."""
     if options.longitude_range is None:
@@ -351,43 +267,6 @@ def get_area_string(area):
     return area_string
 
 
-def issue_cdsapi_requests(
-    cds_name, requests, local_paths, enforce_timeout=False, timeout=5
-):
-    """Issue cdsapi requests. Note the wait client functionality doesn't appear to work
-    yet."""
-
-    def download_data(cds_name, request, local_path):
-        c = cdsapi.Client(sleep_max=5, retry_max=1)
-        response = c.retrieve(cds_name, request, local_path)
-        return response
-
-    def handle_request(cds_name, request, local_path):
-        path = Path(local_path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        if enforce_timeout:
-
-            def signal_handler(signum, frame):
-                raise TimeoutError("Request timed out.")
-
-            signal.signal(signal.SIGALRM, signal_handler)
-            signal.alarm(timeout)
-            try:
-                download_data(cds_name, request, local_path)
-            except TimeoutError:
-                filename = Path(local_path).name
-                message = f"Request for {filename} timed out after {timeout} seconds."
-                logger.warning(message)
-            finally:
-                signal.alarm(0)
-        else:
-            download_data(cds_name, request, local_path)
-
-    for field in requests.keys():
-        for i in range(len(local_paths[field])):
-            handle_request(cds_name, requests[field][i], local_paths[field][i])
-
-
 def convert_era5(ds):
     """Convert ERA5 data."""
     if "level" in ds.coords:
@@ -421,9 +300,13 @@ def update_era5_input_record(
         Path(filepath).exists() for field in filepaths.values() for filepath in field
     )
     if not all_files_exist and dataset_options.attempt_download:
-        logger.warning("One or more filepaths do not exist; attempting download.")
-        cds_name, requests, local_paths = generate_cdsapi_requests(dataset_options)
-        issue_cdsapi_requests(cds_name, requests, local_paths)
+        raise NotImplementedError(
+            (
+                "Downloading era5 data is not currently implemented. "
+                "Please download the required files manually or set "
+                "attempt_download to False."
+            )
+        )
 
     lat = np.array(grid_options.latitude)
     lon = np.array(grid_options.longitude)

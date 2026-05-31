@@ -6,7 +6,6 @@ import multiprocessing
 from contextlib import contextmanager
 from thuner.config import get_outputs_directory
 
-
 log_queue = multiprocessing.Queue(-1)
 listener = None
 
@@ -57,17 +56,6 @@ def setup_logger(name, level=logging.INFO):
     logger.addHandler(console_handler)
 
     return logger
-
-
-def get_all_loggers():
-    """Get a list of all currently active loggers."""
-    logger_dict = logging.Logger.manager.loggerDict
-    active_loggers = [
-        logging.getLogger(name)
-        for name in logger_dict
-        if isinstance(logger_dict[name], logging.Logger)
-    ]
-    return active_loggers
 
 
 def start_listener():

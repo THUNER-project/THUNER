@@ -90,14 +90,6 @@ def geographic_to_cartesian_lcc(grid_options, latitude, longitude):
     return x, y
 
 
-def check_spacing(array, dx):
-    """Check if array equally spaced."""
-    if not almost_equal(np.diff(array)):
-        raise ValueError("Grid not equally spaced.")
-    elif not almost_equal(list(np.diff(array)) + [dx]):
-        raise ValueError("Grid spacing does not match prescribed gridlengths.")
-
-
 def new_geographic_grid(lats, lons, dlat, dlon):
     """
     Get the geographic grid.
@@ -252,17 +244,6 @@ def get_horizontal_coordinates(grid_options):
         ]
 
     return np.array(row_coords), np.array(col_coords)
-
-
-def get_horizontal_spacing(grid_options):
-    """
-    Get the grid spacing.
-    """
-
-    if grid_options.name == "cartesian":
-        return grid_options.cartesian_spacing
-    elif grid_options.name == "geographic":
-        return grid_options.geographic_spacing
 
 
 def pixel_to_cartesian_vector(row, col, vector, grid_options):
