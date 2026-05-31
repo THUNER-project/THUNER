@@ -116,13 +116,17 @@ def series(
 
     figure_function = figure_options.method.function
 
-    # Initialize the paths to save xesmf regridder weights
-    dataset_options = options["data"].dataset_by_name(dataset_name)
-    if dataset_options.reuse_regridder:
-        if dataset_options.weights_filepath is None:
-            filepath = output_directory / "regridder_weights"
-            filepath = filepath / f"{dataset_options.name}.nc"
-            dataset_options.weights_filepath = filepath
+    # Initialize the xesmf regridder weights path for every dataset the figure will
+    # load. A grouped object's members may come from different datasets, so we can't
+    # assume a single dataset here. Each dataset gets its own weights file so they are
+    # reused (not clobbered) across frames.
+    weight_datasets = required_datasets(object_name, options["track"]) | {dataset_name}
+    for name in weight_datasets:
+        ds_options = options["data"].dataset_by_name(name)
+        if ds_options.reuse_regridder and ds_options.weights_filepath is None:
+            ds_options.weights_filepath = (
+                output_directory / "regridder_weights" / f"{name}.nc"
+            )
 
     # Start with first time
     figure_function(
@@ -188,37 +192,60 @@ def series(
     matplotlib.use(original_backend)
 
 
+def required_datasets(object_name, track_options):
+    """Dataset names needed to rebuild the grid(s) for an object and its members."""
+    object_options = track_options.object_by_name(object_name)
+    if "grouping" in object_options.__class__.model_fields:
+        datasets = set()
+        for member in object_options.grouping.member_objects:
+            datasets |= required_datasets(member, track_options)
+        return datasets
+    return {object_options.dataset}
+
+
 def get_mask_grid_boundary(
-    object_name, time, filepaths_df, masks, dataset_name, options
+    object_name, time, masks, dataset_name, options, output_directory
 ):
-    """Get the mask and grid for a given time."""
+    """Get the mask, processed grid(s) and domain boundary for a given time.
 
-    filepath = filepaths_df[dataset_name].loc[time]
-    dataset_options = options["data"].dataset_by_name(dataset_name)
-    object_level = options["track"].object_by_name(object_name).hierarchy_level
+    Each (member) object's background grid is rebuilt from its OWN dataset, so a
+    grouped object whose members were detected from different datasets (e.g. 1 km vs
+    column-max reflectivity) shows the correct field in each panel. ``dataset_name``
+    designates the dataset used for the domain boundary and coordinates; all datasets
+    regrid to the same target grid, so a single boundary suffices.
+    """
+    track_options = options["track"]
+    grid_options = options["grid"]
+    store_path = output_directory / get_zarr_store_name()
 
-    message = f"Converting {dataset_name}."
-    logger.debug(message)
-    outs = dataset_options.convert_dataset(
-        time, filepath, options["track"], options["grid"]
-    )
-    ds, boundary_coords, simple_boundary_coords = outs
-    del boundary_coords
-    logger.debug(f"Getting grid from dataset at time {time}.")
+    # Load (and regrid) each dataset the object/members were detected from, plus the
+    # boundary/coords dataset, into a {dataset_name: raw_grid} mapping.
+    dataset_names = required_datasets(object_name, track_options) | {dataset_name}
+    grids = {}
+    simple_boundary_coords = None
+    for name in sorted(dataset_names):
+        dataset_options = options["data"].dataset_by_name(name)
+        if len(dataset_options.fields) > 1:
+            raise ValueError(f"Non-unique field for dataset {name}.")
+        filepaths_df = read_attribute_zarr(
+            store_path, f"records/filepaths/{name}", columns=[name]
+        )
+        filepath = filepaths_df[name].loc[time]
+        logger.debug(f"Converting {name} at time {time}.")
+        ds, _, boundary = dataset_options.convert_dataset(
+            time, filepath, track_options, grid_options
+        )
+        grids[name] = dataset_options.grid_from_dataset(ds, dataset_options.fields[0], time)
+        if name == dataset_name:
+            simple_boundary_coords = boundary
+        del ds
 
-    if len(dataset_options.fields) > 1:
-        raise ValueError("Non-unique dataset field.")
-
-    grid = dataset_options.grid_from_dataset(ds, dataset_options.fields[0], time)
-    del ds
     logger.debug(f"Rebuilding processed grid for time {time}.")
+    object_level = track_options.object_by_name(object_name).hierarchy_level
     processed_grid = detect.rebuild_processed_grid(
-        grid_data=grid,
-        track_options=options["track"],
-        obj=object_name,
-        level=object_level,
+        grids, track_options, object_name, object_level
     )
-    del grid
+    del grids
     mask = masks.sel(time=time).load()
 
     grid_time = processed_grid.time.values
@@ -253,12 +280,6 @@ def detected_horizontal(
     figure_options = HorizontalAttributeOptions(**figure_options_dict)
     object_name = figure_options.object_name
 
-    # Get filepaths dataframe
-    store_path = output_directory / get_zarr_store_name()
-    filepaths_df = read_attribute_zarr(
-        store_path, f"records/filepaths/{dataset_name}", columns=[dataset_name]
-    )
-
     # Setup colors
     color_angle_df = get_color_angle_df(object_name, output_directory)
 
@@ -268,10 +289,10 @@ def detected_horizontal(
     mask, grid, boundary_coords = get_mask_grid_boundary(
         object_name=obj_name,
         time=time,
-        filepaths_df=filepaths_df,
         masks=masks,
         dataset_name=dataset_name,
         options=options,
+        output_directory=output_directory,
     )
     mask = mask[obj_name + "_mask"]
     grid = grid[obj_name + "_grid"]
@@ -340,11 +361,6 @@ def grouped_horizontal(
     # Rebuild the figure options
     figure_options = GroupedHorizontalAttributeOptions(**figure_options_dict)
 
-    # Get filepaths dataframe
-    store_path = output_directory / get_zarr_store_name()
-    filepaths_df = read_attribute_zarr(
-        store_path, f"records/filepaths/{dataset_name}", columns=[dataset_name]
-    )
     obj_name = figure_options.object_name
 
     # Setup colors
@@ -354,10 +370,10 @@ def grouped_horizontal(
     mask, grid, boundary_coords = get_mask_grid_boundary(
         object_name=obj_name,
         time=time,
-        filepaths_df=filepaths_df,
         masks=masks,
         dataset_name=dataset_name,
         options=options,
+        output_directory=output_directory,
     )
     object_colors = get_object_colors(time, color_angle_df)
 

@@ -79,25 +79,40 @@ detecter_dispatcher = {
 }
 
 
-def rebuild_processed_grid(grid_data, track_options, obj, level):
-    """Rebuild the processed grid for the given object and level."""
+def rebuild_processed_grid(grids, track_options, obj, level):
+    """
+    Rebuild the processed 2D grid(s) an object was detected from, for visualization.
+
+    Each detected object selects the raw grid for its own dataset, so a grouped object
+    whose members come from different datasets (e.g. 1 km vs column-max reflectivity)
+    gets the correct background field per member.
+
+    Parameters
+    ----------
+    grids : dict[str, xarray.DataArray]
+        Mapping from dataset name to that dataset's raw grid at the relevant time.
+    track_options, obj, level :
+        The tracking options, object name, and the object's hierarchy level.
+
+    Returns
+    -------
+    xarray.Dataset
+        Keyed by ``{name}_grid``: a single entry for a detected object, or one entry
+        per member for a grouped object.
+    """
     grid_dict = {}
     object_options = track_options.levels[level].object_by_name(obj)
     if "detection" in object_options.__class__.model_fields:
-        grid_dict[f"{obj}_grid"] = process_grid(grid_data, object_options)
+        grid = grids[object_options.dataset]
+        grid_dict[f"{obj}_grid"] = process_grid(grid, object_options)
     elif "grouping" in object_options.__class__.model_fields:
         member_objects = object_options.grouping.member_objects
         member_levels = object_options.grouping.member_levels
         for member_obj, member_level in zip(member_objects, member_levels):
             grid_dict.update(
-                rebuild_processed_grid(
-                    grid_data, track_options, member_obj, member_level
-                )
+                rebuild_processed_grid(grids, track_options, member_obj, member_level)
             )
-    processed_grid = xr.Dataset(grid_dict)
-    # if "detection" in object_options.__class__.model_fields:
-    #     processed_grid = processed_grid[f"{obj}_grid"]
-    return processed_grid
+    return xr.Dataset(grid_dict)
 
 
 def process_grid(grid, object_options):

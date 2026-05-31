@@ -30,7 +30,6 @@ def convective(dataset="cpol"):
     return track_option.DetectedObjectOptions(
         name="convective",
         dataset=dataset,
-        variable="reflectivity",
         detection=detection,
         tracking=None,
     )
@@ -42,7 +41,6 @@ def middle(dataset="cpol"):
     return track_option.DetectedObjectOptions(
         name="middle",
         dataset=dataset,
-        variable="reflectivity",
         detection=detection,
         tracking=None,
     )
@@ -54,7 +52,6 @@ def anvil(dataset="cpol"):
     return track_option.DetectedObjectOptions(
         name="anvil",
         dataset=dataset,
-        variable="reflectivity",
         detection=detection,
         tracking=None,
     )
@@ -78,7 +75,6 @@ def satellite_anvil(dataset="himawari"):
     return track_option.DetectedObjectOptions(
         name="anvil",
         dataset=dataset,
-        variable="brightness_temperature",
         detection=det_kwargs,
         tracking=tracking,
         attributes=attributes,

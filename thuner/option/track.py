@@ -201,7 +201,6 @@ class DetectedObjectOptions(BaseObjectOptions):
     """Options for detected objects."""
 
     object_type: Literal["detected"] = Field("detected", description="Type of object.")
-    variable: str = Field("reflectivity", description="Variable to use for detection.")
     detection: DetectionOptions = Field(
         DetectionOptions(method="steiner"),
         description="Method used to detect the object.",
