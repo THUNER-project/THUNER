@@ -1,0 +1,20 @@
+{
+  "name": "THUNER Claude Sandbox",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "remoteUser": "thuner",
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+  "mounts": [
+    "source=${localEnv:HOME}/.claude,target=/home/thuner/.claude,type=bind,consistency=cached"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python"
+      ]
+    }
+  },
+  "postCreateCommand": "pixi install"
+}

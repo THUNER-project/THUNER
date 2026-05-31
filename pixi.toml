@@ -1,0 +1,55 @@
+[workspace]
+name = "thuner"
+version = "0.0.16"
+description = "Multifeature tracking and analysis of meteorological events"
+authors = ["Ewan Short <eshort0401@gmail.com>"]
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-arm64", "osx-64"]
+
+# Conda-only system libraries that have no usable PyPI wheel.
+# Everything pip-installable lives in pyproject.toml [project.dependencies].
+[dependencies]
+xesmf = ">=0.8"
+nco = ">=5.2"
+graphviz = ">=0.20"
+pygraphviz = ">=1.9"
+# These are pulled in transitively, but pinning them here forces the conda
+# build (linked against the same HDF5/NetCDF/GEOS as the rest of the env).
+# Otherwise pip can install PyPI wheels that bundle mismatched libs.
+h5py = "*"
+netcdf4 = ">=1.7"
+hdf5 = "*"
+cartopy = "*"
+
+# Editable install of THUNER itself; this also pulls in PyPI deps from pyproject.toml.
+[pypi-dependencies]
+thuner = { path = ".", editable = true, extras = ["test", "dev"] }
+
+# ---- Features ----
+
+[feature.docs.pypi-dependencies]
+thuner = { path = ".", editable = true, extras = ["docs"] }
+
+[feature.py310.dependencies]
+python = "3.10.*"
+
+[feature.py311.dependencies]
+python = "3.11.*"
+
+[feature.py312.dependencies]
+python = "3.12.*"
+
+# ---- Environments ----
+
+[environments]
+default = { features = ["py310"], solve-group = "py310" }
+docs    = { features = ["py310", "docs"], solve-group = "py310" }
+py311   = { features = ["py311"], solve-group = "py311" }
+py312   = { features = ["py312"], solve-group = "py312" }
+
+# ---- Tasks (run with `pixi run <name>`) ----
+
+[tasks]
+test = "pytest --verbose --color=yes -s --cov=thuner --cov-report=term-missing --cov-report=html --log-cli-level=INFO"
+format = "black ."
+lint = "pre-commit run --all-files"

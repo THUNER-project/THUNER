@@ -15,7 +15,7 @@ import os
 
 # Set the environment variable to turn off the pyart welcome message
 os.environ["PYART_QUIET"] = "True"
-import pyart.graph.cm_colorblind as pcm
+from cmweather import cm_colorblind as pcm
 import thuner.visualize.utils as utils
 from thuner.log import setup_logger
 
