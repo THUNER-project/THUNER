@@ -148,16 +148,16 @@ def convert_access(
     ds = _utils.copy_attributes(ds, access)
 
     if grid_options.domain_mask is None:
-        # If no mask provided, use the whole grid.
-        mask = np.zeros_like(ds[dataset_options.fields[0]].isel(time=0, drop=True))
-        mask[1:-1, 1:-1] = 1
-        mask = xr.DataArray(
-            mask,
+        domain_mask = np.ones_like(ds[dataset_options.fields[0]].isel(time=0, drop=True))
+        domain_mask = xr.DataArray(
+            domain_mask,
             coords={"latitude": latitude, "longitude": longitude},
             dims=("latitude", "longitude"),
             name="domain_mask",
         )
-    ds["domain_mask"] = mask
+    else:
+        domain_mask = grid_options.domain_mask
+    ds["domain_mask"] = domain_mask
     utils.infer_grid_options(ds, grid_options)
     ds["longitude"] = ds["longitude"] % 360
     cell_areas = grid.get_cell_areas(grid_options)

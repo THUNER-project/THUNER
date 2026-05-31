@@ -151,16 +151,6 @@ def CAPE():
     )
 
 
-# class CAPE(Attribute):
-#     """Convective available potential energy (CAPE)."""
-
-#     name: str = "cape"
-#     data_type: type = float
-#     precision: int = 1
-#     units: str = "J/kg"
-#     description: str = "Convective available potential energy."
-
-
 def CIN():
     """Convenience function to build a CIN attribute."""
     _retrieval = Retrieval(function=from_centers)
@@ -172,16 +162,6 @@ def CIN():
         description="Convective inhibition.",
         retrieval=_retrieval,
     )
-
-
-# class CIN(Attribute):
-#     """Convective inhibition."""
-
-#     name: str = "cin"
-#     data_type: type = float
-#     precision: int = 1
-#     units: str = "J/kg"
-#     description: str = "Convective inhibition."
 
 
 def tag_center(dataset):

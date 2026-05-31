@@ -17,7 +17,6 @@ else:
 import inspect
 import traceback
 import importlib
-import copy
 from datetime import datetime
 from pathlib import Path
 import json
@@ -302,46 +301,41 @@ class BaseDatasetOptions(BaseOptions):
         return new_filepaths
 
     def update_input_record(self, time, input_record, track_options, grid_options):
-        """Update the input record."""
+        """
+        Load the next file into the input record.
+
+        Responsible only for loading/converting the file's dataset (which carries the
+        domain and boundary masks as data variables) and stashing the per-file boundary
+        coordinates. Rotating the per-time-step grid and boundary data into the deques
+        is handled by ``thuner.data._update.update_track_input_records``.
+        """
         time_str = format_time(time, filename_safe=False)
         logger.info(f"Updating {self.name} input record for {time_str}.")
         conv_options = self.converted_options
         input_record._current_file_index += 1
         filepath = self.filepaths[input_record._current_file_index]
         if conv_options.load is False:
-            outs = self.convert_dataset(time, filepath, track_options, grid_options)
-            dataset, boundary_coords, simple_boundary_coords = outs
+            dataset, boundary_coords, _ = self.convert_dataset(
+                time, filepath, track_options, grid_options
+            )
             infer_grid_options(dataset, grid_options)
         else:
             dataset = xr.open_dataset(filepath, decode_timedelta=True)
             infer_grid_options(dataset, grid_options)
-            domain_mask = dataset["domain_mask"]
-            boundary_coords = get_mask_boundary(domain_mask, grid_options)[0]
+            if "domain_mask" in dataset:
+                domain_mask = dataset["domain_mask"]
+                boundary_coords = get_mask_boundary(domain_mask, grid_options)[0]
+            else:
+                boundary_coords = None
         # Save the dataset if necessary.
         if conv_options.save:
             save_converted_dataset(filepath, dataset, self)
-        # Add the dataset to the imput record and update the boundary data.
         input_record.dataset = dataset
-        self.update_boundary_data(dataset, input_record, boundary_coords)
-
-    def update_boundary_data(self, dataset, input_record, boundary_coords):
-        """Update boundary data using domain mask."""
-        # Set data outside instrument range to NaN
-        keys = ["next_domain_mask", "next_boundary_coordinates"]
-        keys += ["next_boundary_mask"]
-        if any(getattr(input_record, k) is None for k in keys):
-            # Get the domain mask and domain boundary. Note this is the region where data
-            # exists, not the detected object masks from the detect module.
-            input_record.next_domain_mask = dataset["domain_mask"]
+        # The boundary coordinates are constant over a file (derived from the 2D domain
+        # mask) and aren't stored in the dataset, so stash them here for per-time-step
+        # rotation in update_track_input_records.
+        if boundary_coords is not None:
             input_record.next_boundary_coordinates = boundary_coords
-            input_record.next_boundary_mask = dataset["boundary_mask"]
-        else:
-            domain_mask = copy.deepcopy(input_record.next_domain_mask)
-            boundary_mask = copy.deepcopy(input_record.next_boundary_mask)
-            boundary_coords = copy.deepcopy(input_record.next_boundary_coordinates)
-            input_record.domain_masks.append(domain_mask)
-            input_record.boundary_coodinates.append(boundary_coords)
-            input_record.boundary_masks.append(boundary_mask)
 
     def grid_from_dataset(self, dataset, variable, time):
         """Get the grid from a generic/pre-converted dataset."""

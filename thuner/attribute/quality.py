@@ -7,7 +7,6 @@ import thuner.attribute.utils as utils
 from thuner.option.attribute import Attribute, AttributeType
 from thuner.utils import Retrieval
 
-
 logger = setup_logger(__name__)
 
 __all__ = ["overlap_from_mask", "default", "boundary_overlap"]
@@ -66,16 +65,6 @@ def boundary_overlap():
         description="Fraction of object area comprised of boundary gridcells.",
         retrieval=_retrieval,
     )
-
-
-# class BoundaryOverlap(Attribute):
-#     """Fraction of object pixels overlapping the domain boundary."""
-
-#     name: str = "boundary_overlap"
-#     data_type: type = float
-#     precision: int = 4
-#     description: str = "Fraction of object area comprised of boundary gridcells."
-#     retrieval: Retrieval = Retrieval(function=overlap_from_mask)
 
 
 # Convenience functions for creating default ellipse attribute type
