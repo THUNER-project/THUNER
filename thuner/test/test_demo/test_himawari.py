@@ -13,8 +13,8 @@ import thuner.config as config
 
 def test_himawari():
     # # Himawari
-    # This tutorial/demo provides a quick and dirty example of how THUNER can be applied to [Himawari](https://geonetwork.nci.org.au/geonetwork/srv/eng/catalog.search#/metadata/f8433_0020_1861_5916) observations. By the end of this tutorial you should be able to generate figures like that below.
-    #
+    # This tutorial/demo provides a quick and dirty example of how THUNER can be applied to [Himawari](https://geonetwork.nci.org.au/geonetwork/srv/eng/catalog.search#/metadata/f8433_0020_1861_5916) observations. By the end of this tutorial you should be able to generate figures like that below. 
+    # 
     # ![Animation depicting anvils defined from brightness temperature.](https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/himawari_anvil_20230101.gif)
     # ## Setup
     # Set a flag for whether or not to remove existing output directories
@@ -29,9 +29,7 @@ def test_himawari():
         shutil.rmtree(output_parent)
     # Run the cell below to get the demo data for this tutorial, if you haven't already.
     # Download the demo data
-    remote_directory = (
-        "s3://thuner-storage/THUNER_output/input_data/raw/satellite-products"
-    )
+    remote_directory = "s3://thuner-storage/THUNER_output/input_data/raw/satellite-products"
     data.get_demo_data(base_local, remote_directory)
     # ## Options
     # Create the dataset options
@@ -41,7 +39,7 @@ def test_himawari():
     himawari_options = data.himawari.HimawariOptions(**times_dict)
     data_options = option.data.DataOptions(datasets=[himawari_options])
     data_options.to_json(options_directory / "data.json")
-    # Setup a grid over New Guinea.
+    # Setup a grid over New Guinea. 
     # Note the demo data contains the full disk, so vary the lat/lon as you like!
     spacing = [0.025, 0.025]
     latitude = np.arange(-10, 0 + spacing[0], spacing[0])
@@ -62,7 +60,7 @@ def test_himawari():
         grid_options=grid_options,
         track_options=track_options,
         output_directory=output_parent,
-        dataset_name="himawari",
+        dataset_name='himawari',
         num_processes=2,
     )
     # ## Analyze/Visualize
@@ -73,8 +71,8 @@ def test_himawari():
     style = "presentation"
     attribute_handlers = default.detected_attribute_handlers(output_parent, style)
     figure_options = option.visualize.HorizontalAttributeOptions(
-        name="himawari_anvil",
-        object_name="anvil",
+        name='himawari_anvil',
+        object_name='anvil',
         style=style,
         attribute_handlers=attribute_handlers,
     )
@@ -86,9 +84,9 @@ def test_himawari():
         dataset_name="himawari",
         parallel_figure=True,
         by_date=False,
-        num_processes=4,
+        num_processes=4
     )
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     test_himawari()

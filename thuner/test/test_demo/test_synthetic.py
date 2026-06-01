@@ -10,10 +10,10 @@ import thuner.data.synthetic as synthetic
 
 def test_synthetic():
     # # Testing: Synthetic Data
-    # The synthetic module is a work in progress. The idea is to allow synthetic meteorological
-    # datasets to be readily created for testing purposes. While an entire synthetic dataset
+    # The synthetic module is a work in progress. The idea is to allow synthetic meteorological 
+    # datasets to be readily created for testing purposes. While an entire synthetic dataset 
     # could be created first, then fed into THUNER in the usual way (see previous tutorials/demos)
-    # with this module we instead generate the synthetic data as we go. The approach avoids the
+    # with this module we instead generate the synthetic data as we go. The approach avoids the 
     # need for storing large datasets.
     """Synthetic data demo/test."""
     # Set a flag for whether or not to remove existing output directories
@@ -30,9 +30,7 @@ def test_synthetic():
     # Create a grid
     lat = np.arange(-14, -6 + 0.025, 0.025).tolist()
     lon = np.arange(128, 136 + 0.025, 0.025).tolist()
-    grid_options = option.grid.GridOptions(
-        name="geographic", latitude=lat, longitude=lon
-    )
+    grid_options = option.grid.GridOptions(name="geographic", latitude=lat, longitude=lon)
     grid_options.to_json(options_directory / "grid.json")
     # Initialize synthetic objects
     starting_objects = []
@@ -40,16 +38,14 @@ def test_synthetic():
         obj = synthetic.create_object(
             time=start,
             center_latitude=np.mean(lat),
-            center_longitude=lon[(i + 1) * len(lon) // 6],
+            center_longitude=lon[(i+1)*len(lon) // 6],
             direction=-np.pi / 4 + i * np.pi / 6,
-            speed=30 - 4 * i,
-            horizontal_radius=5 + 4 * i,
+            speed=30-4*i,
+            horizontal_radius=5+4*i,
         )
         starting_objects.append(obj)
     # Create data options dictionary
-    synthetic_options = data.synthetic.SyntheticOptions(
-        starting_objects=starting_objects
-    )
+    synthetic_options = data.synthetic.SyntheticOptions(starting_objects=starting_objects)
     data_options = option.data.DataOptions(datasets=[synthetic_options])
     data_options.to_json(options_directory / "data.json")
     track_options = default.synthetic_track()
@@ -101,5 +97,5 @@ def test_synthetic():
     )
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     test_synthetic()
