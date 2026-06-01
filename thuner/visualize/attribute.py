@@ -15,7 +15,7 @@ import cartopy.crs as ccrs
 import thuner.visualize.horizontal as horizontal
 from thuner.utils import initialize_process, check_results
 from thuner.utils import format_time, new_angle, circular_mean
-from thuner.utils import BaseHandler, AttributeHandler
+from thuner.utils import BaseHandler, AttributeHandler, store_path
 from thuner.attribute.utils import read_attribute_zarr
 from thuner.analyze.utils import read_options
 import thuner.detect.detect as detect
@@ -109,8 +109,8 @@ def series(
     end_time = np.datetime64(end_time)
     options = read_options(output_directory)
     object_name = figure_options.object_name
-    store_path = output_directory / get_zarr_store_name()
-    masks = xr.open_dataset(store_path, engine="zarr", group=f"masks/{object_name}", decode_timedelta=True)
+    store = store_path(output_directory)
+    masks = xr.open_dataset(store, engine="zarr", group=f"masks/{object_name}", decode_timedelta=True)
     times = masks.time.values
     times = times[(times >= start_time) & (times <= end_time)]
 
@@ -216,7 +216,7 @@ def get_mask_grid_boundary(
     """
     track_options = options["track"]
     grid_options = options["grid"]
-    store_path = output_directory / get_zarr_store_name()
+    store = store_path(output_directory)
 
     # Load (and regrid) each dataset the object/members were detected from, plus the
     # boundary/coords dataset, into a {dataset_name: raw_grid} mapping.
@@ -228,7 +228,7 @@ def get_mask_grid_boundary(
         if len(dataset_options.fields) > 1:
             raise ValueError(f"Non-unique field for dataset {name}.")
         filepaths_df = read_attribute_zarr(
-            store_path, f"records/filepaths/{name}", columns=[name]
+            store, f"records/filepaths/{name}", columns=[name]
         )
         filepath = filepaths_df[name].loc[time]
         logger.debug(f"Converting {name} at time {time}.")
@@ -315,9 +315,7 @@ def detected_horizontal(
         fig, subplot_axes, colorbar_axes, legend_axes = figure_features
 
     # Create the grouped object figure instance
-    core_filepath = (
-        output_directory / get_zarr_store_name() / "attributes" / obj_name / "core"
-    )
+    core_filepath = store_path(output_directory, "attributes", obj_name, "core")
     detected_figure = BaseFigure(
         object_name=object_name,
         time=time,
@@ -409,10 +407,8 @@ def grouped_horizontal(
             subplot_axes[i].set_title(label)
 
     # Create the grouped object figure instance
-    core_filepath = (
-        output_directory / get_zarr_store_name() / "attributes" / obj_name / "core"
-    )
-    base_directory = output_directory / get_zarr_store_name() / "attributes" / obj_name
+    core_filepath = store_path(output_directory, "attributes", obj_name, "core")
+    base_directory = store_path(output_directory, "attributes", obj_name)
     filepaths_list = [str(base_directory / obj / "core") for obj in member_objects]
     grouped_figure = GroupedObjectFigure(
         object_name=obj_name,
@@ -807,9 +803,7 @@ def get_color_angle_df(object_name, output_parent, filepath=None):
     The color angle is calculated to reflect object splits/merges.
     """
     if filepath is None:
-        filepath = (
-            output_parent / get_zarr_store_name() / "attributes" / object_name / "core"
-        )
+        filepath = store_path(output_parent, "attributes", object_name, "core")
     df = _read_zarr_attribute(filepath, columns=["parents", "area"])
     color_dict = {"time": [], "universal_id": [], "color_angle": []}
     times = sorted(np.unique(df.reset_index().time))

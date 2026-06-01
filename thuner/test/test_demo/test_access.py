@@ -40,7 +40,7 @@ def test_access():
     data_options.to_json(options_directory / "data.json")
     grid_options = option.grid.GridOptions()
     grid_options.to_json(options_directory / "grid.json")
-    track_options = default.access_c_track()
+    track_options = default.track.access_c_track()
     track_options.to_json(options_directory / "track.json")
     times = utils.generate_dataset_times(data_options.dataset_by_name("access_1km"))
     parallel.track(
@@ -57,7 +57,7 @@ def test_access():
     analyze.mcs.process_velocities(output_parent, profile_dataset=None)
     analyze.mcs.quality_control(output_parent, analysis_options)
     style = "presentation"
-    attribute_handlers = default.grouped_attribute_handlers(output_parent, style)
+    attribute_handlers = default.visualize.grouped_attribute_handlers(output_parent, style)
     figure_options = option.visualize.GroupedHorizontalAttributeOptions(
         name='mcs_attributes',
         object_name='mcs',

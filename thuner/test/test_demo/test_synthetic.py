@@ -48,10 +48,10 @@ def test_synthetic():
     synthetic_options = data.synthetic.SyntheticOptions(starting_objects=starting_objects)
     data_options = option.data.DataOptions(datasets=[synthetic_options])
     data_options.to_json(options_directory / "data.json")
-    track_options = default.synthetic_track()
+    track_options = default.track.synthetic_track()
     track_options.to_json(options_directory / "track.json")
     # Create the display_options dictionary
-    visualize_options = default.synthetic_runtime(options_directory / "visualize.json")
+    visualize_options = default.visualize.synthetic_runtime(options_directory / "visualize.json")
     visualize_options.to_json(options_directory / "visualize.json")
     times = np.arange(
         np.datetime64(start),

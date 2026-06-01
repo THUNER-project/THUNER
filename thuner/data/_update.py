@@ -49,7 +49,7 @@ def update_track_input_records(
             input_record.grids.append(input_record.next_grid)
             input_record.domain_masks.append(input_record.next_domain_mask)
             input_record.boundary_masks.append(input_record.next_boundary_mask)
-            input_record.boundary_coodinates.append(
+            input_record.boundary_coordinates.append(
                 input_record.next_boundary_coordinates
             )
 

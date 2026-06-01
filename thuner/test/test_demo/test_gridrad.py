@@ -90,20 +90,20 @@ def test_gridrad():
     )
     grid_options.to_json(options_directory / "grid.json")
     # Finally, we create options describing how the tracking should be performed. In 
-    # multi-feature tracking, some objects, like mesoscale convective systems (MCSs), can be defined in terms of others, like convective and stratiform echoes. THUNER's approach is to first specify object options seperately for each object type, e.g. convective echoes, stratiform echoes, mesoscale convective systems, and so forth. Object options are specified using `pydantic` models which inherit from `thuner.option.track.BaseObjectOptions`. Related objects are then grouped together into `thuner.option.track.LevelOptions` models. The final `thuner.option.track.TrackOptions` model, which is passed to the tracking function, then contains a list of `thuner.option.track.LevelOptions` models. The idea is that "lower level" objects, can comprise the building blocks of "higher level" objects, with THUNER processing the former before the latter.
+    # multi-feature tracking, some objects, like mesoscale convective systems (MCSs), can be defined in terms of others, like convective and stratiform echoes. THUNER's approach is to first specify object options separately for each object type, e.g. convective echoes, stratiform echoes, mesoscale convective systems, and so forth. Object options are specified using `pydantic` models which inherit from `thuner.option.track.BaseObjectOptions`. Related objects are then grouped together into `thuner.option.track.LevelOptions` models. The final `thuner.option.track.TrackOptions` model, which is passed to the tracking function, then contains a list of `thuner.option.track.LevelOptions` models. The idea is that "lower level" objects, can comprise the building blocks of "higher level" objects, with THUNER processing the former before the latter.
     # 
     # In this tutorial, level 0 objects are the convective, middle and stratiform echo regions, 
     # and level 1 objects are mesoscale convective systems defined by grouping the level 0 objects. Because `thuner.option.track.TrackOptions` models can be complex to construct, a function for creating a default `thuner.option.track.TrackOptions` model matching the approach of [Short et al. (2023)](https://doi.org/10.1175/MWR-D-22-0146.1) is defined in the module `thuner.default`.
     # Create the track_options dictionary
-    track_options = default.track(dataset_name="gridrad")
+    track_options = default.track.track(dataset_name="gridrad")
     # Show the options for the level 0 objects
     print(f"Level 0 objects list: {track_options.levels[0].object_names}")
     # Show the options for the level 1 objects
     print(f"Level 1 objects list: {track_options.levels[1].object_names}")
-    # Note a core component of the options for each object is the ``atributes`` field, which describes how object attributes like position, velocity and area, are to be retrieved and stored. In THUNER, the code for collecting object attributes is seperated out from the
+    # Note a core component of the options for each object is the ``atributes`` field, which describes how object attributes like position, velocity and area, are to be retrieved and stored. In THUNER, the code for collecting object attributes is separated out from the
     # core tracking code, allowing different attributes for different objects to be swapped in and out as needed. Individual attributes are described by the ``thuner.option.attribute.Attribute`` model, where each ``thuner.option.attribute.Attribute`` will form a column of an output CSV file. 
     # 
-    # Sometimes multiple ``thuner.option.attribute.Attribute`` are grouped into a ``thuner.option.attribute.AttributeGroup`` model, in which all attributes in the group are retrieved at once using the same method. For instance, attributes based on ellipse fitting, like major and minor axis, eccentricity and orientation, form a ``thuner.option.attribute.AttributeGroup``. Note however that each member of the group will still form a seperate column in the output CSV file. 
+    # Sometimes multiple ``thuner.option.attribute.Attribute`` are grouped into a ``thuner.option.attribute.AttributeGroup`` model, in which all attributes in the group are retrieved at once using the same method. For instance, attributes based on ellipse fitting, like major and minor axis, eccentricity and orientation, form a ``thuner.option.attribute.AttributeGroup``. Note however that each member of the group will still form a separate column in the output CSV file. 
     # 
     # Finally, collections of attributes and attribute groups are organized into ``thuner.option.attribute.AttributeType`` models. Each attribute type corresponds to related attributes that will be stored in a single CSV file. This makes the number of columns in each file
     # much smaller, and THUNER outputs easier to manage and inspect directly. To illustrate, below we print the MCS object's "core" attribute type options.
@@ -168,7 +168,7 @@ def test_gridrad():
     # animation provided at the start of the notebook.
     name = f"mcs_gridrad_{event_start.replace('-', '')}"
     style = "presentation"
-    attribute_handlers = default.grouped_attribute_handlers(output_parent, style)
+    attribute_handlers = default.visualize.grouped_attribute_handlers(output_parent, style)
     figure_options = option.visualize.GroupedHorizontalAttributeOptions(
         name=name,
         object_name='mcs',

@@ -24,7 +24,7 @@ def _grid_2d(value, time):
 def test_rebuild_grid_uses_each_members_own_dataset():
     """A grouped object whose members come from different datasets must rebuild each
     member panel from its OWN dataset (the ACCESS 1 km vs column-max bug)."""
-    track_options = default.access_c_track()  # convective->access_1km, anvil->access_maxcol
+    track_options = default.track.access_c_track()  # convective->access_1km, anvil->access_maxcol
     grids = {
         "access_1km": _grid_2d(1.0, "2021-12-02T06:00:00"),
         "access_maxcol": _grid_2d(2.0, "2021-12-02T06:00:00"),
@@ -40,7 +40,7 @@ def test_rebuild_grid_uses_each_members_own_dataset():
 def test_rebuild_grid_same_dataset_group_is_unchanged():
     """Regression guard: when all members share one dataset (cpol mcs), every member
     resolves to that single grid and is flattened per its own altitude band."""
-    track_options = default.track("cpol")  # convective/middle/anvil all from "cpol"
+    track_options = default.track.track("cpol")  # convective/middle/anvil all from "cpol"
     altitudes = np.array([500.0, 3000.0, 5000.0, 8000.0, 10000.0])
     da = xr.DataArray(
         np.arange(len(altitudes))[:, None, None] * np.ones((len(altitudes), 2, 2)),

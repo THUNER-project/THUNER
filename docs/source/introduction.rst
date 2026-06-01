@@ -112,7 +112,7 @@ mesoscale convective system (MCS) could be defined as a grouping of convective a
 echoes, and a cold-pool. Grouping is handled by the :mod:`thuner.group` subpackage.
 
 Because some objects are defined in terms of others, objects are therefore organized into 
-processing hierachy "levels", with objects in higher levels built from objects at lower levels, 
+processing hierarchy "levels", with objects in higher levels built from objects at lower levels, 
 and processed after objects at lower levels. For example, convective echoes, stratiform echoes, 
 and cold-pools might be treated as level 0 objects, whereas an MCS might be treated as 
 a level 1 object, built from the level 0 objects.

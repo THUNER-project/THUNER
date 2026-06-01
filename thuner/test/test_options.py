@@ -102,7 +102,7 @@ class TestOptionsClasses(unittest.TestCase):
             options_directory = Path(_test_output) / "track_options_test"
             options_directory.mkdir(parents=True, exist_ok=True)
             # Create some good track options
-            track_options = default.track(dataset_name="cpol")
+            track_options = default.track.track(dataset_name="cpol")
             track_options.revalidate()
             track_options.to_json(options_directory / "track.json")
             loaded_track_options = option.track.TrackOptions.from_json(
@@ -113,7 +113,7 @@ class TestOptionsClasses(unittest.TestCase):
 
     def test_track_options_validation(self):
         """Test the track options class validation."""
-        track_options = default.track(dataset_name="cpol")
+        track_options = default.track.track(dataset_name="cpol")
         with self.assertRaises(ValidationError):
             # Masks need to be saved for the default configuration to work!
             track_options.levels[1].objects[0].mask_options.save = False
@@ -126,7 +126,7 @@ class TestOptionsClasses(unittest.TestCase):
             options_directory.mkdir(parents=True, exist_ok=True)
             grid_options = option.grid.GridOptions()
             data_options = build_example_data_options()
-            track_options = default.track(dataset_name="cpol")
+            track_options = default.track.track(dataset_name="cpol")
             kwargs = {
                 "grid": grid_options,
                 "data": data_options,
@@ -148,7 +148,7 @@ class TestOptionsClasses(unittest.TestCase):
         """Test the overall options class validation."""
         grid_options = option.grid.GridOptions()
         data_options = build_example_data_options()
-        track_options = default.track(dataset_name="cpol")
+        track_options = default.track.track(dataset_name="cpol")
         # Set the main dataset name to a bad value
         data_options.dataset_by_name("cpol").name = "bad_dataset_name"
         with self.assertRaises(ValidationError):

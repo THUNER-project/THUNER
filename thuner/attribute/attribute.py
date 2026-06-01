@@ -4,7 +4,7 @@ from thuner.log import setup_logger
 from thuner.option.track import AnyObjectOptions
 from thuner.option.attribute import Attribute, AttributeGroup
 from thuner.option.grid import GridOptions
-from thuner.track._utils import InputRecords, Tracks
+from thuner.track.utils import InputRecords, Tracks
 import thuner.utils as utils
 
 logger = setup_logger(__name__)

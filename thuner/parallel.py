@@ -17,7 +17,6 @@ import thuner.data as data
 import thuner.track.track as thuner_track
 import thuner.option as option
 import thuner.utils as utils
-from thuner.config import get_zarr_store_name
 
 logger = setup_logger(__name__)
 
@@ -301,7 +300,7 @@ def get_mapping(id_dicts, obj, interval):
 
 
 def relabel_id_string(i, df, column_name, id_dicts, mapping=None, object_name=None):
-    """Relabel the ids in a space seperated string."""
+    """Relabel the ids in a space separated string."""
     row = df.iloc[i]
     if str(row[column_name]) == "nan":
         return
@@ -448,12 +447,12 @@ def relabel_tracked(intervals, match_dicts, obj, df):
 
 def _interval_store(output_parent, i):
     """Return the path to the zarr store for parallel interval ``i``."""
-    return Path(output_parent) / f"interval_{i}" / get_zarr_store_name()
+    return utils.store_path(Path(output_parent) / f"interval_{i}")
 
 
 def _run_store(output_parent):
     """Return the path to the unified zarr store at the run root."""
-    return Path(output_parent) / get_zarr_store_name()
+    return utils.store_path(output_parent)
 
 
 def _is_leaf_zarr_group(path: Path) -> bool:

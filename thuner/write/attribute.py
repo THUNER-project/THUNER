@@ -16,9 +16,8 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from thuner.utils import format_time, type_to_string
+from thuner.utils import format_time, type_to_string, store_path
 from thuner.log import setup_logger
-from thuner.config import get_zarr_store_name
 import thuner.attribute.utils as utils
 import thuner.write.utils as write_utils
 from thuner.option.track import BaseObjectOptions
@@ -95,11 +94,6 @@ def _df_to_dataset(
     return ds
 
 
-def store_path(output_directory) -> Path:
-    """Return ``<output_directory>/<configured zarr store name>``."""
-    return Path(output_directory) / get_zarr_store_name()
-
-
 def write_attributes(store_path_, group, df, attribute_type, overwrite=False):
     """Write or append a single attribute table to its group in the store.
 
@@ -128,10 +122,10 @@ def write_attributes(store_path_, group, df, attribute_type, overwrite=False):
 def write_setup(object_tracks, object_options, output_directory):
     """Log the time window being flushed and return the last-write timestamp."""
     object_name = object_options.name
-    _last_write_time = object_tracks._last_write_time
+    last_write_time = object_tracks.last_write_time
     write_interval = np.timedelta64(object_options.write_interval, "h")
-    last_write_str = format_time(_last_write_time, filename_safe=False, day_only=False)
-    next_write_time = _last_write_time + write_interval
+    last_write_str = format_time(last_write_time, filename_safe=False, day_only=False)
+    next_write_time = last_write_time + write_interval
     current_str = format_time(next_write_time, filename_safe=False, day_only=False)
     message = (
         f"Writing {object_name} attributes from {last_write_str} to "

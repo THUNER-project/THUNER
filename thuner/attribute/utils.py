@@ -7,7 +7,7 @@ import pandas as pd
 import xarray as xr
 from thuner.option.attribute import Attribute, AttributeGroup, AttributeType, Attributes
 from thuner.log import setup_logger
-from thuner.config import get_zarr_store_name
+from thuner.utils import store_path
 
 logger = setup_logger(__name__)
 
@@ -314,6 +314,6 @@ def read_attribute(output_directory, *parts, columns=None, times=None):
     ``parts`` are joined with ``/`` to form the group path inside
     ``<output_directory>/<configured zarr store name>``.
     """
-    store = Path(output_directory) / get_zarr_store_name()
+    store = store_path(output_directory)
     group = "/".join(str(p) for p in parts)
     return read_attribute_zarr(store, group, columns=columns, times=times)

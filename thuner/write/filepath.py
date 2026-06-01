@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 import thuner.write.attribute as attribute
-from thuner.utils import format_time
+from thuner.utils import format_time, store_path
 from thuner.log import setup_logger
 from thuner.option.attribute import Attribute, AttributeType
 
@@ -43,9 +43,9 @@ def write(input_record, output_directory):
 
     name = input_record.name
     write_interval = input_record.write_interval
-    _last_write_time = input_record._last_write_time
-    last_write_str = format_time(_last_write_time, filename_safe=False, day_only=False)
-    next_write_time = _last_write_time + write_interval
+    last_write_time = input_record.last_write_time
+    last_write_str = format_time(last_write_time, filename_safe=False, day_only=False)
+    next_write_time = last_write_time + write_interval
     current_str = format_time(next_write_time, filename_safe=False, day_only=False)
 
     message = (
@@ -57,7 +57,7 @@ def write(input_record, output_directory):
     filepaths = input_record._filepath_list
     times = input_record._time_list
     if len(times) == 0:
-        input_record._last_write_time = _last_write_time + write_interval
+        input_record.last_write_time = last_write_time + write_interval
         input_record._time_list = []
         input_record._filepath_list = []
         return
@@ -66,12 +66,12 @@ def write(input_record, output_directory):
     df.set_index("time", inplace=True)
     df.sort_index(inplace=True)
 
-    store = attribute.store_path(output_directory)
+    store = store_path(output_directory)
     group = f"records/filepaths/{name}"
     attribute_type = _filepath_attribute_type(name)
     attribute.write_attributes(store, group, df, attribute_type)
 
-    input_record._last_write_time = _last_write_time + write_interval
+    input_record.last_write_time = last_write_time + write_interval
     input_record._time_list = []
     input_record._filepath_list = []
 

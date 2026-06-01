@@ -42,7 +42,7 @@ from pydantic import (
 from pydantic._internal._model_construction import ModelMetaclass
 import multiprocessing
 from thuner.log import setup_logger
-from thuner.config import get_outputs_directory
+from thuner.config import get_outputs_directory, get_zarr_store_name
 
 logger = setup_logger(__name__)
 
@@ -567,6 +567,15 @@ def get_parent(dataset_options: BaseDatasetOptions) -> str:
     else:
         raise ValueError("No parent directory provided.")
     return parent
+
+
+def store_path(output_directory, *parts):
+    """Build a path into a run's zarr store, e.g. ``<output_directory>/output.zarr``.
+
+    ``parts`` are appended as further path components inside the store, so e.g.
+    ``store_path(out, "attributes", "mcs", "core")`` gives the path to that group.
+    """
+    return Path(output_directory).joinpath(get_zarr_store_name(), *parts)
 
 
 def get_mask_boundary(mask, grid_options):

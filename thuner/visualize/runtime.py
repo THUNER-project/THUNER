@@ -25,7 +25,7 @@ proj = ccrs.PlateCarree()
 def get_boundaries(input_record, num_previous=1):
     """Get the appropriate current and next boundaries for matching."""
     next_boundaries = input_record.next_boundary_coordinates
-    current_boundaries = input_record.boundary_coodinates
+    current_boundaries = input_record.boundary_coordinates
     current_boundaries = [current_boundaries[-i] for i in range(1, num_previous + 1)]
     boundaries = [next_boundaries] + current_boundaries
     return boundaries

@@ -50,7 +50,7 @@ def test_himawari():
     )
     grid_options.to_json(options_directory / "grid.json")
     # Create the track_options
-    track_options = default.satellite_track(dataset_name="himawari")
+    track_options = default.track.satellite_track(dataset_name="himawari")
     track_options.to_json(options_directory / "track.json")
     # ## Track
     times = utils.generate_times(data_options.dataset_by_name("himawari").filepaths)
@@ -69,7 +69,7 @@ def test_himawari():
     analyze.utils.smooth_flow_velocities("anvil", output_parent)
     analyze.utils.quality_control("anvil", output_parent, analysis_options)
     style = "presentation"
-    attribute_handlers = default.detected_attribute_handlers(output_parent, style)
+    attribute_handlers = default.visualize.detected_attribute_handlers(output_parent, style)
     figure_options = option.visualize.HorizontalAttributeOptions(
         name='himawari_anvil',
         object_name='anvil',

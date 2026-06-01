@@ -57,7 +57,7 @@ def test_cpol():
     grid_options = option.grid.GridOptions()
     grid_options.to_json(options_directory / "grid.json")
     # Create the track_options
-    track_options = default.track(dataset_name="cpol")
+    track_options = default.track.track(dataset_name="cpol")
     # Modify the default track options to demonstrate the tracking of both convective
     # objects, and mesoscale convective systems, which are built out of convective, middle
     # and stratiform echo objects, within the same THUNER run. We will use a larger
@@ -84,7 +84,7 @@ def test_cpol():
     # For this tutorial, we will generate figures during runtime to visualize how THUNER
     # is matching both convective and mcs objects. Note the figure generation slows the run down a lot!
     # Create the visualize_options
-    visualize_options = default.runtime(
+    visualize_options = default.visualize.runtime(
         visualize_directory=visualize_directory,
         objects=["convective", "mcs"],
     )
@@ -174,7 +174,7 @@ def test_cpol():
     analyze.mcs.quality_control(output_parent, analysis_options)
     analyze.mcs.classify_all(output_parent, analysis_options)
     style = "presentation"
-    attribute_handlers = default.grouped_attribute_handlers(output_parent, style)
+    attribute_handlers = default.visualize.grouped_attribute_handlers(output_parent, style)
     figure_options = option.visualize.GroupedHorizontalAttributeOptions(
         name="mcs_attributes",
         object_name="mcs",
@@ -236,7 +236,7 @@ def test_cpol():
     analyze.mcs.quality_control(output_parent, analysis_options)
     analyze.mcs.classify_all(output_parent, analysis_options)
     style = "presentation"
-    attribute_handlers = default.grouped_attribute_handlers(output_parent, style)
+    attribute_handlers = default.visualize.grouped_attribute_handlers(output_parent, style)
     figure_options = option.visualize.GroupedHorizontalAttributeOptions(
         name="mcs_attributes",
         object_name="mcs",
@@ -289,7 +289,7 @@ def test_cpol():
     analyze.mcs.quality_control(output_parent, analysis_options)
     analyze.mcs.classify_all(output_parent, analysis_options)
     style = "presentation"
-    attribute_handlers = default.grouped_attribute_handlers(output_parent, style)
+    attribute_handlers = default.visualize.grouped_attribute_handlers(output_parent, style)
     figure_options = option.visualize.GroupedHorizontalAttributeOptions(
         name="mcs_attributes",
         object_name="mcs",

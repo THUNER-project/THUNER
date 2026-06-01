@@ -56,7 +56,7 @@ class BaseInputRecord(BaseModel):
     _current_file_index: int = -1
     # The last time data was written to disk; Used to assess if write_interval
     # has been reached.
-    _last_write_time: np.datetime64 | None = None
+    last_write_time: np.datetime64 | None = None
     # List of times considered during the tracking run.
     _time_list: list = []
     # List of filepaths considered during the tracking run corresponding to
@@ -110,7 +110,7 @@ class TrackInputRecord(BaseInputRecord):
         None,
         description="The next grid's boundary coordinates.",
     )
-    boundary_coodinates: deque | None = Field(
+    boundary_coordinates: deque | None = Field(
         None,
         description="Deque of current/previous boundary coordinates.",
     )
@@ -128,7 +128,7 @@ class TrackInputRecord(BaseInputRecord):
     @model_validator(mode="after")
     def _initialize_deques(self):
         names = ["grids", "domain_masks"]
-        names += ["boundary_masks", "boundary_coodinates"]
+        names += ["boundary_masks", "boundary_coordinates"]
         return _init_deques(self, names)
 
 
@@ -249,7 +249,13 @@ class ObjectTracks(BaseModel):
         description="Area of each grid cell in km^2.",
     )
 
-    _last_write_time: np.datetime64 | None = None
+    last_write_time: np.datetime64 | None = Field(
+        None,
+        description=(
+            "The last time data was written to disk; Used to assess if write_interval "
+            "has been reached."
+        ),
+    )
 
     @model_validator(mode="after")
     def _initialize_deques(self):
@@ -279,7 +285,7 @@ class ObjectTracks(BaseModel):
 
 class LevelTracks(BaseModel):
     """
-    Class for recording the attributes and grids etc for tracking a particular hierachy
+    Class for recording the attributes and grids etc for tracking a particular hierarchy
     level.
     """
 
@@ -288,7 +294,7 @@ class LevelTracks(BaseModel):
 
     level_options: LevelOptions = Field(
         ...,
-        description="Options for the given level of the hierachy.",
+        description="Options for the given level of the hierarchy.",
     )
     objects: dict[str, ObjectTracks] = Field({}, description="Objects to be tracked.")
 
@@ -302,13 +308,13 @@ class LevelTracks(BaseModel):
 
 class Tracks(BaseModel):
     """
-    Class for recording tracks of all hierachy levels.
+    Class for recording tracks of all hierarchy levels.
     """
 
     # Allow arbitrary types in the class.
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    levels: list[LevelTracks] = Field([], description="Tracks for each hierachy level.")
+    levels: list[LevelTracks] = Field([], description="Tracks for each hierarchy level.")
     track_options: TrackOptions = Field(..., description="Options for tracking.")
 
     @model_validator(mode="after")

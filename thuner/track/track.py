@@ -12,12 +12,12 @@ import thuner.group.group as group
 import thuner.visualize.runtime as runtime
 import thuner.visualize.visualize as visualize
 import thuner.match.match as match
-from thuner.config import get_outputs_directory, get_zarr_store_name
+from thuner.config import get_outputs_directory
 import thuner.utils as utils
 import thuner.write as write
 import thuner.attribute.attribute as attribute
 import thuner.option as option
-from thuner.track._utils import InputRecords, Tracks
+from thuner.track.utils import InputRecords, Tracks
 
 
 logger = setup_logger(__name__)
@@ -78,9 +78,9 @@ def track(
     )
 
     # Clear the unified zarr store if it exists to prevent overwriting
-    store_path = output_directory / get_zarr_store_name()
-    if store_path.exists():
-        shutil.rmtree(store_path)
+    store = utils.store_path(output_directory)
+    if store.exists():
+        shutil.rmtree(store)
 
     # Initialize the paths to save xesmf regridder weights
     for dataset_options in data_options.datasets:
@@ -215,7 +215,7 @@ def track_object(
     # Write existing data to file if necessary
     if write.utils.write_interval_reached(next_time, object_tracks, object_options):
         write.attribute.write(object_tracks, object_options, output_directory)
-        object_tracks._last_write_time = next_time
+        object_tracks.last_write_time = next_time
 
     # Detect objects at next_time
     if "grouping" in object_options.__class__.model_fields:

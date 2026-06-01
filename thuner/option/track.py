@@ -111,7 +111,7 @@ class BaseObjectOptions(BaseOptions):
     hierarchy_level: int = Field(
         0,
         description=(
-            "Level of the object in the hierachy. Higher level objects may depend on "
+            "Level of the object in the hierarchy. Higher level objects may depend on "
             "lower level objects."
         ),
         ge=0,
@@ -268,7 +268,8 @@ class GroupedObjectOptions(BaseObjectOptions):
         return _check_mask_values(self)
 
 
-# Unclear why an additional discriminator is needed here. Perhaps due to the list.
+# Pydantic needs the discriminator to disambiguate when the union is 
+# used as a list element.
 AnyObjectOptions = Annotated[
     DetectedObjectOptions | GroupedObjectOptions, Field(discriminator="object_type")
 ]
@@ -276,7 +277,7 @@ AnyObjectOptions = Annotated[
 
 class LevelOptions(BaseOptions):
     """
-    Options for a tracking hierachy level. Objects identified at lower levels are
+    Options for a tracking hierarchy level. Objects identified at lower levels are
     used to define objects at higher levels.
     """
 
@@ -307,7 +308,7 @@ class LevelOptions(BaseOptions):
 
 def _check_grouped_object(object_options, object_levels):
     """
-    Helper function to check a grouped object lists member object heierachy level
+    Helper function to check a grouped object lists member object hierarchy level
     correctly.
     """
     for i, member_name in enumerate(object_options.grouping.member_objects):
@@ -338,7 +339,7 @@ class TrackOptions(BaseOptions):
     Options for the levels of a tracking hierarchy.
     """
 
-    levels: List[LevelOptions] = Field([], description="Hierachy levels.")
+    levels: List[LevelOptions] = Field([], description="hierarchy levels.")
     _object_lookup = {}
     object_names: List[str] = Field([], description="Names of the objects.")
 

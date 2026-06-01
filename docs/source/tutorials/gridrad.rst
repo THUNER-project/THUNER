@@ -170,7 +170,7 @@ Finally, we create options describing how the tracking should be
 performed. In multi-feature tracking, some objects, like mesoscale
 convective systems (MCSs), can be defined in terms of others, like
 convective and stratiform echoes. THUNER’s approach is to first specify
-object options seperately for each object type, e.g. convective echoes,
+object options separately for each object type, e.g. convective echoes,
 stratiform echoes, mesoscale convective systems, and so forth. Object
 options are specified using ``pydantic`` models which inherit from
 :class:`thuner.option.track.BaseObjectOptions`. Related objects are then
@@ -203,7 +203,7 @@ the module :mod:`thuner.default`.
 Note a core component of the options for each object is the
 ``atributes`` field, which describes how object attributes like
 position, velocity and area, are to be retrieved and stored. In THUNER,
-the code for collecting object attributes is seperated out from the core
+the code for collecting object attributes is separated out from the core
 tracking code, allowing different attributes for different objects to be
 swapped in and out as needed. Individual attributes are described by the
 :class:`thuner.option.attribute.Attribute` model, where each
@@ -216,7 +216,7 @@ attributes in the group are retrieved at once using the same method. For
 instance, attributes based on ellipse fitting, like major and minor
 axis, eccentricity and orientation, form a
 :class:`thuner.option.attribute.AttributeGroup`. Note however that each
-member of the group will still form a seperate column in the output CSV
+member of the group will still form a separate column in the output CSV
 file.
 
 Finally, collections of attributes and attribute groups are organized

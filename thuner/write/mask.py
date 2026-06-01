@@ -3,6 +3,7 @@
 import numpy as np
 
 from thuner.log import setup_logger
+from thuner.utils import store_path
 import thuner.write.attribute as attribute
 import thuner.write.utils as utils
 
@@ -25,7 +26,7 @@ def write(object_tracks, object_options, output_directory):
     mask = mask.expand_dims("time")
 
     object_name = object_options.name
-    store = attribute.store_path(output_directory)
+    store = store_path(output_directory)
     group = f"masks/{object_name}"
     store.parent.mkdir(parents=True, exist_ok=True)
 
