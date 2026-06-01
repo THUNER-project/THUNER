@@ -102,8 +102,10 @@ def write_attributes(store_path_, group, df, attribute_type, overwrite=False):
     """
     if df is None or len(df) == 0:
         return
-    precision_dict = utils.get_precision_dict(attribute_type)
-    df = df.round(precision_dict)
+    # attribute_type is optional (e.g. ad-hoc tables like synthetic ground truth);
+    # round to the declared precision only when a type is provided.
+    if attribute_type is not None:
+        df = df.round(utils.get_precision_dict(attribute_type))
     df = df.sort_index()
     ds = _df_to_dataset(df, attribute_type)
     store_path_ = Path(store_path_)

@@ -35,7 +35,7 @@ def test_synthetic():
     # Initialize synthetic objects
     starting_objects = []
     for i in range(5):
-        obj = synthetic.create_object(
+        obj = synthetic.EllipsoidObject(
             time=start,
             center_latitude=np.mean(lat),
             center_longitude=lon[(i+1)*len(lon) // 6],
@@ -45,7 +45,7 @@ def test_synthetic():
         )
         starting_objects.append(obj)
     # Create data options dictionary
-    synthetic_options = data.synthetic.SyntheticOptions(starting_objects=starting_objects)
+    synthetic_options = data.synthetic.SyntheticOptions(objects=starting_objects)
     data_options = option.data.DataOptions(datasets=[synthetic_options])
     data_options.to_json(options_directory / "data.json")
     track_options = default.track.synthetic_track()

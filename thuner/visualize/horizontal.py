@@ -214,29 +214,7 @@ def cartographic_features(
     grid_zorder=1,
 ):
     """
-    Initialize a figure.
-
-    Parameters
-    ----------
-    nrows : int, optional
-        Number of rows in the figure.
-    ncols : int, optional
-        Number of columns in the figure.
-    style : str, optional
-        Style of the figure.
-    figsize : tuple, optional
-        Size of the figure.
-    scale : str, optional
-        Scale of the features.
-    gridline_spacing : int, optional
-        Spacing of the grid lines.
-
-    Returns
-    -------
-    fig : matplotlib.figure.Figure
-        Figure object.
-    ax : matplotlib.axes.Axes
-        Axes object.
+    Add cartographic features to an ax. 
     """
 
     colors = visualize.figure_colors[visualize.style]

@@ -114,17 +114,6 @@ class TrackInputRecord(BaseInputRecord):
         None,
         description="Deque of current/previous boundary coordinates.",
     )
-    synthetic_objects: list[dict] | None = Field(
-        None,
-        description=(
-            "Dictionaries descibing synthetic objects. See thuner.data.synthetic."
-        ),
-    )
-    synthetic_base_dataset: DataObject | None = Field(
-        None,
-        description="Synthetic base dataset. See thuner.data.synthetic.",
-    )
-
     @model_validator(mode="after")
     def _initialize_deques(self):
         names = ["grids", "domain_masks"]
