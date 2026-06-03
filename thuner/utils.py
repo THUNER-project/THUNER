@@ -743,7 +743,7 @@ def get_time_interval(next_grid, current_grid):
 _use_numba = True
 
 
-def conditional_jit(*jit_args, use_numba=True, **jit_kwargs):
+def conditional_jit(*jit_args, use_numba=_use_numba, **jit_kwargs):
     """
     A decorator that applies Numba's JIT compilation to a function if use_numba is True.
     Otherwise, it returns the original function. It also adjusts type aliases based on the
@@ -756,7 +756,7 @@ def conditional_jit(*jit_args, use_numba=True, **jit_kwargs):
             globals()["int32"] = int32
             globals()["float32"] = float32
             globals()["List"] = List
-            return njit(*jit_args, **jit_kwargs)(func)
+            return njit(*jit_args, **jit_kwargs, cache=True)(func)
         else:
             # Define type aliases for use without Numba
             globals()["int32"] = int
