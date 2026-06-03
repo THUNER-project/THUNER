@@ -98,22 +98,25 @@ def process_velocities(
 
     all_velocities = pd.concat(velocities_list, axis=1)
 
-    # Create metadata for the attributes
-    names = ["u", "v", "u_shear", "v_shear", "u_ambient", "v_ambient"]
-    names += ["u_relative", "v_relative"]
+    # Create metadata for the attributes. The shear/ambient attributes only exist when a
+    # profile dataset was supplied, which also guarantees altitudes is set (a range),
+    # so only reference altitudes here.
+    names = ["u", "v"]
     descriptions = [
         "System ground relative zonal velocity.",
         "System ground relative meridional velocity.",
-        f"Ambient zonal shear between {altitudes[0]} and {altitudes[1]} m.",
-        f"Ambient meridional between {altitudes[0]} and {altitudes[1]} m.",
-        f"Mean ambient zonal winds from {altitudes[0]} and {altitudes[1]} m.",
-        f"Mean ambient meridional winds from {altitudes[0]} and {altitudes[1]} m.",
-        "System wind relative zonal velocity.",
-        "System wind relative meridional velocity.",
     ]
-    if "u_shear" not in all_velocities.columns:
-        names = names[:2]
-        descriptions = descriptions[:2]
+    if "u_shear" in all_velocities.columns:
+        names += ["u_shear", "v_shear", "u_ambient", "v_ambient"]
+        names += ["u_relative", "v_relative"]
+        descriptions += [
+            f"Ambient zonal shear between {altitudes[0]} and {altitudes[1]} m.",
+            f"Ambient meridional between {altitudes[0]} and {altitudes[1]} m.",
+            f"Mean ambient zonal winds from {altitudes[0]} and {altitudes[1]} m.",
+            f"Mean ambient meridional winds from {altitudes[0]} and {altitudes[1]} m.",
+            "System wind relative zonal velocity.",
+            "System wind relative meridional velocity.",
+        ]
 
     data_type, precision, units, retrieval = float, 1, "m/s", None
     attributes = []

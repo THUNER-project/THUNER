@@ -145,10 +145,8 @@ def mask_from_observations(dataset, dataset_options, object_options=None):
     """Create domain mask based on number of observations in each cell."""
 
     altitudes = object_options.detection.altitudes
-    if altitudes == [] or altitudes is None:
+    if altitudes is None:
         altitudes = [dataset.altitude.values.min(), dataset.altitude.values.max()]
-    else:
-        altitudes = object_options.detection.altitudes
     num_obs = dataset["number_of_observations"].sel(altitude=slice(*altitudes))
     mask = num_obs > dataset_options.obs_thresh
     mask = mask.any(dim="altitude")

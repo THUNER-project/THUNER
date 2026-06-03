@@ -1,11 +1,11 @@
 """Classes for managing tracking related options."""
 
-from typing import List, Annotated, Literal, Callable
+from typing import List, Annotated, Literal, Tuple
 from pydantic import Field, model_validator, ValidationError
 from thuner.log import setup_logger
 from thuner.option.attribute import Attributes
 from thuner.utils import BaseOptions, Retrieval
-from thuner.detect.preprocess import vertical_max
+from thuner.detect.preprocess import vertical_max, cross_section
 
 __all__ = [
     "TintOptions",
@@ -160,9 +160,14 @@ class DetectionOptions(BaseOptions):
         ...,
         description="Method used to detect the object.",
     )
-    altitudes: List[int] = Field(
-        [],
-        description="Altitudes over which to detect objects.",
+    altitudes: float | Tuple[float, float] | None = Field(
+        None,
+        description=(
+            "Altitudes (in metres) over which to detect objects. An altitude range "
+            "(start, end) for the vertical_max flatten method, a single altitude for "
+            "the cross_section flatten method, or None for datasets with no altitude "
+            "dimension."
+        ),
     )
     flatten_method: Retrieval | None = Field(
         Retrieval(function=vertical_max),
@@ -184,6 +189,34 @@ class DetectionOptions(BaseOptions):
         if self.method == "detect" and self.threshold is None:
             raise ValueError("Threshold not provided for detection method.")
         return self
+    
+    @model_validator(mode="after")
+    def _check_consistency(self):
+        """Check the altitudes are consistent with the flatten method.
+
+        vertical_max needs an altitude range (start, end); cross_section needs a single
+        altitude; with no flatten method altitudes should be None.
+        """
+        flatten_method = self.flatten_method
+        altitudes = self.altitudes
+        if flatten_method is None:
+            if altitudes is not None:
+                logger.warning(
+                    "Altitudes given without a flatten method; they may be ignored."
+                )
+            return self
+        if altitudes is None:
+            raise ValueError("Altitudes must be given if a flatten method is provided.")
+        function = flatten_method.function
+        if function is vertical_max and not isinstance(altitudes, tuple):
+            message = "The vertical_max flatten method requires an altitude range, "
+            message += "e.g. (500, 3000)."
+            raise ValueError(message)
+        if function is cross_section and not isinstance(altitudes, float):
+            message = "The cross_section flatten method requires a single altitude, "
+            message += "e.g. 3000."
+            raise ValueError(message)
+        return self
 
 
 def _check_mask_values(values):
@@ -202,7 +235,7 @@ class DetectedObjectOptions(BaseObjectOptions):
 
     object_type: Literal["detected"] = Field("detected", description="Type of object.")
     detection: DetectionOptions = Field(
-        DetectionOptions(method="steiner"),
+        DetectionOptions(method="steiner", flatten_method=None),
         description="Method used to detect the object.",
     )
     tracking: AnyTrackingOptions | None = Field(
@@ -268,7 +301,7 @@ class GroupedObjectOptions(BaseObjectOptions):
         return _check_mask_values(self)
 
 
-# Pydantic needs the discriminator to disambiguate when the union is 
+# Pydantic needs the discriminator to disambiguate when the union is
 # used as a list element.
 AnyObjectOptions = Annotated[
     DetectedObjectOptions | GroupedObjectOptions, Field(discriminator="object_type")

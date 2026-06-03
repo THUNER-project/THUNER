@@ -26,17 +26,22 @@ def test_access():
     remote_directory = "s3://thuner-storage/THUNER_output/input_data/raw/ops_aps3/"
     data.get_demo_data(base_local, remote_directory)
     # Create the dataset options
-    # For model datasets we generally need to specify which model run we want, in 
+    # For model datasets we generally need to specify which model run we want, in
     # addition to the start and end times. Typically we want to discard spin up times.
-    run_start = "2021-12-01T12:00:00" # The start time of the run we want
-    start = "2021-12-02T00:00:00" # The start time of the data we want to analyze. 
-    end = "2021-12-03T00:00:00" # The end time of the data we want to analyze.
+    run_start = "2021-12-01T12:00:00"  # The start time of the run we want
+    start = "2021-12-02T06:00:00"  # The start time of the data we want to analyze.
+    end = "2021-12-02T12:00:00"  # The end time of the data we want to analyze.
     times_dict = {"start": start, "end": end, "run_start": run_start}
     access_1km_options = data.access.AccessCOptions(
         **times_dict, name="access_1km", filename="radar_refl_1km.nc"
     )
+    # access_maxcol shares the same native ACCESS-C grid as access_1km, so it reuses the
+    # regridder weights built for access_1km rather than building (and storing) its own.
     access_max_col_options = data.access.AccessCOptions(
-        **times_dict, name="access_maxcol", filename="maxcol_refl.nc"
+        **times_dict,
+        name="access_maxcol",
+        filename="maxcol_refl.nc",
+        regridder_from="access_1km",
     )
     datasets=[access_1km_options, access_max_col_options]
     data_options = option.data.DataOptions(datasets=datasets)
@@ -62,10 +67,11 @@ def test_access():
     style = "presentation"
     attribute_handlers = default.visualize.grouped_attribute_handlers(output_parent, style)
     figure_options = option.visualize.GroupedHorizontalAttributeOptions(
-        name='mcs_attributes',
-        object_name='mcs',
+        name="mcs_attributes",
+        object_name="mcs",
         style=style,
         attribute_handlers=attribute_handlers,
+        altitude_titles=False,
     )
     visualize.attribute.series(
         output_directory=output_parent,
@@ -75,19 +81,9 @@ def test_access():
         dataset_name="access_1km",
         parallel_figure=True,
         by_date=False,
-        num_processes=4
+        num_processes=4,
     )
-    dt = xr.open_datatree(output_parent / "output.zarr", engine="zarr")
-    quality = dt.analysis.quality.ds
-    quality_df = quality.to_dataframe().set_index(quality.index_columns)
-    raw_sample = quality_df.where(quality_df["duration"]).dropna() 
-    mcs_count = len(raw_sample.index.get_level_values("universal_id").unique())
-    print(mcs_count)
-    velocity = dt.analysis.velocities.ds
-    velocity_df = velocity.to_dataframe().set_index(velocity.index_columns)
-    raw_sample = velocity_df.where(quality_df["duration"]).dropna()
-    average_velocities = raw_sample.reset_index()[["u", "v"]].mean(axis=0)
-    print(average_velocities)
+    # ![MCS detection and matching for ACCESS-C data.](https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/mcs_access_c.gif)
 
 
 if __name__ == '__main__':

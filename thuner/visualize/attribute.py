@@ -80,9 +80,16 @@ def get_altitude_labels(
     for i, obj in enumerate(member_objects):
         level = member_levels[i]
         options = track_options.levels[level].object_by_name(obj)
-        altitudes = np.array(options.detection.altitudes)
-        altitudes = np.round(altitudes / 1e3, 1)
-        labels.append(f"{altitudes[0]:g} to {altitudes[1]:g} km")
+        altitudes = options.detection.altitudes
+        if altitudes is None:
+            labels.append("")
+            continue
+        altitudes = np.round(np.array(altitudes) / 1e3, 1)
+        if altitudes.ndim == 0:
+            # Single altitude (cross_section flatten method).
+            labels.append(f"{altitudes:g} km")
+        else:
+            labels.append(f"{altitudes[0]:g} to {altitudes[1]:g} km")
     return labels
 
 

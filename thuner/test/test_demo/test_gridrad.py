@@ -174,7 +174,6 @@ def test_gridrad():
         object_name='mcs',
         style=style,
         attribute_handlers=attribute_handlers,
-        dt=7200,
     )
     visualize.attribute.series(
         output_directory=output_parent,

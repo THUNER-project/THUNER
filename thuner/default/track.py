@@ -26,7 +26,7 @@ __all__ = [
 
 def convective(dataset="cpol"):
     """Build default options for convective objects."""
-    detection = {"method": "steiner", "altitudes": [500, 3e3], "threshold": 40}
+    detection = {"method": "steiner", "altitudes": (500, 3e3), "threshold": 40}
     return track_option.DetectedObjectOptions(
         name="convective",
         dataset=dataset,
@@ -37,7 +37,7 @@ def convective(dataset="cpol"):
 
 def middle(dataset="cpol"):
     """Build default options for mid-level echo objects."""
-    detection = {"method": "threshold", "altitudes": [3.5e3, 7e3], "threshold": 20}
+    detection = {"method": "threshold", "altitudes": (3.5e3, 7e3), "threshold": 20}
     return track_option.DetectedObjectOptions(
         name="middle",
         dataset=dataset,
@@ -48,7 +48,7 @@ def middle(dataset="cpol"):
 
 def anvil(dataset="cpol"):
     """Build default options for anvil objects."""
-    detection = {"method": "threshold", "altitudes": [7.5e3, 10e3], "threshold": 15}
+    detection = {"method": "threshold", "altitudes": (7.5e3, 10e3), "threshold": 15}
     return track_option.DetectedObjectOptions(
         name="anvil",
         dataset=dataset,
@@ -200,9 +200,12 @@ def access_c_track(
 
     convective_options = convective(convective_dataset)
     anvil_options = anvil(anvil_dataset)
-    # Assume the convective and anvil datasets are 2D, so set flatten method to None
+    # The convective and anvil datasets are 2D, so there is no altitude dimension to
+    # flatten over: drop the flatten method and altitude range.
     convective_options.detection.flatten_method = None
+    convective_options.detection.altitudes = None
     anvil_options.detection.flatten_method = None
+    anvil_options.detection.altitudes = None
     mcs_options = access_c_mcs(convective_dataset)
     return _two_level_track([convective_options, anvil_options], mcs_options)
 
