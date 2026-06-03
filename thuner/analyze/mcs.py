@@ -8,6 +8,7 @@ from radar reflectivity and ambient winds. https://dx.doi.org/10.1175/MWR-D-22-0
 
 import numpy as np
 import pandas as pd
+import xarray as xr
 from pathlib import Path
 from pydantic import Field
 from thuner.attribute.utils import read_attribute
@@ -15,7 +16,7 @@ import thuner.analyze.utils as utils
 import thuner.write as write
 import thuner.attribute.core as core
 import thuner.log as log
-from thuner.utils import BaseOptions
+from thuner.utils import BaseOptions, store_path
 from thuner.option.attribute import Attribute, AttributeType
 
 logger = log.setup_logger(__name__)
@@ -51,8 +52,11 @@ def process_velocities(
     convective_options = options["track"].levels[0].object_by_name(convective_label)
     altitudes = convective_options.detection.altitudes
 
+    # Open the unified store once and reuse it for every read in this function.
+    tree = xr.open_datatree(store_path(output_directory), engine="zarr")
     velocities = read_attribute(
-        output_directory, "attributes", "mcs", "core", columns=["u_flow", "v_flow"]
+        output_directory, "attributes", "mcs", "core",
+        columns=["u_flow", "v_flow"], tree=tree,
     )
 
     velocities = utils.temporal_smooth(velocities, window_size=window_size)
@@ -65,6 +69,7 @@ def process_velocities(
             "mcs",
             f"{profile_dataset}_profile",
             columns=["u", "v"],
+            tree=tree,
         )
         winds = winds.xs(0, level="time_offset").sort_index()
 
@@ -210,15 +215,18 @@ def quality_control(
     convective_label = member_objects[0]
     anvil_label = member_objects[1]
 
+    # Open the unified store once and reuse it for every read in this function.
+    tree = xr.open_datatree(store_path(output_directory), engine="zarr")
+
     # Determine if the system is sufficiently contained within the domain
     convective = read_attribute(
-        output_directory, "attributes", "mcs", convective_label, "quality"
+        output_directory, "attributes", "mcs", convective_label, "quality", tree=tree
     )
     anvil = read_attribute(
-        output_directory, "attributes", "mcs", anvil_label, "quality"
+        output_directory, "attributes", "mcs", anvil_label, "quality", tree=tree
     )
     mcs = read_attribute(
-        output_directory, "attributes", "mcs", "core", columns=["parents"]
+        output_directory, "attributes", "mcs", "core", columns=["parents"], tree=tree
     )
     max_boundary_overlap = analysis_options.max_boundary_overlap
     convective = convective.rename(columns={"boundary_overlap": "convective_contained"})
@@ -227,7 +235,7 @@ def quality_control(
     anvil_check = anvil["anvil_contained"] < max_boundary_overlap
 
     # Check if velocity/shear vectors are sufficiently large
-    velocities = read_attribute(output_directory, "analysis", "velocities")
+    velocities = read_attribute(output_directory, "analysis", "velocities", tree=tree)
     velocity_magnitude = velocities[["u", "v"]].pow(2).sum(axis=1).pow(0.5)
     velocity_check = velocity_magnitude >= analysis_options.min_velocity
     velocity_check.name = "velocity"
@@ -246,7 +254,8 @@ def quality_control(
     all_areas = []
     for obj in member_objects:
         area = read_attribute(
-            output_directory, "attributes", "mcs", obj, "core", columns=["area"]
+            output_directory, "attributes", "mcs", obj, "core",
+            columns=["area"], tree=tree,
         )
         area = area.rename(columns={"area": f"{obj}_area"})
         all_areas.append(area)
@@ -257,7 +266,8 @@ def quality_control(
 
     # Check the stratiform offset is sufficiently large
     offset = read_attribute(
-        output_directory, "attributes", "mcs", "group", columns=["x_offset", "y_offset"]
+        output_directory, "attributes", "mcs", "group",
+        columns=["x_offset", "y_offset"], tree=tree,
     )
     offset_magnitude = offset.pow(2).sum(axis=1).pow(0.5)
     offset_check = offset_magnitude >= analysis_options.min_offset
@@ -310,6 +320,7 @@ def quality_control(
         convective_label,
         "ellipse",
         columns=["major", "minor"],
+        tree=tree,
     )
     major_check = ellipse["major"] >= analysis_options.min_major_axis_length
     major_check.name = "major_axis"
@@ -392,11 +403,14 @@ def classify_all(
     Classify MCSs based on quadrants, as described in Short et al. (2023).
     """
 
-    velocities = read_attribute(output_directory, "analysis", "velocities")
+    # Open the unified store once and reuse it for every read in this function.
+    tree = xr.open_datatree(store_path(output_directory), engine="zarr")
+    velocities = read_attribute(output_directory, "analysis", "velocities", tree=tree)
     offset = read_attribute(
-        output_directory, "attributes", "mcs", "group", columns=["x_offset", "y_offset"]
+        output_directory, "attributes", "mcs", "group",
+        columns=["x_offset", "y_offset"], tree=tree,
     )
-    quality = read_attribute(output_directory, "analysis", "quality")
+    quality = read_attribute(output_directory, "analysis", "quality", tree=tree)
 
     u, v = velocities["u"], velocities["v"]
 

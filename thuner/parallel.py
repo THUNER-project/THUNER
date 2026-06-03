@@ -331,21 +331,18 @@ def match_dataarray(da_1, da_2):
     if not ((da_1 > 0) == (da_2 > 0)).all().values:
         return matching_ids
 
-    # Get unique values of datasets, excluding 0
-    ids_1 = np.unique(da_1.values)
+    # Work on raw numpy arrays, aligning da_2 to da_1's dim order so the two flattened
+    # arrays correspond element-for-element. For each object id in da_1, the da_2 values
+    # over that region must be a single nonzero id (the matching object).
+    a = da_1.values.ravel()
+    b = da_2.transpose(*da_1.dims).values.ravel()
+    ids_1 = np.unique(a)
     ids_1 = ids_1[ids_1 != 0]
-    ids_2 = np.unique(da_2.values)
-    ids_2 = ids_2[ids_2 != 0]
-
-    # Match ids in ds_1 to those of ds_2
-    flat_dim = list(da_1.dims)
-    for id in ids_1:
-        da_2_flat = da_2.stack(flat_dim=flat_dim)
-        da_1_flat = da_1.stack(flat_dim=flat_dim)
-        matches = np.unique(da_2_flat.where(da_1_flat == id, 1, drop=True).values)
+    for obj_id in ids_1:
+        matches = np.unique(b[a == obj_id])
         if 0 in matches or len(matches) > 1:
-            raise ValueError(f"Masks do not match.")
-        matching_ids[int(id)] = int(matches[0])
+            raise ValueError("Masks do not match.")
+        matching_ids[int(obj_id)] = int(matches[0])
     return matching_ids
 
 
@@ -668,7 +665,7 @@ def _build_attribute_type_lookup(track_options):
     return lookup
 
 
-def stitch_records(output_parent, intervals, record_group_dict):
+def stitch_records(output_parent, intervals, record_group_dict, interval_trees):
     """Stitch per-interval filepath records into the unified zarr store."""
     logger.info("Stitching record groups.")
     out_store = _run_store(output_parent)
@@ -681,7 +678,7 @@ def stitch_records(output_parent, intervals, record_group_dict):
         attribute_type = write.filepath._filepath_attribute_type(dataset_name)
         dfs = [
             attribute.utils.read_attribute_zarr(
-                _interval_store(output_parent, i), group
+                _interval_store(output_parent, i), group, tree=interval_trees[i]
             )
             for i in range(len(intervals))
         ]
@@ -757,7 +754,16 @@ def stitch_run(output_parent, intervals, cleanup=True):
         mask_group_dict=mask_group_dict,
         tracked_objects=tracked_objects,
     )
-    stitch_records(output_parent, intervals, record_group_dict)
+
+    # Open each interval store once as a DataTree and reuse it for all attribute and
+    # record reads below, rather than re-opening the store for every group (the dominant
+    # cost when reading the many small attribute tables). Masks are read separately
+    # (they are large and there are few of them).
+    interval_trees = [
+        xr.open_datatree(_interval_store(output_parent, i), engine="zarr")
+        for i in range(len(intervals))
+    ]
+    stitch_records(output_parent, intervals, record_group_dict, interval_trees)
 
     # Copy regridder weights folder if it exists.
     weights_path_0 = output_parent / "interval_0" / "regridder_weights"
@@ -782,7 +788,7 @@ def stitch_run(output_parent, intervals, cleanup=True):
             )
         dfs = [
             attribute.utils.read_attribute_zarr(
-                _interval_store(output_parent, i), group
+                _interval_store(output_parent, i), group, tree=interval_trees[i]
             )
             for i in range(len(intervals))
         ]

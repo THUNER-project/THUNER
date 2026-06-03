@@ -4,10 +4,12 @@ from pathlib import Path
 import json
 import glob
 import numpy as np
+import xarray as xr
 import thuner.option as option
 import thuner.attribute.core as core
 from thuner.attribute.utils import read_attribute
 from thuner.option.attribute import Attribute, AttributeType
+from thuner.utils import store_path
 import thuner.write as write
 import pandas as pd
 
@@ -40,8 +42,13 @@ def quality_control(
     if analysis_directory is None:
         analysis_directory = output_directory / "analysis"
 
+    # Open the unified store once and reuse it for every read in this function.
+    tree = xr.open_datatree(store_path(output_directory), engine="zarr")
+
     # Determine if the system is sufficiently contained within the domain
-    quality = read_attribute(output_directory, "attributes", object_name, "quality")
+    quality = read_attribute(
+        output_directory, "attributes", object_name, "quality", tree=tree
+    )
 
     max_boundary_overlap = analysis_options.max_boundary_overlap
     quality = quality.rename(columns={"boundary_overlap": "contained"})
@@ -49,7 +56,7 @@ def quality_control(
 
     # Check if velocity/shear vectors are sufficiently large.
     # Analysis outputs follow the same format as the parent run.
-    velocities = read_attribute(output_directory, "analysis", "velocities")
+    velocities = read_attribute(output_directory, "analysis", "velocities", tree=tree)
     velocity_magnitude = velocities[["u", "v"]].pow(2).sum(axis=1).pow(0.5)
     velocity_check = velocity_magnitude >= analysis_options.min_velocity
     velocity_check.name = "velocity"
@@ -57,10 +64,12 @@ def quality_control(
     # Check system area is of appropriate size, treating the system area as the maximum
     # area of the member objects
     parents = read_attribute(
-        output_directory, "attributes", object_name, "core", columns=["parents"]
+        output_directory, "attributes", object_name, "core",
+        columns=["parents"], tree=tree,
     )
     area = read_attribute(
-        output_directory, "attributes", object_name, "core", columns=["area"]
+        output_directory, "attributes", object_name, "core",
+        columns=["area"], tree=tree,
     )
     area = area.rename(columns={"area": f"{object_name}_area"})
 
@@ -115,6 +124,7 @@ def quality_control(
         object_name,
         "ellipse",
         columns=["major", "minor"],
+        tree=tree,
     )
     major_check = ellipse["major"] >= analysis_options.min_major_axis_length
     major_check.name = "major_axis"

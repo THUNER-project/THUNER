@@ -267,25 +267,14 @@ def get_data_type_dict(attribute_type: AttributeType):
     return data_type_dict
 
 
-def read_attribute_zarr(store_path, group, columns=None, times=None):
-    """Read a zarr attribute group and return a multi-indexed DataFrame.
+def _attribute_df_from_dataset(ds, columns=None, times=None):
+    """Convert an opened attribute ``Dataset`` to the standard multi-indexed DataFrame.
 
-    The group's index columns are read from ``ds.attrs["index_columns"]`` —
-    persisted by the writer alongside the per-variable metadata — so the
-    reader doesn't need to reconstruct an ``AttributeType``.
-
-    Parameters
-    ----------
-    store_path : str | Path
-        Path to the unified zarr store for a run.
-    group : str
-        Group path within the store, e.g. ``attributes/cell/core``.
-    columns : list[str], optional
-        Subset of (non-index) columns to keep.
-    times : iterable, optional
-        Subset of times to keep (matched against the 'time' column).
+    Shared by ``read_attribute_zarr`` regardless of whether the dataset came from
+    opening a single zarr group or from navigating an already-open ``DataTree``. The
+    group's index columns are read from ``ds.attrs["index_columns"]`` — persisted by
+    the writer — so the reader doesn't need to reconstruct an ``AttributeType``.
     """
-    ds = xr.open_zarr(store_path, group=group)
     df = ds.to_dataframe()
     if df.index.name == "record" or "record" in df.index.names:
         df = df.reset_index(drop=True)
@@ -308,12 +297,39 @@ def read_attribute_zarr(store_path, group, columns=None, times=None):
     return df
 
 
-def read_attribute(output_directory, *parts, columns=None, times=None):
+def read_attribute_zarr(store_path, group, columns=None, times=None, tree=None):
+    """Read a zarr attribute group and return a multi-indexed DataFrame.
+
+    Parameters
+    ----------
+    store_path : str | Path
+        Path to the unified zarr store for a run.
+    group : str
+        Group path within the store, e.g. ``attributes/cell/core``.
+    columns : list[str], optional
+        Subset of (non-index) columns to keep.
+    times : iterable, optional
+        Subset of times to keep (matched against the 'time' column).
+    tree : xr.DataTree, optional
+        An already-open DataTree for the store (e.g. from ``xr.open_datatree``). When
+        given, the group is read from the tree instead of re-opening ``store_path`` —
+        useful when reading many groups from the same store.
+    """
+    if tree is not None:
+        ds = tree["/" + group.lstrip("/")].to_dataset()
+    else:
+        ds = xr.open_zarr(store_path, group=group)
+    return _attribute_df_from_dataset(ds, columns=columns, times=times)
+
+
+def read_attribute(output_directory, *parts, columns=None, times=None, tree=None):
     """Read an attribute table from the unified zarr store.
 
     ``parts`` are joined with ``/`` to form the group path inside
-    ``<output_directory>/<configured zarr store name>``.
+    ``<output_directory>/<configured zarr store name>``. Pass ``tree`` (from
+    ``xr.open_datatree``) to read from an already-open DataTree instead of
+    re-opening the store.
     """
     store = store_path(output_directory)
     group = "/".join(str(p) for p in parts)
-    return read_attribute_zarr(store, group, columns=columns, times=times)
+    return read_attribute_zarr(store, group, columns=columns, times=times, tree=tree)
