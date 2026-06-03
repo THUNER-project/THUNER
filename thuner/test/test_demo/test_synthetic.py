@@ -7,7 +7,6 @@ import thuner.default as default
 import thuner.track.track as track
 import thuner.option as option
 import thuner.data.synthetic as synthetic
-import matplotlib.pyplot as plt
 
 
 def test_synthetic():
@@ -70,13 +69,6 @@ def test_synthetic():
     )
     # ![THUNER applied to synthetic data.](https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/synthetic.gif)
     data.synthetic.write_ground_truth(output_parent, data_options=data_options, times=times)
-    dt = xr.open_datatree(output_parent / "output.zarr", engine="zarr")
-    dt.truth
-    plt.hist(dt.attributes.convective.core["u_flow"].values, label="Detected", bins=20, alpha=0.5)
-    plt.hist(dt.truth.synthetic["u"].values, label="True", bins=20, alpha=0.5)
-    plt.legend()
-    plt.show()
-    dt
     central_latitude = -10
     central_longitude = 132
     y = np.arange(-400e3, 400e3 + 2.5e3, 2.5e3).tolist()

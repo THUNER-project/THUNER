@@ -5,7 +5,6 @@ from typing import List, Any, Literal
 import copy
 import numpy as np
 import cv2
-import xarray as xr
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import matplotlib.patheffects as patheffects
@@ -34,15 +33,14 @@ domain_plot_style.update({"zorder": 1, "transform": proj, "linestyle": "-"})
 def show_grid(grid, ax, grid_options, add_colorbar=True):
     """Plot a grid cross section."""
 
-    if grid_options.name == "geographic":
-        LON, LAT = np.meshgrid(grid_options.longitude, grid_options.latitude)
-    elif grid_options.name == "cartesian":
-        LON, LAT = grid_options.longitude, grid_options.latitude
+    # pcolormesh accepts the 1-D coords of a geographic grid directly (it meshes them
+    # internally) and the 2-D curvilinear coords of a cartesian grid as-is.
+    longitude, latitude = grid_options.longitude, grid_options.latitude
 
     title = ax.get_title()
     mesh_style = visualize.pcolormesh_style[grid.attrs["field_name"].lower()]
     mesh_style["transform"] = proj
-    pcm = ax.pcolormesh(LON, LAT, grid.values, zorder=1, **mesh_style)
+    pcm = ax.pcolormesh(longitude, latitude, grid.values, zorder=1, **mesh_style)
     ax.set_title(title)
     if add_colorbar:
         cbar = plt.colorbar(pcm, ax=ax, orientation="vertical")
@@ -64,44 +62,44 @@ def show_mask(
     colors = visualize.runtime_colors
     if single_color:
         colors = [colors[0]] * len(colors)
-    object_labels = np.unique(mask.where(mask > 0).values)
-    object_labels = object_labels[~np.isnan(object_labels)].astype(np.int32)
 
-    if grid_options.name == "geographic":
-        LON, LAT = np.meshgrid(grid_options.longitude, grid_options.latitude)
-    elif grid_options.name == "cartesian":
-        LON, LAT = grid_options.longitude, grid_options.latitude
+    mask_values = mask.values
+    object_labels = np.unique(mask_values)
+    object_labels = object_labels[object_labels > 0].astype(np.int32)
 
-    mesh_style = {"shading": "nearest", "transform": proj, "alpha": 0.4, "zorder": 2}
+    longitude, latitude = grid_options.longitude, grid_options.latitude
     if mask_quality is None:
         mask_quality = {obj: True for obj in object_labels}
 
+    # Fill all objects with a single QuadMesh rather than one (mostly transparent)
+    # pcolormesh per object: each kept object gets a contiguous index into a colormap
+    # of its colour. Outlines are still drawn per object.
+    fill = np.full(mask_values.shape, np.nan)
+    fill_colors = []
     for i in object_labels:
         if not mask_quality[i]:
             continue
-        binary_mask = xr.where(mask == i, 1, np.nan)
-        color_index = int((i - 1) % len(colors))
+        is_object = mask_values == i
         if object_colors is not None:
             color = object_colors[i]
         else:
-            color = colors[color_index]
-        cmap = mcolors.ListedColormap([color])
-        ax.pcolormesh(LON, LAT, binary_mask, **mesh_style, cmap=cmap)
-        binary_array = xr.where(mask == i, 1, 0).astype(np.uint8).values
-        contours = cv2.findContours(binary_array, **contour_options)[0]
+            color = colors[int((i - 1) % len(colors))]
+        fill[is_object] = len(fill_colors) + 1
+        fill_colors.append(color)
+
+        contours = cv2.findContours(is_object.astype(np.uint8), **contour_options)[0]
         for contour in contours:
             contour = np.append(contour, [contour[0]], axis=0)
             cols = contour[:, :, 0].flatten()
             rows = contour[:, :, 1].flatten()
             lats, lons = thuner_grid.get_pixels_geographic(rows, cols, grid_options)
-            ax.plot(
-                lons,
-                lats,
-                color=color,
-                linewidth=1,
-                zorder=3,
-                transform=proj,
-            )
+            ax.plot(lons, lats, color=color, linewidth=1, zorder=3, transform=proj)
+
+    if fill_colors:
+        cmap = mcolors.ListedColormap(fill_colors)
+        norm = mcolors.BoundaryNorm(np.arange(0.5, len(fill_colors) + 1.5), cmap.N)
+        mesh_style = {"shading": "nearest", "transform": proj, "alpha": 0.4, "zorder": 2}
+        ax.pcolormesh(longitude, latitude, fill, cmap=cmap, norm=norm, **mesh_style)
     ax.set_title(title)
     return colors
 

@@ -314,21 +314,18 @@ def geographic_to_cartesian_displacement(start_lat, start_lon, end_lat, end_lon)
 
 def get_pixels_geographic(rows, cols, grid_options):
     """Get the geographic coordinates of the gridcells, i.e. "pixels" at rows, cols."""
-    if np.array(rows).shape != np.array(cols).shape:
+    scalar_input = np.ndim(rows) == 0 and np.ndim(cols) == 0
+    rows, cols = np.atleast_1d(rows), np.atleast_1d(cols)
+    if rows.shape != cols.shape:
         raise ValueError("row and col must have the same shape.")
-    scalar_input = np.isscalar(rows) and np.isscalar(cols)
-    rows = np.array([rows]).flatten()
-    cols = np.array([cols]).flatten()
-    latitudes = np.array(grid_options.latitude)
-    longitudes = np.array(grid_options.longitude)
+    latitudes = np.asarray(grid_options.latitude)
+    longitudes = np.asarray(grid_options.longitude)
     if grid_options.name == "cartesian":
-        # lats, lons are 2D arrays
-        lats = [latitudes[row, col] for row, col in zip(rows, cols)]
-        lons = [longitudes[row, col] for row, col in zip(rows, cols)]
-    elif grid_options.name == "geographic":
-        # lats, lons are 1D arrays
-        lats, lons = [latitudes[row] for row in rows], [longitudes[col] for col in cols]
+        # latitudes, longitudes are 2D arrays
+        lats, lons = latitudes[rows, cols], longitudes[rows, cols]
+    else:
+        # geographic: latitudes, longitudes are 1D arrays
+        lats, lons = latitudes[rows], longitudes[cols]
     if scalar_input:
-        lats = lats[0]
-        lons = lons[0]
+        return lats[0], lons[0]
     return lats, lons
