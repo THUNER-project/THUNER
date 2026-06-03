@@ -49,10 +49,6 @@ class AccessCOptions(utils.BaseDatasetOptions):
     )
     mode: Literal["fc", "an", "fcmm"] = Field("fcmm", description="Mode type.")
     levels: Literal["sfc", "ml"] = Field("sfc", description="Model level type.")
-    # By default we only keep forecast data from 12 to 36 hours.
-    # See Short & Lane (2023) https://doi.org/10.1175/MWR-D-23-0033.1.
-    lead_start: int = Field(12, description="Lead time to start from in hours.")
-    lead_end: int = Field(36, description="Lead time to end at in hours.")
     filename: str = Field("radar_refl_1km.nc", description="Name of the file.")
 
     # Override get_filepaths and grid_from_dataset with ACCESS specific versions.

@@ -22,12 +22,15 @@ def test_access():
     # Delete the output directory for the run if it already exists
     if output_parent.exists() & remove_existing_outputs:
         shutil.rmtree(output_parent)
+    # Download the demo data
+    remote_directory = "s3://thuner-storage/THUNER_output/input_data/raw/ops_aps3/"
+    data.get_demo_data(base_local, remote_directory)
     # Create the dataset options
     # For model datasets we generally need to specify which model run we want, in 
     # addition to the start and end times. Typically we want to discard spin up times.
     run_start = "2021-12-01T12:00:00" # The start time of the run we want
     start = "2021-12-02T00:00:00" # The start time of the data we want to analyze. 
-    end = "2021-12-02T16:00:00" # The end time of the data we want to analyze.
+    end = "2021-12-03T00:00:00" # The end time of the data we want to analyze.
     times_dict = {"start": start, "end": end, "run_start": run_start}
     access_1km_options = data.access.AccessCOptions(
         **times_dict, name="access_1km", filename="radar_refl_1km.nc"
@@ -50,7 +53,7 @@ def test_access():
         track_options=track_options,
         output_directory=output_parent,
         dataset_name='access_1km',
-        num_processes=3,
+        num_processes=4,
     )
     analysis_options = analyze.mcs.AnalysisOptions()
     analysis_options.to_json(options_directory / "analysis.json")

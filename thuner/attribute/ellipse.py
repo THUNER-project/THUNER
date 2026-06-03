@@ -55,7 +55,7 @@ def cv2_ellipse(mask, id, grid_options):
     if len(contours[0]) > 6:
         ellipse_properties = cv2.fitEllipseDirect(contours[0])
     else:
-        print("Object too small to fit ellipse. Retrying with padded contour.")
+        logger.warning("Object too small to fit ellipse. Retrying with padded contour.")
         new_contour = []
         for r in contours[0]:
             [new_contour.append(r) for i in range(3)]

@@ -34,7 +34,6 @@ def get_object_center(obj, mask, grid_options, gridcell_area=None, grid=None):
 
     if center_row < 0:
         center_row = 0
-        print(center_row)
 
     return center_row, center_col, areas.sum()
 

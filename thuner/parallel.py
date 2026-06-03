@@ -92,6 +92,10 @@ def track(
         visualize_options = None
         logger.warning(message)
 
+    # Build any reusable regridder weights once, up front, rather than letting every
+    # interval build its own copy concurrently (a memory bottleneck for large grids).
+    precompute_regridders(data_options, grid_options, track_options, output_directory)
+
     if debug_mode:
         for i, time_interval in enumerate(intervals):
             track_interval(
@@ -128,6 +132,92 @@ def track(
     stitch_run(output_directory, intervals, cleanup=cleanup)
 
 
+def precompute_regridders(data_options, grid_options, track_options, output_parent):
+    """
+    Build, verify and cache xesmf regridder weights once before spawning workers.
+    """
+    output_parent = Path(output_parent)
+    processed = set()
+
+    def standard_path(name):
+        return output_parent / "regridder_weights" / f"{name}.nc"
+
+    def process(dataset_options):
+        name = dataset_options.name
+        # Guard against reprocessing (and, defensively, against regridder_from cycles
+        # that slipped past validation).
+        if name in processed:
+            return
+        processed.add(name)
+        # Only datasets that reuse a geographic regridder and actually convert (rather
+        # than load pre-converted files) build weights during a run.
+        if (
+            not dataset_options.reuse_regridder
+            or dataset_options.converted_options.load
+        ):
+            return
+        # The standard location is a single, shared file at the run root. It is the
+        # *source* that track_interval copies into each interval as a private copy.
+        weights_filepath = standard_path(name)
+        # Populate the standard location if it is not already there, either from a
+        # pre-existing file at a non-standard weights_filepath, or by copying another
+        # dataset's regridder (regridder_from). Otherwise it is left absent and built
+        # by the conversion below.
+        if not weights_filepath.exists():
+            preset = dataset_options.weights_filepath
+            if (
+                preset is not None
+                and Path(preset).exists()
+                and Path(preset) != weights_filepath
+            ):
+                weights_filepath.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy(preset, weights_filepath)
+            elif dataset_options.regridder_from is not None:
+                source = data_options.dataset_by_name(dataset_options.regridder_from)
+                process(source)  # ensure the source's weights exist first
+                source_filepath = standard_path(source.name)
+                if not source_filepath.exists():
+                    message = (
+                        f"Cannot reuse regridder of {source.name!r} for {name!r}; "
+                        "no weights were produced for it."
+                    )
+                    raise ValueError(message)
+                weights_filepath.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy(source_filepath, weights_filepath)
+        # Clear weights_filepath so each worker resolves its own interval-local copy:
+        # track.track only fills that in when weights_filepath is None.
+        dataset_options.weights_filepath = None
+
+        filepaths = dataset_options.filepaths
+        if not isinstance(filepaths, list):
+            message = f"Cannot pre-compute regridder for {name}; filepaths must be a "
+            message += "list."
+            raise TypeError(message)
+        if len(filepaths) == 0:
+            message = f"Cannot pre-compute regridder for {name}; filepaths is empty."
+            raise ValueError(message)
+        filepath = sorted(filepaths)[0]
+        with xr.open_dataset(filepath, decode_timedelta=True) as ds:
+            time = ds.time.values[0]
+        # Build/verify on deep copies so the conversion's grid inference does not leak
+        # into the shared grid_options.
+        dataset_options_copy = dataset_options.model_copy(deep=True)
+        grid_options_copy = grid_options.model_copy(deep=True)
+        dataset_options_copy.weights_filepath = weights_filepath
+        if weights_filepath.exists():
+            # Weights already exist (preset, copied from another dataset, or left by an
+            # earlier run). The conversion loads and applies them, verifying validity.
+            logger.info(f"Verifying existing regridder weights for {name}.")
+        else:
+            logger.info(f"Pre-computing regridder weights for {name}.")
+        dataset_options_copy.convert_dataset(
+            time, filepath, track_options, grid_options_copy
+        )
+
+    for dataset_options in data_options.datasets:
+        process(dataset_options)
+
+
 def track_interval(
     i,
     time_interval,
@@ -144,6 +234,14 @@ def track_interval(
 
     output_directory = output_parent / f"interval_{i}"
     output_directory.mkdir(parents=True, exist_ok=True)
+    # Copy any pre-computed regridder weights into this interval so it loads them
+    # rather than rebuilding the (slow, memory-heavy) regridder. See
+    # precompute_regridders. Weights are left as a per-interval copy to avoid multiple
+    # processes opening the same netcdf file concurrently.
+    src_weights = output_parent / "regridder_weights"
+    if src_weights.exists():
+        dst_weights = output_directory / "regridder_weights"
+        shutil.copytree(src_weights, dst_weights, dirs_exist_ok=True)
     options_directory = output_directory / "options"
     options_directory.mkdir(parents=True, exist_ok=True)
     data_options = data_options.model_copy(deep=True)

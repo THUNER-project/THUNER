@@ -55,8 +55,6 @@ autodoc_mock_imports = [
     "netcdf4",
     "h5netcdf",
     "requests",
-    "tqdm",
-    "cdsapi",
     "xesmf",
     "skimage",
     "cv2",

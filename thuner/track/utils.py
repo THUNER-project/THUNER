@@ -46,7 +46,7 @@ class BaseInputRecord(BaseModel):
     weights_filepath: Callable | None = Field(
         None,
         description=(
-            "The regridder function for this dataset. This should be left as None and"
+            "The regridder weights for this dataset. This should be left as None and"
             " inferred during tracking."
         ),
     )

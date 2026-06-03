@@ -50,6 +50,7 @@ py312   = { features = ["py312"], solve-group = "py312" }
 # ---- Tasks (run with `pixi run <name>`) ----
 
 [tasks]
-test = "pytest --verbose --color=yes -s --cov=thuner --cov-report=term-missing --cov-report=html --log-cli-level=INFO"
+prep-test = "python thuner/test/test_demo/demos_to_tests.py"
+test = { cmd = "pytest --verbose --color=yes -s --cov=thuner --cov-report=term-missing --cov-report=html --log-cli-level=INFO", depends-on = ["prep-test"] }
 format = "black ."
 lint = "pre-commit run --all-files"

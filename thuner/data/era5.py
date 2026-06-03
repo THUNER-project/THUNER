@@ -7,7 +7,6 @@ import tempfile
 import numpy as np
 import pandas as pd
 import xarray as xr
-import cdsapi
 from typing import Any, Literal
 from pydantic import Field, model_validator
 import thuner.log as log

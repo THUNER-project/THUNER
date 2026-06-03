@@ -142,8 +142,6 @@ def parents_from_match_record(attribute: Attribute, object_tracks):
         else:
             obj_parents_str = " ".join([str(parent) for parent in obj_parents])
             parents_str.append(obj_parents_str)
-    if len(parents_str) != len(parents):
-        print("Bad string.")
     return {attribute.name: list(parents_str)}
 
 

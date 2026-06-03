@@ -28,9 +28,7 @@ import cv2
 from numba import njit, int32, float32
 from numba.typed import List
 from scipy.interpolate import interp1d
-import re
 import os
-import platform
 from typing import Any, Dict, Literal, Generator, Callable, Annotated
 from pydantic import (
     Field,
@@ -272,6 +270,12 @@ class BaseDatasetOptions(BaseOptions):
         description=(
             "Filepath to where the xesmf regridder weights should be saved/loaded. "
             "Should generally be left as None and inferred during tracking."
+        ),
+    )
+    regridder_from: str | None = Field(
+        None,
+        description=(
+            "Name of another dataset whose regridder weights this dataset should reuse."
         ),
     )
 

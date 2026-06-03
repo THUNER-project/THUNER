@@ -11,6 +11,9 @@ import numpy as np
 from scipy import ndimage
 import thuner.match.box as box
 from thuner.match.utils import get_grids
+from thuner.log import setup_logger
+
+logger = setup_logger(__name__)
 
 
 def get_flow(bounding_box, object_tracks, object_options, grid_options, flow_margin):
@@ -82,5 +85,5 @@ def shift(cross_covariance):
         centered = np.concatenate((centered_bottom, centered_top), axis=1)
         return centered
     else:
-        print("input to shift() should be a matrix")
+        logger.warning("Input to shift() should be a matrix")
         return

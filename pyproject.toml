@@ -41,8 +41,6 @@ dependencies = [
     "requests>=2.32",
     "arm_pyart>=2",
     "cmweather",
-    "tqdm>=4.66",
-    "cdsapi>=0.7",
     "opencv-python>=4.10",
     "awscli>=1.35",
     "tables>=3.10",

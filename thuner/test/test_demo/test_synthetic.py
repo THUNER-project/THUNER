@@ -1,3 +1,4 @@
+import xarray as xr
 from pathlib import Path
 import shutil
 import numpy as np
@@ -6,15 +7,12 @@ import thuner.default as default
 import thuner.track.track as track
 import thuner.option as option
 import thuner.data.synthetic as synthetic
+import matplotlib.pyplot as plt
 
 
 def test_synthetic():
     # # Testing: Synthetic Data
-    # The synthetic module is a work in progress. The idea is to allow synthetic meteorological 
-    # datasets to be readily created for testing purposes. While an entire synthetic dataset 
-    # could be created first, then fed into THUNER in the usual way (see previous tutorials/demos)
-    # with this module we instead generate the synthetic data as we go. The approach avoids the 
-    # need for storing large datasets.
+    # The synthetic module is a work in progress. The idea is to allow synthetic meteorological datasets to be readily created for testing purposes. While an entire synthetic dataset could be created first, then fed into THUNER in the usual way (see previous tutorials/demos) with this module we instead generate the synthetic data as we go. The approach allows us to create large synthetic datasets for testing, but avoid storing them!
     """Synthetic data demo/test."""
     # Set a flag for whether or not to remove existing output directories
     remove_existing_outputs = True
@@ -38,10 +36,11 @@ def test_synthetic():
         obj = synthetic.EllipsoidObject(
             time=start,
             center_latitude=np.mean(lat),
-            center_longitude=lon[(i+1)*len(lon) // 6],
-            direction=-np.pi / 4 + i * np.pi / 6,
-            speed=30-4*i,
-            horizontal_radius=5+4*i,
+            center_longitude=lon[(i + 1) * len(lon) // 6],
+            direction=-np.pi / 4 + i * np.pi / 8,
+            speed=30 - 4 * i,
+            horizontal_radius=7 + 4 * i,
+            orientation=0.25 * np.pi + i * np.pi / 8,
         )
         starting_objects.append(obj)
     # Create data options dictionary
@@ -51,8 +50,11 @@ def test_synthetic():
     track_options = default.track.synthetic_track()
     track_options.to_json(options_directory / "track.json")
     # Create the display_options dictionary
-    visualize_options = default.visualize.synthetic_runtime(options_directory / "visualize.json")
+    visualize_options = default.visualize.synthetic_runtime(
+        options_directory / "visualize.json"
+    )
     visualize_options.to_json(options_directory / "visualize.json")
+    visualize_options.model_dump()
     times = np.arange(
         np.datetime64(start),
         np.datetime64(end) + np.timedelta64(10, "m"),
@@ -67,6 +69,14 @@ def test_synthetic():
         output_directory=output_parent,
     )
     # ![THUNER applied to synthetic data.](https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/synthetic.gif)
+    data.synthetic.write_ground_truth(output_parent, data_options=data_options, times=times)
+    dt = xr.open_datatree(output_parent / "output.zarr", engine="zarr")
+    dt.truth
+    plt.hist(dt.attributes.convective.core["u_flow"].values, label="Detected", bins=20, alpha=0.5)
+    plt.hist(dt.truth.synthetic["u"].values, label="True", bins=20, alpha=0.5)
+    plt.legend()
+    plt.show()
+    dt
     central_latitude = -10
     central_longitude = 132
     y = np.arange(-400e3, 400e3 + 2.5e3, 2.5e3).tolist()

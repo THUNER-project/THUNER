@@ -2,15 +2,6 @@
 
 import os
 
-# Check if system is unix-like, as fcntl not supported on Windows
-if os.name == "posix":
-    import fcntl
-else:
-    message = "Note fcntl is not available on Windows. If you need to download data "
-    message = "do so before running thuner, or use a unix based system."
-    print(message)
-
-
 # Check if system is unix-like, as xESMF is not supported on Windows
 if os.name == "posix":
     import xesmf as xe
@@ -19,14 +10,9 @@ else:
     message += "If you need regridding, consider using a Linux or MacOS system."
     print(message)
 
-import multiprocessing
-import threading
+
 import subprocess
-import zipfile
-import time
 from pathlib import Path
-import requests
-import cdsapi
 import cv2
 import numpy as np
 import xarray as xr
@@ -36,7 +22,7 @@ import thuner.log as log
 import thuner.utils as utils
 from thuner.config import get_outputs_directory
 
-logger = log.setup_logger(__name__, level="DEBUG")
+logger = log.setup_logger(__name__, level="INFO")
 # Set the number of cv2 threads to 0 to avoid crashes.
 # See https://github.com/opencv/opencv/issues/5150#issuecomment-675019390
 cv2.setNumThreads(0)
@@ -60,6 +46,16 @@ def get_demo_data(output_parent=None, remote_directory=None):
     base_url = "s3://thuner-storage/THUNER_output/"
     directory_structure = remote_directory.replace(base_url, "")
     output_directory = output_parent / directory_structure
+    # Check the remote directory exists by listing it. `aws s3 ls` on a prefix
+    # with no matching keys returns exit code 0 with empty stdout, so verify
+    # there is at least one entry before syncing.
+    prefix = remote_directory.rstrip("/") + "/"
+    check_command = f"aws s3 ls {prefix} --no-sign-request"
+    result = subprocess.run(check_command, shell=True, capture_output=True, text=True)
+    if result.returncode != 0 or not result.stdout.strip():
+        raise FileNotFoundError(
+            f"Remote directory {remote_directory} does not exist or is empty."
+        )
     command = f"aws s3 sync {remote_directory} {output_directory} --no-sign-request"
     logger.info("Syncing directory %s. Please wait.", output_directory)
     subprocess.run(command, shell=True, check=True)
