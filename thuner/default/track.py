@@ -88,7 +88,6 @@ def mcs(tracking_dataset="cpol", profile_dataset="era5_pl", tag_dataset="era5_sl
     member_objects = ["convective", "middle", "anvil"]
 
     grouping = track_option.GroupingOptions(
-        name=name,
         member_objects=member_objects,
         member_levels=[0, 0, 0],
         member_min_areas=[80, 400, 800],
@@ -135,7 +134,6 @@ def access_c_mcs(tracking_dataset="access_1km"):
     member_objects = ["convective", "anvil"]
 
     grouping = track_option.GroupingOptions(
-        name=name,
         member_objects=member_objects,
         member_levels=[0, 0],
         member_min_areas=[80, 800],

@@ -125,8 +125,11 @@ class BaseOptions(BaseModel, metaclass=AutoTypeMeta):
 
     type: Literal["BaseOptions"] = Field("BaseOptions")
 
-    # Allow arbitrary types in the options classes.
-    model_config = ConfigDict(arbitrary_types_allowed=True, discriminator="type")
+    # Allow arbitrary types in the options classes, and reject unknown fields so that
+    # typos/bad key-value pairs passed to a constructor raise instead of being ignored.
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True, discriminator="type", extra="forbid"
+    )
 
     def to_json(self, filepath: str, indent: int = 4):
         """Save the options to a JSON file."""
