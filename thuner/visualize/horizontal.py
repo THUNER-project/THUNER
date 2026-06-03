@@ -894,9 +894,9 @@ class PanelledUniformMaps(Panelled):
 
         dlon = self.extent[1] - self.extent[0]
         # Choose cartopy scale based on dlon
-        if dlon < 1:
+        if dlon < 10:
             scale = "10m"
-        elif dlon < 5:
+        elif dlon < 20:
             scale = "50m"
         else:
             scale = "110m"

@@ -7,7 +7,9 @@
   "workspaceFolder": "/workspace",
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
   "mounts": [
-    "source=${localEnv:HOME}/.claude,target=/home/thuner/.claude,type=bind,consistency=cached"
+    "source=${localEnv:HOME}/.claude,target=/home/thuner/.claude,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.claude.json,target=/home/thuner/.claude.json,type=bind,consistency=cached",
+    "source=thuner-pixi,target=${containerWorkspaceFolder}/.pixi,type=volume"
   ],
   "customizations": {
     "vscode": {
@@ -16,5 +18,5 @@
       ]
     }
   },
-  "postCreateCommand": "pixi install"
+  "postCreateCommand": "sudo chown thuner:thuner ${containerWorkspaceFolder}/.pixi && pixi install"
 }
