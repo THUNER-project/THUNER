@@ -1,6 +1,7 @@
 """Unit tests for the synthetic scene generators (stepping, lifecycle, culling)."""
 
 import numpy as np
+import pandas as pd
 import pytest
 
 import thuner.option as option
@@ -94,3 +95,34 @@ def test_fade_scales_intensity_in_truth_and_render():
     fields = [gen.step(t, go) for t in times]
     assert np.all(np.isnan(fields[0]["reflectivity"].values))  # scale 0 -> nothing drawn
     assert float(np.nanmax(fields[2]["reflectivity"].values)) == pytest.approx(peak, abs=1.0)
+
+
+def test_random_generator_deterministic_and_consistent():
+    go = _grid()
+    times = _times(6)
+    kw = dict(seed=3, spawn_rate=20.0, initial_count=2)
+
+    # Same seed -> identical scene; different seed -> different scene.
+    truth = synthetic.RandomEllipseGenerator(**kw).ground_truth(times, go)
+    truth_again = synthetic.RandomEllipseGenerator(**kw).ground_truth(times, go)
+    pd.testing.assert_frame_equal(truth, truth_again)
+    assert len(truth) > 0
+    other = synthetic.RandomEllipseGenerator(**{**kw, "seed": 99}).ground_truth(times, go)
+    assert not truth.equals(other)
+
+    # A render run (step) reproduces the ground-truth re-run exactly (RNG determinism).
+    gen = synthetic.RandomEllipseGenerator(**kw)
+    rows = []
+    for time in times:
+        gen.step(time, go)
+        rows.extend(obj.ground_truth() for obj in gen._live)
+    rendered = pd.DataFrame(rows).set_index(["time", "id"]).sort_index()
+    pd.testing.assert_frame_equal(rendered, truth)
+
+
+def test_random_generator_round_trips_through_options_union():
+    gen = synthetic.RandomEllipseGenerator(seed=1, spawn_rate=5.0)
+    options = synthetic.SyntheticOptions(generator=gen)
+    restored = synthetic.SyntheticOptions.model_validate(options.model_dump())
+    assert isinstance(restored.generator, synthetic.RandomEllipseGenerator)
+    assert restored.generator.seed == 1

@@ -14,10 +14,11 @@ acceleration, random spawning).
 """
 
 import copy
+from typing import Annotated, Literal
 import numpy as np
 import pandas as pd
 import xarray as xr
-from pydantic import Field, PrivateAttr
+from pydantic import Field, PrivateAttr, model_validator
 from thuner.log import setup_logger
 from thuner.utils import BaseOptions
 import thuner.grid as grid
@@ -52,6 +53,7 @@ class SyntheticGenerator(BaseOptions):
     _grid_options: object = PrivateAttr(default=None)
     _base_dataset: object = PrivateAttr(default=None)
     _next_id: int = PrivateAttr(default=0)
+    _start_time: object = PrivateAttr(default=None)
 
     # --- hooks for subclasses ------------------------------------------------
     def initial_objects(self):
@@ -69,6 +71,7 @@ class SyntheticGenerator(BaseOptions):
         self._ensure_grid_coordinates()
         self._base_dataset = None
         self._next_id = 0
+        self._start_time = start_time
         self._live = []
         self._pool = []
         for obj in self.initial_objects():
@@ -217,6 +220,113 @@ class FixedGenerator(SyntheticGenerator):
         return copy.deepcopy(self.objects)
 
 
-# Becomes Annotated[FixedGenerator | RandomEllipseGenerator, Field(discriminator="type")]
-# once procedural generators are added (Phase 2).
-AnyGenerator = FixedGenerator
+class RandomEllipseGenerator(SyntheticGenerator):
+    """Spawn random ellipse cells over time, deterministically given ``seed``.
+
+    ``initial_count`` cells are present at the start; further cells appear as a Poisson
+    process at ``spawn_rate`` per hour. Each cell's centre, geometry, motion and lifetime
+    are drawn uniformly from the configured ranges. Identical ``seed`` (with the same
+    times and grid) yields an identical scene, so the rendered field and the replayed
+    ground truth always agree.
+    """
+
+    seed: int = Field(0, description="Seed for the random number generator.")
+    spawn_rate: float = Field(
+        10.0, description="Expected number of new cells per hour (Poisson)."
+    )
+    initial_count: int = Field(1, description="Number of cells present at the start.")
+    major_range: tuple[float, float] = Field(
+        (20.0, 40.0), description="Min/max full major axis in km."
+    )
+    aspect_range: tuple[float, float] = Field(
+        (0.4, 0.9), description="Min/max minor/major axis ratio (in (0, 1])."
+    )
+    speed_range: tuple[float, float] = Field(
+        (0.0, 20.0), description="Min/max speed in m/s."
+    )
+    life_time_range: tuple[float, float] = Field(
+        (30.0, 120.0), description="Min/max lifetime in minutes."
+    )
+    fade_fraction: float = Field(
+        0.2, description="Fade-in/out duration as a fraction of lifetime (in [0, 0.5])."
+    )
+    intensity: float = Field(
+        42 * np.sqrt(np.e), description="Peak field value for drawn cells, e.g. dBZ."
+    )
+    style: Literal["gaussian", "flat"] = Field(
+        "gaussian", description="Intensity profile for drawn cells."
+    )
+
+    _rng: object = PrivateAttr(default=None)
+    _prev_time: object = PrivateAttr(default=None)
+
+    @model_validator(mode="after")
+    def _check_ranges(self):
+        """Ranges must be ordered and the aspect/fade fractions sensibly bounded."""
+        for name in ["major_range", "aspect_range", "speed_range", "life_time_range"]:
+            low, high = getattr(self, name)
+            if low > high:
+                raise ValueError(f"{name} must have min <= max (got {low} > {high}).")
+        if not (self.aspect_range[0] > 0 and self.aspect_range[1] <= 1):
+            raise ValueError("aspect_range must lie within (0, 1].")
+        if not 0 <= self.fade_fraction <= 0.5:
+            raise ValueError("fade_fraction must be in [0, 0.5].")
+        if self.spawn_rate < 0 or self.initial_count < 0:
+            raise ValueError("spawn_rate and initial_count must be non-negative.")
+        return self
+
+    def reset(self, grid_options, start_time):
+        """Re-seed the RNG so each pass over the same times reproduces the same scene."""
+        self._rng = np.random.default_rng(self.seed)
+        self._prev_time = None
+        super().reset(grid_options, start_time)
+
+    def initial_objects(self):
+        """The cells present at the start of the run."""
+        return [self._draw_object(self._start_time) for _ in range(self.initial_count)]
+
+    def spawn(self, time):
+        """Poisson-draw new cells for the interval since the previous step."""
+        t = np.datetime64(time)
+        if self._prev_time is None:
+            self._prev_time = t
+            return []  # first step: the start population is handled by initial_objects.
+        dt_hours = (t - self._prev_time) / np.timedelta64(1, "h")
+        self._prev_time = t
+        count = int(self._rng.poisson(self.spawn_rate * dt_hours))
+        return [self._draw_object(time) for _ in range(count)]
+
+    def _domain_bounds(self):
+        """(lat_min, lat_max, lon_min, lon_max) of the current grid."""
+        lats = np.asarray(self._grid_options.latitude)
+        lons = np.asarray(self._grid_options.longitude)
+        return float(lats.min()), float(lats.max()), float(lons.min()), float(lons.max())
+
+    def _draw_object(self, time):
+        """Draw one random ellipse cell, born at ``time`` somewhere in the domain."""
+        rng = self._rng
+        lat_min, lat_max, lon_min, lon_max = self._domain_bounds()
+        major = rng.uniform(*self.major_range)
+        minor = major * rng.uniform(*self.aspect_range)
+        life = rng.uniform(*self.life_time_range)
+        fade = self.fade_fraction * life
+        return EllipsoidObject(
+            time=str(time),
+            center_latitude=rng.uniform(lat_min, lat_max),
+            center_longitude=rng.uniform(lon_min, lon_max),
+            direction=rng.uniform(0.0, 2 * np.pi),
+            speed=rng.uniform(*self.speed_range),
+            major=major,
+            minor=minor,
+            orientation=rng.uniform(0.0, np.pi),
+            life_time=life,
+            fade_in_time=fade,
+            fade_out_time=fade,
+            intensity=self.intensity,
+            style=self.style,
+        )
+
+
+AnyGenerator = Annotated[
+    FixedGenerator | RandomEllipseGenerator, Field(discriminator="type")
+]
