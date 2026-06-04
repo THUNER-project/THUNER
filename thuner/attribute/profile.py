@@ -164,15 +164,20 @@ def from_masks(
         profile_time = profiles.interp(time=interp_time.astype("datetime64[ns]"))
         profile_time = profile_time.stack(points=["latitude", "longitude"])
 
-        profile_time["altitude"] = profile_time["geopotential"] / 9.80665
+        # Assign as (dims, values) rather than a DataArray so the stacked-points
+        # MultiIndex on geopotential is not realigned into profile_time.
+        geopotential = profile_time["geopotential"]
+        profile_time["altitude"] = (geopotential.dims, geopotential.values / 9.80665)
         new_altitudes = np.array(grid_options.altitude)
 
         for i in range(len(ids)):
             points = utils.get_nearest_points(stacked_mask, ids[i], ds)
             profile_list = []
             for j in range(len(points)):
-                profile = profile_time.sel(points=points[j])
-                profile = _interp_profile(profile, new_altitudes).drop("points")
+                # Drop the stacked-points coordinate before interpolating so the
+                # per-point profiles concatenate cleanly.
+                profile = profile_time.sel(points=points[j]).drop_vars("points")
+                profile = _interp_profile(profile, new_altitudes)
                 profile_list.append(profile)
             all_profiles = xr.concat(profile_list, dim="profiles")
             profile = all_profiles.mean(dim="profiles")

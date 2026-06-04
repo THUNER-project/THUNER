@@ -81,3 +81,15 @@ Documentation = "https://thuner.readthedocs.io/en/latest/"
 where = ["."]
 include = ["thuner"]
 exclude = ["thuner/test"]
+
+[tool.pytest.ini_options]
+testpaths = ["thuner/test"]
+
+[tool.coverage.run]
+omit = ["thuner/test/*"]
+
+[tool.coverage.report]
+exclude_also = [
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]

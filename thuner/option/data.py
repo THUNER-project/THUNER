@@ -19,7 +19,6 @@ __all__ = ["DataOptions"]
 AnyDatasetOptions = Union[
     gridrad.GridRadSevereOptions,
     aura.CpolOptions,
-    aura.OperationalOptions,
     era5.Era5Options,
     himawari.HimawariOptions,
     access.AccessCOptions,

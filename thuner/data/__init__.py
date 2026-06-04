@@ -5,7 +5,6 @@ import thuner.data.aura as aura
 import thuner.data.era5 as era5
 import thuner.data.gridrad as gridrad
 import thuner.data.himawari as himawari
-import thuner.data.odim as odim
 import thuner.data._utils as _utils
 import thuner.data.synthetic as synthetic
 from thuner.data._utils import get_demo_data

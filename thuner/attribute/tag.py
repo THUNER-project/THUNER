@@ -180,28 +180,6 @@ def tag_center(dataset):
     )
 
 
-# class TagCenter(AttributeGroup):
-#     """Tags at the object center."""
-
-#     name: str = "tags_center"
-#     retrieval: Retrieval = Retrieval(
-#         function=from_centers,
-#         keyword_arguments={
-#             "center_type": "area_weighted",
-#             "time_offsets": [-120, -60, 0],
-#         },
-#     )
-#     attributes: list[Attribute] = [
-#         core.Time(retrieval=None),
-#         utils.TimeOffset(),
-#         core.Latitude(retrieval=None),
-#         core.Longitude(retrieval=None),
-#         CAPE(),
-#         CIN(),
-#     ]
-#     description: str = "Tags at object centers, e.g. cape and cin."
-
-
 def default(dataset: str, matched=True):
     """Create the default tag attribute type."""
 

@@ -126,26 +126,14 @@ def apply_mask(ds, grid_options):
     return ds
 
 
-def mask_from_input_record(
-    track_input_records, dataset_options, object_options, grid_options
-):
-    """
-    Get a domain mask from the input record. This function is used if a single domain
-    mask applies to all objects/times in the dataset.
-    """
-
-    input_record = track_input_records[dataset_options.name]
-    domain_mask = input_record.domain_mask
-    boundary_coords = input_record.boundary_coordinates
-
-    return domain_mask, boundary_coords
-
-
 def mask_from_observations(dataset, dataset_options, object_options=None):
     """Create domain mask based on number of observations in each cell."""
 
     altitudes = object_options.detection.altitudes
     if altitudes is None:
+        logger.warning(
+            "No altitudes specified in object options. Using all altitudes in dataset."
+        )
         altitudes = [dataset.altitude.values.min(), dataset.altitude.values.max()]
     num_obs = dataset["number_of_observations"].sel(altitude=slice(*altitudes))
     mask = num_obs > dataset_options.obs_thresh

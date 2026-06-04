@@ -423,8 +423,7 @@ def _relabel_attribute_dfs(
 ):
     """Relabel ids across per-interval attribute dfs and concatenate.
 
-    Pure DataFrame manipulation — does not touch disk. Used by both the CSV
-    and zarr stitching paths.
+    Pure DataFrame manipulation — does not touch disk.
 
     Returns
     -------

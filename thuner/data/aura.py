@@ -25,9 +25,7 @@ import thuner.utils as utils
 __all__ = [
     "AuraOptions",
     "CpolOptions",
-    "OperationalOptions",
     "get_cpol_filepaths",
-    "get_operational_filepaths",
 ]
 
 logger = setup_logger(__name__)
@@ -139,68 +137,6 @@ def get_cpol_filepaths(options: CpolOptions):
     return sorted(filepaths)
 
 
-class OperationalOptions(AuraOptions):
-    """Options for operational AURA datasets."""
-
-    # Overwrite the default values from the base class. Note these objects are still
-    # pydantic Fields. See https://github.com/pydantic/pydantic/issues/1141
-
-    def model_post_init(self, __context):
-        """
-        If unset by user, change default values inherited from the base class.
-        """
-        super().model_post_init(__context)
-        url = "https://dapds00.nci.org.au/thredds/fileServer/rq0"
-        self._change_defaults(
-            name="operational",
-            parent_remote=url,
-            fields=["reflectivity"],
-            reuse_regridder=False,
-        )
-
-    # Define additional fields for the operational radar
-    level: str = Field("1")
-    data_format: str = Field("ODIM")
-    radar: int = Field(63, description="Radar ID number.")
-    weighting_function: str = Field(
-        "Barnes2",
-        description=(
-            "Weighting function used by pyart to reconstruct the grid from ODIM."
-        ),
-    )
-
-
-def get_operational_filepaths(options: OperationalOptions):
-    """
-    Generate operational radar URLs from input options dictionary. Note level 1 are
-    zipped ODIM files, level 1b are zipped netcdf files.
-    """
-
-    start = np.datetime64(options["start"])
-    end = np.datetime64(options["end"])
-
-    urls = []
-    base_url = f"{utils.get_parent(options)}"
-
-    times = np.arange(start, end + np.timedelta64(1, "D"), np.timedelta64(1, "D"))
-    times = pd.DatetimeIndex(times)
-
-    if options["level"] == "1":
-        base_url += f"/{options['radar']}"
-        for time in times:
-            url = f"{base_url}/{time.year:04}/vol/{options['radar']}"
-            url += f"_{time.year}{time.month:02}{time.day:02}.pvol.zip"
-            urls.append(url)
-    elif options["level"] == "1b":
-        base_url += f"/level_1b/{options['radar']}/grid"
-        for time in times:
-            url = f"{base_url}/{time.year:04}/{options['radar']}"
-            url += f"_{time.year}{time.month:02}{time.day:02}_grid.zip"
-            urls.append(url)
-
-    return sorted(urls)
-
-
 def convert_cpol(time, filepath, track_options, dataset_options, grid_options):
     """Convert CPOL data to a standard format. Retrieve the boundary data."""
 
@@ -262,15 +198,3 @@ def convert_cpol(time, filepath, track_options, dataset_options, grid_options):
     ds = _utils.apply_mask(ds, grid_options)
 
     return ds, boundary_coords, simple_boundary_coords
-
-
-def convert_operational():
-    """Convert operational AURA data."""
-    pass
-
-
-def update_operational_input_record(
-    time, input_record, track_options, dataset_options, grid_options
-):
-    """Update an operational AURA dataset."""
-    pass

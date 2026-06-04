@@ -52,5 +52,7 @@ py312   = { features = ["py312"], solve-group = "py312" }
 [tasks]
 prep-test = "python thuner/test/test_demo/demos_to_tests.py"
 test = { cmd = "pytest --verbose --color=yes -s --cov=thuner --cov-report=term-missing --cov-report=html --log-cli-level=INFO", depends-on = ["prep-test"] }
+# Fast, data-free unit tests (skips the demo integration tests that download data).
+test-unit = "pytest thuner/test --ignore=thuner/test/test_demo --color=yes -q"
 format = "black ."
 lint = "pre-commit run --all-files"

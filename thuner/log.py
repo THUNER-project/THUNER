@@ -47,9 +47,6 @@ def setup_logger(name, level=logging.INFO):
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
 
-    queue_handler = logging.handlers.QueueHandler(log_queue)
-    queue_handler.setFormatter(formatter)
-
     logger = logging.getLogger(name)
     logger.setLevel(level)
     logger.addHandler(file_handler)

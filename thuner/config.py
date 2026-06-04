@@ -13,7 +13,7 @@ __all__ = [
 ]
 
 
-DEFAULT_ZARR_STORE_NAME = "output.zarr"
+_default_zarr_store_name = "output.zarr"
 
 
 def create_user_config(output_directory=Path.home() / "THUNER_output"):
@@ -28,7 +28,7 @@ def create_user_config(output_directory=Path.home() / "THUNER_output"):
     write_config(
         {
             "outputs_directory": str(output_directory),
-            "zarr_store_name": DEFAULT_ZARR_STORE_NAME,
+            "zarr_store_name": _default_zarr_store_name,
         }
     )
 
@@ -102,5 +102,5 @@ def get_zarr_store_name():
         config_path = get_config_path()
         config = read_config(config_path)
     except FileNotFoundError:
-        return DEFAULT_ZARR_STORE_NAME
-    return config.get("zarr_store_name", DEFAULT_ZARR_STORE_NAME)
+        return _default_zarr_store_name
+    return config.get("zarr_store_name", _default_zarr_store_name)
