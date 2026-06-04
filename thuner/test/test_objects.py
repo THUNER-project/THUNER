@@ -34,6 +34,41 @@ def test_ground_truth_infers_eccentricity_and_rounds():
     assert rounded["major"] == 10.0 and rounded["minor"] == 6.1
 
 
+def test_fade_scale_ramps_in_and_out():
+    obj = _ellipsoid(
+        birth_time="2005-11-13T00:00:00",
+        life_time=30.0,
+        fade_in_time=10.0,
+        fade_out_time=10.0,
+    )
+    assert obj.fade_scale("2005-11-13T00:00:00") == pytest.approx(0.0)  # birth
+    assert obj.fade_scale("2005-11-13T00:05:00") == pytest.approx(0.5)  # fading in
+    assert obj.fade_scale("2005-11-13T00:15:00") == pytest.approx(1.0)  # full
+    assert obj.fade_scale("2005-11-13T00:25:00") == pytest.approx(0.5)  # fading out
+    assert obj.fade_scale("2005-11-13T00:30:00") == pytest.approx(0.0)  # death
+
+
+def test_is_alive_respects_lifetime():
+    obj = _ellipsoid(birth_time="2005-11-13T00:00:00", life_time=15.0)
+    assert obj.is_alive("2005-11-13T00:10:00")
+    assert not obj.is_alive("2005-11-13T00:20:00")
+    # No lifetime -> always alive.
+    assert _ellipsoid().is_alive("2030-01-01T00:00:00")
+
+
+def test_horizontal_extent_gaussian_exceeds_flat():
+    gaussian = _ellipsoid(major=40.0, style="gaussian").horizontal_extent()
+    flat = _ellipsoid(major=40.0, style="flat").horizontal_extent()
+    assert flat == pytest.approx(20.0)  # semi-major
+    assert gaussian == pytest.approx(20.0 * np.sqrt(-2 * np.log(0.05)))
+    assert gaussian > flat
+
+
+def test_lifecycle_validator_rejects_fades_exceeding_life():
+    with pytest.raises(ValueError):
+        _ellipsoid(life_time=10.0, fade_in_time=8.0, fade_out_time=5.0)
+
+
 def test_axes_validator_rejects_minor_greater_than_major():
     with pytest.raises(ValueError):
         _ellipsoid(major=10.0, minor=12.0)

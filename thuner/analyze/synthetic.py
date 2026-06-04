@@ -27,17 +27,18 @@ logger = setup_logger(__name__)
 NO_MATCH = 0
 
 
-def write_ground_truth(output_directory, data_options, times):
+def write_ground_truth(output_directory, data_options, times, grid_options):
     """Write ground-truth tables for all synthetic datasets to the zarr store.
 
-    Each synthetic dataset's truth lands in a ``truth/<dataset_name>`` group. Returns
-    a ``{dataset_name: DataFrame}`` mapping of what was written.
+    Each synthetic dataset's truth lands in a ``truth/<dataset_name>`` group, derived by
+    replaying its generator over ``times`` on ``grid_options`` (so the truth matches what
+    was rendered). Returns a ``{dataset_name: DataFrame}`` mapping of what was written.
     """
     written = {}
     for dataset_options in data_options.datasets:
         if not isinstance(dataset_options, SyntheticOptions):
             continue
-        df = synthetic_ground_truth(dataset_options, times)
+        df = synthetic_ground_truth(dataset_options, times, grid_options)
         write_attribute(output_directory, "truth", dataset_options.name, df=df)
         logger.info("Wrote ground truth for %s.", dataset_options.name)
         written[dataset_options.name] = df

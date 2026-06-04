@@ -44,10 +44,14 @@ def test_synthetic():
             major=major,
             minor=0.4 * major,
             orientation=0.25 * np.pi + i * np.pi / 8,
+            life_time=30 + i * 22.5,  # 30 to 120 minutes
+            fade_in_time=10,
+            fade_out_time=10,
         )
         starting_objects.append(obj)
     # Create data options dictionary
-    synthetic_options = data.synthetic.SyntheticOptions(objects=starting_objects)
+    generator = synthetic.FixedGenerator(objects=starting_objects)
+    synthetic_options = data.synthetic.SyntheticOptions(generator=generator)
     data_options = option.data.DataOptions(datasets=[synthetic_options])
     data_options.to_json(options_directory / "data.json")
     track_options = default.track.synthetic_track()
@@ -73,7 +77,7 @@ def test_synthetic():
     )
     # ![THUNER applied to synthetic data.](https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/synthetic.gif)
     ground_truth = analyze.synthetic.write_ground_truth(
-        output_parent, data_options=data_options, times=times
+        output_parent, data_options=data_options, times=times, grid_options=grid_options
     )
     ground_truth["synthetic"]
     central_latitude = -10

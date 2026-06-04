@@ -12,7 +12,7 @@ import numpy as np
 import xarray as xr
 from pydantic import Field, model_validator
 from pyproj import Geod
-from thuner.utils import BaseOptions
+from thuner.utils import BaseOptions, DatetimeField
 
 geod = Geod(ellps="WGS84")
 
@@ -20,13 +20,20 @@ geod = Geod(ellps="WGS84")
 # centre; small enough that the linearised scale is exact to well within rendering needs.
 _SCALE_STEP = 0.01
 
+# Normalised distance at which a Gaussian object falls to 5% of its peak (the render
+# cutoff): sqrt(-2 ln 0.05). The horizontal footprint reaches this multiple of the
+# semi-axis, used when culling objects that have left the domain.
+_GAUSSIAN_EXTENT = float(np.sqrt(-2 * np.log(0.05)))
+
 
 class SyntheticObject(BaseOptions):
     """
     Base class for a synthetic object.
 
-    The base class handles kinematics (constant-velocity geodesic motion) and ground
-    truth. Subclasses add geometry fields and implement :meth:`render`.
+    The base class handles kinematics (constant-velocity geodesic motion), lifecycle
+    (``birth_time``/``life_time`` and fade-in/out intensity ramps) and ground truth.
+    Subclasses add geometry fields and implement :meth:`render` and
+    :meth:`horizontal_extent`.
     """
 
     id: int | None = Field(
@@ -43,6 +50,60 @@ class SyntheticObject(BaseOptions):
     field: str = Field(
         "reflectivity", description="Dataset variable this object renders into."
     )
+    birth_time: DatetimeField | None = Field(
+        None, description="Datetime the object appears. None -> the run start."
+    )
+    life_time: float | None = Field(
+        None, description="Lifetime in minutes. None -> lives until the run ends."
+    )
+    fade_in_time: float = Field(
+        0.0, description="Linear intensity ramp-up in minutes after birth."
+    )
+    fade_out_time: float = Field(
+        0.0, description="Linear intensity ramp-down in minutes before death."
+    )
+
+    @model_validator(mode="after")
+    def _check_lifecycle(self):
+        """Fades must be non-negative and fit within a (positive) lifetime."""
+        if self.fade_in_time < 0 or self.fade_out_time < 0:
+            raise ValueError("fade_in_time and fade_out_time must be non-negative.")
+        if self.life_time is not None:
+            if self.life_time <= 0:
+                raise ValueError("life_time must be positive.")
+            if self.fade_in_time + self.fade_out_time > self.life_time:
+                message = "fade_in_time + fade_out_time must not exceed life_time "
+                message += f"(got {self.fade_in_time} + {self.fade_out_time} > "
+                message += f"{self.life_time})."
+                raise ValueError(message)
+        return self
+
+    def _age_minutes(self, time):
+        """Minutes elapsed since ``birth_time`` at ``time``."""
+        elapsed = np.datetime64(time) - np.datetime64(self.birth_time)
+        return elapsed / np.timedelta64(1, "m")
+
+    def is_alive(self, time):
+        """Whether the object is within its lifetime at ``time``."""
+        if self.life_time is None:
+            return True
+        return self._age_minutes(time) < self.life_time
+
+    def fade_scale(self, time):
+        """Linear intensity multiplier in [0, 1] from fade-in/out at ``time``."""
+        if self.birth_time is None:
+            return 1.0
+        age = self._age_minutes(time)
+        scale = 1.0
+        if self.fade_in_time > 0:
+            scale = min(scale, age / self.fade_in_time)
+        if self.life_time is not None and self.fade_out_time > 0:
+            scale = min(scale, (self.life_time - age) / self.fade_out_time)
+        return float(np.clip(scale, 0.0, 1.0))
+
+    def horizontal_extent(self):
+        """Maximum horizontal reach (km) of the footprint from the centre."""
+        raise NotImplementedError
 
     def advance(self, time):
         """Return a copy of this object moved to ``time`` along its velocity vector."""
@@ -137,8 +198,16 @@ class EllipsoidObject(SyntheticObject):
             raise ValueError(message)
         return self
 
+    def horizontal_extent(self):
+        """Footprint reach (km) along the major axis: the semi-axis times the cutoff."""
+        factor = _GAUSSIAN_EXTENT if self.style == "gaussian" else 1.0
+        return (self.major / 2) * factor
+
     def render(self, ds, grid_options):
         """Add an elliptical blob (Gaussian or flat per ``style``) to ``ds[self.field]``."""
+        scale = self.fade_scale(self.time)
+        if scale <= 0:
+            return ds  # not yet faded in (or fully faded out): nothing to render.
         LON, LAT, ALT = ds.LON, ds.LAT, ds.ALT
 
         # Local east/north distance (km) of each cell from the centre. Metres-per-degree
@@ -164,11 +233,12 @@ class EllipsoidObject(SyntheticObject):
             + ((ALT - self.center_altitude) / self.altitude_radius) ** 2
         )
 
+        effective = self.intensity * scale  # fade-scaled peak
         if self.style == "gaussian":
-            values = self.intensity * np.exp(-(distance**2) / 2)
-            values = values.where(values >= 0.05 * self.intensity, np.nan)
+            values = effective * np.exp(-(distance**2) / 2)
+            values = values.where(values >= 0.05 * effective, np.nan)
         else:  # "flat": uniform fill inside the major/minor ellipsoid (distance <= 1).
-            values = xr.where(distance <= 1, self.intensity, np.nan)
+            values = xr.where(distance <= 1, effective, np.nan)
         values = values.transpose(*ds.dims)
         ds[self.field].values = xr.where(~np.isnan(values), values, ds[self.field])
         return ds
@@ -188,7 +258,8 @@ class EllipsoidObject(SyntheticObject):
                 "minor": np.round(self.minor, 1),
                 "orientation": np.round(self.orientation, 4),
                 "eccentricity": np.round(eccentricity, 4),
-                "intensity": np.round(self.intensity, 2),
+                # Report the fade-scaled peak, matching what was rendered at this time.
+                "intensity": np.round(self.intensity * self.fade_scale(self.time), 2),
             }
         )
         return truth
