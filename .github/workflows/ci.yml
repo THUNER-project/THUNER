@@ -9,7 +9,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  unit:
+    # Fast, data-free unit tests for quick feedback on every push/PR.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: prefix-dev/setup-pixi@v0.8.3
+        with:
+          locked: true        # fail if pixi.lock is out of sync with pixi.toml
+          cache: true         # cache the solved environment across runs
+      - run: pixi run test-unit
+
   test:
+    # Full suite, including the demo integration tests that download data.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
