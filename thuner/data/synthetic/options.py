@@ -30,6 +30,17 @@ class SyntheticOptions(BaseDatasetOptions):
     objects: list[EllipsoidObject] = Field(
         ..., description="Synthetic objects to generate. See thuner.data.synthetic."
     )
+    target_objects: list[str | tuple[str, str]] | None = Field(
+        None,
+        description=(
+            "Tracked objects to match synthetic ground-truth objects against (by "
+            "containment of each truth object's centre in the detected masks). Each "
+            "entry is either an object name — matched against that object's own masks "
+            "— or a (grouped_object, member) tuple — matched against that member's mask "
+            "within the grouped object. None disables matching. Targets' masks must be "
+            "saved (mask_options.save=True)."
+        ),
+    )
     _generator: SyntheticGenerator | None = PrivateAttr(default=None)
 
     def get_filepaths(self):

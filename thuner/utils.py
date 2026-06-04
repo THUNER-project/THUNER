@@ -232,7 +232,7 @@ class BaseDatasetOptions(BaseOptions):
         ConvertedOptions(),
         description="Options for saving and loading converted data.",
     )
-    filepaths: list[str] | dict = Field(
+    filepaths: list[str] | dict | None = Field(
         None, description="List of filepaths for the dataset."
     )
     attempt_download: bool = Field(

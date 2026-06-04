@@ -54,6 +54,37 @@ class Options(BaseOptions):
         return self
 
     @model_validator(mode="after")
+    def _check_target_objects(self):
+        """Validate synthetic datasets' ``target_objects`` against track options.
+
+        Each target must name a real object whose masks are saved; a ``(group, member)``
+        tuple must name a grouped object and one of its members.
+        """
+        for dataset in self.data.datasets:
+            targets = getattr(dataset, "target_objects", None)
+            if not targets:
+                continue
+            for target in targets:
+                name, member = (target, None) if isinstance(target, str) else target
+                obj = self.track.object_by_name(name)
+                if obj is None:
+                    message = f"Synthetic dataset {dataset.name!r} target_objects "
+                    message += f"references unknown object {name!r}."
+                    raise ValueError(message)
+                if member is not None:
+                    grouping = getattr(obj, "grouping", None)
+                    if grouping is None or member not in grouping.member_objects:
+                        message = f"Synthetic dataset {dataset.name!r} target_objects "
+                        message += f"references {member!r}, which is not a member of "
+                        message += f"grouped object {name!r}."
+                        raise ValueError(message)
+                if not obj.mask_options.save:
+                    message = f"Synthetic dataset {dataset.name!r} targets {name!r}, "
+                    message += "but its masks are not saved (set mask_options.save=True)."
+                    raise ValueError(message)
+        return self
+
+    @model_validator(mode="after")
     def _check_himawari_grid(self):
         """
         Check latitude/longitude have been provided for Himawari data.
