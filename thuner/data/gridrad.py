@@ -79,7 +79,7 @@ class GridRadSevereOptions(utils.BaseDatasetOptions):
         return self
 
 
-gridrad_variables = [
+GRIDRAD_VARIABLES = [
     "Reflectivity",
     "SpectrumWidth",
     "AzShear",
@@ -90,7 +90,7 @@ gridrad_variables = [
 ]
 
 
-gridrad_names_dict = {
+GRIDRAD_NAMES_DICT = {
     "reflectivity": "Reflectivity",
     "spectrum_width": "SpectrumWidth",
     "azimuthal_shear": "AzShear",
@@ -146,7 +146,7 @@ def get_gridrad_filepaths(options):
     filepaths = []
 
     base_url = utils.get_parent(options)
-    base_url += f"/{dataset_id_converter[options.dataset_id]}/volumes"
+    base_url += f"/{DATASET_ID_CONVERTER[options.dataset_id]}/volumes"
 
     times = np.arange(start, end + np.timedelta64(10, "m"), np.timedelta64(10, "m"))
     times = pd.DatetimeIndex(times)
@@ -171,7 +171,7 @@ def open_gridrad(path, dataset_options):
     """
     Open a GridRad netcdf file, converting variables with an "Index" dimension back to 3D
     """
-    kept_variables = [gridrad_names_dict[f] for f in dataset_options.fields]
+    kept_variables = [GRIDRAD_NAMES_DICT[f] for f in dataset_options.fields]
     kept_variables += ["Nradobs", "Nradecho", "wReflectivity", "CorrelationCoefficient"]
     ds = xr.open_dataset(path, decode_timedelta=True)
     kept_variables = [v for v in kept_variables if v in ds.data_vars]
@@ -239,7 +239,7 @@ def filter(
     logger.debug("Filtering GridRad data")
 
     if variables is None:
-        variables = [v for v in gridrad_variables if v in ds.variables]
+        variables = [v for v in GRIDRAD_VARIABLES if v in ds.variables]
 
     # Calcualate echo fraction efficiently using where
     echo_fraction = xr.where(
@@ -279,7 +279,7 @@ def remove_speckles(ds, window_size=5, coverage_thresh=0.32, variables=None):
     logger.debug("Removing speckles from the GridRad data")
 
     if variables is None:
-        variables = [v for v in gridrad_variables if v in ds.variables]
+        variables = [v for v in GRIDRAD_VARIABLES if v in ds.variables]
 
     # refl_exists = np.isfinite(ds["Reflectivity"]).astype(float)
     refl_exists = xr.where(~np.isnan(ds["Reflectivity"]), True, False)
@@ -363,7 +363,7 @@ def remove_clutter(ds, variables=None, low_level=True, below_anvil=False):
     logger.debug("Removing clutter from the GridRad data")
 
     if variables is None:
-        variables = [v for v in gridrad_variables if v in ds.variables]
+        variables = [v for v in GRIDRAD_VARIABLES if v in ds.variables]
 
     # Remove low reflectivity low level clutter
     cond = (ds.Reflectivity >= 10.0) | (ds.Altitude > 4.0)
@@ -486,4 +486,4 @@ def get_domain_mask(ds, track_options, dataset_options):
     return domain_mask
 
 
-dataset_id_converter = {"ds841.6": "d841006"}
+DATASET_ID_CONVERTER = {"ds841.6": "d841006"}

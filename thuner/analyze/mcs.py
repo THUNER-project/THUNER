@@ -384,7 +384,7 @@ def quality_control(
     )
 
 
-ambiguity_quality_dispatcher = {
+AMBIGUITY_QUALITY_DISPATCHER = {
     "stratiform_offset": ["velocity"],
     "inflow": ["velocity", "relative_velocity"],
     "relative_stratiform_offset": ["relative_velocity"],
@@ -490,7 +490,7 @@ def classify_all(
                 min_offset=analysis_options.min_offset,
             )
         if classify_ambiguous:
-            unambiguous = quality[ambiguity_quality_dispatcher[names[i]]].all(axis=1)
+            unambiguous = quality[AMBIGUITY_QUALITY_DISPATCHER[names[i]]].all(axis=1)
             classified = classify_ambiguous(classified, unambiguous)
         all_classifications.append(classified)
 

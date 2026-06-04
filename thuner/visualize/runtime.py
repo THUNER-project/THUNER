@@ -8,12 +8,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import thuner.visualize.horizontal as horizontal
-from thuner.visualize.visualize import styles
+from thuner.visualize.visualize import STYLES
 from thuner.utils import format_time
 from thuner.match.utils import get_grids, get_masks
 from thuner.log import setup_logger
 from thuner.visualize.utils import get_extent
-from thuner.visualize.visualize import runtime_colors, set_style
+from thuner.visualize.visualize import RUNTIME_COLORS, set_style
 from thuner.match.box import get_box_center_coords
 import thuner.grid as thuner_grid
 import thuner.visualize.utils as utils
@@ -67,7 +67,7 @@ def match_template(reference_grid, extent, scale):
 
 def match_features(grid, match_record, axes, grid_options, unique_global_flow=True):
     """Visualizing the matching process for TINT/MINT matching."""
-    colors = runtime_colors
+    colors = RUNTIME_COLORS
 
     if unique_global_flow and len(match_record.global_flows) > 0:
         global_flow = match_record.global_flows[0]
@@ -304,7 +304,7 @@ def visualize(
             message += f"function undefined."
             raise KeyError(message)
         style = figure_options.style
-        with plt.style.context(styles[style]), set_style(style):
+        with plt.style.context(STYLES[style]), set_style(style):
             fig, ax = figure_options.function(
                 input_record,
                 tracks,

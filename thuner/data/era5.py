@@ -79,7 +79,7 @@ class Era5Options(BaseDatasetOptions):
     def _check_defaults(self):
         if self.data_format == "pressure-levels":
             if self.pressure_levels is None:
-                self.pressure_levels = era5_pressure_levels
+                self.pressure_levels = ERA5_PRESSURE_LEVELS
                 logger.debug(f"Assigning default era5 pressure levels.")
             self.pressure_levels = [str(level) for level in self.pressure_levels]
         return self
@@ -101,10 +101,10 @@ class Era5Options(BaseDatasetOptions):
         return self
 
 
-era5_pressure_levels = ["1000", "975", "950", "925", "900", "875", "850", "825", "800"]
-era5_pressure_levels += ["775", "750", "700", "650", "600", "550", "500", "450", "400"]
-era5_pressure_levels += ["350", "300", "250", "225", "200", "175", "150", "125", "100"]
-era5_pressure_levels += ["70", "50", "30", "20", "10", "7", "5", "3", "2", "1"]
+ERA5_PRESSURE_LEVELS = ["1000", "975", "950", "925", "900", "875", "850", "825", "800"]
+ERA5_PRESSURE_LEVELS += ["775", "750", "700", "650", "600", "550", "500", "450", "400"]
+ERA5_PRESSURE_LEVELS += ["350", "300", "250", "225", "200", "175", "150", "125", "100"]
+ERA5_PRESSURE_LEVELS += ["70", "50", "30", "20", "10", "7", "5", "3", "2", "1"]
 
 
 def get_era5_filepaths(dataset_options: Era5Options, start=None, end=None):

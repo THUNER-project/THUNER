@@ -121,16 +121,6 @@ class AttributesRecord(BaseModel):
         return self
 
 
-# Mapping of string representations to actual data types
-string_to_data_type = {
-    "float": float,
-    "int": int,
-    "datetime64[s]": "datetime64[s]",
-    "bool": bool,
-    "str": str,
-}
-
-
 def time_offset():
     """Convenience function to build a TimeOffset attribute."""
     return Attribute(

@@ -55,7 +55,7 @@ def _read_zarr_attribute(path, **kwargs):
     return read_attribute_zarr(store, group, **kwargs)
 
 
-mcs_legend_options = {"ncol": 3, "loc": "lower center"}
+MCS_LEGEND_OPTIONS = {"ncol": 3, "loc": "lower center"}
 
 
 def get_altitude_labels(
@@ -268,7 +268,7 @@ def get_object_colors(time, color_angle_df):
     """Get the object colors for a given time."""
     keys = color_angle_df.loc[color_angle_df["time"] == time]["universal_id"].values
     values = color_angle_df.loc[color_angle_df["time"] == time]["color_angle"].values
-    values = [visualize.mask_colormap(v / (2 * np.pi)) for v in values]
+    values = [visualize.MASK_COLORMAP(v / (2 * np.pi)) for v in values]
     return dict(zip(keys, values))
 
 
@@ -310,7 +310,7 @@ def detected_horizontal(
 
     attribute_handlers = figure_options.attribute_handlers
 
-    with plt.style.context(visualize.styles[style]), visualize.set_style(style):
+    with plt.style.context(visualize.STYLES[style]), visualize.set_style(style):
         figure_features = horizontal.detected_mask(
             grid=grid,
             mask=mask,
@@ -345,7 +345,7 @@ def detected_horizontal(
     filepath = output_directory / f"visualize/{figure_options.name}/{filename}"
     filepath.parent.mkdir(parents=True, exist_ok=True)
     logger.info(f"Saving {figure_options.name} figure for {time}.")
-    with plt.style.context(visualize.styles[style]), visualize.set_style(style):
+    with plt.style.context(visualize.STYLES[style]), visualize.set_style(style):
         detected_figure.figure.savefig(filepath, bbox_inches="tight")
     del detected_figure
     utils.reduce_color_depth(filepath)
@@ -388,7 +388,7 @@ def grouped_horizontal(
     member_objects = figure_options.member_objects
     attribute_handlers = figure_options.attribute_handlers
 
-    with plt.style.context(visualize.styles[style]), visualize.set_style(style):
+    with plt.style.context(visualize.STYLES[style]), visualize.set_style(style):
         figure_features = horizontal.grouped_mask(
             grid=grid,
             mask=mask,
@@ -441,7 +441,7 @@ def grouped_horizontal(
     filepath = output_directory / f"visualize/{figure_options.name}/{filename}"
     filepath.parent.mkdir(parents=True, exist_ok=True)
     logger.info(f"Saving {figure_options.name} figure for {time}.")
-    with plt.style.context(visualize.styles[style]), visualize.set_style(style):
+    with plt.style.context(visualize.STYLES[style]), visualize.set_style(style):
         grouped_figure.figure.savefig(filepath, bbox_inches="tight")
     del grouped_figure
     utils.reduce_color_depth(filepath)
@@ -539,20 +539,20 @@ def create_legend(figure, grid_options, figure_options):
     labels += ["Domain Boundary"]
     handles += list(figure.legend_artists.values())
     labels += list(figure.legend_artists.keys())
-    legend_color = visualize.figure_colors[figure_options.style]["legend"]
+    legend_color = visualize.FIGURE_COLORS[figure_options.style]["legend"]
     style = figure_options.style
     leg_ax = figure.legend_axes[0]
 
-    with plt.style.context(visualize.styles[style]), visualize.set_style(style):
+    with plt.style.context(visualize.STYLES[style]), visualize.set_style(style):
         if scale == 1:
             legend = leg_ax.legend(
-                handles, labels, **mcs_legend_options, handler_map=handler
+                handles, labels, **MCS_LEGEND_OPTIONS, handler_map=handler
             )
         elif scale == 2:
             legend_options["loc"] = "lower left"
             legend_options["bbox_to_anchor"] = (-0.0, -0.425)
             legend = leg_ax.legend(
-                handles, labels, **mcs_legend_options, handler_map=handler
+                handles, labels, **MCS_LEGEND_OPTIONS, handler_map=handler
             )
     legend.get_frame().set_alpha(None)
     legend.get_frame().set_facecolor(legend_color)

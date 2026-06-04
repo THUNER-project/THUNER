@@ -255,9 +255,3 @@ def track_object(
             object_options=object_options,
             grid_options=grid_options,
         )
-
-
-get_objects_dispatcher = {
-    "detect": detect.detect,
-    "group": group.group,
-}

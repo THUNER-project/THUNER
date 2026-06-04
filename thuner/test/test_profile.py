@@ -13,7 +13,7 @@ import pytest
 import thuner.attribute.profile as profile
 import thuner.attribute.utils as attribute_utils
 
-_g = 9.80665
+_G = 9.80665
 
 
 def _profile_dataset(with_geopotential=True):
@@ -25,7 +25,7 @@ def _profile_dataset(with_geopotential=True):
     temp = np.broadcast_to(temp_1d[None, :, None, None], (2, 3, 3, 3)).astype(float)
     data = {"temperature": (("time", "pressure", "latitude", "longitude"), temp.copy())}
     if with_geopotential:
-        geo_1d = np.array([0.0, 1500.0, 5500.0]) * _g  # altitude 0/1500/5500 m
+        geo_1d = np.array([0.0, 1500.0, 5500.0]) * _G  # altitude 0/1500/5500 m
         geo = np.broadcast_to(geo_1d[None, :, None, None], (2, 3, 3, 3)).astype(float)
         data["geopotential"] = (("time", "pressure", "latitude", "longitude"), geo.copy())
     ds = xr.Dataset(

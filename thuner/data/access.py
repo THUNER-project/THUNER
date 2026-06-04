@@ -104,7 +104,7 @@ def get_access_c_filepaths(options: AccessCOptions):
     return sorted(filepaths)
 
 
-_names_dict = {
+_NAMES_DICT = {
     "lat": "latitude",
     "lon": "longitude",
     "radar_refl_1km": "reflectivity",
@@ -131,7 +131,7 @@ def convert_access(
         logger.error(f"Failed to open dataset at {filepath}.")
         raise
     filtered_names_dict = {
-        k: v for k, v in _names_dict.items() if k in access.variables
+        k: v for k, v in _NAMES_DICT.items() if k in access.variables
     }
     access = access.rename(filtered_names_dict)
     access = access[dataset_options.fields]

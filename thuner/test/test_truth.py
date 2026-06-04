@@ -6,7 +6,7 @@ import pandas as pd
 import xarray as xr
 import pytest
 
-from thuner.data.synthetic.truth import match_truth_to_masks, NO_MATCH
+from thuner.analyze.synthetic import match_truth_to_masks, NO_MATCH
 
 LATS = [0.0, 1.0, 2.0, 3.0]
 LONS = [10.0, 11.0, 12.0, 13.0]

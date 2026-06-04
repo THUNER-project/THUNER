@@ -743,10 +743,10 @@ def get_time_interval(next_grid, current_grid):
         return None
 
 
-_use_numba = True
+_USE_NUMBA = True
 
 
-def conditional_jit(*jit_args, use_numba=_use_numba, **jit_kwargs):
+def conditional_jit(*jit_args, use_numba=_USE_NUMBA, **jit_kwargs):
     """
     A decorator that applies Numba's JIT compilation to a function if use_numba is True.
     Otherwise, it returns the original function. It also adjusts type aliases based on the
@@ -789,7 +789,7 @@ def logging_jit(func):
     return inner
 
 
-@conditional_jit(use_numba=_use_numba)
+@conditional_jit(use_numba=_USE_NUMBA)
 def meshgrid_numba(x, y):
     """
     Create a meshgrid-like pair of arrays for x and y coordinates.
@@ -807,7 +807,7 @@ def meshgrid_numba(x, y):
     return X, Y
 
 
-@conditional_jit(use_numba=_use_numba)
+@conditional_jit(use_numba=_USE_NUMBA)
 def numba_boolean_assign(array, condition, value=np.nan):
     """
     Assign a value to an array based on a boolean condition.
@@ -819,7 +819,7 @@ def numba_boolean_assign(array, condition, value=np.nan):
     return array
 
 
-@conditional_jit(use_numba=_use_numba)
+@conditional_jit(use_numba=_USE_NUMBA)
 def equirectangular(lat1_radians, lon1_radians, lat2_radians, lon2_radians):
     """
     Calculate the equirectangular distance between two points
@@ -836,7 +836,7 @@ def equirectangular(lat1_radians, lon1_radians, lat2_radians, lon2_radians):
     return np.sqrt(x**2 + y**2) * r
 
 
-@conditional_jit(use_numba=_use_numba)
+@conditional_jit(use_numba=_USE_NUMBA)
 def haversine(lat1, lon1, lat2, lon2):
     """
     Calculate the great circle distance in metres between two points

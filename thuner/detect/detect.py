@@ -73,7 +73,7 @@ def steiner(grid, object_options):
     return binary_grid
 
 
-detecter_dispatcher = {
+DETECTER_DISPATCHER = {
     "threshold": threshold,
     "steiner": steiner,
 }
@@ -157,7 +157,7 @@ def detect(
 
     object_tracks.next_grid = processed_grid
 
-    detecter = detecter_dispatcher.get(object_options.detection.method)
+    detecter = DETECTER_DISPATCHER.get(object_options.detection.method)
     if detecter is None:
         raise ValueError("Invalid detection method.")
     binary_grid = detecter(processed_grid, object_options)

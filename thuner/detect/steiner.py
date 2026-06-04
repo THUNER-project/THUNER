@@ -20,11 +20,11 @@ from thuner.utils import (
 
 logger = setup_logger(__name__)
 
-_use_numba = True
+_USE_NUMBA = True
 
 
 @logging_jit
-@conditional_jit(use_numba=_use_numba)
+@conditional_jit(use_numba=_USE_NUMBA)
 def steiner_scheme(
     reflectivity,
     X,
@@ -95,7 +95,7 @@ def steiner_scheme(
     return classification
 
 
-@conditional_jit(use_numba=_use_numba)
+@conditional_jit(use_numba=_USE_NUMBA)
 def get_convective_radius(background_reflectivity, radius_option=1):
     """
     Return the convective radius based on the background reflectivity.
@@ -130,7 +130,7 @@ def get_convective_radius(background_reflectivity, radius_option=1):
     return convective_radii[-1]
 
 
-@conditional_jit(use_numba=_use_numba)
+@conditional_jit(use_numba=_USE_NUMBA)
 def get_delta_Z_threshold(background_reflectivity, delta_Z_option=0):
     """
     Return the relevant delta_Z threshold based on the background reflectivity.
@@ -157,7 +157,7 @@ def get_delta_Z_threshold(background_reflectivity, delta_Z_option=0):
     return delta_Z_threshold
 
 
-@conditional_jit(use_numba=_use_numba)
+@conditional_jit(use_numba=_USE_NUMBA)
 def values_within_radius(
     array, X, Y, j, i, radius, X_rad, Y_rad, coordinates="geographic"
 ):

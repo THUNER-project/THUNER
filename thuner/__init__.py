@@ -24,7 +24,7 @@ if os.name == "nt":
 # Set version number
 __version__ = "0.0.16"
 
-welcome_message = f"""
+WELCOME_MESSAGE = f"""
 Welcome to the Thunderstorm Event Reconnaissance (THUNER) package 
 v{__version__}! This package is still in testing and development. Please 
 visit github.com/THUNER-project/THUNER for examples, and to report 
@@ -46,7 +46,7 @@ Leese et al. (1971), doi: 10.1175/1520-0450(1971)010<0118:AATFOC>2.0.CO;2
 """
 
 if "THUNER_QUIET" not in os.environ:
-    print(welcome_message)
+    print(WELCOME_MESSAGE)
     os.environ["THUNER_QUIET"] = "1"
 
 try:

@@ -6,6 +6,7 @@ import thuner.data as data
 import thuner.default as default
 import thuner.track.track as track
 import thuner.option as option
+import thuner.analyze as analyze
 import thuner.data.synthetic as synthetic
 
 
@@ -68,7 +69,7 @@ def test_synthetic():
         output_directory=output_parent,
     )
     # ![THUNER applied to synthetic data.](https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/synthetic.gif)
-    data.synthetic.write_ground_truth(output_parent, data_options=data_options, times=times)
+    analyze.synthetic.write_ground_truth(output_parent, data_options=data_options, times=times)
     central_latitude = -10
     central_longitude = 132
     y = np.arange(-400e3, 400e3 + 2.5e3, 2.5e3).tolist()

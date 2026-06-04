@@ -30,7 +30,7 @@ class VisualizeOptions(BaseOptions):
     style: str = Field(
         "presentation",
         description=(
-            "The style of the figures. See thuner.visualize.styles for options."
+            "The style of the figures. See thuner.visualize.STYLES for options."
         ),
     )
     weights_filepath: str | None = Field(

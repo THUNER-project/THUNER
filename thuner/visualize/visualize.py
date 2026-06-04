@@ -76,13 +76,13 @@ def hls_colormap(N=1, lightness=0.9, saturation=1):
     return hls_colormap
 
 
-mask_colors = ["cyan", "magenta", "gold", "cyan"]
-mask_colormap = mcolors.LinearSegmentedColormap.from_list("mask", mask_colors, N=64)
-runtime_colormap = mcolors.LinearSegmentedColormap.from_list("mask", mask_colors, N=12)
-runtime_colors = [runtime_colormap(i) for i in range(12)]
-runtime_colors = [mcolors.to_hex(color) for color in runtime_colors]
+MASK_COLORS = ["cyan", "magenta", "gold", "cyan"]
+MASK_COLORMAP = mcolors.LinearSegmentedColormap.from_list("mask", MASK_COLORS, N=64)
+RUNTIME_COLORMAP = mcolors.LinearSegmentedColormap.from_list("mask", MASK_COLORS, N=12)
+RUNTIME_COLORS = [RUNTIME_COLORMAP(i) for i in range(12)]
+RUNTIME_COLORS = [mcolors.to_hex(color) for color in RUNTIME_COLORS]
 random.seed(4189)
-random.shuffle(runtime_colors)
+random.shuffle(RUNTIME_COLORS)
 
 
 @contextlib.contextmanager
@@ -98,36 +98,36 @@ def set_style(new_style):
 
 
 # Desaturate the HomeyerRainbow colormap
-desaturated_homeyer_rainbow = desaturate_colormap(pcm.HomeyerRainbow, factor=0.35)
+DESATURATED_HOMEYER_RAINBOW = desaturate_colormap(pcm.HomeyerRainbow, factor=0.35)
 
-reflectivity_levels = np.arange(-10, 60 + 5, 5)
-reflectivity_norm = mcolors.BoundaryNorm(
-    reflectivity_levels, ncolors=desaturated_homeyer_rainbow.N, clip=True
+REFLECTIVITY_LEVELS = np.arange(-10, 60 + 5, 5)
+REFLECTIVITY_NORM = mcolors.BoundaryNorm(
+    REFLECTIVITY_LEVELS, ncolors=DESATURATED_HOMEYER_RAINBOW.N, clip=True
 )
 
-brightness_rainbow = desaturate_colormap(pcm.HomeyerRainbow, factor=0.35)
-brightness_rainbow.set_over((0, 0, 0, 0))  # Set over color to transparent
-brightness_rainbow.set_under((0, 0, 0, 0))
-brightness_levels = np.arange(180, 250 + 10, 10)
-brightness_norm = mcolors.BoundaryNorm(
-    brightness_levels, ncolors=brightness_rainbow.N, clip=False
+BRIGHTNESS_RAINBOW = desaturate_colormap(pcm.HomeyerRainbow, factor=0.35)
+BRIGHTNESS_RAINBOW.set_over((0, 0, 0, 0))  # Set over color to transparent
+BRIGHTNESS_RAINBOW.set_under((0, 0, 0, 0))
+BRIGHTNESS_LEVELS = np.arange(180, 250 + 10, 10)
+BRIGHTNESS_NORM = mcolors.BoundaryNorm(
+    BRIGHTNESS_LEVELS, ncolors=BRIGHTNESS_RAINBOW.N, clip=False
 )
 
-pcolormesh_style = {
+PCOLORMESH_STYLE = {
     "reflectivity": {
-        "cmap": desaturated_homeyer_rainbow,
+        "cmap": DESATURATED_HOMEYER_RAINBOW,
         "shading": "nearest",
-        "norm": reflectivity_norm,
+        "norm": REFLECTIVITY_NORM,
     },
     "brightness_temperature": {
-        "cmap": brightness_rainbow,
+        "cmap": BRIGHTNESS_RAINBOW,
         "shading": "nearest",
-        "norm": brightness_norm,
+        "norm": BRIGHTNESS_NORM,
     },
 }
 
 
-figure_colors = {
+FIGURE_COLORS = {
     "paper": {
         "land": tuple(np.array([249.0, 246.0, 216.0]) / (256)),
         "sea": tuple(np.array([240.0, 240.0, 256.0]) / (256)),
@@ -147,18 +147,18 @@ figure_colors = {
         "ellipse_axis_shadow": "k",
     },
 }
-figure_colors["gadi"] = figure_colors["presentation"]
+FIGURE_COLORS["gadi"] = FIGURE_COLORS["presentation"]
 
-base_styles = {
+BASE_STYLES = {
     "paper": "default",
     "presentation": "dark_background",
     "gadi": "dark_background",
 }
-custom_styles_dir = Path(__file__).parent / "styles"
+CUSTOM_STYLES_DIR = Path(__file__).parent / "styles"
 
-styles = {
-    style: [base_styles[style], custom_styles_dir / f"{style}.mplstyle"]
-    for style in base_styles.keys()
+STYLES = {
+    style: [BASE_STYLES[style], CUSTOM_STYLES_DIR / f"{style}.mplstyle"]
+    for style in BASE_STYLES.keys()
 }
 
 

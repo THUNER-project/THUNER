@@ -22,7 +22,7 @@ class MatchMethod(NamedTuple):
 # Registry mapping a tracking method's name to its matching implementation. Extend this
 # when adding new tracking/matching methods. TINT and MINT share the same matching
 # function; the differences between them are handled within thuner.match.tint.
-match_methods = {
+MATCH_METHODS = {
     "tint": MatchMethod(TintMatchRecord, tint.get_matches),
     "mint": MatchMethod(TintMatchRecord, tint.get_matches),
 }
@@ -32,11 +32,11 @@ def get_match_method(object_options):
     """Return the registered MatchMethod for an object's tracking options."""
     tracking = object_options.tracking
     name = getattr(tracking, "name", None)
-    if name not in match_methods:
+    if name not in MATCH_METHODS:
         message = f"Matching not implemented for tracking method '{name}'. "
-        message += f"Supported methods: {sorted(match_methods)}."
+        message += f"Supported methods: {sorted(MATCH_METHODS)}."
         raise ValueError(message)
-    return match_methods[name]
+    return MATCH_METHODS[name]
 
 
 def match(object_tracks, object_options, grid_options):

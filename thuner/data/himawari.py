@@ -46,7 +46,7 @@ Bands = Literal[
     "B16",
 ]
 
-_names_dict = {
+_NAMES_DICT = {
     "channel_0014_brightness_temperature": "brightness_temperature",
 }
 
@@ -183,7 +183,7 @@ def convert_himawari(
     logger.info(f"Converting {dataset_options.name} dataset for time {time_str}.")
 
     himawari = xr.open_dataset(filepath, decode_timedelta=True)
-    himawari = himawari.rename(_names_dict)
+    himawari = himawari.rename(_NAMES_DICT)
     himawari = himawari[dataset_options.fields]
     coordinates = xr.open_dataset(dataset_options.coordinates_filepath, decode_timedelta=True)
     coord_names = ["lat", "lon", "invalid_navigation_mask"]

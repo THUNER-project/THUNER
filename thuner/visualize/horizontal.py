@@ -26,8 +26,8 @@ logger = setup_logger(__name__)
 cv2.setNumThreads(0)
 
 proj = ccrs.PlateCarree()
-domain_plot_style = {"color": "tab:red", "linewidth": 1, "alpha": 0.6}
-domain_plot_style.update({"zorder": 1, "transform": proj, "linestyle": "-"})
+DOMAIN_PLOT_STYLE = {"color": "tab:red", "linewidth": 1, "alpha": 0.6}
+DOMAIN_PLOT_STYLE.update({"zorder": 1, "transform": proj, "linestyle": "-"})
 
 
 def show_grid(grid, ax, grid_options, add_colorbar=True):
@@ -38,7 +38,7 @@ def show_grid(grid, ax, grid_options, add_colorbar=True):
     longitude, latitude = grid_options.longitude, grid_options.latitude
 
     title = ax.get_title()
-    mesh_style = visualize.pcolormesh_style[grid.attrs["field_name"].lower()]
+    mesh_style = visualize.PCOLORMESH_STYLE[grid.attrs["field_name"].lower()]
     mesh_style["transform"] = proj
     pcm = ax.pcolormesh(longitude, latitude, grid.values, zorder=1, **mesh_style)
     ax.set_title(title)
@@ -47,7 +47,7 @@ def show_grid(grid, ax, grid_options, add_colorbar=True):
     return pcm
 
 
-contour_options = {"mode": cv2.RETR_LIST, "method": cv2.CHAIN_APPROX_SIMPLE}
+CONTOUR_OPTIONS = {"mode": cv2.RETR_LIST, "method": cv2.CHAIN_APPROX_SIMPLE}
 
 
 def show_mask(
@@ -59,7 +59,7 @@ def show_mask(
     the object id."""
 
     title = ax.get_title()
-    colors = visualize.runtime_colors
+    colors = visualize.RUNTIME_COLORS
     if single_color:
         colors = [colors[0]] * len(colors)
 
@@ -87,7 +87,7 @@ def show_mask(
         fill[is_object] = len(fill_colors) + 1
         fill_colors.append(color)
 
-        contours = cv2.findContours(is_object.astype(np.uint8), **contour_options)[0]
+        contours = cv2.findContours(is_object.astype(np.uint8), **CONTOUR_OPTIONS)[0]
         for contour in contours:
             contour = np.append(contour, [contour[0]], axis=0)
             cols = contour[:, :, 0].flatten()
@@ -106,7 +106,7 @@ def show_mask(
 
 def mask_legend_artist(single_color=False):
     """Create a legend artist for masks."""
-    colors = visualize.mask_colors
+    colors = visualize.MASK_COLORS
     single_color = False
     if single_color:
         colors = [colors[0]] * len(colors)
@@ -130,7 +130,7 @@ def mask_legend_artist(single_color=False):
 
 def box_legend_artist(single_color=False, color=None, linestyle="--"):
     """Create a legend artist for boxes."""
-    colors = visualize.mask_colors
+    colors = visualize.MASK_COLORS
     if single_color and color is not None:
         colors = [color] * len(colors)
 
@@ -155,8 +155,8 @@ def box_legend_artist(single_color=False, color=None, linestyle="--"):
 
 def radar_features(ax, radar_lon, radar_lat, extent):
     """Add radar features to an ax."""
-    ax.plot([radar_lon, radar_lon], [extent[2], extent[3]], **domain_plot_style)
-    ax.plot([extent[0], extent[1]], [radar_lat, radar_lat], **domain_plot_style)
+    ax.plot([radar_lon, radar_lon], [extent[2], extent[3]], **DOMAIN_PLOT_STYLE)
+    ax.plot([extent[0], extent[1]], [radar_lat, radar_lat], **DOMAIN_PLOT_STYLE)
     return ax
 
 
@@ -190,13 +190,13 @@ def domain_boundary(ax, boundaries, grid_options):
     for boundary in boundaries:
         lons = boundary["longitude"]
         lats = boundary["latitude"]
-        ax.plot(lons, lats, **domain_plot_style)
+        ax.plot(lons, lats, **DOMAIN_PLOT_STYLE)
     return ax
 
 
 def domain_boundary_legend_artist():
     """Create a legend artist for a domain boundary."""
-    legend_artist = mlines.Line2D([], [], **domain_plot_style)
+    legend_artist = mlines.Line2D([], [], **DOMAIN_PLOT_STYLE)
     legend_artist.set_label("Domain Boundary")
     return legend_artist
 
@@ -215,7 +215,7 @@ def cartographic_features(
     Add cartographic features to an ax. 
     """
 
-    colors = visualize.figure_colors[visualize.style]
+    colors = visualize.FIGURE_COLORS[visualize.style]
     ocean = cfeature.NaturalEarthFeature(
         "physical",
         "ocean",
@@ -316,9 +316,9 @@ def get_domain_center(grid):
     return center_lat, center_lon
 
 
-arrow_options = {"arrowstyle": "->", "linewidth": 1, "mutation_scale": 7}
-arrow_options.update({"zorder": 3, "transform": proj})
-arrow_origin_options = {"marker": "o", "zorder": 3, "markersize": 1, "transform": proj}
+ARROW_OPTIONS = {"arrowstyle": "->", "linewidth": 1, "mutation_scale": 7}
+ARROW_OPTIONS.update({"zorder": 3, "transform": proj})
+ARROW_ORIGIN_OPTIONS = {"marker": "o", "zorder": 3, "markersize": 1, "transform": proj}
 
 
 def get_geographic_vector_scale(grid_options):
@@ -335,10 +335,10 @@ def get_geographic_vector_scale(grid_options):
     return vector_scale
 
 
-displacement_linewidth = 3
-head_width = 0.01  # Specified in percent of x limits
-head_length = 0.0125  # Specified in percent of x limits
-ellipse_axis_linewidth = 1
+DISPLACEMENT_LINEWIDTH = 3
+HEAD_WIDTH = 0.01  # Specified in percent of x limits
+HEAD_LENGTH = 0.0125  # Specified in percent of x limits
+ELLIPSE_AXIS_LINEWIDTH = 1
 
 
 def percent_to_data(ax, percent):
@@ -348,15 +348,15 @@ def percent_to_data(ax, percent):
     return data
 
 
-vector_options = {"color": "w", "zorder": 5, "head_width": head_width}
-vector_options.update({"head_length": head_length})
-vector_options.update({"linewidth": displacement_linewidth / 3})
-vector_options.update({"length_includes_head": True, "transform": proj})
+VECTOR_OPTIONS = {"color": "w", "zorder": 5, "head_width": HEAD_WIDTH}
+VECTOR_OPTIONS.update({"head_length": HEAD_LENGTH})
+VECTOR_OPTIONS.update({"linewidth": DISPLACEMENT_LINEWIDTH / 3})
+VECTOR_OPTIONS.update({"length_includes_head": True, "transform": proj})
 
 
 def displacement_legend_artist(color, label):
     """Create a legend artist for a displacement provided in cartesian coordinates."""
-    linewidth = displacement_linewidth
+    linewidth = DISPLACEMENT_LINEWIDTH
     path_effects = [
         patheffects.Stroke(linewidth=linewidth, foreground=color),
         patheffects.Normal(),
@@ -415,10 +415,10 @@ def ellipse_axis(ax, latitude, longitude, axis_length, orientation, quality=True
         longitude, latitude, (azimuth + 180) % 360, axis_length * 1e3 / 2
     )[:2]
 
-    colors = visualize.figure_colors[visualize.style]
+    colors = visualize.FIGURE_COLORS[visualize.style]
     axis_color = colors["ellipse_axis"]
     shadow_color = colors["ellipse_axis_shadow"]
-    offset = (0.85 * ellipse_axis_linewidth / 2, -0.85 * ellipse_axis_linewidth)
+    offset = (0.85 * ELLIPSE_AXIS_LINEWIDTH / 2, -0.85 * ELLIPSE_AXIS_LINEWIDTH)
     path_effects = [
         patheffects.SimpleLineShadow(
             shadow_color=shadow_color,
@@ -432,7 +432,7 @@ def ellipse_axis(ax, latitude, longitude, axis_length, orientation, quality=True
             [lon_1, lon_2],
             [lat_1, lat_2],
             color=axis_color,
-            linewidth=ellipse_axis_linewidth,
+            linewidth=ELLIPSE_AXIS_LINEWIDTH,
             zorder=3,
             path_effects=path_effects,
             transform=proj,
@@ -445,10 +445,10 @@ def ellipse_axis(ax, latitude, longitude, axis_length, orientation, quality=True
 
 def orientation_legend_artist(label, style):
     """Create a legend artist for an ellipse axis."""
-    colors = visualize.figure_colors[style]
+    colors = visualize.FIGURE_COLORS[style]
     axis_color = colors["ellipse_axis"]
     shadow_color = colors["ellipse_axis_shadow"]
-    offset = (0.85 * ellipse_axis_linewidth, -0.85 * ellipse_axis_linewidth)
+    offset = (0.85 * ELLIPSE_AXIS_LINEWIDTH, -0.85 * ELLIPSE_AXIS_LINEWIDTH)
     path_effects = [
         patheffects.SimpleLineShadow(
             shadow_color=shadow_color,
@@ -461,7 +461,7 @@ def orientation_legend_artist(label, style):
         [],
         [],
         color=axis_color,
-        linewidth=ellipse_axis_linewidth,
+        linewidth=ELLIPSE_AXIS_LINEWIDTH,
         zorder=3,
         path_effects=path_effects,
         linestyle="--",
@@ -528,7 +528,7 @@ def cartesian_displacement(
     clip=True,
 ):
     """Plot a displacement provided in cartesian coordinates."""
-    linewidth = displacement_linewidth
+    linewidth = DISPLACEMENT_LINEWIDTH
     distance = np.sqrt(dx**2 + dy**2)
     vector_direction = np.rad2deg(np.arctan2(dy, dx))
     # Now convert to azimuth direction, i.e. clockwise from north.
@@ -553,7 +553,7 @@ def cartesian_displacement(
         patheffects.Stroke(linewidth=linewidth, foreground=color),
         patheffects.Normal(),
     ]
-    tmp_vector_options = copy.deepcopy(vector_options)
+    tmp_vector_options = copy.deepcopy(VECTOR_OPTIONS)
     if not arrow:
         tmp_vector_options.update({"head_width": 0, "head_length": 0})
     else:
@@ -650,9 +650,9 @@ def pixel_vector(
     geographic_vector = np.array(geographic_vector) * scale
     start_coords = [start_lon, start_lat]
     end_coords = np.array(start_coords) + geographic_vector[::-1]
-    ax.plot(start_lon, start_lat, color=color, alpha=alpha, **arrow_origin_options)
+    ax.plot(start_lon, start_lat, color=color, alpha=alpha, **ARROW_ORIGIN_OPTIONS)
     vector_style = {"color": color, "alpha": alpha, "linestyle": linestyle}
-    kwargs = {**vector_style, **arrow_options}
+    kwargs = {**vector_style, **ARROW_OPTIONS}
     arrow = mpatches.FancyArrowPatch(start_coords, end_coords, **kwargs)
     ax.add_patch(arrow)
 
