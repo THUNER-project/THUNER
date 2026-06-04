@@ -63,9 +63,9 @@ class SyntheticGenerator:
         grid_options = self.grid_options
         dims = grid.get_coordinate_names(grid_options)
         if dims == ["latitude", "longitude"]:
-            alt_dims = ["y", "x"]
+            alternative_dims = ["y", "x"]
         elif dims == ["y", "x"]:
-            alt_dims = ["latitude", "longitude"]
+            alternative_dims = ["latitude", "longitude"]
         else:
             raise ValueError("Invalid grid options")
 
@@ -79,8 +79,14 @@ class SyntheticGenerator:
         coords.update({dims[0]: meridional_dim, dims[1]: zonal_dim})
         variables_dict = {
             "reflectivity": (["time", "altitude", dims[0], dims[1]], ds_values),
-            alt_dims[0]: ([dims[0], dims[1]], getattr(grid_options, alt_dims[0])),
-            alt_dims[1]: ([dims[0], dims[1]], getattr(grid_options, alt_dims[1])),
+            alternative_dims[0]: (
+                [dims[0], dims[1]],
+                getattr(grid_options, alternative_dims[0]),
+            ),
+            alternative_dims[1]: (
+                [dims[0], dims[1]],
+                getattr(grid_options, alternative_dims[1]),
+            ),
         }
         ds = xr.Dataset(variables_dict, coords=coords)
         ds["reflectivity"].attrs.update({"long_name": "reflectivity", "units": "dBZ"})
@@ -90,6 +96,8 @@ class SyntheticGenerator:
         ds["gridcell_area"].attrs.update(
             {"units": "km^2", "standard_name": "area", "valid_min": 0}
         )
-        LON, LAT, ALT = xr.broadcast(ds.time, ds.longitude, ds.latitude, ds.altitude)[1:]
+        LON, LAT, ALT = xr.broadcast(ds.time, ds.longitude, ds.latitude, ds.altitude)[
+            1:
+        ]
         ds["LON"], ds["LAT"], ds["ALT"] = LON, LAT, ALT
         return ds

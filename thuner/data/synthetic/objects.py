@@ -124,7 +124,7 @@ class EllipsoidObject(SyntheticObject):
         description=(
             "Peak field value, e.g. dBZ. The default is chosen so a 'gaussian' object's "
             "value at the major/minor ellipse edge equals the Steiner "
-            "definitely-convective threshold (42 dBZ)."
+            "definitely-convective threshold of 42 dBZ."
         ),
     )
 
@@ -188,7 +188,7 @@ class EllipsoidObject(SyntheticObject):
                 "minor": np.round(self.minor, 1),
                 "orientation": np.round(self.orientation, 4),
                 "eccentricity": np.round(eccentricity, 4),
-                "intensity": self.intensity,
+                "intensity": np.round(self.intensity, 2),
             }
         )
         return truth
