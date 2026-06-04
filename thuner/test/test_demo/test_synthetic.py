@@ -12,7 +12,8 @@ import thuner.data.synthetic as synthetic
 
 def test_synthetic():
     # # Testing: Synthetic Data
-    # The synthetic module is a work in progress. The idea is to allow synthetic meteorological datasets to be readily created for testing purposes. While an entire synthetic dataset could be created first, then fed into THUNER in the usual way (see previous tutorials/demos) with this module we instead generate the synthetic data as we go. The approach allows us to create large synthetic datasets for testing, but avoid storing them!
+    # The `synthetic` module allows us to create artificial datasets with known velocities, extents etc. which we can then compare with those estimated by THUNER.
+    # ## Geographic Coordinates
     """Synthetic data demo/test."""
     # Set a flag for whether or not to remove existing output directories
     remove_existing_outputs = True
@@ -33,13 +34,15 @@ def test_synthetic():
     # Initialize synthetic objects
     starting_objects = []
     for i in range(5):
+        major = 2 * (7 + 4 * i)  # full axis length in km
         obj = synthetic.EllipsoidObject(
             time=start,
             center_latitude=np.mean(lat),
             center_longitude=lon[(i + 1) * len(lon) // 6],
             direction=-np.pi / 4 + i * np.pi / 8,
             speed=30 - 4 * i,
-            horizontal_radius=7 + 4 * i,
+            major=major,
+            minor=0.4 * major,
             orientation=0.25 * np.pi + i * np.pi / 8,
         )
         starting_objects.append(obj)
@@ -69,7 +72,10 @@ def test_synthetic():
         output_directory=output_parent,
     )
     # ![THUNER applied to synthetic data.](https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/synthetic.gif)
-    analyze.synthetic.write_ground_truth(output_parent, data_options=data_options, times=times)
+    ground_truth = analyze.synthetic.write_ground_truth(
+        output_parent, data_options=data_options, times=times
+    )
+    ground_truth["synthetic"]
     central_latitude = -10
     central_longitude = 132
     y = np.arange(-400e3, 400e3 + 2.5e3, 2.5e3).tolist()
@@ -95,7 +101,7 @@ def test_synthetic():
         data_options=data_options,
         grid_options=grid_options,
         track_options=track_options,
-        visualize_options=visualize_options,
+        visualize_options=None,
         output_directory=output_parent,
     )
 

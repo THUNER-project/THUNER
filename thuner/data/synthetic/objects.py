@@ -7,13 +7,18 @@ a gridded field. New object types are added as :class:`SyntheticObject` subclass
 each defining its own geometry fields and ``render`` method.
 """
 
+from typing import Literal
 import numpy as np
 import xarray as xr
-from pydantic import Field
+from pydantic import Field, model_validator
 from pyproj import Geod
 from thuner.utils import BaseOptions
 
 geod = Geod(ellps="WGS84")
+
+# Finite-difference step (degrees) for the local metres-per-degree scale at an object's
+# centre; small enough that the linearised scale is exact to well within rendering needs.
+_SCALE_STEP = 0.01
 
 
 class SyntheticObject(BaseOptions):
@@ -73,66 +78,116 @@ class SyntheticObject(BaseOptions):
         return {
             "id": self.id,
             "time": np.datetime64(self.time),
-            "latitude": self.center_latitude,
-            "longitude": self.center_longitude,
-            "u": u,
-            "v": v,
+            # Use the default precision for coordinates and velocities given in
+            # attribute.core
+            "latitude": np.round(self.center_latitude, 4),
+            "longitude": np.round(self.center_longitude, 4),
+            "u": np.round(u, 1),
+            "v": np.round(v, 1),
         }
 
 
 class EllipsoidObject(SyntheticObject):
     """
-    A rotated 3-D Gaussian ellipsoid, e.g. a convective cell.
+    A rotated ellipsoid, e.g. a convective cell.
 
-    The horizontal cross-section is an ellipse (rotated by ``orientation``, squashed by
-    ``eccentricity``); the vertical profile is Gaussian about ``alt_center``.
+    The horizontal cross-section is an ellipse with full axis lengths ``major`` and
+    ``minor`` (km), rotated by ``orientation``. ``style`` selects the intensity profile:
+    a 3-D Gaussian about ``center_altitude`` (``'gaussian'``) or a uniform fill of the
+    ellipsoid (``'flat'``). ``major``, ``minor`` and ``orientation`` follow the
+    ellipse-fit attribute convention (see :mod:`thuner.attribute.ellipse`, where
+    ``major``/``minor`` are the full axes returned by ``cv2.fitEllipse``), so ground
+    truth is in the same units and convention as tracked output; eccentricity is derived
+    from the axes.
     """
 
     name: str = Field("cell", description="Object type label.")
-    horizontal_radius: float = Field(
-        20, description="Approximate horizontal radius in km."
-    )
-    eccentricity: float = Field(0.4, description="Minor/major axis ratio.")
+    major: float = Field(40, description="Major axis (full length) in km.")
+    minor: float = Field(16, description="Minor axis (full length) in km.")
     orientation: float = Field(
         np.pi / 4, description="Major-axis orientation in radians."
     )
-    alt_center: float = Field(3e3, description="Altitude of the object center in m.")
-    alt_radius: float = Field(1e3, description="Vertical radius in m.")
-    intensity: float = Field(50, description="Peak field value, e.g. dBZ.")
+    center_altitude: float = Field(
+        3e3, description="Altitude of the object center in m."
+    )
+    altitude_radius: float = Field(1e3, description="Vertical radius in m.")
+    style: Literal["gaussian", "flat"] = Field(
+        "gaussian",
+        description=(
+            "Intensity profile. 'gaussian': a 3-D Gaussian whose value at the major/minor "
+            "ellipse edge is intensity/sqrt(e). 'flat': the ellipsoid filled uniformly "
+            "with intensity."
+        ),
+    )
+    intensity: float = Field(
+        42 * np.sqrt(np.e),
+        description=(
+            "Peak field value, e.g. dBZ. The default is chosen so a 'gaussian' object's "
+            "value at the major/minor ellipse edge equals the Steiner "
+            "definitely-convective threshold (42 dBZ)."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _check_axes(self):
+        """The major axis must be the longer one, and both must be positive."""
+        if not 0 < self.minor <= self.major:
+            message = "Require 0 < minor <= major for an ellipse "
+            message += f"(got major={self.major}, minor={self.minor})."
+            raise ValueError(message)
+        return self
 
     def render(self, ds, grid_options):
-        """Add an elliptical/Gaussian blob to ``ds[self.field]`` to emulate a cell."""
+        """Add an elliptical blob (Gaussian or flat per ``style``) to ``ds[self.field]``."""
         LON, LAT, ALT = ds.LON, ds.LAT, ds.ALT
 
-        # Rotate the horizontal coordinates into the object's principal axes.
-        lon_rotated = (LON - self.center_longitude) * np.cos(self.orientation)
-        lon_rotated += (LAT - self.center_latitude) * np.sin(self.orientation)
-        lat_rotated = -(LON - self.center_longitude) * np.sin(self.orientation)
-        lat_rotated += (LAT - self.center_latitude) * np.cos(self.orientation)
+        # Local east/north distance (km) of each cell from the centre. Metres-per-degree
+        # are taken from the WGS84 ellipsoid at the centre, so the ellipse keeps its true
+        # shape and size at any latitude (a degree of longitude shrinks polewards).
+        clon, clat = self.center_longitude, self.center_latitude
+        m_per_deg_lon = geod.inv(clon, clat, clon + _SCALE_STEP, clat)[2] / _SCALE_STEP
+        m_per_deg_lat = geod.inv(clon, clat, clon, clat + _SCALE_STEP)[2] / _SCALE_STEP
+        east = (LON - clon) * m_per_deg_lon / 1e3
+        north = (LAT - clat) * m_per_deg_lat / 1e3
 
-        # Convert horizontal_radius (km) to an approximate lat/lon radius (degrees).
-        horizontal_radius = self.horizontal_radius / 111.32
-
-        distance = np.sqrt(
-            (lon_rotated / horizontal_radius) ** 2
-            + (lat_rotated / (horizontal_radius * self.eccentricity)) ** 2
-            + ((ALT - self.alt_center) / self.alt_radius) ** 2
+        # Rotate into the ellipse's principal axes and normalise by the semi-axes (km).
+        # major/minor are full axis lengths, so the Gaussian scale along each axis (its
+        # 1-sigma half-extent) is half of them.
+        major_coord = east * np.cos(self.orientation) + north * np.sin(self.orientation)
+        minor_coord = -east * np.sin(self.orientation) + north * np.cos(
+            self.orientation
         )
 
-        values = self.intensity * np.exp(-(distance**2) / 2)
-        values = values.where(values >= 0.05 * self.intensity, np.nan)
+        distance = np.sqrt(
+            (major_coord / (self.major / 2)) ** 2
+            + (minor_coord / (self.minor / 2)) ** 2
+            + ((ALT - self.center_altitude) / self.altitude_radius) ** 2
+        )
+
+        if self.style == "gaussian":
+            values = self.intensity * np.exp(-(distance**2) / 2)
+            values = values.where(values >= 0.05 * self.intensity, np.nan)
+        else:  # "flat": uniform fill inside the major/minor ellipsoid (distance <= 1).
+            values = xr.where(distance <= 1, self.intensity, np.nan)
         values = values.transpose(*ds.dims)
         ds[self.field].values = xr.where(~np.isnan(values), values, ds[self.field])
         return ds
 
     def ground_truth(self):
-        """Augment the base ground truth with the ellipse geometry."""
+        """Augment the base ground truth with the ellipse geometry.
+
+        Eccentricity is inferred from the axes, matching :mod:`thuner.attribute.ellipse`.
+        Values are rounded to the precisions declared there (major/minor: 1 dp,
+        orientation/eccentricity: 4 dp).
+        """
         truth = super().ground_truth()
+        eccentricity = np.sqrt(1 - (self.minor / self.major) ** 2)
         truth.update(
             {
-                "horizontal_radius": self.horizontal_radius,
-                "eccentricity": self.eccentricity,
-                "orientation": self.orientation,
+                "major": np.round(self.major, 1),
+                "minor": np.round(self.minor, 1),
+                "orientation": np.round(self.orientation, 4),
+                "eccentricity": np.round(eccentricity, 4),
                 "intensity": self.intensity,
             }
         )
