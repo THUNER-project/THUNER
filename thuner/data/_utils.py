@@ -18,6 +18,7 @@ import numpy as np
 import xarray as xr
 from skimage.morphology import remove_small_objects, remove_small_holes
 from scipy.ndimage import binary_dilation, binary_erosion
+import pyart
 import thuner.log as log
 import thuner.utils as utils
 from thuner.config import get_outputs_directory
@@ -234,3 +235,24 @@ def copy_attributes(ds, old_ds):
     else:
         ds.attrs["history"] += f", {regrid_log.lower()}"
     return ds
+
+
+def read_odim(
+    odim_object, weighting_function="Barnes2", grid_shape=None, grid_limits=None
+):
+    """Process ODIM radar data."""
+    # Specify default grid shape and limits.
+    grid_shape = grid_shape or (41, 121, 121)
+    grid_limits = grid_limits or ((0, 20000), (-150000, 150000), (-150000, 150000))
+    fields = ["reflectivity", "reflectivity_horizontal"]
+
+    radar = pyart.aux_io.read_odim_h5(
+        odim_object, file_field_names=False, include_fields=fields
+    )
+    dataset = pyart.map.grid_from_radars(
+        radar,
+        grid_shape=grid_shape,
+        grid_limits=grid_limits,
+        weighting_function=weighting_function,
+    )
+    return dataset.to_xarray()

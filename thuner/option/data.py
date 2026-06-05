@@ -19,6 +19,7 @@ __all__ = ["DataOptions"]
 AnyDatasetOptions = Union[
     gridrad.GridRadSevereOptions,
     aura.CpolOptions,
+    aura.OperationalOptions,
     era5.Era5Options,
     himawari.HimawariOptions,
     access.AccessCOptions,
@@ -67,13 +68,19 @@ class DataOptions(BaseOptions):
                 message += "reuse_regridder=False."
                 raise ValueError(message)
             if source == dataset.name:
-                raise ValueError(f"Dataset {dataset.name!r} has regridder_from set to itself.")
+                raise ValueError(
+                    f"Dataset {dataset.name!r} has regridder_from set to itself."
+                )
             if source not in options_by_name:
-                message = f"Dataset {dataset.name!r} has regridder_from={source!r}, which is "
+                message = (
+                    f"Dataset {dataset.name!r} has regridder_from={source!r}, which is "
+                )
                 message += "not a dataset in this DataOptions."
                 raise ValueError(message)
             if not options_by_name[source].reuse_regridder:
-                message = f"Dataset {dataset.name!r} reuses the regridder of {source!r}, but "
+                message = (
+                    f"Dataset {dataset.name!r} reuses the regridder of {source!r}, but "
+                )
                 message += f"{source!r} has reuse_regridder=False."
                 raise ValueError(message)
         # Walk each regridder_from chain to detect cycles.
@@ -81,7 +88,9 @@ class DataOptions(BaseOptions):
             seen, current = [], dataset
             while current.regridder_from is not None:
                 if current.name in seen:
-                    message = f"Cyclic regridder_from references: {seen + [current.name]}."
+                    message = (
+                        f"Cyclic regridder_from references: {seen + [current.name]}."
+                    )
                     raise ValueError(message)
                 seen.append(current.name)
                 current = options_by_name[current.regridder_from]

@@ -49,6 +49,9 @@ if "THUNER_QUIET" not in os.environ:
     print(WELCOME_MESSAGE)
     os.environ["THUNER_QUIET"] = "1"
 
+# Suppress pyart welcome message
+os.environ["PYART_QUIET"] = "True"
+
 try:
     config.read_config(config.get_config_path())
 except FileNotFoundError:

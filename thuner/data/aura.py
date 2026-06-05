@@ -11,12 +11,15 @@ else:
     print(message)
 
 
-from urllib.parse import urlparse
 import xarray as xr
 import numpy as np
 import pandas as pd
 from typing import Literal
 from pydantic import Field, model_validator
+import zipfile
+import io
+import os
+import pyart
 from thuner.log import setup_logger
 import thuner.data._utils as _utils
 import thuner.grid as grid
@@ -198,3 +201,101 @@ def convert_cpol(time, filepath, track_options, dataset_options, grid_options):
     ds = _utils.apply_mask(ds, grid_options)
 
     return ds, boundary_coords, simple_boundary_coords
+
+
+class OperationalOptions(AuraOptions):
+    """Options for an individual operational radar dataset."""
+
+    def model_post_init(self, __context):
+        """Use model_post_init to change default inherited values."""
+        super().model_post_init(__context)
+        url = "https://dapds00.nci.org.au/thredds/fileServer/rq0"
+        self._change_defaults(name="operational", parent_remote=url)
+
+    # Define additional fields for the operational radar
+    level: Literal["1", "1b", "2"] = Field(
+        "1", description="Radar data processing level."
+    )
+    radar: int = Field(3, description="Radar ID number.")
+    weighting_function: Literal["Barnes2", "Barnes", "Cressman", "Nearest"] = Field(
+        "Barnes2",
+        description=(
+            "Weighting function used by pyart to reconstruct the grid from ODIM."
+        ),
+    )
+    timestep: Literal[5, 10] = Field(
+        10, description="Timestep in minutes for operational radar data."
+    )
+
+    def get_filepaths(self):
+        """Get operational radar filepaths."""
+        return get_operational_filepaths(self)
+
+
+def get_operational_filepaths(options: OperationalOptions):
+    """
+    Generate operational radar URLs from input options dictionary. Note level 1 are
+    zipped ODIM files, level 1b are zipped netcdf files.
+    """
+
+    start = np.datetime64(options.start)
+    end = np.datetime64(options.end)
+
+    filepaths = []
+    base_url = utils.get_parent(options)
+
+    times = np.arange(start, end + np.timedelta64(1, "D"), np.timedelta64(1, "D"))
+    times = pd.DatetimeIndex(times)
+
+    if options.level == "1":
+        base_url += f"/rq0/{options.radar}"
+        for time in times:
+            url = f"{base_url}/{time.year:04}/vol/{options.radar}"
+            url += f"_{time.year}{time.month:02}{time.day:02}.pvol.zip"
+            filepaths.append(url)
+    else:
+        raise NotImplementedError(
+            "Only level 1 operational radar data is currently implemented."
+        )
+
+    return sorted(filepaths)
+
+
+def convert_operational_level_1(
+    time, filepath, track_options, dataset_options: OperationalOptions, grid_options
+):
+    """
+    Convert level 1 operational radar data for a given date.
+    """
+
+    datasets = []
+
+    with zipfile.ZipFile(filepath) as z:
+        for name in sorted(n for n in z.namelist() if n.endswith(".h5")):
+            name
+            logger.info(f"Gridding {name} from {filepath}.")
+            try:
+                dataset = _utils.read_odim(
+                    io.BytesIO(z.read(name)),
+                    weighting_function=dataset_options.weighting_function,
+                )
+            except (ValueError, OSError):
+                logger.warning(f"Failed to read {name} from {filepath}. Skipping.")
+                continue
+            datasets.append(dataset)
+
+    datasets
+
+    # if "http" in urlparse(url).scheme:
+    #     filepath = _utils.download_file(url, directory)
+    # else:
+    #     filepath = url
+    # extracted_filepaths = _utils.unzip_file(filepath)[0]
+    # if data_options.level == "1":
+    #     args = [extracted_filepaths, data_options, grid_options]
+    #     dataset = convert_odim(*args, out_dir=directory)
+    # elif data_options.level == "1b":
+    #     kwargs = {"fields": data_options.fields, "concat_dim": "time"}
+    #     dataset = _utils.consolidate_netcdf(extracted_filepaths, **kwargs)
+
+    return
