@@ -296,14 +296,10 @@ def convert_operational_level_1(
     # Move latitude and longitude from coordinates to data variables
     dims = ["latitude", "longitude"]
     operational = operational.reset_coords(dims)
-    kept_coords = {
-        "time",
-        "altitude",
-        "y",
-        "x",
-        "origin_longitude",
-        "origin_latitude",
-    }
+    origin_names = {"origin_longitude", "origin_latitude", "origin_altitude"}
+    # present = [n for n in origin_names if n in operational.variables]
+    operational.attrs.update({n: operational[n].item() for n in origin_names})
+    kept_coords = {"time", "altitude", "y", "x"}
     dropped_coords = set(operational.coords) - kept_coords
     operational = operational.drop_vars(dropped_coords)
     operational = operational[dataset_options.fields + dims]
