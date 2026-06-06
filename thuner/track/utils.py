@@ -24,7 +24,7 @@ class BaseInputRecord(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     name: str = Field(..., description="Name of the input dataset being recorded.")
-    filepaths: list[str] | dict[str, list[str]] | list[tuple[str, str]] | None = Field(
+    filepaths: list[str] | dict[str, list] | list[tuple[str, str]] | None = Field(
         None,
         description="The relevant dataset filepaths used for the run.",
     )

@@ -197,10 +197,15 @@ def mask_from_range(dataset, dataset_options, grid_options):
 
 
 def get_geographic_regridder(
-    dataset, grid_options, dataset_options, latitude=None, longitude=None
+    dataset,
+    grid_options,
+    dataset_options,
+    latitude=None,
+    longitude=None,
+    weights_filepath=None,
 ):
     """Load an xesmf using stored weights if present."""
-    weights_filepath = dataset_options.weights_filepath
+    weights_filepath = weights_filepath or dataset_options.weights_filepath
     if latitude is None or longitude is None:
         latitude, longitude = grid_options.latitude, grid_options.longitude
     dims_dict = {"latitude": latitude, "longitude": longitude}
@@ -242,8 +247,8 @@ def read_odim(
 ):
     """Process ODIM radar data."""
     # Specify default grid shape and limits.
-    grid_shape = grid_shape or (41, 121, 121)
-    grid_limits = grid_limits or ((0, 20000), (-150000, 150000), (-150000, 150000))
+    grid_shape = grid_shape or (41, 161, 161)
+    grid_limits = grid_limits or ((0, 20000), (-200000, 200000), (-200000, 200000))
     fields = ["reflectivity", "reflectivity_horizontal"]
 
     radar = pyart.aux_io.read_odim_h5(

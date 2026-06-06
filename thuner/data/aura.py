@@ -14,9 +14,7 @@ import zipfile
 import io
 import os
 from typing import Literal
-from contextlib import ExitStack
-import fnmatch
-
+from pathlib import Path
 import xarray as xr
 import numpy as np
 import pandas as pd
@@ -141,6 +139,47 @@ def get_cpol_filepaths(options: CpolOptions):
     return sorted(filepaths)
 
 
+def regrid_aura(dataset, grid_options, dataset_options, weights_filepath=None):
+    """Regrid an AURA dataset using xesmf for the given grid options."""
+    if grid_options.name == "geographic":
+        dims = ["latitude", "longitude"]
+        latitude, longitude = grid.infer_geographic_grid(grid_options, dataset)
+        regridder = _utils.get_geographic_regridder(
+            dataset,
+            grid_options,
+            dataset_options,
+            latitude=latitude,
+            longitude=longitude,
+            weights_filepath=weights_filepath,
+        )
+        ds = regridder(dataset)
+        ds = _utils.copy_attributes(ds, dataset)
+    elif grid_options.name == "cartesian":
+        dims = ["y", "x"]
+        # Implement cartesian regridding here.
+        # Interpolate vertically
+        ds = dataset.interp(altitude=grid_options.altitude, method="linear")
+
+    # THUNER convention uses longitude in the range [0, 360]
+    ds["longitude"] = ds["longitude"] % 360
+    # Update grid_options if necessary
+    utils.infer_grid_options(ds, grid_options)
+    cell_areas = grid.get_cell_areas(grid_options)
+    ds["gridcell_area"] = (dims, cell_areas)
+    new_entries = {"units": "km^2", "standard_name": "area", "valid_min": 0}
+    ds["gridcell_area"].attrs.update(new_entries)
+    if grid_options.altitude is None:
+        grid_options.altitude = ds["altitude"].values
+    else:
+        ds = ds.interp(altitude=grid_options.altitude, method="linear")
+
+    # Get the domain mask and domain boundary. Note this is the region where data
+    # exists, not the detected object masks from the detect module.
+    domain_mask = _utils.mask_from_range(ds, dataset_options, grid_options)
+    ds["domain_mask"] = domain_mask
+    return ds
+
+
 def convert_cpol(time, filepath, track_options, dataset_options, grid_options):
     """Convert CPOL data to a standard format. Retrieve the boundary data."""
 
@@ -164,41 +203,10 @@ def convert_cpol(time, filepath, track_options, dataset_options, grid_options):
     for var in ["latitude", "longitude"]:
         cpol[var] = cpol[var].isel(altitude=0)
 
-    if grid_options.name == "geographic":
-        dims = ["latitude", "longitude"]
-        latitude, longitude = grid.infer_geographic_grid(grid_options, cpol)
-        regridder = _utils.get_geographic_regridder(
-            cpol, grid_options, dataset_options, latitude=latitude, longitude=longitude
-        )
-        ds = regridder(cpol)
-        ds = _utils.copy_attributes(ds, cpol)
-    elif grid_options.name == "cartesian":
-        dims = ["y", "x"]
-        # Implement cartesian regridding here.
-        # Interpolate vertically
-        ds = cpol.interp(altitude=grid_options.altitude, method="linear")
-
-    # THUNER convention uses longitude in the range [0, 360]
-    ds["longitude"] = ds["longitude"] % 360
-    # Update grid_options if necessary
-    utils.infer_grid_options(ds, grid_options)
-    cell_areas = grid.get_cell_areas(grid_options)
-    ds["gridcell_area"] = (dims, cell_areas)
-    new_entries = {"units": "km^2", "standard_name": "area", "valid_min": 0}
-    ds["gridcell_area"].attrs.update(new_entries)
-    if grid_options.altitude is None:
-        grid_options.altitude = ds["altitude"].values
-    else:
-        ds = ds.interp(altitude=grid_options.altitude, method="linear")
-
-    # Get the domain mask and domain boundary. Note this is the region where data
-    # exists, not the detected object masks from the detect module.
-    domain_mask = _utils.mask_from_range(ds, dataset_options, grid_options)
-    all_coords = utils.get_mask_boundary(domain_mask, grid_options)
+    ds = regrid_aura(cpol, grid_options, dataset_options)
+    all_coords = utils.get_mask_boundary(ds["domain_mask"], grid_options)
     boundary_coords, simple_boundary_coords, boundary_mask = all_coords
-    ds["domain_mask"] = domain_mask
     ds["boundary_mask"] = boundary_mask
-
     ds = _utils.apply_mask(ds, grid_options)
 
     return ds, boundary_coords, simple_boundary_coords
@@ -211,7 +219,7 @@ class OperationalOptions(AuraOptions):
         """Use model_post_init to change default inherited values."""
         super().model_post_init(__context)
         url = "https://dapds00.nci.org.au/thredds/fileServer/rq0"
-        self._change_defaults(name="operational", parent_remote=url)
+        self._change_defaults(name="operational", parent_remote=url, range=200)
 
     # Define additional fields for the operational radar
     level: Literal["1", "1b", "2"] = Field(
@@ -232,6 +240,16 @@ class OperationalOptions(AuraOptions):
         """Get operational radar filepaths."""
         return get_operational_filepaths(self)
 
+    def convert_dataset(self, time, filepath, track_options, grid_options):
+        """Convert operational radar dataset."""
+        return convert_operational(
+            time=time,
+            filepath=filepath,
+            track_options=track_options,
+            dataset_options=self,
+            grid_options=grid_options,
+        )
+
 
 def get_operational_filepaths(options: OperationalOptions):
     """
@@ -250,7 +268,7 @@ def get_operational_filepaths(options: OperationalOptions):
 
     if not options.level == "1":
         raise NotImplementedError("Only level 1 data currently implemented.")
-    base_filepath += f"/rq0/"
+    base_filepath += f"/rq0"
     for time in times:
         date_str = f"{time.year:04}{time.month:02}{time.day:02}"
         zip_filepath = f"{base_filepath}/{radar}/{time.year:04}/vol/"
@@ -270,22 +288,20 @@ OPERATIONAL_NAMES = {
 }
 
 
-def convert_operational_level_1(
-    time,
-    filepath,
-    track_options,
-    dataset_options: OperationalOptions,
-    grid_options,
-):
-    """
-    Convert level 1 operational radar data for a given date. Here, filepath is a tuple
-    where the first element is the zip path, and the second is the filename inside.
-    """
+def regrid_operational(filepath, dataset_options, grid_options, weights_filepath=None):
+    """Regrid operational radar data using xesmf for the given grid options."""
+    if dataset_options.level != "1":
+        raise NotImplementedError("Only level 1 data currently implemented.")
+
     with zipfile.ZipFile(filepath[0]) as zip:
         try:
             operational = _utils.read_odim(
                 io.BytesIO(zip.read(filepath[1])),
                 weighting_function=dataset_options.weighting_function,
+            )
+            step = dataset_options.timestep
+            operational = operational.assign_coords(
+                time=operational["time"].dt.round(f"{step}min")
             )
         except (ValueError, OSError):
             logger.warning(f"Failed to read {filepath[1]} from {filepath[0]}.")
@@ -303,45 +319,125 @@ def convert_operational_level_1(
     dropped_coords = set(operational.coords) - kept_coords
     operational = operational.drop_vars(dropped_coords)
     operational = operational[dataset_options.fields + dims]
+    ds = regrid_aura(
+        operational, grid_options, dataset_options, weights_filepath=weights_filepath
+    )
+    return ds
 
-    if grid_options.name == "geographic":
-        dims = ["latitude", "longitude"]
-        latitude, longitude = grid.infer_geographic_grid(grid_options, operational)
-        regridder = _utils.get_geographic_regridder(
-            operational,
-            grid_options,
-            dataset_options,
-            latitude=latitude,
-            longitude=longitude,
-        )
-        ds = regridder(operational)
-        ds = _utils.copy_attributes(ds, operational)
-    elif grid_options.name == "cartesian":
-        dims = ["y", "x"]
-        ds = operational
-    ds = ds.interp(altitude=grid_options.altitude, method="linear")
 
-    # THUNER convention uses longitude in the range [0, 360]
-    ds["longitude"] = ds["longitude"] % 360
-    # Update grid_options if necessary
-    utils.infer_grid_options(ds, grid_options)
-    cell_areas = grid.get_cell_areas(grid_options)
-    ds["gridcell_area"] = (dims, cell_areas)
-    new_entries = {"units": "km^2", "standard_name": "area", "valid_min": 0}
-    ds["gridcell_area"].attrs.update(new_entries)
-    if grid_options.altitude is None:
-        grid_options.altitude = ds["altitude"].values
-    else:
-        ds = ds.interp(altitude=grid_options.altitude, method="linear")
+def convert_operational(
+    time,
+    filepath,
+    track_options,
+    dataset_options: OperationalOptions,
+    grid_options,
+):
+    """
+    Convert level 1 operational radar data for a given date. Here, filepath is a tuple
+    where the first element is the zip path, and the second is the filename inside.
+    """
+    ds = regrid_operational(filepath, dataset_options, grid_options)
 
-    # Get the domain mask and domain boundary. Note this is the region where data
-    # exists, not the detected object masks from the detect module.
-    domain_mask = _utils.mask_from_range(ds, dataset_options, grid_options)
-    all_coords = utils.get_mask_boundary(domain_mask, grid_options)
+    all_coords = utils.get_mask_boundary(ds["domain_mask"], grid_options)
     boundary_coords, simple_boundary_coords, boundary_mask = all_coords
-    ds["domain_mask"] = domain_mask
     ds["boundary_mask"] = boundary_mask
-
     ds = _utils.apply_mask(ds, grid_options)
 
     return ds, boundary_coords, simple_boundary_coords
+
+
+class OperationalEnsembleOptions(AuraOptions):
+    """
+    Options for an operational radar ensemble dataset. Currently this is just a quick
+    and dirty ensemble using max reflectivities.
+    """
+
+    def model_post_init(self, __context):
+        """Use model_post_init to change default inherited values."""
+        super().model_post_init(__context)
+        url = "https://dapds00.nci.org.au/thredds/fileServer/rq0"
+        self._change_defaults(name="operational", parent_remote=url, range=200)
+
+    # Define additional fields for the operational radar
+    level: Literal["1", "1b", "2"] = Field(
+        "1", description="Radar data processing level."
+    )
+    radars: list[int] = Field([3, 4, 40], description="Radar ID numbers.")
+    weighting_function: Literal["Barnes2", "Barnes", "Cressman", "Nearest"] = Field(
+        "Barnes2",
+        description=(
+            "Weighting function used by pyart to reconstruct the grid from ODIM."
+        ),
+    )
+    timestep: Literal[5, 10] = Field(
+        10, description="Timestep in minutes for operational radar data."
+    )
+
+    def get_filepaths(self):
+        """Get operational radar filepaths."""
+        return get_operational_ensemble_filepaths(self)
+
+    def convert_dataset(self, time, filepath, track_options, grid_options):
+        """Convert operational radar dataset."""
+        return convert_operational_ensemble(
+            time=time,
+            filepath=filepath,
+            track_options=track_options,
+            dataset_options=self,
+            grid_options=grid_options,
+        )
+
+
+def get_operational_ensemble_filepaths(options: OperationalEnsembleOptions):
+    """
+    Get filepaths for an operational radar ensemble. This is just a list of filepaths
+    for each radar in the ensemble, which can be converted separately and then combined.
+    """
+    filepaths = []
+    for radar in options.radars:
+        options_dict = options.model_dump()
+        options_dict["radar"] = radar
+        options_dict.pop("radars")
+        options_dict.pop("type")
+        filepaths.append(get_operational_filepaths(OperationalOptions(**options_dict)))
+    return list(zip(*filepaths))
+
+
+def convert_operational_ensemble(
+    time,
+    filepath,
+    track_options,
+    dataset_options: OperationalEnsembleOptions,
+    grid_options,
+):
+    """
+    Convert an operational radar ensemble by converting each member separately and then
+    taking the max reflectivity across the ensemble. Note this is a quick and dirty
+    ensemble, and does not account for differences in radar coverage or other factors.
+    """
+    datasets = []
+    for ds_filepath, radar in zip(filepath, dataset_options.radars):
+        weights_filepath = dataset_options.weights_filepath
+        radar_weights_filepath = Path(weights_filepath).parent
+        radar_weights_filepath /= f"{Path(weights_filepath).stem}_{radar}.nc"
+        ds = regrid_operational(
+            ds_filepath,
+            dataset_options,
+            grid_options,
+            weights_filepath=radar_weights_filepath,
+        )
+        datasets.append(ds)
+        # Reset latitude and longitude so they are re-inferred for each grid. Then we
+        # will patch the grids together. This economizes the ODIM regridding step.
+        grid_options.latitude = None
+        grid_options.longitude = None
+
+    stacked = xr.concat(datasets, dim="radar", join="outer")
+    dataset = stacked.max(dim="radar", skipna=True)
+    dataset["domain_mask"] = dataset["domain_mask"].fillna(0)
+
+    # cell_areas = grid.get_cell_areas(grid_options)
+    # ds["gridcell_area"] = (dims, cell_areas)
+    # new_entries = {"units": "km^2", "standard_name": "area", "valid_min": 0}
+    # ds["gridcell_area"].attrs.update(new_entries)
+    # print(datasets)
