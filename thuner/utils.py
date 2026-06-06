@@ -232,8 +232,15 @@ class BaseDatasetOptions(BaseOptions):
         ConvertedOptions(),
         description="Options for saving and loading converted data.",
     )
-    filepaths: list[str] | dict | None = Field(
-        None, description="List of filepaths for the dataset."
+    filepaths: list[str] | dict[str, list[str]] | list[tuple[str, str]] | None = Field(
+        None,
+        description=(
+            "Collection of filepaths for the dataset. If the dataset has multiple "
+            "files for a given time, use a dictionary. If multiple dataset files "
+            "are shipped in a zip or archive, use a list of tuples, where the "
+            "first element is the zip path, and the second is the filename "
+            "inside."
+        ),
     )
     attempt_download: bool = Field(
         False, description="Whether to attempt to download the data."

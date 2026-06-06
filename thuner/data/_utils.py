@@ -207,7 +207,7 @@ def get_geographic_regridder(
     dims = ["latitude", "longitude"]
     ds = xr.Dataset({dim: ([dim], dims_dict[dim]) for dim in dims})
     regrid_options = {"periodic": False, "extrap_method": None}
-    if not Path(weights_filepath).exists():
+    if not weights_filepath or not Path(weights_filepath).exists():
         logger.info("Building regridder; this can take a while for large grids.")
         regridder = xe.Regridder(dataset, ds, "bilinear", **regrid_options)
         if dataset_options.reuse_regridder:
@@ -254,5 +254,7 @@ def read_odim(
         grid_shape=grid_shape,
         grid_limits=grid_limits,
         weighting_function=weighting_function,
+        gridding_algo="map_gates_to_grid",
     )
-    return dataset.to_xarray()
+    dataset = dataset.to_xarray()
+    return dataset

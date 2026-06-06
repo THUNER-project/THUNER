@@ -10,16 +10,17 @@ else:
     message += "If you need regridding, consider using a Linux or MacOS system."
     print(message)
 
+import zipfile
+import io
+import os
+from typing import Literal
+from contextlib import ExitStack
+import fnmatch
 
 import xarray as xr
 import numpy as np
 import pandas as pd
-from typing import Literal
 from pydantic import Field, model_validator
-import zipfile
-import io
-import os
-import pyart
 from thuner.log import setup_logger
 import thuner.data._utils as _utils
 import thuner.grid as grid
@@ -240,62 +241,111 @@ def get_operational_filepaths(options: OperationalOptions):
 
     start = np.datetime64(options.start)
     end = np.datetime64(options.end)
-
-    filepaths = []
-    base_url = utils.get_parent(options)
-
-    times = np.arange(start, end + np.timedelta64(1, "D"), np.timedelta64(1, "D"))
+    step = np.timedelta64(options.timestep, "m")
+    base_filepath = utils.get_parent(options)
+    times = np.arange(start, end + step, step)
     times = pd.DatetimeIndex(times)
+    radar = options.radar
+    filepaths = []
 
-    if options.level == "1":
-        base_url += f"/rq0/{options.radar}"
-        for time in times:
-            url = f"{base_url}/{time.year:04}/vol/{options.radar}"
-            url += f"_{time.year}{time.month:02}{time.day:02}.pvol.zip"
-            filepaths.append(url)
-    else:
-        raise NotImplementedError(
-            "Only level 1 operational radar data is currently implemented."
-        )
+    if not options.level == "1":
+        raise NotImplementedError("Only level 1 data currently implemented.")
+    base_filepath += f"/rq0/"
+    for time in times:
+        date_str = f"{time.year:04}{time.month:02}{time.day:02}"
+        zip_filepath = f"{base_filepath}/{radar}/{time.year:04}/vol/"
+        zip_filepath += f"{radar}_{date_str}.pvol.zip"
+        time_str = f"{time.hour:02}{time.minute:02}00"
+        h5_filename = f"{radar}_{date_str}_{time_str}.pvol.h5"
+        filepaths.append((zip_filepath, h5_filename))
 
-    return sorted(filepaths)
+    return filepaths
+
+
+OPERATIONAL_NAMES = {
+    "reflectivity_horizontal": "reflectivity",
+    "lat": "latitude",
+    "lon": "longitude",
+    "z": "altitude",
+}
 
 
 def convert_operational_level_1(
-    time, filepath, track_options, dataset_options: OperationalOptions, grid_options
+    time,
+    filepath,
+    track_options,
+    dataset_options: OperationalOptions,
+    grid_options,
 ):
     """
-    Convert level 1 operational radar data for a given date.
+    Convert level 1 operational radar data for a given date. Here, filepath is a tuple
+    where the first element is the zip path, and the second is the filename inside.
     """
+    with zipfile.ZipFile(filepath[0]) as zip:
+        try:
+            operational = _utils.read_odim(
+                io.BytesIO(zip.read(filepath[1])),
+                weighting_function=dataset_options.weighting_function,
+            )
+        except (ValueError, OSError):
+            logger.warning(f"Failed to read {filepath[1]} from {filepath[0]}.")
+            # build empty dataset
+            operational = None
 
-    datasets = []
+    operational = operational.rename(OPERATIONAL_NAMES)
+    # Move latitude and longitude from coordinates to data variables
+    dims = ["latitude", "longitude"]
+    operational = operational.reset_coords(dims)
+    kept_coords = {
+        "time",
+        "altitude",
+        "y",
+        "x",
+        "origin_longitude",
+        "origin_latitude",
+    }
+    dropped_coords = set(operational.coords) - kept_coords
+    operational = operational.drop_vars(dropped_coords)
+    operational = operational[dataset_options.fields + dims]
 
-    with zipfile.ZipFile(filepath) as z:
-        for name in sorted(n for n in z.namelist() if n.endswith(".h5")):
-            name
-            logger.info(f"Gridding {name} from {filepath}.")
-            try:
-                dataset = _utils.read_odim(
-                    io.BytesIO(z.read(name)),
-                    weighting_function=dataset_options.weighting_function,
-                )
-            except (ValueError, OSError):
-                logger.warning(f"Failed to read {name} from {filepath}. Skipping.")
-                continue
-            datasets.append(dataset)
+    if grid_options.name == "geographic":
+        dims = ["latitude", "longitude"]
+        latitude, longitude = grid.infer_geographic_grid(grid_options, operational)
+        regridder = _utils.get_geographic_regridder(
+            operational,
+            grid_options,
+            dataset_options,
+            latitude=latitude,
+            longitude=longitude,
+        )
+        ds = regridder(operational)
+        ds = _utils.copy_attributes(ds, operational)
+    elif grid_options.name == "cartesian":
+        dims = ["y", "x"]
+        ds = operational
+    ds = ds.interp(altitude=grid_options.altitude, method="linear")
 
-    datasets
+    # THUNER convention uses longitude in the range [0, 360]
+    ds["longitude"] = ds["longitude"] % 360
+    # Update grid_options if necessary
+    utils.infer_grid_options(ds, grid_options)
+    cell_areas = grid.get_cell_areas(grid_options)
+    ds["gridcell_area"] = (dims, cell_areas)
+    new_entries = {"units": "km^2", "standard_name": "area", "valid_min": 0}
+    ds["gridcell_area"].attrs.update(new_entries)
+    if grid_options.altitude is None:
+        grid_options.altitude = ds["altitude"].values
+    else:
+        ds = ds.interp(altitude=grid_options.altitude, method="linear")
 
-    # if "http" in urlparse(url).scheme:
-    #     filepath = _utils.download_file(url, directory)
-    # else:
-    #     filepath = url
-    # extracted_filepaths = _utils.unzip_file(filepath)[0]
-    # if data_options.level == "1":
-    #     args = [extracted_filepaths, data_options, grid_options]
-    #     dataset = convert_odim(*args, out_dir=directory)
-    # elif data_options.level == "1b":
-    #     kwargs = {"fields": data_options.fields, "concat_dim": "time"}
-    #     dataset = _utils.consolidate_netcdf(extracted_filepaths, **kwargs)
+    # Get the domain mask and domain boundary. Note this is the region where data
+    # exists, not the detected object masks from the detect module.
+    domain_mask = _utils.mask_from_range(ds, dataset_options, grid_options)
+    all_coords = utils.get_mask_boundary(domain_mask, grid_options)
+    boundary_coords, simple_boundary_coords, boundary_mask = all_coords
+    ds["domain_mask"] = domain_mask
+    ds["boundary_mask"] = boundary_mask
 
-    return
+    ds = _utils.apply_mask(ds, grid_options)
+
+    return ds, boundary_coords, simple_boundary_coords

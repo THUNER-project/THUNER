@@ -24,7 +24,7 @@ class BaseInputRecord(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     name: str = Field(..., description="Name of the input dataset being recorded.")
-    filepaths: list[str] | dict | None = Field(
+    filepaths: list[str] | dict[str, list[str]] | list[tuple[str, str]] | None = Field(
         None,
         description="The relevant dataset filepaths used for the run.",
     )
@@ -114,6 +114,7 @@ class TrackInputRecord(BaseInputRecord):
         None,
         description="Deque of current/previous boundary coordinates.",
     )
+
     @model_validator(mode="after")
     def _initialize_deques(self):
         names = ["grids", "domain_masks"]
@@ -220,9 +221,7 @@ class ObjectTracks(BaseModel):
         description="Deque of current/previous matched masks.",
     )
 
-    match_record: MatchRecord | None = Field(
-        None, description="Current match record."
-    )
+    match_record: MatchRecord | None = Field(None, description="Current match record.")
 
     attributes: AttributesRecord | None = Field(
         None,
@@ -303,7 +302,9 @@ class Tracks(BaseModel):
     # Allow arbitrary types in the class.
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    levels: list[LevelTracks] = Field([], description="Tracks for each hierarchy level.")
+    levels: list[LevelTracks] = Field(
+        [], description="Tracks for each hierarchy level."
+    )
     track_options: TrackOptions = Field(..., description="Options for tracking.")
 
     @model_validator(mode="after")
