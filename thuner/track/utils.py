@@ -4,7 +4,7 @@ from collections import deque
 from pydantic import BaseModel, Field, model_validator, ConfigDict
 import numpy as np
 import xarray as xr
-from typing import Dict, Callable
+from typing import Dict, Callable, Any
 from thuner.attribute.utils import AttributesRecord
 from thuner.match.utils import MatchRecord
 from thuner.option.data import DataOptions
@@ -24,9 +24,8 @@ class BaseInputRecord(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     name: str = Field(..., description="Name of the input dataset being recorded.")
-    filepaths: list[str] | dict[str, list] | list[tuple[str, str]] | None = Field(
-        None,
-        description="The relevant dataset filepaths used for the run.",
+    filepaths: Any | None = Field(
+        None, description="The relevant dataset filepaths used for the run."
     )
     write_interval: np.timedelta64 = Field(
         np.timedelta64(1, "h"),

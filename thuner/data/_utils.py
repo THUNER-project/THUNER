@@ -263,3 +263,12 @@ def read_odim(
     )
     dataset = dataset.to_xarray()
     return dataset
+
+
+def empty_dataset_and_coordinates(grid_options):
+    """Build an empty dataset and coordinates for the given grid options."""
+    dims = ["time", "latitude", "longitude"]
+    coords = {dim: (dim, []) for dim in dims}
+    ds = xr.Dataset(coords=coords)
+    boundary_coords = [{"latitude": np.array([]), "longitude": np.array([])}]
+    return ds, boundary_coords, boundary_coords

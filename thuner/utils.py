@@ -201,15 +201,30 @@ class ConvertedOptions(BaseOptions):
 
     save: bool = Field(False, description="Whether to save the converted data.")
     load: bool = Field(False, description="Whether to load the converted data.")
-    _default_parent_converted = str(get_outputs_directory() / "input_data/converted")
     parent_converted: str | None = Field(
-        _default_parent_converted,
+        str(get_outputs_directory() / "input_data/converted"),
         description="Parent directory for converted data.",
+    )
+    filepaths: Any | None = Field(
+        None,
+        description=(
+            "Filepaths from which to save/load the converted data. If None, will be "
+            "inferred from the input filepaths."
+        ),
     )
 
 
 class BaseDatasetOptions(BaseOptions):
     """Base class for dataset options."""
+
+    def model_post_init(self, __context):
+        """
+        Set the base class post initialization behaviour. Currently this is used to
+        build the default converted filepaths if not provided.
+        """
+        conv_options = self.converted_options
+        if (conv_options.load or conv_options.save) and not conv_options.filepaths:
+            conv_options.filepaths = self.get_converted_filepaths()
 
     name: str = Field(None, description="Name of the dataset.")
     start: DatetimeField = Field(..., description="Tracking start time.")
@@ -232,9 +247,7 @@ class BaseDatasetOptions(BaseOptions):
         ConvertedOptions(),
         description="Options for saving and loading converted data.",
     )
-    filepaths: (
-        list[str] | dict[str, list] | list[tuple[str, str]] | list[dict] | None
-    ) = Field(
+    filepaths: Any | None = Field(
         None,
         description=(
             "Collection of filepaths for the dataset. If the dataset has multiple "
@@ -298,10 +311,13 @@ class BaseDatasetOptions(BaseOptions):
         Return the subset of the input filepaths that is within the start and end time
         range.
         """
-        message = "get_filepaths being called from base class BaseDatasetOptions. "
-        message += "In this case get_filepaths just subsets the filepaths list "
-        message += "provided by the user."
-        logger.info(message)
+        logger.info(
+            (
+                "get_filepaths being called from base class BaseDatasetOptions. "
+                "In this case get_filepaths just subsets the filepaths list "
+                "provided by the user."
+            )
+        )
         if self.filepaths is None:
             raise ValueError("Filepaths field has not been set.")
         if len(self.filepaths) == 0:
@@ -315,6 +331,27 @@ class BaseDatasetOptions(BaseOptions):
             new_filepaths.append(time_filepath_lookup[time])
         new_filepaths = sorted(list(set(new_filepaths)))
         return new_filepaths
+
+    def get_converted_filepaths(self):
+        """
+        Get the filepaths for the converted datasets, based on the input filepaths.
+        """
+        parent_local = self.parent_local
+        parent_converted = self.converted_options.parent_converted
+        if self.filepaths is None:
+            raise ValueError("Filepaths field has not been set.")
+        elif all(isinstance(filepath, str) for filepath in self.filepaths):
+            # Simplest case, a list of strings
+            return [
+                filepath.replace(parent_local, parent_converted)
+                for filepath in self.filepaths
+            ]
+        else:
+            raise NotImplementedError(
+                "get_converted_filepaths not yet implemented for non-string filepaths."
+                "Either provide filepaths as a list of strings, or overwrite this "
+                "method in a subclass."
+            )
 
     def update_input_record(self, time, input_record, track_options, grid_options):
         """
