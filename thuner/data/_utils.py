@@ -107,7 +107,12 @@ def apply_mask(ds, grid_options):
         dims = ["latitude", "longitude"]
     else:
         raise ValueError("Grid name must be 'cartesian' or 'geographic'.")
-    for var in ds.data_vars.keys() - ["gridcell_area", "domain_mask", "boundary_mask"]:
+    # latitude/longitude are geolocation coordinates (stored as 2D data variables on a
+    # cartesian grid); masking them to NaN corrupts the grid description and, once the
+    # masked dataset is saved and reloaded, leaves grid_options' inferred lat/lon full of
+    # NaN. Skip them along with the area/mask variables.
+    skip = ["gridcell_area", "domain_mask", "boundary_mask", "latitude", "longitude"]
+    for var in ds.data_vars.keys() - skip:
         # Check if the variable has horizontal dimensions
         if not set(dims).issubset(set(ds[var].dims)):
             continue

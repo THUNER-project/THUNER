@@ -23,7 +23,7 @@ def test_operational():
     remove_existing_outputs = True
     # Specify the local base directory for saving outputs
     base_local = config.get_outputs_directory()
-    output_parent = base_local / "runs/operational/geographic"
+    output_parent = base_local / "runs/operational_ensemble/geographic"
     options_directory = output_parent / "options"
     visualize_directory = output_parent / "visualize"
     # Remove the output parent directory if it already exists
@@ -37,9 +37,9 @@ def test_operational():
     # data.get_demo_data(base_local, remote_directory)
     # ## Geographic Coordinates
     # Create the dataset options
-    start = "2021-10-14T16:00:00"
+    start = "2021-10-14T04:00:00"
     # Note the CPOL times are usually a few seconds off the 10 m interval, so add 30 seconds
-    end = "2021-10-14T17:00:00"
+    end = "2021-10-14T08:00:00"
     times_dict = {"start": start, "end": end}
     weights_filepaths = glob.glob(
         str(output_parent / "regridder_weights/operational*.nc")
@@ -69,13 +69,13 @@ def test_operational():
     track_options.to_json(options_directory / "track.json")
     step = np.timedelta64(data_options.datasets[0].timestep, "m")
     times = np.arange(np.datetime64(start), np.datetime64(end) + step, step)
-    track.track(
+    parallel.track(
         times=times,
         data_options=data_options,
         grid_options=grid_options,
         track_options=track_options,
-        visualize_options=None,
         output_directory=output_parent,
+        dataset_name="operational",
     )
     analysis_options = analyze.mcs.AnalysisOptions()
     analysis_options.to_json(options_directory / "analysis.json")
@@ -97,9 +97,9 @@ def test_operational():
         end_time=end,
         figure_options=figure_options,
         dataset_name="operational",
-        parallel_figure=False,
+        parallel_figure=True,
         by_date=False,
-        num_processes=4,
+        num_processes=8,
     )
 
 

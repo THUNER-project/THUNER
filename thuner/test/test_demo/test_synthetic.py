@@ -162,7 +162,7 @@ def test_synthetic():
         data_options=data_options,
         grid_options=grid_options,
         track_options=track_options,
-        visualize_options=visualize_options,
+        visualize_options=None,
         output_directory=output_parent,
     )
     ground_truth = analyze.synthetic.write_ground_truth(

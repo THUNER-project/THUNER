@@ -28,7 +28,7 @@ import cv2
 from numba import njit, int32, float32
 from numba.typed import List
 from scipy.interpolate import interp1d
-import os
+import uuid
 from typing import Any, Literal, Generator, Callable, Annotated
 from pydantic import (
     Field,
@@ -734,16 +734,89 @@ def infer_grid_options(dataset: DataObject, grid_options):
             logger.warning("No altitude coordinates found in dataset.")
 
 
+# Decimal places retained per converted gridded field when writing the converted cache.
+CONVERTED_FIELD_PRECISION = {
+    "reflectivity": 1,  # dBZ
+    "brightness_temperature": 2,  # K
+    "u": 2,  # m/s
+    "v": 2,  # m/s
+    "w": 2,  # m/s
+    "r": 1,  # relative humidity, %
+    "t": 2,  # K
+    "cape": 1,  # J/kg
+    "cin": 1,  # J/kg
+    "gridcell_area": 2,  # km^2
+}
+
+# zlib settings applied to every (non-scalar, non-time) variable of a converted dataset.
+_CONVERTED_COMPRESSION = {"zlib": True, "complevel": 5}
+
+
+def _prepare_converted_for_save(dataset):
+    """
+    Return a copy of a converted dataset prepared for a compact on-disk cache: every
+    floating field/coordinate is cast to float32 (halving size vs float64), and fields in
+    CONVERTED_FIELD_PRECISION are rounded to their configured number of decimals. Operates
+    on a copy -- and only ever reassigns variables with freshly computed arrays -- so the
+    in-memory dataset used for tracking is left untouched. round()/astype() also drop any
+    stale encoding (e.g. a source _FillValue/scale_factor), so the explicit encoding built
+    by _converted_encoding cannot conflict with it.
+    """
+    out = dataset.copy()
+    for name, var in dataset.variables.items():
+        if not np.issubdtype(var.dtype, np.floating):
+            continue
+        data_array = out[name]
+        if name in CONVERTED_FIELD_PRECISION:
+            data_array = data_array.round(CONVERTED_FIELD_PRECISION[name])
+        out[name] = data_array.astype(np.float32)
+    return out
+
+
+def _converted_encoding(dataset):
+    """Build the netcdf encoding dict: compress every variable except scalars (netcdf
+    cannot filter a scalar) and time (left to xarray's CF time encoding)."""
+    encoding = {}
+    for name, var in dataset.variables.items():
+        if name == "time" or var.ndim == 0:
+            continue
+        encoding[name] = dict(_CONVERTED_COMPRESSION)
+    return encoding
+
+
 def save_converted_dataset(unit, dataset, dataset_options):
-    """Save a converted dataset to the unit's converted filepath."""
+    """Save a converted dataset to the unit's converted filepath.
+
+    Fields are rounded to a per-field precision (CONVERTED_FIELD_PRECISION), stored as
+    float32 and zlib-compressed, which shrinks the cache substantially without discarding
+    meaningful precision. The rounding/recasting is done on a copy, so the dataset handed
+    back to the tracking loop keeps full precision.
+    """
     conv_options = dataset_options.converted_options
     if conv_options.save:
         converted_filepath = dataset_options.converted_filepath(unit)
         if converted_filepath is None:
             raise ValueError("No converted filepath could be derived.")
-        if not Path(converted_filepath).parent.exists():
-            Path(converted_filepath).parent.mkdir(parents=True)
-        dataset.to_netcdf(converted_filepath, mode="w")
+        converted_filepath = Path(converted_filepath)
+        converted_filepath.parent.mkdir(parents=True, exist_ok=True)
+        to_save = _prepare_converted_for_save(dataset)
+        # Adjacent parallel intervals overlap by one timestep, so two workers convert and
+        # save the shared boundary file concurrently. Writing the netcdf directly would
+        # have them open the same file for writing at once, which trips HDF5 file locking
+        # (surfaces as a PermissionError). Instead each worker writes a uniquely named
+        # temp file and atomically renames it into place: no shared handle, and the
+        # rename is last-writer-wins on identical content.
+        tmp_filepath = converted_filepath.with_name(
+            f"{converted_filepath.stem}.{uuid.uuid4().hex}.tmp.nc"
+        )
+        try:
+            to_save.to_netcdf(
+                tmp_filepath, mode="w", encoding=_converted_encoding(to_save)
+            )
+            os.replace(tmp_filepath, converted_filepath)
+        finally:
+            if tmp_filepath.exists():
+                tmp_filepath.unlink()
     return dataset
 
 
