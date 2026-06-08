@@ -206,8 +206,10 @@ def precompute_regridders(data_options, grid_options, track_options, output_pare
                 time = ds.time.values[0]
         else:
             time = unit.time_bounds()[0]
-        # Build/verify on deep copies so the conversion's grid inference does not leak
-        # into the shared grid_options.
+        # Build/verify on a deep copy of dataset_options so per-conversion mutations
+        # (weights_filepath, etc.) do not leak into the shared options. The conversion
+        # runs against a copy of grid_options too, but -- unlike the dataset options --
+        # the grid *geometry* it infers is deliberately propagated back below.
         dataset_options_copy = dataset_options.model_copy(deep=True)
         grid_options_copy = grid_options.model_copy(deep=True)
         dataset_options_copy.weights_filepath = weights_filepath
@@ -220,6 +222,22 @@ def precompute_regridders(data_options, grid_options, track_options, output_pare
         dataset_options_copy.convert_dataset(
             time, unit, track_options, grid_options_copy
         )
+        # Establish the run's target grid once, here in the main process, so every
+        # interval worker inherits the identical grid instead of each re-inferring it.
+        if grid_options.shape is None:
+            grid_fields = [
+                "latitude",
+                "longitude",
+                "x",
+                "y",
+                "shape",
+                "altitude",
+                "geographic_spacing",
+                "cartesian_spacing",
+                "altitude_spacing",
+            ]
+            for field in grid_fields:
+                setattr(grid_options, field, getattr(grid_options_copy, field))
 
     for dataset_options in data_options.datasets:
         process(dataset_options)

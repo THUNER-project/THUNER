@@ -498,6 +498,13 @@ class BaseDatasetOptions(BaseOptions):
         if load:
             converted_filepath = self.converted_filepath(unit)
             dataset = xr.open_dataset(converted_filepath, decode_timedelta=True)
+            # Infer the grid from the converted dataset *before* deriving the boundary:
+            # get_mask_boundary indexes grid_options' latitude/longitude, and those are
+            # only guaranteed to be populated once a dataset has been loaded. The
+            # persisted run-root grid.json can predate the run's grid inference -- e.g. a
+            # grid inferred from the data, or an operational ensemble's global grid
+            # established at convert time -- so it may still carry None here.
+            infer_grid_options(dataset, grid_options)
             if "domain_mask" in dataset:
                 all_coords = get_mask_boundary(dataset["domain_mask"], grid_options)
                 boundary_coords, simple_boundary_coords, _ = all_coords

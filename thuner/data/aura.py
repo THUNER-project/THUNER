@@ -224,8 +224,13 @@ def convert_cpol(time, filepath, track_options, dataset_options, grid_options):
     return ds, boundary_coords, simple_boundary_coords
 
 
-class OperationalOptions(AuraOptions):
-    """Options for an individual operational radar dataset."""
+class BaseOperationalOptions(AuraOptions):
+    """
+    Shared options for operational radar datasets (single radar and ensemble). The
+    concrete subclasses differ only in how they enumerate their source files and convert
+    them; everything common -- the operational defaults, the ODIM/pyart reconstruction
+    fields, and the filepath validation -- lives here.
+    """
 
     def model_post_init(self, __context):
         """Use model_post_init to change default inherited values."""
@@ -233,11 +238,10 @@ class OperationalOptions(AuraOptions):
         url = "https://dapds00.nci.org.au/thredds/fileServer/rq0"
         self._change_defaults(name="operational", parent_remote=url, range=200)
 
-    # Define additional fields for the operational radar
+    # Fields common to both the single-radar and ensemble operational datasets.
     level: Literal["1", "1b", "2"] = Field(
         "1", description="Radar data processing level."
     )
-    radar: int = Field(3, description="Radar ID number.")
     weighting_function: Literal["Barnes2", "Barnes", "Cressman", "Nearest"] = Field(
         "Barnes2",
         description=(
@@ -247,6 +251,22 @@ class OperationalOptions(AuraOptions):
     timestep: Literal[5, 10] = Field(
         10, description="Timestep in minutes for operational radar data."
     )
+
+    @model_validator(mode="after")
+    def _check_filepaths(self):
+        """Populate filepaths from the subclass's get_filepaths if not provided."""
+        if self.filepaths is None:
+            logger.info(f"Generating {self.name} filepaths.")
+            self.filepaths = self.get_filepaths()
+        if self.filepaths is None:
+            raise ValueError("filepaths not provided or badly formed.")
+        return self
+
+
+class OperationalOptions(BaseOperationalOptions):
+    """Options for an individual operational radar dataset."""
+
+    radar: int = Field(3, description="Radar ID number.")
 
     def get_filepaths(self):
         """Get operational radar filepaths."""
@@ -261,15 +281,6 @@ class OperationalOptions(AuraOptions):
             dataset_options=self,
             grid_options=grid_options,
         )
-
-    @model_validator(mode="after")
-    def _check_filepaths(self):
-        if self.filepaths is None:
-            logger.info("Generating operational filepaths.")
-            self.filepaths = get_operational_filepaths(self)
-        if self.filepaths is None:
-            raise ValueError("filepaths not provided or badly formed.")
-        return self
 
 
 def get_operational_filepaths(options: OperationalOptions):
@@ -400,32 +411,13 @@ def convert_operational(
     return ds, boundary_coords, simple_boundary_coords
 
 
-class OperationalEnsembleOptions(AuraOptions):
+class OperationalEnsembleOptions(BaseOperationalOptions):
     """
     Options for an operational radar ensemble dataset. Currently this is just a quick
     and dirty ensemble using max reflectivities.
     """
 
-    def model_post_init(self, __context):
-        """Use model_post_init to change default inherited values."""
-        super().model_post_init(__context)
-        url = "https://dapds00.nci.org.au/thredds/fileServer/rq0"
-        self._change_defaults(name="operational", parent_remote=url, range=200)
-
-    # Define additional fields for the operational radar
-    level: Literal["1", "1b", "2"] = Field(
-        "1", description="Radar data processing level."
-    )
     radars: list[int] = Field([3, 4, 40], description="Radar ID numbers.")
-    weighting_function: Literal["Barnes2", "Barnes", "Cressman", "Nearest"] = Field(
-        "Barnes2",
-        description=(
-            "Weighting function used by pyart to reconstruct the grid from ODIM."
-        ),
-    )
-    timestep: Literal[5, 10] = Field(
-        10, description="Timestep in minutes for operational radar data."
-    )
 
     def get_filepaths(self):
         """Get operational radar filepaths."""
@@ -470,15 +462,6 @@ class OperationalEnsembleOptions(AuraOptions):
         unit.converted_filepath = converted
         return converted
 
-    @model_validator(mode="after")
-    def _check_filepaths(self):
-        if self.filepaths is None:
-            logger.info("Generating operational ensemble filepaths.")
-            self.filepaths = get_operational_ensemble_filepaths(self)
-        if self.filepaths is None:
-            raise ValueError("filepaths not provided or badly formed.")
-        return self
-
 
 def get_operational_ensemble_filepaths(options: OperationalEnsembleOptions):
     """
@@ -520,12 +503,15 @@ def convert_operational_ensemble(
     taking the max reflectivity across the ensemble. Note this is a quick and dirty
     ensemble, and does not account for differences in radar coverage or other factors.
     """
+    # The global grid, if already established (e.g. by precompute_regridders or an
+    # earlier conversion). Members are regridded against private copies so the per-radar
+    # inference never clobbers it -- the global grid is the union, not any one radar.
+    global_latitude = grid_options.latitude
+    global_longitude = grid_options.longitude
+
     datasets = []
+    missing_radars = []
     for ds_filepath, radar in zip(filepath, dataset_options.radars):
-        # Reset latitude and longitude so they are re-inferred for each grid. Then we
-        # will patch the grids together. This economizes the ODIM regridding step.
-        grid_options.latitude = None
-        grid_options.longitude = None
         weights_filepath = dataset_options.weights_filepath
         radar_weights_filepath = Path(weights_filepath).parent
         radar_weights_filepath /= f"{Path(weights_filepath).stem}_{radar}.nc"
@@ -533,15 +519,24 @@ def convert_operational_ensemble(
             logger.warning(
                 f"Filepath {ds_filepath[0]} does not exist. Skipping radar {radar}."
             )
+            missing_radars.append(radar)
             continue
+        # Regrid each member onto its own local grid: a deep copy with lat/lon cleared
+        # forces infer_geographic_grid to build the radar-local grid from the spacing
+        # (economizing the ODIM regridding step), and keeps the per-radar inference out
+        # of the shared grid_options.
+        member_grid_options = grid_options.model_copy(deep=True)
+        member_grid_options.latitude = None
+        member_grid_options.longitude = None
         ds = regrid_operational(
             ds_filepath,
             dataset_options,
-            grid_options,
+            member_grid_options,
             weights_filepath=radar_weights_filepath,
         )
         if ds is None:
             logger.warning(f"Failed to regrid radar {radar}. Skipping.")
+            missing_radars.append(radar)
             continue
         datasets.append(ds)
 
@@ -553,6 +548,18 @@ def convert_operational_ensemble(
     # keep_attrs so the per-radar variable metadata (e.g. reflectivity units) survives
     # the reduction; xarray drops attrs on reductions by default.
     dataset = stacked.max(dim="radar", skipna=True, keep_attrs=True)
+
+    if global_latitude is not None and global_longitude is not None:
+        # Conform the mosaic to the established global grid so its shape is identical for
+        # every time step, regardless of which radars contributed.
+        dataset = dataset.reindex(latitude=global_latitude, longitude=global_longitude)
+    elif missing_radars:
+        message = (
+            "Establishing the operational ensemble's global grid from a conversion "
+            f"missing radar(s) {missing_radars}; the global grid may be too small. "
+            "Consider establishing it from a time when all radars are present."
+        )
+        logger.warning(message)
 
     dataset["domain_mask"] = dataset["domain_mask"].fillna(0)
     utils.infer_grid_options(dataset, grid_options)
