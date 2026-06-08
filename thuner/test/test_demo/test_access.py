@@ -43,7 +43,7 @@ def test_access():
         filename="maxcol_refl.nc",
         regridder_from="access_1km",
     )
-    datasets=[access_1km_options, access_max_col_options]
+    datasets = [access_1km_options, access_max_col_options]
     data_options = option.data.DataOptions(datasets=datasets)
     data_options.to_json(options_directory / "data.json")
     grid_options = option.grid.GridOptions()
@@ -57,7 +57,7 @@ def test_access():
         grid_options=grid_options,
         track_options=track_options,
         output_directory=output_parent,
-        dataset_name='access_1km',
+        dataset_name="access_1km",
         num_processes=4,
     )
     analysis_options = analyze.mcs.AnalysisOptions()
@@ -65,7 +65,9 @@ def test_access():
     analyze.mcs.process_velocities(output_parent, profile_dataset=None)
     analyze.mcs.quality_control(output_parent, analysis_options)
     style = "presentation"
-    attribute_handlers = default.visualize.grouped_attribute_handlers(output_parent, style)
+    attribute_handlers = default.visualize.grouped_attribute_handlers(
+        output_parent, style
+    )
     figure_options = option.visualize.GroupedHorizontalAttributeOptions(
         name="mcs_attributes",
         object_name="mcs",
@@ -83,8 +85,8 @@ def test_access():
         by_date=False,
         num_processes=4,
     )
-    # ![MCS detection and matching for ACCESS-C data.](https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/mcs_access_c.gif)
+    # ![MCS detection and matching for ACCESS-C data.](https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/access_mcs.gif)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_access()

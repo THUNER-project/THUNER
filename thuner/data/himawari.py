@@ -94,13 +94,13 @@ class HimawariOptions(utils.BaseDatasetOptions):
         filepaths = get_himawari_filepaths(self)
         # Subset to just those files that actually exist locally
         filepaths = sorted([fp for fp in filepaths if Path(fp).exists()])
-        return filepaths
+        return [utils.InputUnit(sources=[fp]) for fp in filepaths]
 
-    def convert_dataset(self, time, filepath, track_options, grid_options):
+    def convert_dataset(self, time, unit, track_options, grid_options):
         """Convert Himawari dataset."""
         return convert_himawari(
             time=time,
-            filepath=filepath,
+            filepath=unit.sources[0],
             track_options=track_options,
             dataset_options=self,
             grid_options=grid_options,
@@ -113,7 +113,7 @@ class HimawariOptions(utils.BaseDatasetOptions):
             filepaths = get_himawari_filepaths(self)
             # Subset to just those files that actually exist locally
             filepaths = sorted([fp for fp in filepaths if Path(fp).exists()])
-            self.filepaths = filepaths
+            self.filepaths = [utils.InputUnit(sources=[fp]) for fp in filepaths]
         if self.filepaths is None:
             raise ValueError("filepaths not provided or badly formed.")
         if self.coordinates_filepath is None:
@@ -185,7 +185,9 @@ def convert_himawari(
     himawari = xr.open_dataset(filepath, decode_timedelta=True)
     himawari = himawari.rename(_NAMES_DICT)
     himawari = himawari[dataset_options.fields]
-    coordinates = xr.open_dataset(dataset_options.coordinates_filepath, decode_timedelta=True)
+    coordinates = xr.open_dataset(
+        dataset_options.coordinates_filepath, decode_timedelta=True
+    )
     coord_names = ["lat", "lon", "invalid_navigation_mask"]
     coordinates = coordinates[coord_names].isel(time=0, drop=True)
     himawari.coords["latitude"] = coordinates["lat"]

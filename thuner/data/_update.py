@@ -79,8 +79,8 @@ def update_track_input_records(
         if dataset_options.filepaths is None:
             return
         input_record._time_list.append(time)
-        filepath = dataset_options.filepaths[input_record._current_file_index]
-        input_record._filepath_list.append(filepath)
+        unit = dataset_options.filepaths[input_record._current_file_index]
+        input_record._filepath_list.append(unit.record_str())
 
 
 def update_tag_input_records(

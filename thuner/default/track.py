@@ -102,8 +102,10 @@ def mcs(tracking_dataset="cpol", profile_dataset="era5_pl", tag_dataset="era5_sl
     mcs_core.attributes += [echo_top_height]
 
     attribute_types = [mcs_core, group.default()]
-    attribute_types += [profile.default(profile_dataset)]
-    attribute_types += [tag.default(tag_dataset)]
+    if profile_dataset is not None:
+        attribute_types += [profile.default(profile_dataset)]
+    if tag_dataset is not None:
+        attribute_types += [tag.default(tag_dataset)]
     attributes = attribute_option.Attributes(
         name="mcs",
         attribute_types=attribute_types,
@@ -182,7 +184,11 @@ def _two_level_track(detected_options, mcs_options):
     return track_option.TrackOptions(levels=[level_0, level_1])
 
 
-def track(dataset_name: str = "cpol"):
+def track(
+    dataset_name: str = "cpol",
+    profile_dataset: str = "era5_pl",
+    tag_dataset: str = "era5_sl",
+):
     """Build default options for tracking MCS."""
 
     detected_options = [
@@ -190,7 +196,9 @@ def track(dataset_name: str = "cpol"):
         middle(dataset_name),
         anvil(dataset_name),
     ]
-    return _two_level_track(detected_options, mcs(dataset_name))
+    return _two_level_track(
+        detected_options, mcs(dataset_name, profile_dataset, tag_dataset)
+    )
 
 
 def access_c_track(

@@ -20,6 +20,7 @@ AnyDatasetOptions = Union[
     gridrad.GridRadSevereOptions,
     aura.CpolOptions,
     aura.OperationalOptions,
+    aura.OperationalEnsembleOptions,
     era5.Era5Options,
     himawari.HimawariOptions,
     access.AccessCOptions,

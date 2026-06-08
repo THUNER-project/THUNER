@@ -55,10 +55,10 @@ class AccessCOptions(utils.BaseDatasetOptions):
     def get_filepaths(self):
         return get_access_c_filepaths(self)
 
-    def convert_dataset(self, time, filepath, track_options, grid_options):
+    def convert_dataset(self, time, unit, track_options, grid_options):
         return convert_access(
             time=time,
-            filepath=filepath,
+            filepath=unit.sources[0],
             track_options=track_options,
             dataset_options=self,
             grid_options=grid_options,
@@ -99,9 +99,7 @@ def get_access_c_filepaths(options: AccessCOptions):
         f"{time.hour:02}00/{options.mode}/{options.levels}/"
         f"{options.filename}"
     )
-    filepaths = [filepath]
-
-    return sorted(filepaths)
+    return [utils.InputUnit(sources=[filepath])]
 
 
 _NAMES_DICT = {
@@ -144,7 +142,9 @@ def convert_access(
     ds = _utils.copy_attributes(ds, access)
 
     if grid_options.domain_mask is None:
-        domain_mask = np.ones_like(ds[dataset_options.fields[0]].isel(time=0, drop=True))
+        domain_mask = np.ones_like(
+            ds[dataset_options.fields[0]].isel(time=0, drop=True)
+        )
         domain_mask = xr.DataArray(
             domain_mask,
             coords={"latitude": latitude, "longitude": longitude},

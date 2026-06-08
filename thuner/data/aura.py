@@ -68,11 +68,11 @@ class CpolOptions(AuraOptions):
         """Get CPOL fielpaths."""
         return get_cpol_filepaths(self)
 
-    def convert_dataset(self, time, filepath, track_options, grid_options):
+    def convert_dataset(self, time, unit, track_options, grid_options):
         """Convert CPOL dataset."""
         return convert_cpol(
             time=time,
-            filepath=filepath,
+            filepath=unit.sources[0],
             track_options=track_options,
             dataset_options=self,
             grid_options=grid_options,
@@ -130,13 +130,17 @@ def get_cpol_filepaths(options: CpolOptions):
                 f"{time.year}{time.month:02}{time.day:02}."
                 f"{time.hour:02}{time.minute:02}{time.second:02}.nc"
             )
-            filepaths.append(filepath)
+            time_str = str(np.datetime64(time))
+            unit = utils.InputUnit(
+                sources=[filepath], start_time=time_str, end_time=time_str
+            )
+            filepaths.append(unit)
     else:
         raise NotImplementedError(
             "Only level 1b CPOL data is currently supported. Convert manually first."
         )
 
-    return sorted(filepaths)
+    return sorted(filepaths, key=lambda u: u.time_bounds()[0])
 
 
 def regrid_aura(dataset, grid_options, dataset_options, weights_filepath=None):
@@ -162,10 +166,6 @@ def regrid_aura(dataset, grid_options, dataset_options, weights_filepath=None):
     ds["longitude"] = ds["longitude"] % 360
     # Update grid_options if necessary
     utils.infer_grid_options(ds, grid_options)
-    # cell_areas = grid.get_cell_areas(grid_options)
-    # ds["gridcell_area"] = (dims, cell_areas)
-    # new_entries = {"units": "km^2", "standard_name": "area", "valid_min": 0}
-    # ds["gridcell_area"].attrs.update(new_entries)
     if grid_options.altitude is None:
         grid_options.altitude = ds["altitude"].values
     else:
@@ -252,52 +252,15 @@ class OperationalOptions(AuraOptions):
         """Get operational radar filepaths."""
         return get_operational_filepaths(self)
 
-    def get_converted_filepaths(self):
-        """Get converted filepaths for operational radar."""
-        filepaths = self.filepaths
-        if all(isinstance(filepath, str) for filepath in filepaths):
-            return super().get_converted_filepaths()
-        elif all(isinstance(filepath, tuple) for filepath in filepaths):
-            converted_filepaths = []
-            for filepath in filepaths:
-                zip_filepath, h5_filename = filepath
-                converted_zip_filepath = zip_filepath.replace(
-                    self.parent_local, self.converted_options.parent_converted
-                )
-                converted_h5_filename = h5_filename.replace(
-                    self.parent_local, self.converted_options.parent_converted
-                )
-                converted_filepaths.append(
-                    (converted_zip_filepath, converted_h5_filename)
-                )
-            return converted_filepaths
-        else:
-            raise NotImplementedError(
-                "get_converted_filepaths not yet implemented for mixed or unknown filepaths."
-                "Either provide filepaths as a list of strings or tuples, or overwrite this "
-                "method in a subclass."
-            )
-
-    def convert_dataset(self, time, filepath, track_options, grid_options):
+    def convert_dataset(self, time, unit, track_options, grid_options):
         """Convert operational radar dataset."""
         return convert_operational(
             time=time,
-            filepath=filepath,
+            filepath=unit.sources[0],
             track_options=track_options,
             dataset_options=self,
             grid_options=grid_options,
         )
-
-    @model_validator(mode="after")
-    def _check_conversion(self):
-        if self.converted_options.save and self.filepaths is None:
-            raise NotImplementedError(
-                (
-                    "Just in time conversion with default filepaths not yet "
-                    "implemented for operational data."
-                )
-            )
-        return self
 
     @model_validator(mode="after")
     def _check_filepaths(self):
@@ -333,7 +296,13 @@ def get_operational_filepaths(options: OperationalOptions):
         zip_filepath += f"{radar}_{date_str}.pvol.zip"
         time_str = f"{time.hour:02}{time.minute:02}00"
         h5_filename = f"{radar}_{date_str}_{time_str}.pvol.h5"
-        filepaths.append((zip_filepath, h5_filename))
+        nominal_time = str(np.datetime64(time))
+        unit = utils.InputUnit(
+            sources=[[zip_filepath, h5_filename]],
+            start_time=nominal_time,
+            end_time=nominal_time,
+        )
+        filepaths.append(unit)
 
     return filepaths
 
@@ -343,6 +312,12 @@ OPERATIONAL_NAMES = {
     "lat": "latitude",
     "lon": "longitude",
     "z": "altitude",
+}
+
+REFLECTIVITY_ATTRS = {
+    "units": "dBZ",
+    "standard_name": "equivalent_reflectivity_factor",
+    "long_name": "reflectivity",
 }
 
 
@@ -368,6 +343,12 @@ def regrid_operational(filepath, dataset_options, grid_options, weights_filepath
             operational = operational.assign_coords(
                 time=operational["time"].dt.round(f"{step}min")
             )
+            # pyart decodes times to cftime (object dtype); THUNER works in datetime64.
+            time_index = operational.indexes["time"]
+            if isinstance(time_index, xr.CFTimeIndex):
+                operational = operational.assign_coords(
+                    time=time_index.to_datetimeindex()
+                )
         except (ValueError, OSError):
             logger.warning(
                 f"Failed to read {filepath[1]} from {filepath[0]}. Skipping."
@@ -391,6 +372,7 @@ def regrid_operational(filepath, dataset_options, grid_options, weights_filepath
     )
     if "reflectivity" in ds.data_vars:
         ds["reflectivity"] = ds["reflectivity"].where(ds["reflectivity"] >= -10)
+        ds["reflectivity"].attrs.update(REFLECTIVITY_ATTRS)
     return ds
 
 
@@ -449,26 +431,44 @@ class OperationalEnsembleOptions(AuraOptions):
         """Get operational radar filepaths."""
         return get_operational_ensemble_filepaths(self)
 
-    def convert_dataset(self, time, filepath, track_options, grid_options):
+    def convert_dataset(self, time, unit, track_options, grid_options):
         """Convert operational radar dataset."""
         return convert_operational_ensemble(
             time=time,
-            filepath=filepath,
+            filepath=unit.sources,
             track_options=track_options,
             dataset_options=self,
             grid_options=grid_options,
         )
 
-    @model_validator(mode="after")
-    def _check_conversion(self):
-        if self.converted_options.save and self.filepaths is None:
-            raise NotImplementedError(
-                (
-                    "Just in time conversion with default filepaths not yet "
-                    "implemented for operational data."
-                )
-            )
-        return self
+    def converted_filepath(self, unit):
+        """Converted path named by the ensemble's radars, e.g. ``3_4_40_<date>.nc``."""
+        if unit.converted_filepath is not None:
+            return unit.converted_filepath
+        parent_local = str(self.parent_local)
+        parent_converted = self.converted_options.parent_converted
+        if parent_converted is None:
+            raise ValueError("parent_converted must be set to derive converted paths.")
+        parent_converted = str(parent_converted)
+        archive, member = unit.sources[0][0], unit.sources[0][1]
+        radar_str = "_".join(str(radar) for radar in self.radars)
+        # Mirror the raw archive directory under parent_converted, but rename the
+        # single-radar directory (e.g. '3') to the ensemble's radar string so the
+        # directory tree matches the converted filenames, e.g. '3_4_40_...'.
+        # Raw structure: rq0/<radar>/<year>/vol, so the radar directory sits two
+        # levels above the 'vol' directory that holds the archive.
+        out_dir = Path(
+            str(Path(archive).parent).replace(parent_local, parent_converted)
+        )
+        out_parts = list(out_dir.parts)
+        out_parts[-3] = radar_str
+        out_dir = Path(*out_parts)
+        # member like '3_20211014_160000.pvol.h5' -> date and time fields.
+        parts = Path(member).name.split("_")
+        date_str, time_str = parts[1], parts[2].split(".")[0]
+        converted = str(out_dir / f"{radar_str}_{date_str}_{time_str}.nc")
+        unit.converted_filepath = converted
+        return converted
 
     @model_validator(mode="after")
     def _check_filepaths(self):
@@ -485,14 +485,27 @@ def get_operational_ensemble_filepaths(options: OperationalEnsembleOptions):
     Get filepaths for an operational radar ensemble. This is just a list of filepaths
     for each radar in the ensemble, which can be converted separately and then combined.
     """
-    filepaths = []
+    per_radar = []
     for radar in options.radars:
         options_dict = options.model_dump()
         options_dict["radar"] = radar
         options_dict.pop("radars")
         options_dict.pop("type")
-        filepaths.append(get_operational_filepaths(OperationalOptions(**options_dict)))
-    return list(zip(*filepaths))
+        options_dict.pop("filepaths", None)
+        per_radar.append(get_operational_filepaths(OperationalOptions(**options_dict)))
+    # Combine the per-radar units for each time into a single multi-source ensemble
+    # unit, whose sources are the [archive, member] reference for each radar.
+    units = []
+    for radar_units in zip(*per_radar):
+        sources = [radar_unit.sources[0] for radar_unit in radar_units]
+        units.append(
+            utils.InputUnit(
+                sources=sources,
+                start_time=radar_units[0].start_time,
+                end_time=radar_units[0].end_time,
+            )
+        )
+    return units
 
 
 def convert_operational_ensemble(
@@ -537,7 +550,9 @@ def convert_operational_ensemble(
         return _utils.empty_dataset_and_coordinates(grid_options)
 
     stacked = xr.concat(datasets, dim="radar", join="outer")
-    dataset = stacked.max(dim="radar", skipna=True)
+    # keep_attrs so the per-radar variable metadata (e.g. reflectivity units) survives
+    # the reduction; xarray drops attrs on reductions by default.
+    dataset = stacked.max(dim="radar", skipna=True, keep_attrs=True)
 
     dataset["domain_mask"] = dataset["domain_mask"].fillna(0)
     utils.infer_grid_options(dataset, grid_options)

@@ -56,9 +56,9 @@ class GridRadSevereOptions(utils.BaseDatasetOptions):
         """
         return get_gridrad_filepaths(self)
 
-    def convert_dataset(self, time, filepath, track_options, grid_options):
+    def convert_dataset(self, time, unit, track_options, grid_options):
         """Convert GridRad dataset."""
-        return convert_gridrad(time, filepath, track_options, self, grid_options)
+        return convert_gridrad(time, unit.sources[0], track_options, self, grid_options)
 
     @model_validator(mode="after")
     def _check_times(self):
@@ -163,8 +163,14 @@ def get_gridrad_filepaths(options):
             filepath += f"{time.hour:02}{time.minute:02}00Z.nc"
             # Check if the file exists
             if Path(filepath).exists():
-                filepaths.append(filepath)
-    return sorted(filepaths)
+                nominal_time = str(np.datetime64(time))
+                unit = utils.InputUnit(
+                    sources=[filepath],
+                    start_time=nominal_time,
+                    end_time=nominal_time,
+                )
+                filepaths.append(unit)
+    return sorted(filepaths, key=lambda u: u.time_bounds()[0])
 
 
 def open_gridrad(path, dataset_options):

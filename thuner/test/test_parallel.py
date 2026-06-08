@@ -86,15 +86,29 @@ def _times(n):
 
 
 def test_get_time_intervals_small_domain_uses_one_process():
-    intervals, num_processes = parallel.get_time_intervals(_times(5), 4)
+    times = _times(5)
+    intervals, interval_times, num_processes = parallel.get_time_intervals(times, 4)
     assert num_processes == 1
     assert len(intervals) == 1
+    # The single interval carries the whole domain.
+    assert list(interval_times[0]) == list(times)
 
 
 def test_get_time_intervals_splits_and_covers_domain():
     times = _times(24)
-    intervals, num_processes = parallel.get_time_intervals(times, 4)
+    intervals, interval_times, num_processes = parallel.get_time_intervals(times, 4)
     assert len(intervals) >= 2
     # The union of intervals spans the full time domain.
     assert intervals[0][0] == str(pd.Timestamp(times[0]))
     assert intervals[-1][1] == str(pd.Timestamp(times[-1]))
+    # Each interval's explicit time list lines up with its (start, end) boundaries.
+    assert len(interval_times) == len(intervals)
+    for (start, end), itimes in zip(intervals, interval_times):
+        assert str(pd.Timestamp(itimes[0])) == start
+        assert str(pd.Timestamp(itimes[-1])) == end
+    # Adjacent intervals overlap (share boundary times) so there are no gaps, and the
+    # union of all intervals recovers every time in the domain exactly.
+    for earlier, later in zip(interval_times, interval_times[1:]):
+        assert set(earlier) & set(later)
+    covered = sorted(set().union(*(set(it) for it in interval_times)))
+    assert covered == list(times)

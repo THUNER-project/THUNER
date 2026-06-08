@@ -73,7 +73,7 @@ def track(
         raise ValueError(message)
 
     times = sorted(list(times))
-    intervals, num_processes = get_time_intervals(times, num_processes)
+    intervals, interval_times, num_processes = get_time_intervals(times, num_processes)
     logger.info(f"Beginning parallel tracking with {num_processes} processes.")
 
     if num_processes == 1:
@@ -101,6 +101,7 @@ def track(
             track_interval(
                 i=i,
                 time_interval=time_interval,
+                interval_times=interval_times[i],
                 data_options=data_options.model_copy(deep=True),
                 grid_options=grid_options.model_copy(deep=True),
                 track_options=track_options.model_copy(deep=True),
@@ -119,7 +120,8 @@ def track(
             results = []
             for i, time_interval in enumerate(intervals):
                 time.sleep(1)
-                args = [i, time_interval, data_options.model_copy(deep=True)]
+                args = [i, time_interval, interval_times[i]]
+                args += [data_options.model_copy(deep=True)]
                 args += [grid_options.model_copy(deep=True)]
                 args += [track_options.model_copy(deep=True)]
                 args += [None, output_directory, dataset_name]
@@ -196,9 +198,14 @@ def precompute_regridders(data_options, grid_options, track_options, output_pare
         if len(filepaths) == 0:
             message = f"Cannot pre-compute regridder for {name}; filepaths is empty."
             raise ValueError(message)
-        filepath = sorted(filepaths)[0]
-        with xr.open_dataset(filepath, decode_timedelta=True) as ds:
-            time = ds.time.values[0]
+        units = utils.resolve_unit_times(filepaths)
+        unit = sorted(units, key=lambda u: u.time_bounds()[0])[0]
+        source = unit.sources[0]
+        if isinstance(source, str):
+            with xr.open_dataset(source, decode_timedelta=True) as ds:
+                time = ds.time.values[0]
+        else:
+            time = unit.time_bounds()[0]
         # Build/verify on deep copies so the conversion's grid inference does not leak
         # into the shared grid_options.
         dataset_options_copy = dataset_options.model_copy(deep=True)
@@ -211,7 +218,7 @@ def precompute_regridders(data_options, grid_options, track_options, output_pare
         else:
             logger.info(f"Pre-computing regridder weights for {name}.")
         dataset_options_copy.convert_dataset(
-            time, filepath, track_options, grid_options_copy
+            time, unit, track_options, grid_options_copy
         )
 
     for dataset_options in data_options.datasets:
@@ -221,6 +228,7 @@ def precompute_regridders(data_options, grid_options, track_options, output_pare
 def track_interval(
     i,
     time_interval,
+    interval_times,
     data_options,
     grid_options,
     track_options,
@@ -253,12 +261,12 @@ def track_interval(
     interval_data_options.to_json(options_directory / "data.json")
     grid_options.to_json(options_directory / "grid.json")
     track_options.to_json(options_directory / "track.json")
-    filepaths = interval_data_options.dataset_by_name(dataset_name).filepaths
-    # times = utils.generate_times(filepaths)
-    dataset_options = interval_data_options.dataset_by_name(dataset_name)
-    times = utils.generate_dataset_times(dataset_options)
+    # The times for this interval were partitioned from the caller-supplied times in
+    # get_time_intervals and passed in directly, rather than re-derived from the files
+    # here. This avoids redundant enumeration and works for archive-backed datasets
+    # (e.g. operational radar) whose times cannot be recovered by opening their sources.
     thuner_track.track(
-        times=times,
+        times=interval_times,
         data_options=interval_data_options,
         grid_options=grid_options,
         track_options=track_options,
@@ -285,9 +293,21 @@ def get_interval_data_options(data_options: option.data.DataOptions, interval):
 
 def get_time_intervals(times, num_processes):
     """
-    Split the times, which have been recovered from the filenames, into intervals.
-    If the intervals are too small, set num_processes to 1.
+    Split the times into intervals for parallel tracking.
+
+    Returns ``(intervals, interval_times, num_processes)`` where ``intervals`` are the
+    ``(start, end)`` boundary string tuples, ``interval_times[i]`` is the explicit list
+    of times belonging to interval ``i``, and ``num_processes`` is the (possibly
+    reduced) process count. Adjacent intervals overlap at their shared boundary times
+    so the per-interval tracks can be stitched together.
+
+    The per-interval times are partitioned from the caller-supplied ``times`` rather
+    than re-derived from the files inside each worker. This is both cheaper (the times
+    are enumerated once) and necessary for archive-backed datasets such as operational
+    radar, whose times come from the acquisition schedule and cannot be recovered by
+    opening their (in-archive) sources.
     """
+    times = list(times)
     # If less than 6 times, use one process
     if len(times) < 6:
         start_time = str(pd.Timestamp(times[0]))
@@ -295,7 +315,7 @@ def get_time_intervals(times, num_processes):
         intervals = [(start_time, end_time)]
         logger.info("Less than 6 times, using one process.")
         num_processes = 1
-        return intervals, num_processes
+        return intervals, [list(times)], num_processes
 
     interval_size = int(np.ceil(len(times) / num_processes))
     if interval_size < 6:
@@ -311,17 +331,20 @@ def get_time_intervals(times, num_processes):
     previous, next = 0, interval_size
     end = len(times) - 1
     intervals = []
+    interval_times = []
     while next <= end:
         start_time = str(pd.Timestamp(times[previous]))
         end_time = str(pd.Timestamp(times[next]))
         intervals.append((start_time, end_time))
+        interval_times.append(list(times[previous : next + 1]))
         previous = next - 1
         next = previous + interval_size
     if next > end:
         start_time = str(pd.Timestamp(times[previous]))
         end_time = str(pd.Timestamp(times[-1]))
         intervals.append((start_time, end_time))
-    return intervals, num_processes
+        interval_times.append(list(times[previous:]))
+    return intervals, interval_times, num_processes
 
 
 def match_dataarray(da_1, da_2):
