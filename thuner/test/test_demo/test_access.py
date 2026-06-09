@@ -85,6 +85,10 @@ def test_access():
         by_date=False,
         num_processes=4,
     )
+    # Copy the animation into the repo gallery, so the tutorial built from this
+    # notebook can embed a stable, online-hosted copy (the figure below).
+    gif_filepath = output_parent / "visualize/mcs_attributes.gif"
+    utils.copy_to_gallery(gif_filepath, gallery_name="access_mcs.gif")
     # ![MCS detection and matching for ACCESS-C data.](https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/access_mcs.gif)
 
 

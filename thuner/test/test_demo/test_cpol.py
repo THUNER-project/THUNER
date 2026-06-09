@@ -108,6 +108,25 @@ def test_cpol():
     indices = ds.index_columns
     df = ds.to_dataframe().set_index(indices)
     print(df.head(10).to_string())
+    # Copy the runtime matching animations (and a representative still frame) into
+    # the repo gallery, so the tutorial built from this notebook can embed
+    # online-hosted copies of the figures below.
+    date = utils.format_time(start, day_only=True)
+    match_directory = output_parent / "visualize/tint_match"
+    utils.copy_to_gallery(
+        match_directory / f"convective_{date}.gif",
+        gallery_name=f"cpol_convective_match_{date}.gif",
+    )
+    utils.copy_to_gallery(
+        match_directory / f"mcs_{date}.gif",
+        gallery_name=f"cpol_mcs_match_{date}.gif",
+    )
+    # A single frame illustrates the TINT/MINT matching diagram. We pick a mid-run
+    # convective frame; change the index to feature a different time.
+    frames = sorted(glob.glob(str(match_directory / "convective" / "*.png")))
+    if frames:
+        frame = frames[len(frames) // 2]
+        utils.copy_to_gallery(frame, gallery_name=f"cpol_convective_match_{date}.png")
     #
     # The visualization folder will contain figures like that below, which illustrate the matching process. Currently THUNER supports the TINT/MINT matching approach, but the goal is to eventually incorporate others.
     #

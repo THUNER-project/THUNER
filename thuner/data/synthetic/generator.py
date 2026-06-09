@@ -20,7 +20,7 @@ import pandas as pd
 import xarray as xr
 from pydantic import Field, PrivateAttr, model_validator
 from thuner.log import setup_logger
-from thuner.utils import BaseOptions
+from thuner.utils import BaseOptions, get_mask_boundary
 import thuner.grid as grid
 from thuner.data.synthetic.objects import EllipsoidObject
 
@@ -130,8 +130,12 @@ class SyntheticGenerator(BaseOptions):
         margin_lat = margin_km / _KM_PER_DEGREE
         cos_lat = max(np.cos(np.deg2rad(obj.center_latitude)), 0.01)
         margin_lon = margin_km / (_KM_PER_DEGREE * cos_lat)
-        in_lat = lats.min() - margin_lat <= obj.center_latitude <= lats.max() + margin_lat
-        in_lon = lons.min() - margin_lon <= obj.center_longitude <= lons.max() + margin_lon
+        in_lat = (
+            lats.min() - margin_lat <= obj.center_latitude <= lats.max() + margin_lat
+        )
+        in_lon = (
+            lons.min() - margin_lon <= obj.center_longitude <= lons.max() + margin_lon
+        )
         return bool(in_lat and in_lon)
 
     # --- rendering (grid plumbing) -------------------------------------------
@@ -201,10 +205,19 @@ class SyntheticGenerator(BaseOptions):
         ds["gridcell_area"].attrs.update(
             {"units": "km^2", "standard_name": "area", "valid_min": 0}
         )
-        LON, LAT, ALT = xr.broadcast(ds.time, ds.longitude, ds.latitude, ds.altitude)[
-            1:
-        ]
-        ds["LON"], ds["LAT"], ds["ALT"] = LON, LAT, ALT
+
+        # Synthetic data fills the whole grid, so the domain mask is all True and its
+        # boundary traces the grid edge. This gives synthetic datasets the same
+        # (domain_mask, boundary_mask, gridcell_area) fields the real converted datasets
+        # carry, so they save, load and visualize through the identical path.
+        domain_mask = xr.DataArray(
+            np.ones((len(meridional_dim), len(zonal_dim)), dtype=bool),
+            dims=dims,
+            coords={dims[0]: meridional_dim, dims[1]: zonal_dim},
+        )
+        ds["domain_mask"] = domain_mask
+        _, _, boundary_mask = get_mask_boundary(domain_mask, grid_options)
+        ds["boundary_mask"] = boundary_mask
         return ds
 
 
@@ -300,7 +313,12 @@ class RandomEllipseGenerator(SyntheticGenerator):
         """(lat_min, lat_max, lon_min, lon_max) of the current grid."""
         lats = np.asarray(self._grid_options.latitude)
         lons = np.asarray(self._grid_options.longitude)
-        return float(lats.min()), float(lats.max()), float(lons.min()), float(lons.max())
+        return (
+            float(lats.min()),
+            float(lats.max()),
+            float(lons.min()),
+            float(lons.max()),
+        )
 
     def _draw_object(self, time):
         """Draw one random ellipse cell, born at ``time`` somewhere in the domain."""

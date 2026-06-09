@@ -80,10 +80,15 @@ def test_axes_validator_rejects_nonpositive_axis():
 
 
 def _grid_dataset(lat, lon, alt=3000.0):
-    """A minimal generator-style dataset carrying broadcast LON/LAT/ALT coords."""
+    """A minimal generator-style dataset: a NaN field on (time, altitude, lat, lon)."""
     shape = (1, 1, len(lat), len(lon))
-    ds = xr.Dataset(
-        {"reflectivity": (["time", "altitude", "latitude", "longitude"], np.zeros(shape))},
+    return xr.Dataset(
+        {
+            "reflectivity": (
+                ["time", "altitude", "latitude", "longitude"],
+                np.zeros(shape),
+            )
+        },
         coords={
             "time": [np.datetime64("2005-11-13T00:00:00", "ns")],
             "altitude": [alt],
@@ -91,9 +96,6 @@ def _grid_dataset(lat, lon, alt=3000.0):
             "longitude": lon,
         },
     )
-    LON, LAT, ALT = xr.broadcast(ds.time, ds.longitude, ds.latitude, ds.altitude)[1:]
-    ds["LON"], ds["LAT"], ds["ALT"] = LON, LAT, ALT
-    return ds
 
 
 def test_render_blob_centered_and_elliptical():

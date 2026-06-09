@@ -151,6 +151,9 @@ def match_ground_truth(output_directory):
 
     matched_tables = {}
     for dataset_options in options["data"].datasets:
+        if dataset_options.target_objects is None:
+            logger.warning((f"Dataset {dataset_options.name!r} has no target_objects."))
+            continue
         if not isinstance(dataset_options, SyntheticOptions):
             continue
         if not dataset_options.target_objects:

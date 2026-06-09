@@ -229,7 +229,7 @@ def synthetic_track():
     """Build default options for tracking synthetic MCS."""
 
     convective_options = convective(dataset="synthetic")
-    attribute_types = [core.default_tracked()]
+    attribute_types = [core.default_tracked(), quality.default(), ellipse.default()]
     attributes = attribute_option.Attributes(
         name="convective",
         attribute_types=attribute_types,

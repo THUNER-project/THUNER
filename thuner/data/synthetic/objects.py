@@ -26,6 +26,15 @@ _SCALE_STEP = 0.01
 _GAUSSIAN_EXTENT = float(np.sqrt(-2 * np.log(0.05)))
 
 
+def _bbox_index_bounds(flags):
+    """``(first, last + 1)`` index of the True span in a 1-D boolean array.
+
+    Assumes ``flags`` has at least one True (callers guard with ``.any()``).
+    """
+    indices = np.flatnonzero(flags)
+    return int(indices[0]), int(indices[-1]) + 1
+
+
 class SyntheticObject(BaseOptions):
     """
     Base class for a synthetic object.
@@ -204,43 +213,81 @@ class EllipsoidObject(SyntheticObject):
         return (self.major / 2) * factor
 
     def render(self, ds, grid_options):
-        """Add an elliptical blob (Gaussian or flat per ``style``) to ``ds[self.field]``."""
+        """Add an elliptical blob (Gaussian or flat per ``style``) to ``ds[self.field]``.
+
+        Only the object's bounding box is computed and written: the footprint reaches
+        ``horizontal_extent`` km horizontally and the matching multiple of
+        ``altitude_radius`` vertically, so for a small cell on a large domain the work is
+        a tiny fraction of the grid. Everything runs on raw numpy arrays.
+        """
         scale = self.fade_scale(self.time)
         if scale <= 0:
             return ds  # not yet faded in (or fully faded out): nothing to render.
-        LON, LAT, ALT = ds.LON, ds.LAT, ds.ALT
 
-        # Local east/north distance (km) of each cell from the centre. Metres-per-degree
-        # are taken from the WGS84 ellipsoid at the centre, so the ellipse keeps its true
-        # shape and size at any latitude (a degree of longitude shrinks polewards).
+        # Metres-per-degree from the WGS84 ellipsoid at the centre, so the ellipse keeps
+        # its true shape and size at any latitude (a degree of longitude shrinks
+        # polewards).
         clon, clat = self.center_longitude, self.center_latitude
         m_per_deg_lon = geod.inv(clon, clat, clon + _SCALE_STEP, clat)[2] / _SCALE_STEP
         m_per_deg_lat = geod.inv(clon, clat, clon, clat + _SCALE_STEP)[2] / _SCALE_STEP
-        east = (LON - clon) * m_per_deg_lon / 1e3
-        north = (LAT - clat) * m_per_deg_lat / 1e3
 
-        # Rotate into the ellipse's principal axes and normalise by the semi-axes (km).
-        # major/minor are full axis lengths, so the Gaussian scale along each axis (its
-        # 1-sigma half-extent) is half of them.
-        major_coord = east * np.cos(self.orientation) + north * np.sin(self.orientation)
-        minor_coord = -east * np.sin(self.orientation) + north * np.cos(
-            self.orientation
-        )
+        # latitude/longitude are 1-D axes on a geographic grid and 2-D curvilinear fields
+        # on a cartesian one; handle both by their dimensionality. The resulting arrays
+        # are in (dim0, dim1) order, matching the field's two horizontal dimensions.
+        lat = ds["latitude"].values
+        lon = ds["longitude"].values
+        if lat.ndim == 1:
+            lat2, lon2 = lat[:, None], lon[None, :]
+        else:
+            lat2, lon2 = lat, lon
 
-        distance = np.sqrt(
-            (major_coord / (self.major / 2)) ** 2
-            + (minor_coord / (self.minor / 2)) ** 2
-            + ((ALT - self.center_altitude) / self.altitude_radius) ** 2
+        # Local east/north distance (km), rotated into the ellipse's principal axes and
+        # normalised by the semi-axes (major/minor are full axis lengths, so the 1-sigma
+        # half-extent is half of them).
+        east = (lon2 - clon) * m_per_deg_lon / 1e3
+        north = (lat2 - clat) * m_per_deg_lat / 1e3
+        cos_o, sin_o = np.cos(self.orientation), np.sin(self.orientation)
+        major_coord = east * cos_o + north * sin_o
+        minor_coord = -east * sin_o + north * cos_o
+        horizontal_dist2 = (major_coord / (self.major / 2)) ** 2 + (
+            minor_coord / (self.minor / 2)
+        ) ** 2
+
+        # Bounding box: the altitude term only adds to the distance, so any cell already
+        # beyond the cutoff horizontally (or in altitude) can never be lit.
+        cutoff = _GAUSSIAN_EXTENT if self.style == "gaussian" else 1.0
+        horizontal_in = horizontal_dist2 <= cutoff**2
+        if not horizontal_in.any():
+            return ds  # object footprint lies entirely off the grid.
+        i0, i1 = _bbox_index_bounds(np.any(horizontal_in, axis=1))
+        j0, j1 = _bbox_index_bounds(np.any(horizontal_in, axis=0))
+
+        alt = ds["altitude"].values
+        altitude_in = (
+            np.abs(alt - self.center_altitude) <= cutoff * self.altitude_radius
         )
+        if not altitude_in.any():
+            return ds
+        k0, k1 = _bbox_index_bounds(altitude_in)
+
+        # Full (altitude, dim0, dim1) distance, evaluated within the box only.
+        hd2 = horizontal_dist2[i0:i1, j0:j1]
+        vert2 = ((alt[k0:k1] - self.center_altitude) / self.altitude_radius) ** 2
+        distance2 = hd2[None, :, :] + vert2[:, None, None]
 
         effective = self.intensity * scale  # fade-scaled peak
         if self.style == "gaussian":
-            values = effective * np.exp(-(distance**2) / 2)
-            values = values.where(values >= 0.05 * effective, np.nan)
+            values = effective * np.exp(-distance2 / 2)
+            lit = values >= 0.05 * effective
         else:  # "flat": uniform fill inside the major/minor ellipsoid (distance <= 1).
-            values = xr.where(distance <= 1, effective, np.nan)
-        values = values.transpose(*ds.dims)
-        ds[self.field].values = xr.where(~np.isnan(values), values, ds[self.field])
+            lit = distance2 <= 1
+            values = np.full(distance2.shape, effective)
+
+        # Paint lit cells into the field's box. Field dims are (time, altitude, dim0,
+        # dim1) and a synthetic grid carries a single time; later objects paint over
+        # earlier ones in any overlap, matching the previous behaviour.
+        box = ds[self.field].values[0, k0:k1, i0:i1, j0:j1]
+        box[lit] = values[lit]
         return ds
 
     def ground_truth(self):

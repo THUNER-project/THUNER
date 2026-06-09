@@ -88,7 +88,7 @@ def gridrad(start, end, event_start, base_local=None):
         analyze.mcs.quality_control(output_parent, analysis_options)
         analyze.mcs.classify_all(output_parent, analysis_options)
 
-        figure_name = f"mcs_gridrad_{event_start.replace('-', '')}"
+        figure_name = f"gridrad_mcs_{event_start.replace('-', '')}"
         kwargs = {"style": "gadi", "attributes": ["velocity", "offset"]}
         kwargs.update({"name": figure_name})
         figure_options = option.visualize.HorizontalAttributeOptions(**kwargs)

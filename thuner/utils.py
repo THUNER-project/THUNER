@@ -20,6 +20,7 @@ import importlib
 from datetime import datetime
 from pathlib import Path
 import json
+import shutil
 import hashlib
 import numpy as np
 import pandas as pd
@@ -818,6 +819,19 @@ def save_converted_dataset(unit, dataset, dataset_options):
             if tmp_filepath.exists():
                 tmp_filepath.unlink()
     return dataset
+
+
+def copy_to_gallery(figure_filepath, gallery_name=None):
+    """Copy a generated figure into the repository's ``gallery`` directory."""
+    figure_filepath = Path(figure_filepath)
+    # utils.py lives at <repo>/thuner/utils.py, so the gallery is two levels up.
+    gallery_directory = Path(__file__).parent.parent / "gallery"
+    if not gallery_directory.exists():
+        logger.warning(f"Gallery directory {gallery_directory} missing. Skipping copy.")
+        return
+    gallery_name = gallery_name or figure_filepath.name
+    logger.info(f"Copying {figure_filepath.name} to gallery as {gallery_name}.")
+    shutil.copy(figure_filepath, gallery_directory / gallery_name)
 
 
 def get_parent(dataset_options: BaseDatasetOptions) -> str:

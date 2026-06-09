@@ -1,6 +1,7 @@
 import xarray as xr
 from pathlib import Path
 import shutil
+import matplotlib.pyplot as plt
 import numpy as np
 import thuner.data as data
 import thuner.default as default
@@ -8,7 +9,9 @@ import thuner.track.track as track
 import thuner.option as option
 import thuner.analyze as analyze
 import thuner.data.synthetic as synthetic
-from thuner.utils import format_time
+import thuner.attribute as attribute
+import thuner.visualize as visualize
+from thuner.utils import format_time, copy_to_gallery
 from thuner.log import setup_logger
 
 
@@ -58,7 +61,11 @@ def test_synthetic():
     # Create data options dictionary. The objects are owned by a generator; FixedGenerator
     # simply replays this fixed list (procedural generators are a future extension).
     generator = synthetic.FixedGenerator(objects=starting_objects)
-    synthetic_options = data.synthetic.SyntheticOptions(generator=generator)
+    # target_objects tells analyze.synthetic.match_ground_truth which tracked object's
+    # masks to match the synthetic truth objects against (by centre containment).
+    synthetic_options = data.synthetic.SyntheticOptions(
+        generator=generator, target_objects=["convective"]
+    )
     data_options = option.data.DataOptions(datasets=[synthetic_options])
     data_options.to_json(options_directory / "data.json")
     track_options = default.track.synthetic_track()
@@ -68,7 +75,6 @@ def test_synthetic():
         options_directory / "visualize.json"
     )
     visualize_options.to_json(options_directory / "visualize.json")
-    visualize_options.model_dump()
     times = np.arange(
         np.datetime64(start),
         np.datetime64(end) + np.timedelta64(10, "m"),
@@ -82,15 +88,10 @@ def test_synthetic():
         visualize_options=visualize_options,
         output_directory=output_parent,
     )
+    gif_filename = f"convective_{format_time(start, day_only=True)}.gif"
+    gif_filepath = output_parent / f"visualize/match/{gif_filename}"
+    copy_to_gallery(gif_filepath, gallery_name=f"synthetic_{gif_filename}")
     # ![THUNER applied to synthetic data.](https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/synthetic_convective_20051113.gif)
-    gallery_directory = Path(track.__file__).parent.parent.parent / "gallery"
-    if gallery_directory.exists():
-        gif_filename = f"convective_{format_time(start, day_only=True)}.gif"
-        logger.info(f"Copying {gif_filename} to gallery.")
-        gif_filepath = output_parent / f"visualize/match/{gif_filename}"
-        shutil.copy(gif_filepath, gallery_directory / f"synthetic_{gif_filename}")
-    else:
-        logger.warning("Gallery missing. Skipping GIF copy.")
     # ## Cartesian Coordinates
     central_latitude = -10
     central_longitude = 132
@@ -143,7 +144,14 @@ def test_synthetic():
         speed_range=(5, 25),  # m/s
         life_time_range=(30, 120),  # minutes
     )
-    synthetic_options = data.synthetic.SyntheticOptions(generator=generator)
+    # target_objects tells analyze.synthetic.match_ground_truth which tracked object's
+    # masks to match the synthetic truth objects against (by centre containment).
+    synthetic_options = data.synthetic.SyntheticOptions(
+        generator=generator,
+        target_objects=["convective"],
+        # Save each generated grid so attribute.series can reload it when plotting.
+        converted_options={"save": True},
+    )
     data_options = option.data.DataOptions(datasets=[synthetic_options])
     data_options.to_json(options_directory / "data.json")
     track_options = default.track.synthetic_track()
@@ -165,10 +173,42 @@ def test_synthetic():
         visualize_options=None,
         output_directory=output_parent,
     )
+    analysis_options = analyze.mcs.AnalysisOptions()
+    analysis_options.to_json(options_directory / "analysis.json")
+    analyze.utils.smooth_flow_velocities("convective", output_parent)
+    analyze.utils.quality_control("convective", output_parent, analysis_options)
+    style = "presentation"
+    attribute_handlers = default.visualize.detected_attribute_handlers(
+        output_parent, style
+    )
+    figure_options = option.visualize.HorizontalAttributeOptions(
+        name="synthetic_convective",
+        object_name="convective",
+        style=style,
+        attribute_handlers=attribute_handlers,
+    )
+    visualize.attribute.series(
+        output_directory=output_parent,
+        start_time=start,
+        end_time=end,
+        figure_options=figure_options,
+        dataset_name="synthetic",
+        parallel_figure=False,
+        by_date=False,
+        num_processes=8,
+    )
     ground_truth = analyze.synthetic.write_ground_truth(
         output_parent, data_options=data_options, times=times, grid_options=grid_options
     )
-    print(ground_truth["synthetic"].head(10).to_string())
+    match_tables = analyze.synthetic.match_ground_truth(output_parent)
+    core = attribute.utils.read_attribute(
+        output_parent, "attributes", "convective", "core"
+    )
+    ellipse = attribute.utils.read_attribute(
+        output_parent, "attributes", "convective", "ellipse"
+    )
+    match_tables
+    plt.scatter(ground_truth["synthetic"]["u"], match_tables["synthetic"]["u"])
 
 
 if __name__ == "__main__":
