@@ -178,7 +178,7 @@ def detected_attribute_handlers(
         quality_variables=base_qualities + ["velocity"],
         name="velocity",
         color="tab:purple",
-        label="System Velocity",
+        label="Velocity",
     )
 
     id_handler = build_horizontal_text_handler(
@@ -213,7 +213,7 @@ def grouped_attribute_handlers(
         quality_variables=base_qualities + ["velocity"],
         name="velocity",
         color="tab:purple",
-        label="System Velocity",
+        label="Velocity",
     )
 
     ambient_handler = build_velocity_handler(
@@ -239,7 +239,7 @@ def grouped_attribute_handlers(
         attributes=["u_relative", "v_relative"],
         quality_variables=base_qualities + ["relative_velocity"],
         color="darkgreen",
-        label="Relative System Velocity",
+        label="Flow-Relative Velocity",
         name="relative",
     )
 

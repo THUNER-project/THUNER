@@ -47,7 +47,7 @@ class SyntheticGenerator(BaseOptions):
         ),
     )
     aggregation_method: Literal["overwrite", "sum", "mean"] = Field(
-        "mean",
+        "sum",
         description=(
             "How overlapping objects combine in the rendered field: 'overwrite' (the "
             "last object wins), 'sum' (add contributions) or 'mean' (per-cell average "
