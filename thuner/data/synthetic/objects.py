@@ -132,9 +132,32 @@ class SyntheticObject(BaseOptions):
         }
         return self.model_copy(update=update)
 
-    def render(self, ds, grid_options):
-        """Add this object's contribution to ``ds[self.field]``. Implemented by subclasses."""
+    def _footprint(self, ds):
+        """Compute this object's field contribution, restricted to its bounding box.
+
+        Returns ``(box_slice, footprint_mask, rendered_values)`` -- the slice of
+        ``ds[self.field]`` this object touches, a boolean mask (True at the cells the
+        object actually covers within that box) and the field value at every box cell --
+        or ``None`` if the object is invisible (faded out) or its footprint lies entirely
+        off the grid. Implemented by subclasses.
+        """
         raise NotImplementedError
+
+    def render(self, ds, grid_options=None):
+        """Paint this object's footprint into ``ds[self.field]``, overwriting overlaps.
+
+        A convenience for rendering a single object on its own. Combining *overlapping*
+        objects across a scene is the generator's job, via :meth:`_footprint` and its
+        ``aggregation_method`` (see ``thuner.data.synthetic.generator.SyntheticGenerator``).
+        """
+        footprint = self._footprint(ds)
+        if footprint is None:
+            return ds
+        box_slice, footprint_mask, rendered_values = footprint
+        ds[self.field].values[box_slice][footprint_mask] = rendered_values[
+            footprint_mask
+        ]
+        return ds
 
     def velocity(self):
         """Return the ground-truth (u, v) velocity in m/s (eastward, northward)."""
@@ -212,90 +235,72 @@ class EllipsoidObject(SyntheticObject):
         factor = _GAUSSIAN_EXTENT if self.style == "gaussian" else 1.0
         return (self.major / 2) * factor
 
-    def render(self, ds, grid_options):
-        """Add an elliptical blob (Gaussian or flat per ``style``) to ``ds[self.field]``.
-
-        Only the object's bounding box is computed and written: the footprint reaches
-        ``horizontal_extent`` km horizontally and the matching multiple of
-        ``altitude_radius`` vertically, so for a small cell on a large domain the work is
-        a tiny fraction of the grid. Everything runs on raw numpy arrays.
+    def _footprint(self, ds):
+        """
+        Compute the elliptical blob's (Gaussian or flat) contribution within its box.
         """
         scale = self.fade_scale(self.time)
         if scale <= 0:
-            return ds  # not yet faded in (or fully faded out): nothing to render.
+            return None  # not yet faded in (or fully faded out): nothing to render.
 
-        # Metres-per-degree from the WGS84 ellipsoid at the centre, so the ellipse keeps
-        # its true shape and size at any latitude (a degree of longitude shrinks
-        # polewards).
         clon, clat = self.center_longitude, self.center_latitude
         m_per_deg_lon = geod.inv(clon, clat, clon + _SCALE_STEP, clat)[2] / _SCALE_STEP
         m_per_deg_lat = geod.inv(clon, clat, clon, clat + _SCALE_STEP)[2] / _SCALE_STEP
 
-        # latitude/longitude are 1-D axes on a geographic grid and 2-D curvilinear fields
-        # on a cartesian one; handle both by their dimensionality. The resulting arrays
-        # are in (dim0, dim1) order, matching the field's two horizontal dimensions.
-        lat = ds["latitude"].values
-        lon = ds["longitude"].values
-        if lat.ndim == 1:
-            lat2, lon2 = lat[:, None], lon[None, :]
+        latitude = ds["latitude"].values
+        longitude = ds["longitude"].values
+        if latitude.ndim == 1:
+            latitude_grid, longitude_grid = latitude[:, None], longitude[None, :]
         else:
-            lat2, lon2 = lat, lon
+            latitude_grid, longitude_grid = latitude, longitude
 
-        # Local east/north distance (km), rotated into the ellipse's principal axes and
-        # normalised by the semi-axes (major/minor are full axis lengths, so the 1-sigma
-        # half-extent is half of them).
-        east = (lon2 - clon) * m_per_deg_lon / 1e3
-        north = (lat2 - clat) * m_per_deg_lat / 1e3
-        cos_o, sin_o = np.cos(self.orientation), np.sin(self.orientation)
-        major_coord = east * cos_o + north * sin_o
-        minor_coord = -east * sin_o + north * cos_o
-        horizontal_dist2 = (major_coord / (self.major / 2)) ** 2 + (
-            minor_coord / (self.minor / 2)
+        east_km = (longitude_grid - clon) * m_per_deg_lon / 1e3
+        north_km = (latitude_grid - clat) * m_per_deg_lat / 1e3
+        cos_orientation = np.cos(self.orientation)
+        sin_orientation = np.sin(self.orientation)
+        major_axis_coord = east_km * cos_orientation + north_km * sin_orientation
+        minor_axis_coord = -east_km * sin_orientation + north_km * cos_orientation
+        horizontal_dist2 = (major_axis_coord / (self.major / 2)) ** 2 + (
+            minor_axis_coord / (self.minor / 2)
         ) ** 2
 
-        # Bounding box: the altitude term only adds to the distance, so any cell already
-        # beyond the cutoff horizontally (or in altitude) can never be lit.
         cutoff = _GAUSSIAN_EXTENT if self.style == "gaussian" else 1.0
-        horizontal_in = horizontal_dist2 <= cutoff**2
-        if not horizontal_in.any():
-            return ds  # object footprint lies entirely off the grid.
-        i0, i1 = _bbox_index_bounds(np.any(horizontal_in, axis=1))
-        j0, j1 = _bbox_index_bounds(np.any(horizontal_in, axis=0))
+        within_cutoff = horizontal_dist2 <= cutoff**2
+        if not within_cutoff.any():
+            return None  # object footprint lies entirely off the grid.
+        row_start, row_stop = _bbox_index_bounds(np.any(within_cutoff, axis=1))
+        col_start, col_stop = _bbox_index_bounds(np.any(within_cutoff, axis=0))
 
-        alt = ds["altitude"].values
-        altitude_in = (
-            np.abs(alt - self.center_altitude) <= cutoff * self.altitude_radius
+        altitude = ds["altitude"].values
+        within_altitude = (
+            np.abs(altitude - self.center_altitude) <= cutoff * self.altitude_radius
         )
-        if not altitude_in.any():
-            return ds
-        k0, k1 = _bbox_index_bounds(altitude_in)
+        if not within_altitude.any():
+            return None
+        alt_start, alt_stop = _bbox_index_bounds(within_altitude)
 
-        # Full (altitude, dim0, dim1) distance, evaluated within the box only.
-        hd2 = horizontal_dist2[i0:i1, j0:j1]
-        vert2 = ((alt[k0:k1] - self.center_altitude) / self.altitude_radius) ** 2
-        distance2 = hd2[None, :, :] + vert2[:, None, None]
+        # Full (altitude, dim0, dim1) normalised distance, evaluated within the box only.
+        box_horizontal_dist2 = horizontal_dist2[row_start:row_stop, col_start:col_stop]
+        vertical_dist2 = (
+            (altitude[alt_start:alt_stop] - self.center_altitude) / self.altitude_radius
+        ) ** 2
+        distance2 = box_horizontal_dist2[None, :, :] + vertical_dist2[:, None, None]
 
-        effective = self.intensity * scale  # fade-scaled peak
+        effective_intensity = self.intensity * scale  # fade-scaled peak
         if self.style == "gaussian":
-            values = effective * np.exp(-distance2 / 2)
-            lit = values >= 0.05 * effective
+            rendered_values = effective_intensity * np.exp(-distance2 / 2)
+            footprint_mask = rendered_values >= 0.05 * effective_intensity
         else:  # "flat": uniform fill inside the major/minor ellipsoid (distance <= 1).
-            lit = distance2 <= 1
-            values = np.full(distance2.shape, effective)
+            footprint_mask = distance2 <= 1
+            rendered_values = np.full(distance2.shape, effective_intensity)
 
-        # Paint lit cells into the field's box. Field dims are (time, altitude, dim0,
-        # dim1) and a synthetic grid carries a single time; later objects paint over
-        # earlier ones in any overlap, matching the previous behaviour.
-        box = ds[self.field].values[0, k0:k1, i0:i1, j0:j1]
-        box[lit] = values[lit]
-        return ds
+        # Field dims are (time, altitude, dim0, dim1); a synthetic grid carries one time.
+        box_slice = np.s_[0, alt_start:alt_stop, row_start:row_stop, col_start:col_stop]
+        return box_slice, footprint_mask, rendered_values
 
     def ground_truth(self):
-        """Augment the base ground truth with the ellipse geometry.
-
-        Eccentricity is inferred from the axes, matching :mod:`thuner.attribute.ellipse`.
-        Values are rounded to the precisions declared there (major/minor: 1 dp,
-        orientation/eccentricity: 4 dp).
+        """
+        Augment the base ground truth with the ellipse geometry.
         """
         truth = super().ground_truth()
         eccentricity = np.sqrt(1 - (self.minor / self.major) ** 2)
@@ -305,7 +310,6 @@ class EllipsoidObject(SyntheticObject):
                 "minor": np.round(self.minor, 1),
                 "orientation": np.round(self.orientation, 4),
                 "eccentricity": np.round(eccentricity, 4),
-                # Report the fade-scaled peak, matching what was rendered at this time.
                 "intensity": np.round(self.intensity * self.fade_scale(self.time), 2),
             }
         )

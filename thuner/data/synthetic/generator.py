@@ -46,6 +46,14 @@ class SyntheticGenerator(BaseOptions):
             "having left it (lets objects wander out and return)."
         ),
     )
+    aggregation_method: Literal["overwrite", "sum", "mean"] = Field(
+        "mean",
+        description=(
+            "How overlapping objects combine in the rendered field: 'overwrite' (the "
+            "last object wins), 'sum' (add contributions) or 'mean' (per-cell average "
+            "over the objects covering each cell)."
+        ),
+    )
 
     # Transient run state, reset per pass over a grid.
     _live: list = PrivateAttr(default_factory=list)
@@ -55,7 +63,6 @@ class SyntheticGenerator(BaseOptions):
     _next_id: int = PrivateAttr(default=0)
     _start_time: object = PrivateAttr(default=None)
 
-    # --- hooks for subclasses ------------------------------------------------
     def initial_objects(self):
         """Objects present (in their birth state) at the start of a run."""
         return []
@@ -64,7 +71,6 @@ class SyntheticGenerator(BaseOptions):
         """New objects created at ``time`` (procedural subclasses override this)."""
         return []
 
-    # --- run lifecycle -------------------------------------------------------
     def reset(self, grid_options, start_time):
         """Initialise run state for a fresh pass over ``grid_options``."""
         self._grid_options = grid_options
@@ -120,7 +126,6 @@ class SyntheticGenerator(BaseOptions):
             rows.extend(obj.ground_truth() for obj in clone._live)
         return pd.DataFrame(rows).set_index(["time", "id"]).sort_index()
 
-    # --- domain culling ------------------------------------------------------
     def _in_domain(self, obj):
         """Whether the object's footprint still overlaps the buffered grid domain."""
         grid_options = self._grid_options
@@ -138,15 +143,44 @@ class SyntheticGenerator(BaseOptions):
         )
         return bool(in_lat and in_lon)
 
-    # --- rendering (grid plumbing) -------------------------------------------
     def _render(self, time):
-        """Render the live objects for ``time`` into a fresh copy of the base dataset."""
+        """Render the live objects for ``time`` into a fresh copy of the base dataset.
+
+        Overlapping objects are combined per ``aggregation_method``: ``"overwrite"`` lets
+        the last object win (cheapest), while ``"sum"`` and ``"mean"`` accumulate each
+        object's contribution -- the mean then dividing by the per-cell count of objects
+        covering each cell. Each object only touches its own bounding box, so the cost
+        stays proportional to the footprints rather than the grid.
+        """
         if self._base_dataset is None:
             self._base_dataset = self._create_base_dataset(time)
         ds = copy.deepcopy(self._base_dataset)
         ds["time"] = np.array([np.datetime64(time)])
+
+        if self.aggregation_method == "overwrite":
+            for obj in self._live:
+                ds = obj.render(ds, self._grid_options)
+            return ds
+
+        # "sum" / "mean": accumulate each object's contribution into the rendered field,
+        # tracking how many objects covered each cell. The base field is all-NaN, so
+        # cells no object touches stay NaN (empty), not 0.
+        field = ds["reflectivity"].values
+        total = np.zeros_like(field)
+        contributing_count = np.zeros_like(field)
         for obj in self._live:
-            ds = obj.render(ds, self._grid_options)
+            footprint = obj._footprint(ds)
+            if footprint is None:
+                continue
+            box_slice, footprint_mask, rendered_values = footprint
+            total[box_slice][footprint_mask] += rendered_values[footprint_mask]
+            contributing_count[box_slice][footprint_mask] += 1
+        covered = contributing_count > 0
+        field[:] = np.nan
+        if self.aggregation_method == "mean":
+            field[covered] = total[covered] / contributing_count[covered]
+        else:
+            field[covered] = total[covered]
         return ds
 
     def _ensure_grid_coordinates(self):
