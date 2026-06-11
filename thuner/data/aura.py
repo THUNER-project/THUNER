@@ -237,6 +237,12 @@ class BaseOperationalOptions(AuraOptions):
         super().model_post_init(__context)
         url = "https://dapds00.nci.org.au/thredds/fileServer/rq0"
         self._change_defaults(name="operational", parent_remote=url, range=200)
+        logger.warning(
+            (
+                "Currently no quality control is applied to the level 1 operational "
+                "radar data. Use with caution."
+            )
+        )
 
     # Fields common to both the single-radar and ensemble operational datasets.
     level: Literal["1", "1b", "2"] = Field(
@@ -416,6 +422,16 @@ class OperationalEnsembleOptions(BaseOperationalOptions):
     Options for an operational radar ensemble dataset. Currently this is just a quick
     and dirty ensemble using max reflectivities.
     """
+
+    def model_post_init(self, __context):
+        """Use model_post_init to change default inherited values."""
+        super().model_post_init(__context)
+        logger.warning(
+            (
+                "Currently level 1 ensembles are built quick-and-dirty by taking the "
+                "max value across the component radar grids. Use with caution."
+            )
+        )
 
     radars: list[int] = Field([3, 4, 40], description="Radar ID numbers.")
 

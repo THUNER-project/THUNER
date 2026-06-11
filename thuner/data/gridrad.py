@@ -278,8 +278,7 @@ def filter(
 def remove_speckles(ds, window_size=5, coverage_thresh=0.32, variables=None):
     """
     Remove speckles in GridRad data. Based on code from the GridRad website
-    https://gridrad.org/software.html and edits by Stacey Hitchcock. Modified from the
-    original to use xr.rolling instead of np.roll to correctly handle edges and corners.
+    https://gridrad.org/software.html and edits by Stacey Hitchcock.
     """
 
     logger.debug("Removing speckles from the GridRad data")
