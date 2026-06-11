@@ -239,8 +239,8 @@ class BaseOperationalOptions(AuraOptions):
         self._change_defaults(name="operational", parent_remote=url, range=200)
         logger.warning(
             (
-                "Currently no quality control is applied to the level 1 operational "
-                "radar data. Use with caution."
+                "Currently THUNER applies minimal quality control to level 1 "
+                "operational radar data. Use with caution."
             )
         )
 
@@ -390,6 +390,15 @@ def regrid_operational(filepath, dataset_options, grid_options, weights_filepath
     if "reflectivity" in ds.data_vars:
         ds["reflectivity"] = ds["reflectivity"].where(ds["reflectivity"] >= -10)
         ds["reflectivity"].attrs.update(REFLECTIVITY_ATTRS)
+        ds = _utils.remove_speckles(
+            ds, field="reflectivity", variables=["reflectivity"]
+        )
+        ds = _utils.remove_low_level_clutter(
+            ds, field="reflectivity", variables=["reflectivity"]
+        )
+        ds = _utils.remove_speckles(
+            ds, field="reflectivity", variables=["reflectivity"]
+        )
     return ds
 
 

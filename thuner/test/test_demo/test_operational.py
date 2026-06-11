@@ -101,6 +101,33 @@ def test_operational():
         by_date=False,
         num_processes=8,
     )
+    dt = xr.open_datatree(output_parent / "output.zarr")
+    velocities = dt.analysis.velocities.ds.to_dataframe()
+    quality_control = dt.analysis.quality.ds.to_dataframe()
+    group = dt.attributes.mcs.group.ds.to_dataframe()
+    quality_checks = [
+        "convective_contained",
+        "anvil_contained",
+        "duration",
+        "velocity",
+        "offset",
+    ]
+    cond = quality_control[quality_checks].all(axis=1)
+    restricted_velocities = velocities[cond]
+    restricted_group = group[cond]
+    restricted_offset_magnitude = np.sqrt(
+        restricted_group["x_offset"] ** 2 + restricted_group["y_offset"] ** 2
+    )
+    restricted_velocities_magnitude = np.sqrt(
+        restricted_velocities["u"] ** 2 + restricted_velocities["v"] ** 2
+    )
+    print(
+        f"Distinct convective systems: {len(restricted_velocities['universal_id'].unique())}"
+    )
+    print(f"Mean u velocity: {restricted_velocities['u'].mean():.2f} m/s")
+    print(f"Mean v velocity: {restricted_velocities['v'].mean():.2f} m/s")
+    print(f"Mean x offset: {restricted_group['x_offset'].mean():.2f} m/s")
+    print(f"Mean y offset: {restricted_group['y_offset'].mean():.2f} m/s")
 
 
 if __name__ == "__main__":

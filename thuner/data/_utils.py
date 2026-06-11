@@ -174,6 +174,116 @@ def smooth_mask(mask):
     return mask
 
 
+_LOW_CLUTTER_ALTITUDE = 4000.0  # m; weak echo confined below this is treated as clutter
+
+
+def remove_speckles(
+    ds, field="reflectivity", window_size=5, coverage_thresh=0.32, variables=None
+):
+    """Remove small isolated echo "speckles" from a gridded radar dataset.
+
+    A cell is dropped from every variable in ``variables`` (default ``[field]``) if the
+    connected region of finite ``field`` it belongs to is smaller than
+    ``window_size**3 * coverage_thresh`` voxels.
+    """
+    logger.debug("Removing speckles.")
+    if variables is None:
+        variables = [field]
+    field_exists = xr.where(~np.isnan(ds[field]), True, False)
+    min_size = window_size**3 * coverage_thresh
+    speckle_mask = remove_small_objects(field_exists.values > 0, min_size=min_size)
+    for var in variables:
+        ds[var] = ds[var].where(speckle_mask)
+    return ds
+
+
+def remove_low_level_clutter(ds, field="reflectivity", variables=None):
+    """Remove weak low-level clutter from a gridded radar dataset (altitude in metres)."""
+    logger.debug("Removing low-level clutter.")
+    if variables is None:
+        variables = [field]
+    refl = ds[field]
+    altitude = ds["altitude"]
+
+    # Max heights of non-nan reflectivity values. If an entire column is nan, the masked
+    # altitudes collapse to zero (below the domain), so the conditions below treat it as
+    # having no echo.
+    refl_max = refl.max(dim="altitude", skipna=True)
+    refl_0_alts = altitude.where(refl > 0.0, 0.0)
+    refl_0_max_alt = refl_0_alts.max(dim="altitude")
+    refl_0_min_alt = refl_0_alts.min(dim="altitude")
+    refl_5_max_alt = altitude.where(refl > 5.0, 0.0).max(dim="altitude")
+    refl_15_max_alt = altitude.where(refl > 15.0, 0.0).max(dim="altitude")
+
+    # Check for very weak echos below 4 km
+    cond_1 = (refl_max < 20.0) & (refl_0_max_alt <= 4000.0) & (refl_0_min_alt <= 3000.0)
+    # Check for very weak echos below 5 km
+    cond_2 = (refl_max < 10.0) & (refl_0_max_alt <= 5000.0) & (refl_0_min_alt <= 3000.0)
+    # Check for weak echos below 5 km. Note the > 0.0 ensures values actually exist
+    cond_3 = (
+        (refl_5_max_alt <= 5000.0)
+        & (refl_5_max_alt > 0.0)
+        & (refl_15_max_alt <= 3000.0)
+    )
+    # Check for weak echos below 2 km
+    cond_4 = (refl_15_max_alt < 2000.0) & (refl_15_max_alt > 0.0)
+    cond = np.logical_not(cond_1 | cond_2 | cond_3 | cond_4)
+    for var in variables:
+        ds[var] = ds[var].where(cond)
+    return ds
+
+
+def remove_clutter_below_anvils(ds, field="reflectivity", variables=None):
+    """Remove clutter below anvils from a gridded radar dataset (altitude in metres)."""
+    logger.debug("Removing clutter below anvils.")
+    if variables is None:
+        variables = [field]
+    altitude = ds["altitude"]
+
+    # Check if reflectivity exists at, above and below 4 km. ``where(..., drop=True)``
+    # promotes the boolean ``exists`` to float (to hold NaN), so cast the lowest-level
+    # slice back to bool before combining it with the boolean conditions below.
+    exists = np.isfinite(ds[field])
+    exists_above_4 = exists.where(altitude >= 4000.0, drop=True)
+    exists_4 = exists_above_4.isel(altitude=0).astype(bool)
+    exists_above_4 = exists_above_4.sum(dim="altitude") > 0
+    exists_below_4 = exists.where(altitude < 4000.0, drop=True).sum(dim="altitude") > 0
+
+    cond = exists_4 | ~exists_above_4 | ~exists_below_4
+    for var in variables:
+        ds[var] = ds[var].where(cond)
+    return ds
+
+
+def remove_clutter(
+    ds, field="reflectivity", variables=None, low_level=True, below_anvil=False
+):
+    """Remove ground/low-level clutter from a gridded radar dataset (altitude in metres).
+
+    Runs the GridRad-derived sequence on THUNER-standard names: drop weak low-altitude
+    echo, then speckle / low-level-clutter / (optional) below-anvil / speckle passes.
+    """
+    logger.debug("Removing clutter.")
+    if variables is None:
+        variables = [field]
+
+    # Remove low reflectivity, low level clutter
+    cond = (ds[field] >= 10.0) | (ds["altitude"] > _LOW_CLUTTER_ALTITUDE)
+    for var in variables:
+        ds[var] = ds[var].where(cond)
+
+    # First pass at speckle removal
+    ds = remove_speckles(ds, field=field, variables=variables)
+    if low_level:
+        # Remove low level clutter. Note this can remove some low level cloud/drizzle
+        ds = remove_low_level_clutter(ds, field=field, variables=variables)
+    if below_anvil:
+        ds = remove_clutter_below_anvils(ds, field=field, variables=variables)
+    # Second pass at speckle removal
+    ds = remove_speckles(ds, field=field, variables=variables)
+    return ds
+
+
 def mask_from_range(dataset, dataset_options, grid_options):
     """Create domain mask for gridcells greater than range from central point."""
     if grid_options.name == "cartesian":

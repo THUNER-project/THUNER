@@ -13,6 +13,8 @@ import thuner.attribute as attribute
 import thuner.visualize as visualize
 from thuner.utils import format_time, copy_to_gallery
 from thuner.log import setup_logger
+import matplotlib.pyplot as plt
+from matplotlib import colors
 
 
 def test_synthetic():
@@ -24,7 +26,7 @@ def test_synthetic():
     # Parent directory for saving outputs
     base_local = Path.home() / "THUNER_output"
     start = "2005-11-13T00:00:00"
-    end = "2005-11-13T03:00:00"
+    end = "2005-11-13T02:00:00"
     # Set a flag for whether or not to remove existing output directories
     remove_existing_outputs = True
     output_parent = base_local / "runs/synthetic/geographic"
@@ -130,6 +132,8 @@ def test_synthetic():
         shutil.rmtree(output_parent)
     options_directory = output_parent / "options"
     options_directory.mkdir(parents=True, exist_ok=True)
+    start = "2005-11-13T00:00:00"
+    end = "2005-11-13T04:00:00"
     lat = np.arange(-14, -6 + 0.025, 0.025).tolist()
     lon = np.arange(128, 136 + 0.025, 0.025).tolist()
     grid_options = option.grid.GridOptions(
@@ -139,10 +143,10 @@ def test_synthetic():
     generator = synthetic.RandomEllipseGenerator(
         seed=42,
         spawn_rate=8,  # ~8 new cells per hour
-        initial_count=3,
-        major_range=(30, 60),  # full major axis, km
-        speed_range=(5, 25),  # m/s
-        life_time_range=(30, 120),  # minutes
+        initial_count=8,
+        major_range=(50, 100),  # full major axis, km
+        speed_range=(5, 45),  # m/s
+        life_time_range=(30, 240),  # minutes
     )
     # target_objects tells analyze.synthetic.match_ground_truth which tracked object's
     # masks to match the synthetic truth objects against (by centre containment).
@@ -162,7 +166,7 @@ def test_synthetic():
     visualize_options.to_json(options_directory / "visualize.json")
     times = np.arange(
         np.datetime64(start),
-        np.datetime64(start) + np.timedelta64(2, "h") + np.timedelta64(10, "m"),
+        np.datetime64(end) + np.timedelta64(10, "m"),
         np.timedelta64(10, "m"),
     )
     track.track(
@@ -193,7 +197,7 @@ def test_synthetic():
         end_time=end,
         figure_options=figure_options,
         dataset_name="synthetic",
-        parallel_figure=False,
+        parallel_figure=True,
         by_date=False,
         num_processes=8,
     )
@@ -201,14 +205,110 @@ def test_synthetic():
         output_parent, data_options=data_options, times=times, grid_options=grid_options
     )
     match_tables = analyze.synthetic.match_ground_truth(output_parent)
-    core = attribute.utils.read_attribute(
-        output_parent, "attributes", "convective", "core"
-    )
+    matched = match_tables["synthetic"].reset_index()
+    matched = matched[
+        matched["convective_universal_id"] != 0
+    ]  # drop unmatched truth objects
+    matched["n_sharing"] = matched.groupby(["time", "convective_universal_id"])[
+        "id"
+    ].transform("size")
+    matched["overlapped"] = matched["n_sharing"] > 1
+    velocities = attribute.utils.read_attribute(output_parent, "analysis", "velocities")
     ellipse = attribute.utils.read_attribute(
         output_parent, "attributes", "convective", "ellipse"
     )
-    match_tables
-    plt.scatter(ground_truth["synthetic"]["u"], match_tables["synthetic"]["u"])
+    dt = xr.open_datatree(output_parent / "output.zarr")
+    quality = attribute.utils.read_attribute(output_parent, "analysis", "quality")
+    truth = match_tables["synthetic"].reset_index()
+    truth = truth[truth["convective_universal_id"] != 0]
+    # flag truth objects merged into a shared detected object (see the overlap demo above)
+    truth["overlapped"] = (
+        truth.groupby(["time", "convective_universal_id"])["id"].transform("size") > 1
+    )
+    truth = truth.rename(columns={"u": "u_true", "v": "v_true"})
+    detected = velocities.reset_index()[["time", "universal_id", "u", "v"]]
+    detected = detected.rename(columns={"u": "u_detected", "v": "v_detected"})
+    quality = quality.reset_index()[["time", "universal_id", "contained"]]
+    comparison = truth.merge(
+        detected,
+        left_on=["time", "convective_universal_id"],
+        right_on=["time", "universal_id"],
+        how="inner",
+    )
+    comparison = comparison.merge(
+        quality,
+        left_on=["time", "convective_universal_id"],
+        right_on=["time", "universal_id"],
+        how="inner",
+    )
+    comparison
+    cond = comparison["contained"] & ~(comparison["overlapped"])
+    comparison = (
+        comparison.where(cond).dropna().drop(columns=["contained", "overlapped"])
+    )
+    comparison["u_error"] = comparison["u_detected"] - comparison["u_true"]
+    comparison["v_error"] = comparison["v_detected"] - comparison["v_true"]
+    comparison["u_rmse"] = np.sqrt(np.mean(comparison["u_error"] ** 2))
+    comparison["v_rmse"] = np.sqrt(np.mean(comparison["v_error"] ** 2))
+    style = "dark_background"
+    with plt.style.context(style):
+        fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+        for ax, component in zip(axes, ["u", "v"]):
+            ax.text(
+                0.025,
+                0.975,
+                f"RMSE: {comparison[f'{component}_rmse'].iloc[0]:.2f} m/s",
+                transform=ax.transAxes,
+                fontsize=10,
+                verticalalignment="top",
+                color="white",
+                backgroundcolor="dimgrey",
+            )
+            true_velocity = comparison[f"{component}_true"]
+            detected_velocity = comparison[f"{component}_detected"]
+            boundaries = np.arange(0, 11)
+            n_colors = len(boundaries) - 1
+            # 3. Set up the discrete colormap and normalization
+            cmap = plt.get_cmap("Reds", n_colors)  # Choose your base colormap
+            norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
+            hb = ax.hexbin(
+                true_velocity,
+                detected_velocity,
+                gridsize=15,
+                cmap=cmap,
+                norm=norm,
+                bins=10,
+                mincnt=1,
+                extent=(-40, 40, -40, 40),
+                linewidth=0.5,
+                edgecolor="black",
+            )
+            ax.set_facecolor("dimgrey")
+            lims = [-40, 40]
+            ax.plot(lims, lims, "white", lw=1)
+            ax.set_xlim(lims)
+            ax.set_ylim(lims)
+            ax.set_xticks(np.arange(-40, 41, 20))
+            ax.set_yticks(np.arange(-40, 41, 20))
+            ax.set_xlabel(f"true {component} [m/s]")
+            ax.set_ylabel(f"detected {component} [m/s]")
+            ax.set_title(f"{component} velocity: true vs detected")
+            ax.set_aspect("equal")
+            ax.grid()
+            ax.set_axisbelow(True)
+            cbar = plt.colorbar(hb, ax=ax)
+            cbar.set_label("Count [-]")
+        (output_parent / "visualize").mkdir(parents=True, exist_ok=True)
+        plt.savefig(
+            output_parent / "visualize" / "true_vs_detected.png", bbox_inches="tight"
+        )
+    plt.show()
+    comparison["u_error"] = comparison["u_detected"] - comparison["u_true"]
+    comparison["v_error"] = comparison["v_detected"] - comparison["v_true"]
+    u_rmse = np.sqrt(np.mean(comparison["u_error"] ** 2))
+    v_rmse = np.sqrt(np.mean(comparison["v_error"] ** 2))
+    print(f"u velocity RMSE: {u_rmse:.2f} [m/s]")
+    print(f"v velocity RMSE: {v_rmse:.2f} [m/s]")
 
 
 if __name__ == "__main__":
