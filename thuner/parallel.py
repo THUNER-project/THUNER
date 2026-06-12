@@ -73,6 +73,7 @@ def track(
         raise ValueError(message)
 
     times = sorted(list(times))
+    anchor_synthetic_generators(data_options, times)
     intervals, interval_times, num_processes = get_time_intervals(times, num_processes)
     logger.info(f"Beginning parallel tracking with {num_processes} processes.")
 
@@ -132,6 +133,21 @@ def track(
             utils.check_results(results)
 
     stitch_run(output_directory, intervals, cleanup=cleanup)
+
+
+def anchor_synthetic_generators(data_options, times):
+    """Give each synthetic generator the run's full ordered time grid.
+
+    Synthetic generators evolve a deterministic scene step by step, so a worker handling a
+    later interval must replay that evolution from the run's start to reach the correct
+    state at its interval's start. Recording the grid here, before the per-interval deep
+    copies, propagates it into every worker so each can fast-forward. See
+    :attr:`thuner.data.synthetic.generator.SyntheticGenerator.run_times`.
+    """
+    run_times = [str(pd.Timestamp(t)) for t in times]
+    for dataset_options in data_options.datasets:
+        if isinstance(dataset_options, data.synthetic.SyntheticOptions):
+            dataset_options.generator.run_times = run_times
 
 
 def precompute_regridders(data_options, grid_options, track_options, output_parent):

@@ -3,6 +3,7 @@
 import numpy as np
 import pandas as pd
 import pytest
+import xarray as xr
 
 import thuner.option as option
 import thuner.data.synthetic as synthetic
@@ -93,8 +94,12 @@ def test_fade_scales_intensity_in_truth_and_render():
 
     gen = synthetic.FixedGenerator(objects=[obj])
     fields = [gen.step(t, go) for t in times]
-    assert np.all(np.isnan(fields[0]["reflectivity"].values))  # scale 0 -> nothing drawn
-    assert float(np.nanmax(fields[2]["reflectivity"].values)) == pytest.approx(peak, abs=1.0)
+    assert np.all(
+        np.isnan(fields[0]["reflectivity"].values)
+    )  # scale 0 -> nothing drawn
+    assert float(np.nanmax(fields[2]["reflectivity"].values)) == pytest.approx(
+        peak, abs=1.0
+    )
 
 
 def test_random_generator_deterministic_and_consistent():
@@ -107,7 +112,9 @@ def test_random_generator_deterministic_and_consistent():
     truth_again = synthetic.RandomEllipseGenerator(**kw).ground_truth(times, go)
     pd.testing.assert_frame_equal(truth, truth_again)
     assert len(truth) > 0
-    other = synthetic.RandomEllipseGenerator(**{**kw, "seed": 99}).ground_truth(times, go)
+    other = synthetic.RandomEllipseGenerator(**{**kw, "seed": 99}).ground_truth(
+        times, go
+    )
     assert not truth.equals(other)
 
     # A render run (step) reproduces the ground-truth re-run exactly (RNG determinism).
@@ -118,6 +125,48 @@ def test_random_generator_deterministic_and_consistent():
         rows.extend(obj.ground_truth() for obj in gen._live)
     rendered = pd.DataFrame(rows).set_index(["time", "id"]).sort_index()
     pd.testing.assert_frame_equal(rendered, truth)
+
+
+def test_run_times_fast_forward_matches_serial_random():
+    """A run_times-anchored generator started mid-run reproduces the serial scene.
+
+    Simulates a parallel worker whose interval begins partway through the run: its first
+    ``step`` is at a later time, so the fast-forward must rebuild the exact state a serial
+    run would have there -- RNG-driven spawns, motion and culling included -- before
+    rendering. We compare the rendered field (what the tracker actually sees) frame by
+    frame over the worker's tail of the run.
+    """
+    go = _grid()
+    times = _times(6)
+    run_times = [str(pd.Timestamp(t)) for t in times]
+    kw = dict(seed=3, spawn_rate=20.0, initial_count=2)
+
+    serial = synthetic.RandomEllipseGenerator(**kw)
+    serial_fields = [serial.step(t, go) for t in times]
+
+    # Worker interval starts at times[3]; the first step must fast-forward through 0..3.
+    worker = synthetic.RandomEllipseGenerator(run_times=run_times, **kw)
+    for k in range(3, len(times)):
+        ds = worker.step(times[k], go)
+        xr.testing.assert_allclose(ds["reflectivity"], serial_fields[k]["reflectivity"])
+
+
+def test_run_times_fast_forward_matches_serial_fixed():
+    """Fixed-generator motion is a chain of geodesic hops, so a fast-forwarded worker must
+    replay every step to land where a serial run did. A single jump to the interval's
+    start would diverge -- this guards that the fast-forward steps, not jumps."""
+    go = _grid()
+    times = _times(6)
+    run_times = [str(pd.Timestamp(t)) for t in times]
+    obj = _cell(speed=25.0, direction=np.pi / 3)  # moving north-east
+
+    serial = synthetic.FixedGenerator(objects=[obj])
+    serial_fields = [serial.step(t, go) for t in times]
+
+    worker = synthetic.FixedGenerator(objects=[obj], run_times=run_times)
+    for k in range(3, len(times)):
+        ds = worker.step(times[k], go)
+        xr.testing.assert_allclose(ds["reflectivity"], serial_fields[k]["reflectivity"])
 
 
 def test_random_generator_round_trips_through_options_union():

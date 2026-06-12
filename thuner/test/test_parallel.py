@@ -11,6 +11,9 @@ import xarray as xr
 import pytest
 
 import thuner.parallel as parallel
+import thuner.option as option
+import thuner.data as data
+import thuner.data.synthetic as synthetic
 
 
 def _mask_dataarray(values):
@@ -112,3 +115,56 @@ def test_get_time_intervals_splits_and_covers_domain():
         assert set(earlier) & set(later)
     covered = sorted(set().union(*(set(it) for it in interval_times)))
     assert covered == list(times)
+
+
+def _geo_grid():
+    """A small geographic grid with a single altitude level."""
+    lat = np.round(np.arange(-12.0, -8.0, 0.1), 5).tolist()
+    lon = np.round(np.arange(130.0, 134.0, 0.1), 5).tolist()
+    go = option.grid.GridOptions(
+        name="geographic", latitude=lat, longitude=lon, geographic_spacing=[0.1, 0.1]
+    )
+    go.altitude = [3000.0]
+    return go
+
+
+def test_parallel_synthetic_intervals_match_serial():
+    """The parallel data path reproduces a serial synthetic run, interval by interval.
+
+    ``anchor_synthetic_generators`` records the run's full time grid and
+    ``get_interval_data_options`` deep-copies it into each interval. Each interval's
+    generator -- including one whose interval starts mid-run -- must then render exactly
+    what a single serial pass renders at the same times, so the per-interval tracks stitch
+    as if the run was never split. Uses the random generator so RNG-driven spawns (the
+    state most sensitive to where stepping begins) are exercised.
+    """
+    go = _geo_grid()
+    times = _times(13)  # enough that get_time_intervals actually splits the domain
+
+    generator = synthetic.RandomEllipseGenerator(
+        seed=7, spawn_rate=15.0, initial_count=2
+    )
+    data_options = option.data.DataOptions(
+        datasets=[synthetic.SyntheticOptions(generator=generator)]
+    )
+
+    # Serial reference: one generator stepped over every time, in order.
+    serial_gen = generator.model_copy(deep=True)
+    serial_fields = {t: serial_gen.step(t, go) for t in times}
+
+    # Parallel path: anchor the run's time grid, split into intervals, then drive each
+    # interval's independently deep-copied generator just as a worker would.
+    parallel.anchor_synthetic_generators(data_options, times)
+    assert data_options.datasets[0].generator.run_times is not None
+    intervals, interval_times, _ = parallel.get_time_intervals(times, 2)
+    assert len(intervals) >= 2  # the split actually happened
+
+    for interval, itimes in zip(intervals, interval_times):
+        interval_options = parallel.get_interval_data_options(data_options, interval)
+        gen = interval_options.datasets[0].generator
+        assert gen.run_times is not None  # survived the per-interval deep copy
+        for t in itimes:
+            ds = gen.step(t, go)
+            xr.testing.assert_allclose(
+                ds["reflectivity"], serial_fields[t]["reflectivity"]
+            )

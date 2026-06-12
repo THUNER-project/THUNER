@@ -48,8 +48,8 @@ class SyntheticOptions(BaseDatasetOptions):
     )
 
     def get_filepaths(self):
-        """Synthetic data has no files on disk; return an empty list."""
-        return []
+        """Synthetic data has no files on disk; return None."""
+        return None
 
     def converted_filepath(self, unit):
         """A saved synthetic grid *is* its own source, so return the path directly.

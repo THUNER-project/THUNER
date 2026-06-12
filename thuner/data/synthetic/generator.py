@@ -1,17 +1,4 @@
-"""
-Synthetic dataset generators.
-
-A generator owns the evolving synthetic scene: step by step it spawns, advances, fades
-and culls :class:`~thuner.data.synthetic.objects.SyntheticObject`s, and renders each
-time's gridded field. :class:`SyntheticGenerator` is the serialisable base (its run-time
-state lives in private attributes, reset per run); :class:`FixedGenerator` replays a
-fixed list of objects, and procedural subclasses can spawn objects on the fly.
-
-Ground truth is produced by replaying the *same* stepping on a fresh copy (see
-:meth:`SyntheticGenerator.ground_truth`), so the truth table is consistent with the
-rendered field by construction, even once stepping becomes stateful (per-step noise,
-acceleration, random spawning).
-"""
+"""Synthetic dataset generators."""
 
 import copy
 from typing import Annotated, Literal
@@ -26,8 +13,7 @@ from thuner.data.synthetic.objects import EllipsoidObject
 
 logger = setup_logger(__name__)
 
-# Approx km per degree of latitude (longitude scaled by cos(latitude)). Only used for the
-# coarse domain-culling margin, so the spherical approximation is plenty.
+# Approx km per degree of latitude. Only used for the coarse domain-culling margin.
 _KM_PER_DEGREE = 111.32
 
 
@@ -49,6 +35,12 @@ class SyntheticGenerator(BaseOptions):
             "over the objects covering each cell)."
         ),
     )
+    run_times: list[str] | None = Field(
+        None,
+        description=(
+            "Full ordered list of times the scene is stepped through during a run."
+        ),
+    )
 
     # Transient run state, reset per pass over a grid.
     _live: list = PrivateAttr(default_factory=list)
@@ -57,6 +49,9 @@ class SyntheticGenerator(BaseOptions):
     _base_dataset: object = PrivateAttr(default=None)
     _next_id: int = PrivateAttr(default=0)
     _start_time: object = PrivateAttr(default=None)
+    # Last ``run_times`` entry already evolved, so a fast-forwarded ``step`` knows where
+    # to resume (None until the first step). Only used when ``run_times`` is set.
+    _evolved_through: object = PrivateAttr(default=None)
 
     def initial_objects(self):
         """Objects present (in their birth state) at the start of a run."""
@@ -67,7 +62,9 @@ class SyntheticGenerator(BaseOptions):
         return []
 
     def reset(self, grid_options, start_time):
-        """Initialise run state for a fresh pass over ``grid_options``."""
+        """Initialise run state."""
+        if self.run_times is not None:
+            start_time = self.run_times[0]
         self._grid_options = grid_options
         self._ensure_grid_coordinates()
         self._base_dataset = None
@@ -75,6 +72,7 @@ class SyntheticGenerator(BaseOptions):
         self._start_time = start_time
         self._live = []
         self._pool = []
+        self._evolved_through = None
         for obj in self.initial_objects():
             self._admit(obj, start_time)
 
@@ -104,13 +102,32 @@ class SyntheticGenerator(BaseOptions):
         """Advance to ``time`` and return the rendered dataset."""
         if self._grid_options is not grid_options:
             self.reset(grid_options, time)
-        self._evolve(time)
+        self._advance_to(time)
         return self._render(time)
+
+    def _advance_to(self, time):
+        """Evolve the scene up to ``time`` before it is rendered."""
+        if self.run_times is None:
+            self._evolve(time)
+            return
+        target = np.datetime64(time)
+        for run_time in self.run_times:
+            run_time64 = np.datetime64(run_time)
+            if (
+                self._evolved_through is not None
+                and run_time64 <= self._evolved_through
+            ):
+                continue
+            if run_time64 > target:
+                break
+            self._evolve(run_time)
+            self._evolved_through = run_time64
 
     def replay(self, times, grid_options):
         """Replay the generator over times, and return every live object."""
         logger.info(f"Replaying generator to recover objects.")
         clone = self.model_validate(self.model_dump())
+        clone.run_times = None
         clone.reset(grid_options, times[0])
         objects = []
         for time in times:
