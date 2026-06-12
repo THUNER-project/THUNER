@@ -21,7 +21,6 @@ from thuner.utils import store_path
 from thuner.write.attribute import write_attribute
 from thuner.analyze.utils import read_options
 from thuner.data.synthetic.options import SyntheticOptions
-from thuner.data.synthetic.truth import synthetic_ground_truth
 
 logger = setup_logger(__name__)
 
@@ -33,21 +32,52 @@ NO_MATCH = ""
 def write_ground_truth(output_directory, times):
     """Write ground-truth tables for all synthetic datasets to the zarr store.
 
-    Each synthetic dataset's truth lands in a ``truth/<dataset_name>`` group, derived by
-    replaying its generator over ``times`` on ``grid_options`` (so the truth matches what
-    was rendered). Returns a ``{dataset_name: DataFrame}`` mapping of what was written.
+    Each synthetic dataset's generator is replayed *once* over ``times`` on ``grid_options``
+    to recover both the objects and their ground-truth rows (so the truth matches what was
+    rendered). When the dataset declares ``target_objects``, the recovered objects' truth
+    masks are overlapped with the detected masks in the same pass, appending detected-uid
+    columns without a second replay. Each table lands in a ``truth/<dataset_name>`` group;
+    returns a ``{dataset_name: DataFrame}`` mapping of what was written.
     """
-    written = {}
     options = read_options(output_directory)
     data_options, grid_options = options["data"], options["grid"]
+    track_options = options["track"]
+    store = store_path(output_directory)
+
+    written = {}
     for dataset_options in data_options.datasets:
         if not isinstance(dataset_options, SyntheticOptions):
             continue
-        df = synthetic_ground_truth(dataset_options, times, grid_options)
-        write_attribute(output_directory, "truth", dataset_options.name, df=df)
+        # One replay recovers the objects, used both for the truth rows and -- when the
+        # dataset is matched -- for the truth masks. This collapses the two passes (write
+        # then match) that previously each replayed the whole scene into a single pass.
+        objects = dataset_options.generator.replay(times, grid_options)
+        truth = pd.DataFrame(obj.ground_truth() for obj in objects)
+        truth = _match_targets(
+            truth, objects, dataset_options, track_options, store, grid_options
+        )
+        truth = truth.set_index(["time", "id"]).sort_index()
+        write_attribute(output_directory, "truth", dataset_options.name, df=truth)
         logger.info("Wrote ground truth for %s.", dataset_options.name)
-        written[dataset_options.name] = df
+        written[dataset_options.name] = truth
     return written
+
+
+def _match_targets(truth, objects, dataset_options, track_options, store, grid_options):
+    """Append detected-uid columns for ``dataset_options.target_objects``, if any.
+
+    Returns ``truth`` unchanged when the dataset declares no targets (``None`` -> warn,
+    since matching was presumably intended; empty -> nothing to match by design); otherwise
+    overlaps each truth object's mask with the detected masks resolved from the store.
+    """
+    target_objects = dataset_options.target_objects
+    if target_objects is None:
+        logger.warning("Dataset %r has no target_objects.", dataset_options.name)
+        return truth
+    if not target_objects:
+        return truth
+    sources = _resolve_mask_sources(target_objects, track_options, store)
+    return match_truth_to_masks(truth, sources, objects, grid_options)
 
 
 def _matched_uids(obj, mask_das, grid_options):
@@ -120,47 +150,6 @@ def _resolve_mask_sources(target_objects, track_options, store):
             column = f"{group}_{member}_{id_type(group_options)}"
             sources[column] = [dataset[f"{member}_mask"]]
     return sources
-
-
-def _mask_times(mask_sources):
-    """The tracking time coordinate, taken from any resolved detected mask."""
-    for mask_das in mask_sources.values():
-        for mask_da in mask_das:
-            return mask_da["time"].values
-    return np.array([], dtype="datetime64[ns]")
-
-
-def match_ground_truth(output_directory):
-    """
-    Augment each synthetic dataset's ground-truth table with detected-uid columns.
-    """
-    options = read_options(output_directory)
-    track_options, grid_options = options["track"], options["grid"]
-    store = store_path(output_directory)
-
-    matched_tables = {}
-    for dataset_options in options["data"].datasets:
-        if dataset_options.target_objects is None:
-            logger.warning((f"Dataset {dataset_options.name!r} has no target_objects."))
-            continue
-        if not isinstance(dataset_options, SyntheticOptions):
-            continue
-        if not dataset_options.target_objects:
-            continue
-        sources = _resolve_mask_sources(
-            dataset_options.target_objects, track_options, store
-        )
-        # Replay the scene over the tracking times to recover the objects (for building
-        # truth masks) and their ground-truth rows together, aligned by construction.
-        objects = dataset_options.generator.replay(_mask_times(sources), grid_options)
-        truth = pd.DataFrame(obj.ground_truth() for obj in objects)
-        matched = match_truth_to_masks(truth, sources, objects, grid_options)
-        matched = matched.set_index(["time", "id"]).sort_index()
-        write_attribute(
-            output_directory, "truth", dataset_options.name, df=matched, overwrite=True
-        )
-        matched_tables[dataset_options.name] = matched
-    return matched_tables
 
 
 def count_matches(matched, source):

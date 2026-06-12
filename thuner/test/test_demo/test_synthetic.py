@@ -63,7 +63,7 @@ def test_synthetic():
     # Create data options dictionary. The objects are owned by a generator; FixedGenerator
     # simply replays this fixed list (procedural generators are a future extension).
     generator = synthetic.FixedGenerator(objects=starting_objects)
-    # target_objects tells analyze.synthetic.match_ground_truth which tracked object's
+    # target_objects tells analyze.synthetic.write_ground_truth which tracked object's
     # masks to match the synthetic truth objects against (by truth-mask overlap).
     synthetic_options = data.synthetic.SyntheticOptions(
         generator=generator, target_objects=["convective"]
@@ -148,7 +148,7 @@ def test_synthetic():
         speed_range=(5, 45),  # m/s
         life_time_range=(30, 240),  # minutes
     )
-    # target_objects tells analyze.synthetic.match_ground_truth which tracked object's
+    # target_objects tells analyze.synthetic.write_ground_truth which tracked object's
     # masks to match the synthetic truth objects against (by truth-mask overlap).
     synthetic_options = data.synthetic.SyntheticOptions(
         generator=generator,
@@ -201,10 +201,7 @@ def test_synthetic():
         by_date=False,
         num_processes=8,
     )
-    ground_truth = analyze.synthetic.write_ground_truth(
-        output_parent, data_options=data_options, times=times, grid_options=grid_options
-    )
-    match_tables = analyze.synthetic.match_ground_truth(output_parent)
+    match_tables = analyze.synthetic.write_ground_truth(output_parent, times=times)
     matched = match_tables["synthetic"].reset_index()
     matched = matched[
         matched["convective_universal_id"] != 0
