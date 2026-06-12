@@ -32,12 +32,7 @@ _KM_PER_DEGREE = 111.32
 
 
 class SyntheticGenerator(BaseOptions):
-    """Base generator: spawn, advance, fade and cull objects, rendering each step.
-
-    Subclasses supply objects via :meth:`initial_objects` (present from the start) and/or
-    :meth:`spawn` (created during the run). All stepping, fading, domain-culling,
-    rendering and ground-truth machinery lives here.
-    """
+    """Base generator: spawn, advance, fade and cull objects, rendering each step."""
 
     domain_buffer: float = Field(
         0.0,
@@ -112,18 +107,20 @@ class SyntheticGenerator(BaseOptions):
         self._evolve(time)
         return self._render(time)
 
-    def ground_truth(self, times, grid_options):
-        """Replay the same stepping on a fresh copy, collecting per-time object truth.
-
-        Returns a DataFrame indexed by ``(time, id)``. Because it re-runs the identical
-        step sequence, the positions/intensities match the rendered field exactly.
-        """
+    def replay(self, times, grid_options):
+        """Replay the generator over times, and return every live object."""
+        logger.info(f"Replaying generator to recover objects.")
         clone = self.model_validate(self.model_dump())
         clone.reset(grid_options, times[0])
-        rows = []
+        objects = []
         for time in times:
             clone._evolve(time)
-            rows.extend(obj.ground_truth() for obj in clone._live)
+            objects.extend(clone._live)
+        return objects
+
+    def ground_truth(self, times, grid_options):
+        """Per-object, per-time ground-truth table."""
+        rows = [obj.ground_truth() for obj in self.replay(times, grid_options)]
         return pd.DataFrame(rows).set_index(["time", "id"]).sort_index()
 
     def _in_domain(self, obj):
@@ -144,14 +141,7 @@ class SyntheticGenerator(BaseOptions):
         return bool(in_lat and in_lon)
 
     def _render(self, time):
-        """Render the live objects for ``time`` into a fresh copy of the base dataset.
-
-        Overlapping objects are combined per ``aggregation_method``: ``"overwrite"`` lets
-        the last object win (cheapest), while ``"sum"`` and ``"mean"`` accumulate each
-        object's contribution -- the mean then dividing by the per-cell count of objects
-        covering each cell. Each object only touches its own bounding box, so the cost
-        stays proportional to the footprints rather than the grid.
-        """
+        """Render the live objects into a fresh copy of the base dataset."""
         if self._base_dataset is None:
             self._base_dataset = self._create_base_dataset(time)
         ds = copy.deepcopy(self._base_dataset)
@@ -268,14 +258,7 @@ class FixedGenerator(SyntheticGenerator):
 
 
 class RandomEllipseGenerator(SyntheticGenerator):
-    """Spawn random ellipse cells over time, deterministically given ``seed``.
-
-    ``initial_count`` cells are present at the start; further cells appear as a Poisson
-    process at ``spawn_rate`` per hour. Each cell's centre, geometry, motion and lifetime
-    are drawn uniformly from the configured ranges. Identical ``seed`` (with the same
-    times and grid) yields an identical scene, so the rendered field and the replayed
-    ground truth always agree.
-    """
+    """Spawn random ellipse cells over time."""
 
     seed: int = Field(0, description="Seed for the random number generator.")
     spawn_rate: float = Field(

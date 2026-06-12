@@ -64,7 +64,7 @@ def test_synthetic():
     # simply replays this fixed list (procedural generators are a future extension).
     generator = synthetic.FixedGenerator(objects=starting_objects)
     # target_objects tells analyze.synthetic.match_ground_truth which tracked object's
-    # masks to match the synthetic truth objects against (by centre containment).
+    # masks to match the synthetic truth objects against (by truth-mask overlap).
     synthetic_options = data.synthetic.SyntheticOptions(
         generator=generator, target_objects=["convective"]
     )
@@ -149,7 +149,7 @@ def test_synthetic():
         life_time_range=(30, 240),  # minutes
     )
     # target_objects tells analyze.synthetic.match_ground_truth which tracked object's
-    # masks to match the synthetic truth objects against (by centre containment).
+    # masks to match the synthetic truth objects against (by truth-mask overlap).
     synthetic_options = data.synthetic.SyntheticOptions(
         generator=generator,
         target_objects=["convective"],
