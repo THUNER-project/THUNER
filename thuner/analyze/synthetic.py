@@ -23,11 +23,11 @@ from thuner.data.synthetic.truth import synthetic_ground_truth
 
 logger = setup_logger(__name__)
 
-# Sentinel for "the truth object's centre fell in no detected mask" (object ids are >= 1).
+# Dummy id for when a truth object center is in no detected mask.
 NO_MATCH = 0
 
 
-def write_ground_truth(output_directory, data_options, times, grid_options):
+def write_ground_truth(output_directory, times):
     """Write ground-truth tables for all synthetic datasets to the zarr store.
 
     Each synthetic dataset's truth lands in a ``truth/<dataset_name>`` group, derived by
@@ -35,6 +35,8 @@ def write_ground_truth(output_directory, data_options, times, grid_options):
     was rendered). Returns a ``{dataset_name: DataFrame}`` mapping of what was written.
     """
     written = {}
+    options = read_options(output_directory)
+    data_options, grid_options = options["data"], options["grid"]
     for dataset_options in data_options.datasets:
         if not isinstance(dataset_options, SyntheticOptions):
             continue
@@ -138,12 +140,8 @@ def _resolve_mask_sources(target_objects, track_options, store):
 
 
 def match_ground_truth(output_directory):
-    """Augment each synthetic dataset's ground-truth table with detected-uid columns.
-
-    For every synthetic dataset with ``target_objects`` set, records which detected
-    object's mask contains each truth object's centre (per target), writing the new
-    columns back to ``truth/<dataset_name>``. ``target_objects`` is assumed already
-    validated by :class:`thuner.option.option.Options`.
+    """
+    Augment each synthetic dataset's ground-truth table with detected-uid columns.
     """
     options = read_options(output_directory)
     track_options, grid_options = options["track"], options["grid"]
@@ -170,3 +168,15 @@ def match_ground_truth(output_directory):
         logger.info("Matched ground truth for %s.", dataset_options.name)
         matched_tables[dataset_options.name] = matched
     return matched_tables
+
+
+def count_matches(matched, source):
+    """Count how many source mask objects each truth object is matched to."""
+    # Count how many tracked objects each truth object is matched to
+    matched = matched.reset_index()
+    number_matched = matched.groupby(["time", source])["id"]
+    number_matched = number_matched.transform("size")
+    # If convective_universal_id is 0, the truth object centre was in no detected mask,
+    # so set number_matched to 0
+    number_matched = number_matched.where(matched[source] != 0, 0)
+    return number_matched

@@ -231,7 +231,7 @@ class EllipsoidObject(SyntheticObject):
         return self
 
     def horizontal_extent(self):
-        """Footprint reach (km) along the major axis: the semi-axis times the cutoff."""
+        """Footprint reach (km) along the major axis."""
         factor = _GAUSSIAN_EXTENT if self.style == "gaussian" else 1.0
         return (self.major / 2) * factor
 

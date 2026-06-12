@@ -283,13 +283,13 @@ class RandomEllipseGenerator(SyntheticGenerator):
     )
     initial_count: int = Field(1, description="Number of cells present at the start.")
     major_range: tuple[float, float] = Field(
-        (20.0, 40.0), description="Min/max full major axis in km."
+        (50.0, 100.0), description="Min/max full major axis in km."
     )
     aspect_range: tuple[float, float] = Field(
         (0.4, 0.9), description="Min/max minor/major axis ratio (in (0, 1])."
     )
     speed_range: tuple[float, float] = Field(
-        (0.0, 20.0), description="Min/max speed in m/s."
+        (0.0, 40.0), description="Min/max speed in m/s."
     )
     life_time_range: tuple[float, float] = Field(
         (30.0, 120.0), description="Min/max lifetime in minutes."
