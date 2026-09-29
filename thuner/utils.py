@@ -20,6 +20,7 @@ import importlib
 from datetime import datetime
 from pathlib import Path
 import json
+import shutil
 import hashlib
 import numpy as np
 import pandas as pd
@@ -28,11 +29,12 @@ import cv2
 from numba import njit, int32, float32
 from numba.typed import List
 from scipy.interpolate import interp1d
-import os
-from typing import Any, Dict, Literal, Generator, Callable, Annotated
+import uuid
+from typing import Any, Literal, Generator, Callable, Annotated
 from pydantic import (
     Field,
     model_validator,
+    field_validator,
     PlainSerializer,
     BaseModel,
     ConfigDict,
@@ -201,11 +203,140 @@ class ConvertedOptions(BaseOptions):
 
     save: bool = Field(False, description="Whether to save the converted data.")
     load: bool = Field(False, description="Whether to load the converted data.")
-    _default_parent_converted = str(get_outputs_directory() / "input_data/converted")
     parent_converted: str | None = Field(
-        _default_parent_converted,
+        str(get_outputs_directory() / "input_data/converted"),
         description="Parent directory for converted data.",
     )
+
+    @model_validator(mode="after")
+    def _check_save_load(self):
+        """Saving and loading are mutually exclusive.
+
+        Loading a converted dataset and then re-saving it just writes identical data
+        back; allowing both is meaningless and almost always signals a mistake. The
+        meaningful states are: convert fresh without persisting (both False), convert
+        fresh and persist (save), or load from the cache (load).
+        """
+        if self.save and self.load:
+            raise ValueError(
+                "ConvertedOptions.save and load cannot both be True: loading then "
+                "re-saving writes identical data back. Set at most one."
+            )
+        return self
+
+
+# Delimiters used to serialize a unit's sources into the single-string provenance
+# record. ``_SOURCE_SEP`` separates the (possibly multiple) sources of a unit, while
+# ``_MEMBER_SEP`` separates the [archive, member] halves of an archived source. Neither
+# occurs in the data paths THUNER handles, and ``::`` already denotes "member inside a
+# container" elsewhere in the codebase (e.g. zarr group paths). Keeping plain paths
+# unwrapped means single-source records remain human-readable in the store.
+_SOURCE_SEP = ";"
+_MEMBER_SEP = "::"
+
+
+class InputUnit(BaseOptions):
+    """
+    Everything needed to produce one converted dataset. ``sources`` is a flat list of
+    source references, where each reference is either a plain file path (``str``) or a
+    two element ``[archive, member]`` list pointing at a ``member`` inside a
+    zip/archive. A unit with several sources (e.g. a radar ensemble) is just a unit
+    with several entries in ``sources``. ``start_time``/``end_time`` describe the
+    coverage span of the unit, and should be left as None and inferred.
+    """
+
+    sources: list[Any] = Field(
+        ...,
+        description=(
+            "Flat list of source references. Each is a file path str, or a "
+            "[archive, member] list referencing a member inside an archive."
+        ),
+    )
+    start_time: DatetimeField | None = Field(
+        None, description="Start of the time span covered by the sources."
+    )
+    end_time: DatetimeField | None = Field(
+        None, description="End of the time span covered by the sources."
+    )
+    converted_filepath: str | None = Field(
+        None,
+        description=(
+            "Path of the converted dataset for this unit. Derived lazily at save/load "
+            "time; see BaseDatasetOptions.converted_filepath."
+        ),
+    )
+
+    def time_bounds(self):
+        """Return (start_time, end_time) as np.datetime64, or (None, None)."""
+        start = None if self.start_time is None else np.datetime64(self.start_time)
+        end = None if self.end_time is None else np.datetime64(self.end_time)
+        # A unit with only a single representative time covers an instant.
+        if start is not None and end is None:
+            end = start
+        if end is not None and start is None:
+            start = end
+        return start, end
+
+    def record_str(self):
+        """
+        The input reference(s) for the per-time provenance record written to the store.
+
+        Returns the raw source(s) that ``convert_dataset`` consumes -- not the converted
+        artifact -- so that downstream consumers (e.g. visualization) can re-derive the
+        grid via :meth:`from_record_str`. The serialization is reversible: archived
+        sources keep their [archive, member] structure (joined by ``_MEMBER_SEP``) and
+        multi-source units keep their per-source structure (joined by ``_SOURCE_SEP``).
+        """
+        refs = []
+        for source in self.sources:
+            if isinstance(source, str):
+                refs.append(source)
+            else:
+                refs.append(_MEMBER_SEP.join(source))
+        return _SOURCE_SEP.join(refs)
+
+    @classmethod
+    def from_record_str(cls, record):
+        """
+        Rebuild a unit from its provenance string; inverse of :meth:`record_str`.
+
+        Archived sources (``archive::member``) are restored as ``[archive, member]``
+        lists and plain-file sources as bare strings, so the reconstructed unit's
+        ``sources`` match what ``convert_dataset`` originally consumed.
+        """
+        sources = []
+        for ref in record.split(_SOURCE_SEP):
+            if _MEMBER_SEP in ref:
+                sources.append(ref.split(_MEMBER_SEP, 1))
+            else:
+                sources.append(ref)
+        return cls(sources=sources)
+
+
+def normalize_input_units(value):
+    """
+    Normalize raw user-supplied filepaths into a list of :class:`InputUnit`.
+    """
+    if value is None or isinstance(value, dict):
+        return value
+    if not isinstance(value, (list, tuple)):
+        return value
+    units = []
+    for item in value:
+        if isinstance(item, InputUnit):
+            units.append(item)
+        elif isinstance(item, dict):
+            # Already a serialized unit (round-trip) or some other mapping; let pydantic
+            # validate it into an InputUnit (or raise).
+            units.append(item)
+        elif isinstance(item, str):
+            units.append(InputUnit(sources=[item]))
+        elif isinstance(item, (list, tuple)):
+            # A single (archive, member) reference -> one unit, one source.
+            units.append(InputUnit(sources=[list(item)]))
+        else:
+            units.append(item)
+    return units
 
 
 class BaseDatasetOptions(BaseOptions):
@@ -232,9 +363,20 @@ class BaseDatasetOptions(BaseOptions):
         ConvertedOptions(),
         description="Options for saving and loading converted data.",
     )
-    filepaths: list[str] | dict | None = Field(
-        None, description="List of filepaths for the dataset."
+    filepaths: list[InputUnit] | dict | None = Field(
+        None,
+        description=(
+            "Input files for the dataset, as a list of InputUnit (one per converted "
+            "load event)."
+        ),
     )
+
+    @field_validator("filepaths", mode="before")
+    @classmethod
+    def _normalize_filepaths(cls, value):
+        """Normalize raw user-supplied filepaths into a list of InputUnit."""
+        return normalize_input_units(value)
+
     attempt_download: bool = Field(
         False, description="Whether to attempt to download the data."
     )
@@ -286,32 +428,101 @@ class BaseDatasetOptions(BaseOptions):
     # These are overridden in the subclasses.
     def get_filepaths(self):
         """
-        Return the subset of the input filepaths that is within the start and end time
-        range.
+        Return the subset of the input units whose time span intersects the start and
+        end time range.
         """
-        message = "get_filepaths being called from base class BaseDatasetOptions. "
-        message += "In this case get_filepaths just subsets the filepaths list "
-        message += "provided by the user."
-        logger.info(message)
+        logger.info(
+            (
+                "get_filepaths being called from base class BaseDatasetOptions. "
+                "In this case get_filepaths just subsets the units provided by the "
+                "user."
+            )
+        )
         if self.filepaths is None:
             raise ValueError("Filepaths field has not been set.")
         if len(self.filepaths) == 0:
             raise ValueError("Filepaths field is an empty list.")
-        time_filepath_lookup = create_time_filepath_lookup(self.filepaths)
+        units = resolve_unit_times(self.filepaths)
         start, end = np.datetime64(self.start), np.datetime64(self.end)
-        times = np.array(sorted(list(set(time_filepath_lookup.keys()))))
-        new_times = times[(times >= start) & (times <= end)]
-        new_filepaths = []
-        for time in new_times:
-            new_filepaths.append(time_filepath_lookup[time])
-        new_filepaths = sorted(list(set(new_filepaths)))
-        return new_filepaths
+        new_units = []
+        for unit in units:
+            unit_start, unit_end = unit.time_bounds()
+            # Keep units whose coverage span intersects [start, end].
+            if unit_end >= start and unit_start <= end:
+                new_units.append(unit)
+        new_units = sorted(new_units, key=lambda u: u.time_bounds()[0])
+        return new_units
+
+    def converted_filepath(self, unit):
+        """
+        Return (and cache on the unit) the converted dataset path for an InputUnit.
+        """
+        if unit.converted_filepath is not None:
+            return unit.converted_filepath
+        parent_local = str(self.parent_local)
+        parent_converted = self.converted_options.parent_converted
+        if parent_converted is None:
+            raise ValueError("parent_converted must be set to derive converted paths.")
+        parent_converted = str(parent_converted)
+        source = unit.sources[0]
+        if isinstance(source, str):
+            converted = source.replace(parent_local, parent_converted)
+        else:
+            # [archive, member]: mirror the archive directory, name by the member.
+            archive, member = source[0], source[1]
+            out_dir = str(Path(archive).parent).replace(parent_local, parent_converted)
+            converted = str(Path(out_dir) / Path(member).name)
+        converted = str(Path(converted).with_suffix(".nc"))
+        unit.converted_filepath = converted
+        return converted
+
+    def load_or_convert(self, time, unit, track_options, grid_options, load=None):
+        """
+        Return ``(dataset, boundary_coords, simple_boundary_coords)`` for a unit, either
+        by loading a previously-saved converted dataset or by converting from the raw
+        source. This is the single place that decides load-vs-convert; both the tracking
+        run and visualization go through it so they can never diverge.
+
+        ``load`` selects the source: ``None`` (default) follows ``converted_options.load``
+        -- the explicit flag the run is driven by -- while an explicit bool lets a caller
+        force the choice (visualization passes ``load=True`` when a saved converted
+        dataset exists, so it never re-regrids data the run already converted).
+
+        The return signature matches :meth:`convert_dataset` so callers can use whichever
+        boundary representation they need: the run uses ``boundary_coords``, while
+        visualization uses ``simple_boundary_coords``. When loading, the boundary
+        coordinates are re-derived from the stored ``domain_mask`` (cheap, relative to a
+        full regrid).
+        """
+        if load is None:
+            load = self.converted_options.load
+        if load:
+            converted_filepath = self.converted_filepath(unit)
+            dataset = xr.open_dataset(converted_filepath, decode_timedelta=True)
+            # Infer the grid from the converted dataset *before* deriving the boundary:
+            # get_mask_boundary indexes grid_options' latitude/longitude, and those are
+            # only guaranteed to be populated once a dataset has been loaded. The
+            # persisted run-root grid.json can predate the run's grid inference -- e.g. a
+            # grid inferred from the data, or an operational ensemble's global grid
+            # established at convert time -- so it may still carry None here.
+            infer_grid_options(dataset, grid_options)
+            if "domain_mask" in dataset:
+                all_coords = get_mask_boundary(dataset["domain_mask"], grid_options)
+                boundary_coords, simple_boundary_coords, _ = all_coords
+            else:
+                boundary_coords, simple_boundary_coords = None, None
+        else:
+            dataset, boundary_coords, simple_boundary_coords = self.convert_dataset(
+                time, unit, track_options, grid_options
+            )
+        infer_grid_options(dataset, grid_options)
+        return dataset, boundary_coords, simple_boundary_coords
 
     def update_input_record(self, time, input_record, track_options, grid_options):
         """
         Load the next file into the input record.
 
-        Responsible only for loading/converting the file's dataset (which carries the
+        Responsible only for loading/converting the unit's dataset (which carries the
         domain and boundary masks as data variables) and stashing the per-file boundary
         coordinates. Rotating the per-time-step grid and boundary data into the deques
         is handled by ``thuner.data._update.update_track_input_records``.
@@ -320,23 +531,13 @@ class BaseDatasetOptions(BaseOptions):
         logger.info(f"Updating {self.name} input record for {time_str}.")
         conv_options = self.converted_options
         input_record._current_file_index += 1
-        filepath = self.filepaths[input_record._current_file_index]
-        if conv_options.load is False:
-            dataset, boundary_coords, _ = self.convert_dataset(
-                time, filepath, track_options, grid_options
-            )
-            infer_grid_options(dataset, grid_options)
-        else:
-            dataset = xr.open_dataset(filepath, decode_timedelta=True)
-            infer_grid_options(dataset, grid_options)
-            if "domain_mask" in dataset:
-                domain_mask = dataset["domain_mask"]
-                boundary_coords = get_mask_boundary(domain_mask, grid_options)[0]
-            else:
-                boundary_coords = None
+        unit = self.filepaths[input_record._current_file_index]
+        dataset, boundary_coords, _ = self.load_or_convert(
+            time, unit, track_options, grid_options
+        )
         # Save the dataset if necessary.
         if conv_options.save:
-            save_converted_dataset(filepath, dataset, self)
+            save_converted_dataset(unit, dataset, self)
         input_record.dataset = dataset
         # The boundary coordinates are constant over a file (derived from the 2D domain
         # mask) and aren't stored in the dataset, so stash them here for per-time-step
@@ -354,14 +555,14 @@ class BaseDatasetOptions(BaseOptions):
         grid.attrs["field_name"] = variable
         return grid
 
-    def convert_dataset(self, time, filepath, track_options, grid_options):
+    def convert_dataset(self, time, unit, track_options, grid_options):
         """
         Convert the dataset. Note if the base class is used directly, the data is
         assumed to be already converted, and hence this function just opens the dataset.
         Function returns the converted dataset, and the boundary coordinates.
         Note the simple boundary coordinates are only used for visualization.
         """
-        dataset = xr.open_dataset(filepath, decode_timedelta=True)
+        dataset = xr.open_dataset(unit.sources[0], decode_timedelta=True)
         infer_grid_options(dataset, grid_options)
         if time not in dataset.time.values:
             raise ValueError(f"{time} not in dataset time values.")
@@ -534,21 +735,103 @@ def infer_grid_options(dataset: DataObject, grid_options):
             logger.warning("No altitude coordinates found in dataset.")
 
 
-def save_converted_dataset(raw_filepath, dataset, dataset_options):
-    """Save a converted dataset."""
+# Decimal places retained per converted gridded field when writing the converted cache.
+CONVERTED_FIELD_PRECISION = {
+    "reflectivity": 1,  # dBZ
+    "brightness_temperature": 2,  # K
+    "u": 2,  # m/s
+    "v": 2,  # m/s
+    "w": 2,  # m/s
+    "r": 1,  # relative humidity, %
+    "t": 2,  # K
+    "cape": 1,  # J/kg
+    "cin": 1,  # J/kg
+    "gridcell_area": 2,  # km^2
+}
+
+# zlib settings applied to every (non-scalar, non-time) variable of a converted dataset.
+_CONVERTED_COMPRESSION = {"zlib": True, "complevel": 5}
+
+
+def _prepare_converted_for_save(dataset):
+    """
+    Return a copy of a converted dataset prepared for a compact on-disk cache: every
+    floating field/coordinate is cast to float32 (halving size vs float64), and fields in
+    CONVERTED_FIELD_PRECISION are rounded to their configured number of decimals. Operates
+    on a copy -- and only ever reassigns variables with freshly computed arrays -- so the
+    in-memory dataset used for tracking is left untouched. round()/astype() also drop any
+    stale encoding (e.g. a source _FillValue/scale_factor), so the explicit encoding built
+    by _converted_encoding cannot conflict with it.
+    """
+    out = dataset.copy()
+    for name, var in dataset.variables.items():
+        if not np.issubdtype(var.dtype, np.floating):
+            continue
+        data_array = out[name]
+        if name in CONVERTED_FIELD_PRECISION:
+            data_array = data_array.round(CONVERTED_FIELD_PRECISION[name])
+        out[name] = data_array.astype(np.float32)
+    return out
+
+
+def _converted_encoding(dataset):
+    """Build the netcdf encoding dict: compress every variable except scalars (netcdf
+    cannot filter a scalar) and time (left to xarray's CF time encoding)."""
+    encoding = {}
+    for name, var in dataset.variables.items():
+        if name == "time" or var.ndim == 0:
+            continue
+        encoding[name] = dict(_CONVERTED_COMPRESSION)
+    return encoding
+
+
+def save_converted_dataset(unit, dataset, dataset_options):
+    """Save a converted dataset to the unit's converted filepath.
+
+    Fields are rounded to a per-field precision (CONVERTED_FIELD_PRECISION), stored as
+    float32 and zlib-compressed, which shrinks the cache substantially without discarding
+    meaningful precision. The rounding/recasting is done on a copy, so the dataset handed
+    back to the tracking loop keeps full precision.
+    """
     conv_options = dataset_options.converted_options
     if conv_options.save:
-        parent = get_parent(dataset_options)
-        parent_converted = conv_options.parent_converted
-        if parent_converted is None:
-            raise ValueError("No parent directory provided.")
-        parent_converted = parent.replace("raw", "converted")
-        conv_options.parent_converted = parent_converted
-        converted_filepath = raw_filepath.replace(parent, parent_converted)
-        if not Path(converted_filepath).parent.exists():
-            Path(converted_filepath).parent.mkdir(parents=True)
-        dataset.to_netcdf(converted_filepath, mode="w")
+        converted_filepath = dataset_options.converted_filepath(unit)
+        if converted_filepath is None:
+            raise ValueError("No converted filepath could be derived.")
+        converted_filepath = Path(converted_filepath)
+        converted_filepath.parent.mkdir(parents=True, exist_ok=True)
+        to_save = _prepare_converted_for_save(dataset)
+        # Adjacent parallel intervals overlap by one timestep, so two workers convert and
+        # save the shared boundary file concurrently. Writing the netcdf directly would
+        # have them open the same file for writing at once, which trips HDF5 file locking
+        # (surfaces as a PermissionError). Instead each worker writes a uniquely named
+        # temp file and atomically renames it into place: no shared handle, and the
+        # rename is last-writer-wins on identical content.
+        tmp_filepath = converted_filepath.with_name(
+            f"{converted_filepath.stem}.{uuid.uuid4().hex}.tmp.nc"
+        )
+        try:
+            to_save.to_netcdf(
+                tmp_filepath, mode="w", encoding=_converted_encoding(to_save)
+            )
+            os.replace(tmp_filepath, converted_filepath)
+        finally:
+            if tmp_filepath.exists():
+                tmp_filepath.unlink()
     return dataset
+
+
+def copy_to_gallery(figure_filepath, gallery_name=None):
+    """Copy a generated figure into the repository's ``gallery`` directory."""
+    figure_filepath = Path(figure_filepath)
+    # utils.py lives at <repo>/thuner/utils.py, so the gallery is two levels up.
+    gallery_directory = Path(__file__).parent.parent / "gallery"
+    if not gallery_directory.exists():
+        logger.warning(f"Gallery directory {gallery_directory} missing. Skipping copy.")
+        return
+    gallery_name = gallery_name or figure_filepath.name
+    logger.info(f"Copying {figure_filepath.name} to gallery as {gallery_name}.")
+    shutil.copy(figure_filepath, gallery_directory / gallery_name)
 
 
 def get_parent(dataset_options: BaseDatasetOptions) -> str:
@@ -631,47 +914,90 @@ def get_mask_boundary(mask, grid_options):
     return boundary_coords, simple_boundary_coords, boundary_mask
 
 
-def generate_times(filepaths: list[str]) -> Generator[np.datetime64, None, None]:
-    """Get times from dataset_options."""
-    for filepath in sorted(filepaths):
-        if not Path(filepath).exists():
-            raise ValueError(f"{filepath} does not exist.")
-        with xr.open_dataset(filepath, chunks={}, decode_timedelta=True) as ds:
+def _unit_file(unit) -> str | None:
+    """Return an openable file path for a unit, or None if it is archive-backed."""
+    if not unit.sources:
+        return None
+    source = unit.sources[0]
+    return source if isinstance(source, str) else None
+
+
+def resolve_unit_times(units: list["InputUnit"]) -> list["InputUnit"]:
+    """
+    Ensure each unit has start/end times. Times attached at generation time are kept;
+    otherwise they are inferred by opening the unit's (plain file) source.
+    """
+    for unit in units:
+        if unit.start_time is not None and unit.end_time is not None:
+            continue
+        path = _unit_file(unit)
+        if path is None:
+            raise ValueError(
+                "InputUnit is missing start/end times and its source is not a plain "
+                "file from which they can be inferred. Provide times explicitly."
+            )
+        if not Path(path).exists():
+            raise ValueError(f"{path} does not exist.")
+        with xr.open_dataset(path, chunks={}, decode_timedelta=True) as ds:
+            times = ds.time.values
+            unit.start_time = str(np.min(times))
+            unit.end_time = str(np.max(times))
+    return units
+
+
+def _sorted_units(units: list["InputUnit"]) -> list["InputUnit"]:
+    """Sort units in time order, falling back to the source path string."""
+
+    def key(unit):
+        start, _ = unit.time_bounds()
+        if start is not None:
+            return (0, str(start))
+        return (1, str(_unit_file(unit)))
+
+    return sorted(units, key=key)
+
+
+def generate_times(filepaths) -> Generator[np.datetime64, None, None]:
+    """
+    Yield the grid times for a list of InputUnits, in time order. Units must be backed
+    by plain files (multi-time files such as daily CPOL grids are expanded). Datasets
+    whose sources live inside archives (e.g. operational radar) should instead build
+    their times directly from the acquisition schedule.
+    """
+    for unit in _sorted_units(list(filepaths)):
+        path = _unit_file(unit)
+        if path is None:
+            raise ValueError(
+                "generate_times requires plain file sources; build times from the "
+                "acquisition schedule for archive-backed datasets."
+            )
+        if not Path(path).exists():
+            raise ValueError(f"{path} does not exist.")
+        with xr.open_dataset(path, chunks={}, decode_timedelta=True) as ds:
             for time in ds.time.values:
                 yield time
 
 
 def generate_dataset_times(dataset_options: BaseDatasetOptions):
-    """Get times from dataset_options."""
+    """Yield the grid times within [start, end] for a dataset's units."""
     start = np.datetime64(dataset_options.start)
     end = np.datetime64(dataset_options.end)
-    filepaths = dataset_options.filepaths
-    for filepath in sorted(filepaths):
-        if not Path(filepath).exists():
-            raise ValueError(f"{filepath} does not exist.")
-        with xr.open_dataset(filepath, chunks={}, decode_timedelta=True) as ds:
+    for unit in _sorted_units(list(dataset_options.filepaths)):
+        path = _unit_file(unit)
+        if path is None:
+            raise ValueError(
+                "generate_dataset_times requires plain file sources; build times from "
+                "the acquisition schedule for archive-backed datasets."
+            )
+        if not Path(path).exists():
+            raise ValueError(f"{path} does not exist.")
+        with xr.open_dataset(path, chunks={}, decode_timedelta=True) as ds:
             for time in ds.time.values:
                 if start is not None and time < start:
                     continue
                 if end is not None and time > end:
                     return  # files are sorted, so we can stop early
                 yield time
-
-
-def create_time_filepath_lookup(filepaths: list[str]) -> Dict[np.datetime64, str]:
-    """Create a time: filepath dictionary from a list of filepaths."""
-    if not isinstance(filepaths, list):
-        raise TypeError("filepaths must be a list of strings")
-    time_filepath_record = {}
-    for filepath in sorted(filepaths):
-        if not isinstance(filepath, str):
-            raise TypeError(f"{filepath} is not a string")
-        if not Path(filepath).exists():
-            raise ValueError(f"{filepath} does not exist.")
-        with xr.open_dataset(filepath, chunks={}, decode_timedelta=True) as ds:
-            for time in ds.time.values:
-                time_filepath_record[time] = filepath
-    return time_filepath_record
 
 
 def filter_arguments(func, args):

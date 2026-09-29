@@ -26,6 +26,15 @@ _SCALE_STEP = 0.01
 _GAUSSIAN_EXTENT = float(np.sqrt(-2 * np.log(0.05)))
 
 
+def _bbox_index_bounds(flags):
+    """``(first, last + 1)`` index of the True span in a 1-D boolean array.
+
+    Assumes ``flags`` has at least one True (callers guard with ``.any()``).
+    """
+    indices = np.flatnonzero(flags)
+    return int(indices[0]), int(indices[-1]) + 1
+
+
 class SyntheticObject(BaseOptions):
     """
     Base class for a synthetic object.
@@ -123,9 +132,53 @@ class SyntheticObject(BaseOptions):
         }
         return self.model_copy(update=update)
 
-    def render(self, ds, grid_options):
-        """Add this object's contribution to ``ds[self.field]``. Implemented by subclasses."""
+    def _footprint(self, ds):
+        """Compute this object's field contribution, restricted to its bounding box.
+
+        Returns ``(box_slice, footprint_mask, rendered_values)`` -- the slice of
+        ``ds[self.field]`` this object touches, a boolean mask (True at the cells the
+        object actually covers within that box) and the field value at every box cell --
+        or ``None`` if the object is invisible (faded out) or its footprint lies entirely
+        off the grid. Implemented by subclasses.
+        """
         raise NotImplementedError
+
+    def render(self, ds, grid_options=None):
+        """Paint this object's footprint into ``ds[self.field]``, overwriting overlaps.
+
+        A convenience for rendering a single object on its own. Combining *overlapping*
+        objects across a scene is the generator's job, via :meth:`_footprint` and its
+        ``aggregation_method`` (see ``thuner.data.synthetic.generator.SyntheticGenerator``).
+        """
+        footprint = self._footprint(ds)
+        if footprint is None:
+            return ds
+        box_slice, footprint_mask, rendered_values = footprint
+        ds[self.field].values[box_slice][footprint_mask] = rendered_values[
+            footprint_mask
+        ]
+        return ds
+
+    def to_mask(self, grid_options):
+        """Boolean mask marking the single grid cell nearest the object centre. Note the
+        base object has no horizontal extent, so its truth mask is the one cell
+        containing its centre. Should be overridden by subclasses with extent.
+        """
+        latitude = np.asarray(grid_options.latitude)
+        longitude = np.asarray(grid_options.longitude)
+        if grid_options.name == "geographic":
+            mask = np.zeros((latitude.size, longitude.size), dtype=bool)
+            latitude_index = int(np.abs(latitude - self.center_latitude).argmin())
+            longitude_index = int(np.abs(longitude - self.center_longitude).argmin())
+            mask[latitude_index, longitude_index] = True
+            return mask
+        # Cartesian: 2-D curvilinear coords; nearest cell by squared geographic distance.
+        distance_squared = (latitude - self.center_latitude) ** 2
+        distance_squared = distance_squared + (longitude - self.center_longitude) ** 2
+        mask = np.zeros(latitude.shape, dtype=bool)
+        index = np.unravel_index(int(distance_squared.argmin()), distance_squared.shape)
+        mask[index] = True
+        return mask
 
     def velocity(self):
         """Return the ground-truth (u, v) velocity in m/s (eastward, northward)."""
@@ -151,20 +204,17 @@ class SyntheticObject(BaseOptions):
 class EllipsoidObject(SyntheticObject):
     """
     A rotated ellipsoid, e.g. a convective cell.
-
-    The horizontal cross-section is an ellipse with full axis lengths ``major`` and
-    ``minor`` (km), rotated by ``orientation``. ``style`` selects the intensity profile:
-    a 3-D Gaussian about ``center_altitude`` (``'gaussian'``) or a uniform fill of the
-    ellipsoid (``'flat'``). ``major``, ``minor`` and ``orientation`` follow the
-    ellipse-fit attribute convention (see :mod:`thuner.attribute.ellipse`, where
-    ``major``/``minor`` are the full axes returned by ``cv2.fitEllipse``), so ground
-    truth is in the same units and convention as tracked output; eccentricity is derived
-    from the axes.
     """
 
     name: str = Field("cell", description="Object type label.")
-    major: float = Field(40, description="Major axis (full length) in km.")
-    minor: float = Field(16, description="Minor axis (full length) in km.")
+    major: float = Field(
+        40,
+        description=("Major axis in km we expect to recover."),
+    )
+    minor: float = Field(
+        16,
+        description=("Minor axis in km we expect to recover."),
+    )
     orientation: float = Field(
         np.pi / 4, description="Major-axis orientation in radians."
     )
@@ -174,18 +224,14 @@ class EllipsoidObject(SyntheticObject):
     altitude_radius: float = Field(1e3, description="Vertical radius in m.")
     style: Literal["gaussian", "flat"] = Field(
         "gaussian",
-        description=(
-            "Intensity profile. 'gaussian': a 3-D Gaussian whose value at the major/minor "
-            "ellipse edge is intensity/sqrt(e). 'flat': the ellipsoid filled uniformly "
-            "with intensity."
-        ),
+        description=("Intensity profile."),
     )
     intensity: float = Field(
         42 * np.sqrt(np.e),
         description=(
-            "Peak field value, e.g. dBZ. The default is chosen so a 'gaussian' object's "
-            "value at the major/minor ellipse edge equals the Steiner "
-            "definitely-convective threshold of 42 dBZ."
+            "Peak field value, e.g. dBZ. The default is chosen so a gaussian object's "
+            "value at the major/minor ellipse edge equals the Steiner default "
+            "convective threshold of 42 dBZ."
         ),
     )
 
@@ -199,56 +245,98 @@ class EllipsoidObject(SyntheticObject):
         return self
 
     def horizontal_extent(self):
-        """Footprint reach (km) along the major axis: the semi-axis times the cutoff."""
+        """Footprint reach (km) along the major axis."""
         factor = _GAUSSIAN_EXTENT if self.style == "gaussian" else 1.0
         return (self.major / 2) * factor
 
-    def render(self, ds, grid_options):
-        """Add an elliptical blob (Gaussian or flat per ``style``) to ``ds[self.field]``."""
-        scale = self.fade_scale(self.time)
-        if scale <= 0:
-            return ds  # not yet faded in (or fully faded out): nothing to render.
-        LON, LAT, ALT = ds.LON, ds.LAT, ds.ALT
+    def _horizontal_distance_squared(self, latitude, longitude):
+        """Normalised squared horizontal distance from the centre (1 at the ellipse edge).
 
-        # Local east/north distance (km) of each cell from the centre. Metres-per-degree
-        # are taken from the WGS84 ellipsoid at the centre, so the ellipse keeps its true
-        # shape and size at any latitude (a degree of longitude shrinks polewards).
+        Squared (not the plain distance) because the ellipse test is naturally a sum of
+        squares -- ``(x/a)**2 + (y/b)**2 <= 1`` -- and :meth:`_footprint` combines this
+        with the vertical term by Pythagoras (adding squares), so taking a square root here
+        would only be undone there.
+        """
+        latitude = np.asarray(latitude)
+        longitude = np.asarray(longitude)
         clon, clat = self.center_longitude, self.center_latitude
         m_per_deg_lon = geod.inv(clon, clat, clon + _SCALE_STEP, clat)[2] / _SCALE_STEP
         m_per_deg_lat = geod.inv(clon, clat, clon, clat + _SCALE_STEP)[2] / _SCALE_STEP
-        east = (LON - clon) * m_per_deg_lon / 1e3
-        north = (LAT - clat) * m_per_deg_lat / 1e3
+        if latitude.ndim == 1:
+            latitude_grid, longitude_grid = latitude[:, None], longitude[None, :]
+        else:
+            latitude_grid, longitude_grid = latitude, longitude
+        east_km = (longitude_grid - clon) * m_per_deg_lon / 1e3
+        north_km = (latitude_grid - clat) * m_per_deg_lat / 1e3
+        cos_orientation = np.cos(self.orientation)
+        sin_orientation = np.sin(self.orientation)
+        major_axis_coord = east_km * cos_orientation + north_km * sin_orientation
+        minor_axis_coord = -east_km * sin_orientation + north_km * cos_orientation
+        return (major_axis_coord / (self.major / 2)) ** 2 + (
+            minor_axis_coord / (self.minor / 2)
+        ) ** 2
 
-        # Rotate into the ellipse's principal axes and normalise by the semi-axes (km).
-        # major/minor are full axis lengths, so the Gaussian scale along each axis (its
-        # 1-sigma half-extent) is half of them.
-        major_coord = east * np.cos(self.orientation) + north * np.sin(self.orientation)
-        minor_coord = -east * np.sin(self.orientation) + north * np.cos(
-            self.orientation
+    def to_mask(self, grid_options):
+        """Boolean mask of the nominal major/minor ellipse on ``grid_options``' grid."""
+        distance_squared = self._horizontal_distance_squared(
+            grid_options.latitude, grid_options.longitude
+        )
+        return distance_squared <= 1
+
+    def _footprint(self, ds):
+        """
+        Compute the elliptical blob's (Gaussian or flat) contribution within its box.
+        """
+        scale = self.fade_scale(self.time)
+        if scale <= 0:
+            return None  # not yet faded in (or fully faded out): nothing to render.
+
+        horizontal_distance_squared = self._horizontal_distance_squared(
+            ds["latitude"].values, ds["longitude"].values
         )
 
-        distance = np.sqrt(
-            (major_coord / (self.major / 2)) ** 2
-            + (minor_coord / (self.minor / 2)) ** 2
-            + ((ALT - self.center_altitude) / self.altitude_radius) ** 2
+        cutoff = _GAUSSIAN_EXTENT if self.style == "gaussian" else 1.0
+        within_cutoff = horizontal_distance_squared <= cutoff**2
+        if not within_cutoff.any():
+            return None  # object footprint lies entirely off the grid.
+        row_start, row_stop = _bbox_index_bounds(np.any(within_cutoff, axis=1))
+        col_start, col_stop = _bbox_index_bounds(np.any(within_cutoff, axis=0))
+
+        altitude = ds["altitude"].values
+        within_altitude = (
+            np.abs(altitude - self.center_altitude) <= cutoff * self.altitude_radius
+        )
+        if not within_altitude.any():
+            return None
+        alt_start, alt_stop = _bbox_index_bounds(within_altitude)
+
+        # 3-D normalised distance (Pythagoras: horizontal + vertical squares), in-box only.
+        box_horizontal_distance_squared = horizontal_distance_squared[
+            row_start:row_stop, col_start:col_stop
+        ]
+        vertical_distance_squared = (
+            (altitude[alt_start:alt_stop] - self.center_altitude) / self.altitude_radius
+        ) ** 2
+        distance_squared = (
+            box_horizontal_distance_squared[None, :, :]
+            + vertical_distance_squared[:, None, None]
         )
 
-        effective = self.intensity * scale  # fade-scaled peak
+        effective_intensity = self.intensity * scale  # fade-scaled peak
         if self.style == "gaussian":
-            values = effective * np.exp(-(distance**2) / 2)
-            values = values.where(values >= 0.05 * effective, np.nan)
+            rendered_values = effective_intensity * np.exp(-distance_squared / 2)
+            footprint_mask = rendered_values >= 0.05 * effective_intensity
         else:  # "flat": uniform fill inside the major/minor ellipsoid (distance <= 1).
-            values = xr.where(distance <= 1, effective, np.nan)
-        values = values.transpose(*ds.dims)
-        ds[self.field].values = xr.where(~np.isnan(values), values, ds[self.field])
-        return ds
+            footprint_mask = distance_squared <= 1
+            rendered_values = np.full(distance_squared.shape, effective_intensity)
+
+        # Field dims are (time, altitude, dim0, dim1); a synthetic grid carries one time.
+        box_slice = np.s_[0, alt_start:alt_stop, row_start:row_stop, col_start:col_stop]
+        return box_slice, footprint_mask, rendered_values
 
     def ground_truth(self):
-        """Augment the base ground truth with the ellipse geometry.
-
-        Eccentricity is inferred from the axes, matching :mod:`thuner.attribute.ellipse`.
-        Values are rounded to the precisions declared there (major/minor: 1 dp,
-        orientation/eccentricity: 4 dp).
+        """
+        Augment the base ground truth with the ellipse geometry.
         """
         truth = super().ground_truth()
         eccentricity = np.sqrt(1 - (self.minor / self.major) ** 2)
@@ -258,7 +346,6 @@ class EllipsoidObject(SyntheticObject):
                 "minor": np.round(self.minor, 1),
                 "orientation": np.round(self.orientation, 4),
                 "eccentricity": np.round(eccentricity, 4),
-                # Report the fade-scaled peak, matching what was rendered at this time.
                 "intensity": np.round(self.intensity * self.fade_scale(self.time), 2),
             }
         )

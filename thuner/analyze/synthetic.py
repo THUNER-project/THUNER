@@ -2,9 +2,11 @@
 Match synthetic ground-truth objects to detected objects.
 
 After a tracking run, each synthetic dataset's ground-truth table can be augmented with
-the uid of the detected object whose mask contains each truth object's centre, letting
-tracking output be scored against the known truth. The pure ground-truth table itself
-(derived from the options alone) lives in :mod:`thuner.data.synthetic.truth`.
+the uids of the detected objects whose masks overlap each truth object's expected
+footprint, letting tracking output be scored against the known truth -- a single
+overlapping uid marks an unambiguous match (e.g. for comparing true vs detected
+velocities). The pure ground-truth table itself (derived from the options alone) lives in
+:mod:`thuner.data.synthetic.truth`.
 
 These functions read tracking output (options, masks) and write attributes, so they sit
 in the ``analyze`` layer rather than in ``data`` — keeping the dependency direction
@@ -12,90 +14,103 @@ pointing downward and avoiding the circular import a ``data``-level home would f
 """
 
 import numpy as np
+import pandas as pd
 import xarray as xr
 from thuner.log import setup_logger
 from thuner.utils import store_path
-from thuner.attribute.utils import read_attribute
 from thuner.write.attribute import write_attribute
 from thuner.analyze.utils import read_options
 from thuner.data.synthetic.options import SyntheticOptions
-from thuner.data.synthetic.truth import synthetic_ground_truth
 
 logger = setup_logger(__name__)
 
-# Sentinel for "the truth object's centre fell in no detected mask" (object ids are >= 1).
-NO_MATCH = 0
+# Recorded when a truth object's mask overlaps no detected object. An empty string,
+# following the space-separated-id convention of the ``parents`` core attribute.
+NO_MATCH = ""
 
 
-def write_ground_truth(output_directory, data_options, times, grid_options):
+def write_ground_truth(output_directory, times):
     """Write ground-truth tables for all synthetic datasets to the zarr store.
 
-    Each synthetic dataset's truth lands in a ``truth/<dataset_name>`` group, derived by
-    replaying its generator over ``times`` on ``grid_options`` (so the truth matches what
-    was rendered). Returns a ``{dataset_name: DataFrame}`` mapping of what was written.
+    Each synthetic dataset's generator is replayed *once* over ``times`` on ``grid_options``
+    to recover both the objects and their ground-truth rows (so the truth matches what was
+    rendered). When the dataset declares ``target_objects``, the recovered objects' truth
+    masks are overlapped with the detected masks in the same pass, appending detected-uid
+    columns without a second replay. Each table lands in a ``truth/<dataset_name>`` group;
+    returns a ``{dataset_name: DataFrame}`` mapping of what was written.
     """
+    options = read_options(output_directory)
+    data_options, grid_options = options["data"], options["grid"]
+    track_options = options["track"]
+    store = store_path(output_directory)
+
     written = {}
     for dataset_options in data_options.datasets:
         if not isinstance(dataset_options, SyntheticOptions):
             continue
-        df = synthetic_ground_truth(dataset_options, times, grid_options)
-        write_attribute(output_directory, "truth", dataset_options.name, df=df)
+        # One replay recovers the objects, used both for the truth rows and -- when the
+        # dataset is matched -- for the truth masks. This collapses the two passes (write
+        # then match) that previously each replayed the whole scene into a single pass.
+        objects = dataset_options.generator.replay(times, grid_options)
+        truth = pd.DataFrame(obj.ground_truth() for obj in objects)
+        truth = _match_targets(
+            truth, objects, dataset_options, track_options, store, grid_options
+        )
+        truth = truth.set_index(["time", "id"]).sort_index()
+        write_attribute(output_directory, "truth", dataset_options.name, df=truth)
         logger.info("Wrote ground truth for %s.", dataset_options.name)
-        written[dataset_options.name] = df
+        written[dataset_options.name] = truth
     return written
 
 
-def _mask_cell_value(mask_at_time, latitude, longitude, grid_options):
-    """Return the mask value at the cell nearest ``(latitude, longitude)``."""
-    if grid_options.name == "geographic":
-        value = mask_at_time.sel(
-            latitude=latitude, longitude=longitude, method="nearest"
-        )
-        return float(value)
-    # Cartesian: latitude/longitude are 2D curvilinear coords over the spatial dims.
-    squared = (mask_at_time["latitude"] - latitude) ** 2
-    squared = squared + (mask_at_time["longitude"] - longitude) ** 2
-    indices = np.unravel_index(int(squared.values.argmin()), squared.shape)
-    selector = dict(zip(squared.dims, indices))
-    return float(mask_at_time.isel(**selector))
+def _match_targets(truth, objects, dataset_options, track_options, store, grid_options):
+    """Append detected-uid columns for ``dataset_options.target_objects``, if any.
+
+    Returns ``truth`` unchanged when the dataset declares no targets (``None`` -> warn,
+    since matching was presumably intended; empty -> nothing to match by design); otherwise
+    overlaps each truth object's mask with the detected masks resolved from the store.
+    """
+    target_objects = dataset_options.target_objects
+    if target_objects is None:
+        logger.warning("Dataset %r has no target_objects.", dataset_options.name)
+        return truth
+    if not target_objects:
+        return truth
+    sources = _resolve_mask_sources(target_objects, track_options, store)
+    return match_truth_to_masks(truth, sources, objects, grid_options)
 
 
-def _matched_uid(mask_das, time, latitude, longitude, grid_options, column):
-    """The single detected uid whose mask contains ``(latitude, longitude)`` at ``time``.
+def _matched_uids(obj, mask_das, grid_options):
+    """The set of detected uids whose mask overlaps ``obj``'s truth mask.
 
     ``mask_das`` is the list of masks to search (one for a plain/member target, several
-    for a grouped object's members). Returns ``NO_MATCH`` if the centre is in none.
+    for a grouped object's members, all carrying the group uid). The object's truth mask
+    (:meth:`~thuner.data.synthetic.objects.SyntheticObject.to_mask`) is overlapped with
+    each at ``obj``'s time; an empty set means it overlaps no detected object. More than
+    one uid means the true object spans several detected objects -- recorded, not an error.
     """
+    truth_mask = obj.to_mask(grid_options)
     uids = set()
     for mask_da in mask_das:
-        mask_at_time = mask_da.sel(time=time, method="nearest")
-        value = _mask_cell_value(mask_at_time, latitude, longitude, grid_options)
-        if value and not np.isnan(value):
-            uids.add(int(value))
-    if len(uids) > 1:
-        message = f"Truth centre matched multiple uids {sorted(uids)} for {column!r}; "
-        message += "interleaved member masks are not supported."
-        raise ValueError(message)
-    return uids.pop() if uids else NO_MATCH
+        mask_at_time = mask_da.sel(time=np.datetime64(obj.time), method="nearest")
+        for cell_value in np.unique(mask_at_time.values[truth_mask]):
+            cell_value = float(cell_value)
+            if cell_value and not np.isnan(cell_value):
+                uids.add(int(cell_value))
+    return uids
 
 
-def match_truth_to_masks(truth, mask_sources, grid_options):
-    """Append detected-uid columns to a ground-truth table by centre containment.
-
-    Each truth row's object centre is looked up in the detected masks; the uid of the
-    object whose mask contains it is recorded (``NO_MATCH`` if none). ``mask_sources``
-    maps each output column name to the list of mask DataArrays to search.
-    """
+def match_truth_to_masks(truth, mask_sources, objects, grid_options):
+    """Append detected-uid columns to a ground-truth table by mask overlap."""
     matched = truth.copy()
     for column, mask_das in mask_sources.items():
+        logger.info(f"Matching {column} ground truth to detected masks.")
         mask_das = [mask_da.load() for mask_da in mask_das]
-        uids = [
-            _matched_uid(
-                mask_das, row.time, row.latitude, row.longitude, grid_options, column
-            )
-            for row in matched.itertuples()
-        ]
-        matched[column] = np.array(uids, dtype=np.int64)
+        uid_strings = []
+        for obj in objects:
+            uids = _matched_uids(obj, mask_das, grid_options)
+            uid_strings.append(" ".join(str(uid) for uid in sorted(uids)))
+        matched[column] = uid_strings
     return matched
 
 
@@ -137,33 +152,13 @@ def _resolve_mask_sources(target_objects, track_options, store):
     return sources
 
 
-def match_ground_truth(output_directory):
-    """Augment each synthetic dataset's ground-truth table with detected-uid columns.
+def count_matches(matched, source):
+    """Number of detected objects each truth object's mask overlaps.
 
-    For every synthetic dataset with ``target_objects`` set, records which detected
-    object's mask contains each truth object's centre (per target), writing the new
-    columns back to ``truth/<dataset_name>``. ``target_objects`` is assumed already
-    validated by :class:`thuner.option.option.Options`.
+    Reads the space-separated uid strings produced by :func:`match_truth_to_masks`: 0 means
+    unmatched, 1 an unambiguous match (the case usable for true-vs-detected comparison) and
+    >1 a true object spanning several detected objects.
     """
-    options = read_options(output_directory)
-    track_options, grid_options = options["track"], options["grid"]
-    store = store_path(output_directory)
-
-    matched_tables = {}
-    for dataset_options in options["data"].datasets:
-        if not isinstance(dataset_options, SyntheticOptions):
-            continue
-        if not dataset_options.target_objects:
-            continue
-        truth = read_attribute(output_directory, "truth", dataset_options.name)
-        sources = _resolve_mask_sources(
-            dataset_options.target_objects, track_options, store
-        )
-        matched = match_truth_to_masks(truth, sources, grid_options)
-        matched = matched.set_index(["time", "id"]).sort_index()
-        write_attribute(
-            output_directory, "truth", dataset_options.name, df=matched, overwrite=True
-        )
-        logger.info("Matched ground truth for %s.", dataset_options.name)
-        matched_tables[dataset_options.name] = matched
-    return matched_tables
+    return matched[source].apply(
+        lambda value: 0 if pd.isna(value) else len(value.split())
+    )

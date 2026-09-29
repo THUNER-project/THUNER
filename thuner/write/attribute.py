@@ -178,13 +178,8 @@ def write_final(tracks, track_options, output_directory):
             write(obj_tracks, object_options, output_directory)
 
 
-def write_attribute(output_directory, *parts, df, attribute_type=None, overwrite=False):
-    """Write a DataFrame to a group in the unified zarr store.
-
-    ``parts`` are joined with ``/`` to form the group path inside the
-    configured store under ``output_directory``. Returns the rounded/sorted
-    DataFrame.
-    """
+def write_attribute(output_directory, *parts, df, attribute_type=None, overwrite=True):
+    """Write a DataFrame to a group in the unified zarr store."""
     store = store_path(output_directory)
     group = "/".join(str(p) for p in parts)
     write_attributes(store, group, df, attribute_type, overwrite=overwrite)

@@ -38,7 +38,10 @@ def _filepath_attribute_type(name):
 def write(input_record, output_directory):
     """Append filepath records to the unified zarr store, then reset the buffer."""
 
-    if input_record.filepaths is None:
+    # Datasets with no up-front filepaths (e.g. synthetic data generated on the fly) can
+    # still buffer records as they save each grid, so write whenever there is anything
+    # buffered, not only when a filepaths list was provided.
+    if input_record.filepaths is None and not input_record._filepath_list:
         return
 
     name = input_record.name
@@ -79,6 +82,6 @@ def write(input_record, output_directory):
 def write_final(track_input_records, output_directory):
     """Flush remaining filepath records to the unified zarr store."""
     for input_record in track_input_records.values():
-        if input_record.filepaths is None:
+        if input_record.filepaths is None and not input_record._filepath_list:
             continue
         write(input_record, output_directory)

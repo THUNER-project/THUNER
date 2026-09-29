@@ -1,17 +1,4 @@
-"""
-Synthetic dataset generators.
-
-A generator owns the evolving synthetic scene: step by step it spawns, advances, fades
-and culls :class:`~thuner.data.synthetic.objects.SyntheticObject`s, and renders each
-time's gridded field. :class:`SyntheticGenerator` is the serialisable base (its run-time
-state lives in private attributes, reset per run); :class:`FixedGenerator` replays a
-fixed list of objects, and procedural subclasses can spawn objects on the fly.
-
-Ground truth is produced by replaying the *same* stepping on a fresh copy (see
-:meth:`SyntheticGenerator.ground_truth`), so the truth table is consistent with the
-rendered field by construction, even once stepping becomes stateful (per-step noise,
-acceleration, random spawning).
-"""
+"""Synthetic dataset generators."""
 
 import copy
 from typing import Annotated, Literal
@@ -20,30 +7,38 @@ import pandas as pd
 import xarray as xr
 from pydantic import Field, PrivateAttr, model_validator
 from thuner.log import setup_logger
-from thuner.utils import BaseOptions
+from thuner.utils import BaseOptions, get_mask_boundary
 import thuner.grid as grid
 from thuner.data.synthetic.objects import EllipsoidObject
 
 logger = setup_logger(__name__)
 
-# Approx km per degree of latitude (longitude scaled by cos(latitude)). Only used for the
-# coarse domain-culling margin, so the spherical approximation is plenty.
+# Approx km per degree of latitude. Only used for the coarse domain-culling margin.
 _KM_PER_DEGREE = 111.32
 
 
 class SyntheticGenerator(BaseOptions):
-    """Base generator: spawn, advance, fade and cull objects, rendering each step.
-
-    Subclasses supply objects via :meth:`initial_objects` (present from the start) and/or
-    :meth:`spawn` (created during the run). All stepping, fading, domain-culling,
-    rendering and ground-truth machinery lives here.
-    """
+    """Base generator: spawn, advance, fade and cull objects, rendering each step."""
 
     domain_buffer: float = Field(
         0.0,
         description=(
             "Extra margin in km added to the grid domain before an object is culled for "
             "having left it (lets objects wander out and return)."
+        ),
+    )
+    aggregation_method: Literal["overwrite", "sum", "mean"] = Field(
+        "sum",
+        description=(
+            "How overlapping objects combine in the rendered field: 'overwrite' (the "
+            "last object wins), 'sum' (add contributions) or 'mean' (per-cell average "
+            "over the objects covering each cell)."
+        ),
+    )
+    run_times: list[str] | None = Field(
+        None,
+        description=(
+            "Full ordered list of times the scene is stepped through during a run."
         ),
     )
 
@@ -54,8 +49,10 @@ class SyntheticGenerator(BaseOptions):
     _base_dataset: object = PrivateAttr(default=None)
     _next_id: int = PrivateAttr(default=0)
     _start_time: object = PrivateAttr(default=None)
+    # Last ``run_times`` entry already evolved, so a fast-forwarded ``step`` knows where
+    # to resume (None until the first step). Only used when ``run_times`` is set.
+    _evolved_through: object = PrivateAttr(default=None)
 
-    # --- hooks for subclasses ------------------------------------------------
     def initial_objects(self):
         """Objects present (in their birth state) at the start of a run."""
         return []
@@ -64,9 +61,10 @@ class SyntheticGenerator(BaseOptions):
         """New objects created at ``time`` (procedural subclasses override this)."""
         return []
 
-    # --- run lifecycle -------------------------------------------------------
     def reset(self, grid_options, start_time):
-        """Initialise run state for a fresh pass over ``grid_options``."""
+        """Initialise run state."""
+        if self.run_times is not None:
+            start_time = self.run_times[0]
         self._grid_options = grid_options
         self._ensure_grid_coordinates()
         self._base_dataset = None
@@ -74,6 +72,7 @@ class SyntheticGenerator(BaseOptions):
         self._start_time = start_time
         self._live = []
         self._pool = []
+        self._evolved_through = None
         for obj in self.initial_objects():
             self._admit(obj, start_time)
 
@@ -103,24 +102,44 @@ class SyntheticGenerator(BaseOptions):
         """Advance to ``time`` and return the rendered dataset."""
         if self._grid_options is not grid_options:
             self.reset(grid_options, time)
-        self._evolve(time)
+        self._advance_to(time)
         return self._render(time)
 
-    def ground_truth(self, times, grid_options):
-        """Replay the same stepping on a fresh copy, collecting per-time object truth.
+    def _advance_to(self, time):
+        """Evolve the scene up to ``time`` before it is rendered."""
+        if self.run_times is None:
+            self._evolve(time)
+            return
+        target = np.datetime64(time)
+        for run_time in self.run_times:
+            run_time64 = np.datetime64(run_time)
+            if (
+                self._evolved_through is not None
+                and run_time64 <= self._evolved_through
+            ):
+                continue
+            if run_time64 > target:
+                break
+            self._evolve(run_time)
+            self._evolved_through = run_time64
 
-        Returns a DataFrame indexed by ``(time, id)``. Because it re-runs the identical
-        step sequence, the positions/intensities match the rendered field exactly.
-        """
+    def replay(self, times, grid_options):
+        """Replay the generator over times, and return every live object."""
+        logger.info(f"Replaying generator to recover objects.")
         clone = self.model_validate(self.model_dump())
+        clone.run_times = None
         clone.reset(grid_options, times[0])
-        rows = []
+        objects = []
         for time in times:
             clone._evolve(time)
-            rows.extend(obj.ground_truth() for obj in clone._live)
+            objects.extend(clone._live)
+        return objects
+
+    def ground_truth(self, times, grid_options):
+        """Per-object, per-time ground-truth table."""
+        rows = [obj.ground_truth() for obj in self.replay(times, grid_options)]
         return pd.DataFrame(rows).set_index(["time", "id"]).sort_index()
 
-    # --- domain culling ------------------------------------------------------
     def _in_domain(self, obj):
         """Whether the object's footprint still overlaps the buffered grid domain."""
         grid_options = self._grid_options
@@ -130,19 +149,45 @@ class SyntheticGenerator(BaseOptions):
         margin_lat = margin_km / _KM_PER_DEGREE
         cos_lat = max(np.cos(np.deg2rad(obj.center_latitude)), 0.01)
         margin_lon = margin_km / (_KM_PER_DEGREE * cos_lat)
-        in_lat = lats.min() - margin_lat <= obj.center_latitude <= lats.max() + margin_lat
-        in_lon = lons.min() - margin_lon <= obj.center_longitude <= lons.max() + margin_lon
+        in_lat = (
+            lats.min() - margin_lat <= obj.center_latitude <= lats.max() + margin_lat
+        )
+        in_lon = (
+            lons.min() - margin_lon <= obj.center_longitude <= lons.max() + margin_lon
+        )
         return bool(in_lat and in_lon)
 
-    # --- rendering (grid plumbing) -------------------------------------------
     def _render(self, time):
-        """Render the live objects for ``time`` into a fresh copy of the base dataset."""
+        """Render the live objects into a fresh copy of the base dataset."""
         if self._base_dataset is None:
             self._base_dataset = self._create_base_dataset(time)
         ds = copy.deepcopy(self._base_dataset)
         ds["time"] = np.array([np.datetime64(time)])
+
+        if self.aggregation_method == "overwrite":
+            for obj in self._live:
+                ds = obj.render(ds, self._grid_options)
+            return ds
+
+        # "sum" / "mean": accumulate each object's contribution into the rendered field,
+        # tracking how many objects covered each cell. The base field is all-NaN, so
+        # cells no object touches stay NaN (empty), not 0.
+        field = ds["reflectivity"].values
+        total = np.zeros_like(field)
+        contributing_count = np.zeros_like(field)
         for obj in self._live:
-            ds = obj.render(ds, self._grid_options)
+            footprint = obj._footprint(ds)
+            if footprint is None:
+                continue
+            box_slice, footprint_mask, rendered_values = footprint
+            total[box_slice][footprint_mask] += rendered_values[footprint_mask]
+            contributing_count[box_slice][footprint_mask] += 1
+        covered = contributing_count > 0
+        field[:] = np.nan
+        if self.aggregation_method == "mean":
+            field[covered] = total[covered] / contributing_count[covered]
+        else:
+            field[covered] = total[covered]
         return ds
 
     def _ensure_grid_coordinates(self):
@@ -201,10 +246,19 @@ class SyntheticGenerator(BaseOptions):
         ds["gridcell_area"].attrs.update(
             {"units": "km^2", "standard_name": "area", "valid_min": 0}
         )
-        LON, LAT, ALT = xr.broadcast(ds.time, ds.longitude, ds.latitude, ds.altitude)[
-            1:
-        ]
-        ds["LON"], ds["LAT"], ds["ALT"] = LON, LAT, ALT
+
+        # Synthetic data fills the whole grid, so the domain mask is all True and its
+        # boundary traces the grid edge. This gives synthetic datasets the same
+        # (domain_mask, boundary_mask, gridcell_area) fields the real converted datasets
+        # carry, so they save, load and visualize through the identical path.
+        domain_mask = xr.DataArray(
+            np.ones((len(meridional_dim), len(zonal_dim)), dtype=bool),
+            dims=dims,
+            coords={dims[0]: meridional_dim, dims[1]: zonal_dim},
+        )
+        ds["domain_mask"] = domain_mask
+        _, _, boundary_mask = get_mask_boundary(domain_mask, grid_options)
+        ds["boundary_mask"] = boundary_mask
         return ds
 
 
@@ -221,14 +275,7 @@ class FixedGenerator(SyntheticGenerator):
 
 
 class RandomEllipseGenerator(SyntheticGenerator):
-    """Spawn random ellipse cells over time, deterministically given ``seed``.
-
-    ``initial_count`` cells are present at the start; further cells appear as a Poisson
-    process at ``spawn_rate`` per hour. Each cell's centre, geometry, motion and lifetime
-    are drawn uniformly from the configured ranges. Identical ``seed`` (with the same
-    times and grid) yields an identical scene, so the rendered field and the replayed
-    ground truth always agree.
-    """
+    """Spawn random ellipse cells over time."""
 
     seed: int = Field(0, description="Seed for the random number generator.")
     spawn_rate: float = Field(
@@ -236,13 +283,13 @@ class RandomEllipseGenerator(SyntheticGenerator):
     )
     initial_count: int = Field(1, description="Number of cells present at the start.")
     major_range: tuple[float, float] = Field(
-        (20.0, 40.0), description="Min/max full major axis in km."
+        (50.0, 100.0), description="Min/max full major axis in km."
     )
     aspect_range: tuple[float, float] = Field(
         (0.4, 0.9), description="Min/max minor/major axis ratio (in (0, 1])."
     )
     speed_range: tuple[float, float] = Field(
-        (0.0, 20.0), description="Min/max speed in m/s."
+        (0.0, 40.0), description="Min/max speed in m/s."
     )
     life_time_range: tuple[float, float] = Field(
         (30.0, 120.0), description="Min/max lifetime in minutes."
@@ -300,7 +347,12 @@ class RandomEllipseGenerator(SyntheticGenerator):
         """(lat_min, lat_max, lon_min, lon_max) of the current grid."""
         lats = np.asarray(self._grid_options.latitude)
         lons = np.asarray(self._grid_options.longitude)
-        return float(lats.min()), float(lats.max()), float(lons.min()), float(lons.max())
+        return (
+            float(lats.min()),
+            float(lats.max()),
+            float(lons.min()),
+            float(lons.max()),
+        )
 
     def _draw_object(self, time):
         """Draw one random ellipse cell, born at ``time`` somewhere in the domain."""

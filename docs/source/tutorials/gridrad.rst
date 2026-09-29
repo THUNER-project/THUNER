@@ -8,7 +8,7 @@ al. (2023) <https://doi.org/10.1175/MWR-D-22-0146.1>`__ for
 methodological details. By the end of the notebook, you should be able
 to generate the animation below.
 
-.. figure:: https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/mcs_gridrad_20100120.gif
+.. figure:: https://raw.githubusercontent.com/THUNER-project/THUNER/refs/heads/main/gallery/gridrad_mcs_20100120.gif
    :alt: Animation depicting tracked MCSs.
 
    Animation depicting tracked MCSs.
@@ -372,13 +372,13 @@ radar mosaic domain, as discussed by `Short et
 al. (2023) <https://doi.org/10.1175/MWR-D-22-0146.1>`__. By default,
 figures and animations are saved in the ``output_parent`` directory in
 the ``visualize`` folder. The code below should generate an animation
-``mcs_gridrad_20100120.gif``, matching the animation provided at the
+``gridrad_mcs_20100120.gif``, matching the animation provided at the
 start of the notebook.
 
 .. code-block:: python3
     :linenos:
 
-    name = f"mcs_gridrad_{event_start.replace('-', '')}"
+    name = f"gridrad_mcs_{event_start.replace('-', '')}"
     style = "presentation"
     attribute_handlers = default.grouped_attribute_handlers(output_parent, style)
     kwargs = {"name": name, "object_name": "mcs", "style": style}

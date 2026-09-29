@@ -27,12 +27,17 @@ The container gets its own `.pixi` via the `thuner-pixi` named volume — separa
 docker run -it --rm \
   -v ~/Documents/THUNER:/workspace/THUNER \
   -v thuner-pixi:/workspace/THUNER/.pixi \
+  -v thuner-claude-local:/home/thuner/.local \
   -v ~/.claude:/home/thuner/.claude \
   -v ~/.claude.json:/home/thuner/.claude.json \
   -v ~/THUNER_output_claude:/home/thuner/THUNER_output \
   -w /workspace/THUNER \
   thuner-claude \
-  bash -c "sudo chown thuner:thuner /workspace/THUNER/.pixi && pixi install"
+  bash -c "
+    sudo chown thuner:thuner /workspace/THUNER/.pixi &&
+    sudo chown thuner:thuner /home/thuner/.local &&
+    pixi install
+  "
 ```
 
 The volume persists across runs, so afterwards just run Claude directly:
@@ -41,6 +46,7 @@ The volume persists across runs, so afterwards just run Claude directly:
 docker run -it --rm \
   -v ~/Documents/THUNER:/workspace/THUNER \
   -v thuner-pixi:/workspace/THUNER/.pixi \
+  -v thuner-claude-local:/home/thuner/.local \
   -v ~/.claude:/home/thuner/.claude \
   -v ~/.claude.json:/home/thuner/.claude.json \
   -v ~/THUNER_output_claude:/home/thuner/THUNER_output \
@@ -50,3 +56,6 @@ docker run -it --rm \
 ```
 
 Or drop into a shell instead — swap `claude --dangerously-skip-permissions` for `bash`.
+
+To explore a running container:
+```bash

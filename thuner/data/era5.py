@@ -10,7 +10,7 @@ import xarray as xr
 from typing import Any, Literal
 from pydantic import Field, model_validator
 import thuner.log as log
-from thuner.utils import get_hour_interval, BaseDatasetOptions
+from thuner.utils import get_hour_interval, BaseDatasetOptions, InputUnit
 import thuner.data._utils as _utils
 from thuner.config import get_outputs_directory
 
@@ -107,57 +107,52 @@ ERA5_PRESSURE_LEVELS += ["350", "300", "250", "225", "200", "175", "150", "125",
 ERA5_PRESSURE_LEVELS += ["70", "50", "30", "20", "10", "7", "5", "3", "2", "1"]
 
 
-def get_era5_filepaths(dataset_options: Era5Options, start=None, end=None):
+def _era5_period(dataset_options, time):
+    """Return the pandas Period for the storage period containing ``time``."""
+    freq = "D" if dataset_options.storage == "daily" else "M"
+    return pd.Period(pd.Timestamp(time), freq=freq)
+
+
+def get_era5_filepaths(dataset_options: Era5Options):
     """
-    Generate era5 filepaths from dataset options dictionary.
+    Generate ERA5 input units, one per storage period (e.g. one per month).
 
-    Parameters
-    ----------
-    dataset_options : dict
-        Dictionary containing the input dataset_options.
-
-    Returns
-    -------
-    urls : list
-        List of URLs.
-    times : list
-        Times associated with the URLs.
+    ERA5 has multiple files per time (one per field) and is read in buffered windows
+    around each tracked time, so each unit groups the per-field files for a period in
+    its ``sources`` and records the period's coverage span as its time bounds. The
+    range is padded by the tag buffers so windowed lookups near the interval edges
+    still find their files. The actual time/lat/lon subsetting happens at load time in
+    ``update_era5_input_record``.
     """
-
-    # First get the base_path
     base_path = get_base_path(dataset_options, local=True)
-
-    # If start and end are not provided, use the dataset options
-    if start is None:
-        start = dataset_options.start
-    if end is None:
-        end = dataset_options.end
-
-    start = pd.Timestamp(start)
-    end = pd.Timestamp(end)
-
     short_data_format = {"pressure-levels": "pl", "single-levels": "sfc"}
+    short = short_data_format[dataset_options.data_format]
 
-    # Get the times corresponding to the filepaths
-    times = get_file_datetimes(dataset_options, start, end)
+    # Pad the range by the tag buffers so edge windows still resolve their files.
+    start = pd.Timestamp(dataset_options.start)
+    start += pd.Timedelta(minutes=dataset_options.start_buffer)
+    end = pd.Timestamp(dataset_options.end)
+    end += pd.Timedelta(minutes=dataset_options.end_buffer)
+    period_times = get_file_datetimes(dataset_options, start, end)
 
-    # We will store individual fields in separate files
-    fields = dataset_options.fields
-    filepaths = dict(zip(fields, [[] for i in range(len(fields))]))
-
-    for field in dataset_options.fields:
-        for time in times:
-            time = pd.Timestamp(time)
-            daterange_str = format_daterange(dataset_options, time)
+    units = []
+    for time in period_times:
+        time = pd.Timestamp(time)
+        daterange_str = format_daterange(dataset_options, time)
+        sources = []
+        for field in dataset_options.fields:
             filepath = f"{base_path}/{field}/{time.year}/{field}_era5_oper_"
-            filepath += f"{short_data_format[dataset_options.data_format]}_"
-            filepath += f"{daterange_str}.nc"
-            filepaths[field].append(filepath)
-
-    for key in filepaths.keys():
-        filepaths[key] = sorted(filepaths[key])
-
-    return filepaths
+            filepath += f"{short}_{daterange_str}.nc"
+            sources.append(filepath)
+        period = _era5_period(dataset_options, time)
+        units.append(
+            InputUnit(
+                sources=sources,
+                start_time=period.start_time.isoformat(),
+                end_time=period.end_time.isoformat(),
+            )
+        )
+    return units
 
 
 def format_daterange(options, time):
@@ -294,10 +289,17 @@ def update_era5_input_record(
         start_buffer=dataset_options.start_buffer,
         end_buffer=dataset_options.end_buffer,
     )
-    filepaths = get_era5_filepaths(dataset_options, start, end)
-    all_files_exist = all(
-        Path(filepath).exists() for field in filepaths.values() for filepath in field
-    )
+    # Select the units whose coverage span intersects the [start, end] window, and
+    # gather their per-field source files. Tagging may need more than one unit when the
+    # window straddles a storage-period boundary (e.g. a month boundary).
+    window_start, window_end = np.datetime64(start), np.datetime64(end)
+    sources = []
+    for unit in dataset_options.filepaths:
+        unit_start, unit_end = unit.time_bounds()
+        if unit_end >= window_start and unit_start <= window_end:
+            sources.extend(unit.sources)
+    sources = sorted(set(sources))
+    all_files_exist = all(Path(filepath).exists() for filepath in sources)
     if not all_files_exist and dataset_options.attempt_download:
         raise NotImplementedError(
             (
@@ -316,18 +318,17 @@ def update_era5_input_record(
     # Assume user has write privileges in the base_local directory
     logger.info(f"Subsetting {dataset_options.name} data.")
     with tempfile.TemporaryDirectory(dir=str(get_outputs_directory())) as tmp:
-        for field in dataset_options.fields:
-            for filepath in filepaths[field]:
-                output_filename = Path(filepath).name
-                logger.debug("Subsetting %s", output_filename)
-                _utils.call_ncks(
-                    input_filepath=filepath,
-                    output_filepath=f"{tmp}/{output_filename}.nc",
-                    start=start,
-                    end=end,
-                    lat_range=lat_range,
-                    lon_range=lon_range,
-                )
+        for filepath in sources:
+            output_filename = Path(filepath).name
+            logger.debug("Subsetting %s", output_filename)
+            _utils.call_ncks(
+                input_filepath=filepath,
+                output_filepath=f"{tmp}/{output_filename}.nc",
+                start=start,
+                end=end,
+                lat_range=lat_range,
+                lon_range=lon_range,
+            )
         logger.debug("Merging files.")
         ds = xr.open_mfdataset(f"{tmp}/*.nc", decode_timedelta=True)
         logger.debug("Converting")

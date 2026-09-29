@@ -272,11 +272,13 @@ def get_extent(grid_options):
     lon = np.array(grid_options.longitude)
     lat = np.array(grid_options.latitude)
 
-    lon_range = (lon.max() - lon.min()) * 1.1
-    lat_range = (lat.max() - lat.min()) * 1.1
+    # On a cartesian grid lat/lon are 2D and may carry NaN outside the radar domain;
+    # ignore NaN so the extent reflects the valid grid rather than collapsing to NaN.
+    lon_range = (np.nanmax(lon) - np.nanmin(lon)) * 1.1
+    lat_range = (np.nanmax(lat) - np.nanmin(lat)) * 1.1
 
-    lon_center = lon.mean()
-    lat_center = lat.mean()
+    lon_center = np.nanmean(lon)
+    lat_center = np.nanmean(lat)
 
     scale = int(2 ** np.round(np.log2(lon_range / lat_range)))
     if scale == 2:

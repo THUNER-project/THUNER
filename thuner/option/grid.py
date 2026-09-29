@@ -10,6 +10,12 @@ __all__ = ["GridOptions"]
 
 logger = setup_logger(__name__)
 
+# Latitude/longitude are 1D for a geographic grid (the axis vectors) but 2D for a
+# cartesian grid (the curvilinear geolocation of each y/x cell, as inferred by
+# infer_grid_options and consumed by e.g. get_mask_boundary). Both shapes round-trip
+# through JSON as (nested) lists, so the field must accept either.
+CoordinateField = list[float] | list[list[float]] | None
+
 
 class GridOptions(BaseOptions):
     """Class for grid options."""
@@ -22,8 +28,8 @@ class GridOptions(BaseOptions):
         None,
         description="z-coordinates for the dataset.",
     )
-    latitude: list[float] | None = Field(None, description="latitudes for the dataset.")
-    longitude: list[float] | None = Field(
+    latitude: CoordinateField = Field(None, description="latitudes for the dataset.")
+    longitude: CoordinateField = Field(
         None,
         description="longitudes for the dataset.",
     )
@@ -87,11 +93,19 @@ class GridOptions(BaseOptions):
     @model_validator(mode="after")
     def _check_shape(self):
         """Ensure shape is initialized."""
-        latitude, longitude = self.latitude, self.longitude
-        if self.shape is None and (latitude is not None and longitude is not None):
-            self.shape = (len(latitude), len(longitude))
-        if self.shape is None and (self.x is not None and self.y is not None):
+        if self.shape is not None:
+            return self
+        # Infer from the coordinates appropriate to the grid type: x/y for cartesian
+        # (latitude/longitude there are 2D geolocation, so len() would be wrong), and
+        # the 1D latitude/longitude axes for geographic.
+        if self.name == "cartesian" and self.x is not None and self.y is not None:
             self.shape = (len(self.y), len(self.x))
+        elif (
+            self.name == "geographic"
+            and self.latitude is not None
+            and self.longitude is not None
+        ):
+            self.shape = (len(self.latitude), len(self.longitude))
         else:
             logger.warning("shape not specified. Will attempt to infer from input.")
         return self
@@ -129,14 +143,25 @@ class GridOptions(BaseOptions):
                 spacing=self.cartesian_spacing[1],
                 spacing_name="cartesian_spacing",
             )
-        if self.geographic_spacing is not None and self.latitude is not None:
+        # latitude/longitude have a defined 1D spacing only on a geographic grid; on a
+        # cartesian grid they are 2D curvilinear geolocation arrays with no such spacing
+        # (the regular spacing lives on x/y), so the diff check does not apply there.
+        if (
+            self.name == "geographic"
+            and self.geographic_spacing is not None
+            and self.latitude is not None
+        ):
             check_diffs(
                 coord=self.latitude,
                 coord_name="latitude",
                 spacing=self.geographic_spacing[0],
                 spacing_name="geographic_spacing",
             )
-        if self.geographic_spacing is not None and self.longitude is not None:
+        if (
+            self.name == "geographic"
+            and self.geographic_spacing is not None
+            and self.longitude is not None
+        ):
             check_diffs(
                 coord=self.longitude,
                 coord_name="longitude",

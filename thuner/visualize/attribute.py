@@ -15,7 +15,7 @@ import cartopy.crs as ccrs
 import thuner.visualize.horizontal as horizontal
 from thuner.utils import initialize_process, check_results
 from thuner.utils import format_time, new_angle, circular_mean
-from thuner.utils import BaseHandler, AttributeHandler, store_path
+from thuner.utils import BaseHandler, AttributeHandler, store_path, InputUnit
 from thuner.attribute.utils import read_attribute_zarr
 from thuner.analyze.utils import read_options
 import thuner.detect.detect as detect
@@ -117,7 +117,9 @@ def series(
     options = read_options(output_directory)
     object_name = figure_options.object_name
     store = store_path(output_directory)
-    masks = xr.open_dataset(store, engine="zarr", group=f"masks/{object_name}", decode_timedelta=True)
+    masks = xr.open_dataset(
+        store, engine="zarr", group=f"masks/{object_name}", decode_timedelta=True
+    )
     times = masks.time.values
     times = times[(times >= start_time) & (times <= end_time)]
 
@@ -151,10 +153,13 @@ def series(
         return
 
     if parallel_figure:
-        with logging_listener(), mp.get_context("spawn").Pool(
-            initializer=initialize_process,
-            processes=num_processes,
-        ) as pool:
+        with (
+            logging_listener(),
+            mp.get_context("spawn").Pool(
+                initializer=initialize_process,
+                processes=num_processes,
+            ) as pool,
+        ):
             results = []
             for time in times[1:]:
                 sleep(2)
@@ -237,12 +242,24 @@ def get_mask_grid_boundary(
         filepaths_df = read_attribute_zarr(
             store, f"records/filepaths/{name}", columns=[name]
         )
-        filepath = filepaths_df[name].loc[time]
-        logger.debug(f"Converting {name} at time {time}.")
-        ds, _, boundary = dataset_options.convert_dataset(
-            time, filepath, track_options, grid_options
+        record = filepaths_df[name].loc[time]
+        unit = InputUnit.from_record_str(record)
+        # Prefer the converted dataset the run already produced rather than re-regridding
+        # the raw source here. Mirror the run: only load if the run engaged the converted
+        # cache (its save or load flag was set), and only if the file is actually present
+        # -- otherwise fall back to converting. This avoids loading a stale cache when the
+        # run deliberately converted fresh (both flags off).
+        conv_options = dataset_options.converted_options
+        load = (conv_options.save or conv_options.load) and Path(
+            dataset_options.converted_filepath(unit)
+        ).exists()
+        logger.debug(f"{'Loading' if load else 'Converting'} {name} at time {time}.")
+        ds, _, boundary = dataset_options.load_or_convert(
+            time, unit, track_options, grid_options, load=load
         )
-        grids[name] = dataset_options.grid_from_dataset(ds, dataset_options.fields[0], time)
+        grids[name] = dataset_options.grid_from_dataset(
+            ds, dataset_options.fields[0], time
+        )
         if name == dataset_name:
             simple_boundary_coords = boundary
         del ds

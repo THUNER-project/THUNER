@@ -7,7 +7,6 @@ from functools import reduce
 import numpy as np
 import pandas as pd
 import xarray as xr
-from skimage.morphology import remove_small_objects
 from pydantic import Field, model_validator
 import thuner.data._utils as _utils
 from thuner.log import setup_logger
@@ -22,10 +21,6 @@ __all__ = [
     "open_gridrad",
     "convert_gridrad",
     "filter",
-    "remove_speckles",
-    "remove_low_level_clutter",
-    "remove_clutter_below_anvils",
-    "remove_clutter",
 ]
 
 
@@ -56,9 +51,9 @@ class GridRadSevereOptions(utils.BaseDatasetOptions):
         """
         return get_gridrad_filepaths(self)
 
-    def convert_dataset(self, time, filepath, track_options, grid_options):
+    def convert_dataset(self, time, unit, track_options, grid_options):
         """Convert GridRad dataset."""
-        return convert_gridrad(time, filepath, track_options, self, grid_options)
+        return convert_gridrad(time, unit.sources[0], track_options, self, grid_options)
 
     @model_validator(mode="after")
     def _check_times(self):
@@ -163,8 +158,14 @@ def get_gridrad_filepaths(options):
             filepath += f"{time.hour:02}{time.minute:02}00Z.nc"
             # Check if the file exists
             if Path(filepath).exists():
-                filepaths.append(filepath)
-    return sorted(filepaths)
+                nominal_time = str(np.datetime64(time))
+                unit = utils.InputUnit(
+                    sources=[filepath],
+                    start_time=nominal_time,
+                    end_time=nominal_time,
+                )
+                filepaths.append(unit)
+    return sorted(filepaths, key=lambda u: u.time_bounds()[0])
 
 
 def open_gridrad(path, dataset_options):
@@ -269,149 +270,21 @@ def filter(
     return ds
 
 
-def remove_speckles(ds, window_size=5, coverage_thresh=0.32, variables=None):
-    """
-    Remove speckles in GridRad data. Based on code from the GridRad website
-    https://gridrad.org/software.html and edits by Stacey Hitchcock. Modified from the
-    original to use xr.rolling instead of np.roll to correctly handle edges and corners.
-    """
-
-    logger.debug("Removing speckles from the GridRad data")
-
-    if variables is None:
-        variables = [v for v in GRIDRAD_VARIABLES if v in ds.variables]
-
-    # refl_exists = np.isfinite(ds["Reflectivity"]).astype(float)
-    refl_exists = xr.where(~np.isnan(ds["Reflectivity"]), True, False)
-    min_size = window_size**3 * coverage_thresh
-    speckle_mask = remove_small_objects(refl_exists.values > 0, min_size=min_size)
-    for var in variables:
-        ds[var] = ds[var].where(speckle_mask)
-    return ds
-
-
-def remove_low_level_clutter(ds, variables=None):
-    """
-    Remove low level clutter from GridRad data. Based on code from the GridRad website
-    https://gridrad.org/software.html and edits by Stacey Hitchcock.
-    """
-
-    logger.debug("Removing low level clutter from the GridRad data")
-
-    # Determine max heights of non-nan reflectivity values. If entire column is nan,
-    # set max altitude to zero.
-    refl_max = ds.Reflectivity.max(dim="Altitude", skipna=True)
-    refl_0_alts = ds.Altitude.where(ds.Reflectivity > 0.0, 0.0)
-    refl_0_max_alt = refl_0_alts.max(dim="Altitude")
-    refl_0_min_alt = refl_0_alts.min(dim="Altitude")
-    refl_5_max_alt = ds.Altitude.where(ds.Reflectivity > 5.0, 0.0).max(dim="Altitude")
-    refl_15_max_alt = ds.Altitude.where(ds.Reflectivity > 15.0, 0.0).max(dim="Altitude")
-
-    # Check for very weak echos below 4 km
-    cond_1 = (refl_max < 20.0) & (refl_0_max_alt <= 4.0) & (refl_0_min_alt <= 3.0)
-    # Check for very weak echos below 5 km
-    cond_2 = (refl_max < 10.0) & (refl_0_max_alt <= 5.0) & (refl_0_min_alt <= 3.0)
-    # Check for weak echos below 5 km. Note the > 0.0 ensures values actually exist
-    cond_3 = (refl_5_max_alt <= 5.0) & (refl_5_max_alt > 0.0) & (refl_15_max_alt <= 3.0)
-    # Check for weak echos below 2 km
-    cond_4 = (refl_15_max_alt < 2.0) & (refl_15_max_alt > 0.0)
-    cond = np.logical_not(cond_1 | cond_2 | cond_3 | cond_4)
-    for var in variables:
-        ds[var] = ds[var].where(cond)
-    return ds
-
-
-def remove_clutter_below_anvils(ds, variables=None):
-    """
-    Remove clutter below anvils in GridRad data. Based on code from the GridRad website
-    https://gridrad.org/software.html and edits by Stacey Hitchcock.
-    """
-
-    logger.debug("Removing clutter below anvils from the GridRad data")
-
-    # Check if reflectivity exists at, above and below 4 km
-    exists = np.isfinite(ds.Reflectivity)
-    exists_above_4 = exists.where(ds.Altitude >= 4.0, drop=True)
-    exists_4 = exists_above_4.isel(Altitude=0)
-    exists_above_4 = exists_above_4.sum(dim="Altitude") > 0
-    exists_below_4 = exists.where(ds.Altitude < 4.0, drop=True).sum(dim="Altitude") > 0
-
-    cond = exists_4 | ~exists_above_4 | ~exists_below_4
-    for var in variables:
-        ds[var] = ds[var].where(cond)
-    return ds
-
-
-def remove_clutter(ds, variables=None, low_level=True, below_anvil=False):
-    """
-    Remove clutter from GridRad data. Based on code from the GridRad website
-    https://gridrad.org/software.html and edits by Stacey Hitchcock.
-
-    Parameters
-    ----------
-    ds : xarray.Dataset
-        The GridRad dataset.
-    variables : list, optional
-        The variables to remove clutter from. Default is ["Reflectivity"].
-
-    Returns
-    -------
-    ds : xarray.Dataset
-        The GridRad dataset with clutter removed.
-    """
-
-    logger.debug("Removing clutter from the GridRad data")
-
-    if variables is None:
-        variables = [v for v in GRIDRAD_VARIABLES if v in ds.variables]
-
-    # Remove low reflectivity low level clutter
-    cond = (ds.Reflectivity >= 10.0) | (ds.Altitude > 4.0)
-    for var in variables:
-        ds[var] = ds[var].where(cond)
-
-    # Attempt correlation based clutter removal if relevant variables exist
-    correlation_var_list = ["DifferentialReflectivity", "CorrelationCoefficient"]
-    if all(corr_var in ds.variables for corr_var in correlation_var_list):
-
-        # Require either high correlation or reflectivity
-        cond1 = ds["Reflectivity"] >= 40.0 | ds["r_HV"] >= 0.9
-        # Require moderate reflectivity or high correlation or low altitude
-        cond2 = ds["Reflectivity"] >= 25.0 | ds["CorrelationCoefficient"] >= 0.95
-        cond2 = cond2 | ds["Altitude"] < 10.0
-        # Require both conditions above be met
-        for var in variables:
-            ds[var] = ds[var].where(cond1 & cond2)
-
-    # First pass at speckle removal
-    ds = remove_speckles(ds, variables=variables)
-    if low_level:
-        # Remove low level clutter. Note this can remove some low level cloud/drizzle
-        ds = remove_low_level_clutter(ds, variables=variables)
-    if below_anvil:
-        # Remove clutter below anvils
-        ds = remove_clutter_below_anvils(ds, variables=variables)
-    # Second pass at speckle removal
-    ds = remove_speckles(ds, variables=variables)
-
-    return ds
-
-
 def convert_gridrad(time, filepath, track_options, dataset_options, grid_options):
     """Convert gridrad data to the standard format."""
 
     logger.debug(f"Converting GridRad dataset at time {time}.")
 
-    # Open the dataset and perform preliminary filtering and decluttering
+    # Open the dataset and perform preliminary filtering
     ds = open_gridrad(filepath, dataset_options)
     ds = filter(ds, obs_thresh=dataset_options.obs_thresh)
-    ds = remove_clutter(ds)
 
     # Ensure the intended time is in the dataset
     if time not in ds.time.values:
         raise ValueError(f"{time} not in {filepath}")
 
-    # Restructure the dataset
+    # Restructure to standard THUNER names/units *before* de-cluttering, so the shared
+    # de-clutter routines operate on `reflectivity`/`altitude` with altitude in metres.
     names_dict = {"Latitude": "latitude", "Longitude": "longitude"}
     names_dict.update({"Altitude": "altitude", "Reflectivity": "reflectivity"})
     names_dict.update({"Nradobs": "number_of_observations"})
@@ -423,6 +296,12 @@ def convert_gridrad(time, filepath, track_options, dataset_options, grid_options
         ds[dim].attrs["standard_name"] = dim
         ds[dim].attrs["long_name"] = dim
     ds["altitude"] = ds["altitude"] * 1000  # Convert to meters
+
+    # Remove ground/low-level clutter (shared routine; altitude now in metres).
+    ds = _utils.remove_clutter(
+        ds, field="reflectivity", variables=dataset_options.fields
+    )
+
     kept_fields = dataset_options.fields + ["number_of_observations"]
     kept_fields += ["number_of_echoes"]
     dropped_fields = [f for f in ds.data_vars if f not in kept_fields]
